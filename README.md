@@ -8,6 +8,8 @@ This is a first pass at a Python client for Prometheus.
 pip install prometheus_client
 ```
 
+This package can be found on [PyPI](https://pypi.python.org/pypi/prometheus_client).
+
 ## Example Usage
 
 ```python
