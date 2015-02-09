@@ -5,23 +5,28 @@ This is a first pass at a Python client for Prometheus.
 ## Installation
 
 ```
-easy_install prometheus_client
+pip install prometheus_client
 ```
 
 ## Example Usage
 
 ```python
-  c = Counter('cc', 'A counter')
-  c.inc()
+from prometheus_client import *
+from prometheus_client import MetricsHandler
 
-  g = Gauge('gg', 'A gauge')
-  g.set(17)
+c = Counter('cc', 'A counter')
+c.inc()
 
-  s = Summary('ss', 'A summary', ['a', 'b'])
-  s.labels('c', 'd').observe(17)
+g = Gauge('gg', 'A gauge')
+g.set(17)
 
-  from BaseHTTPServer import HTTPServer
-  server_address = ('', 8000)
-  httpd = HTTPServer(server_address, MetricsHandler)
-  httpd.serve_forever()
+s = Summary('ss', 'A summary', ['a', 'b'])
+s.labels('c', 'd').observe(17)
+
+from BaseHTTPServer import HTTPServer
+server_address = ('', 8000)
+httpd = HTTPServer(server_address, MetricsHandler)
+httpd.serve_forever()
 ```
+
+Visit http://localhost:8000/ to view the metrics.
