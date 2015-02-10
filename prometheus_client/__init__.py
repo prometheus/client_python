@@ -2,7 +2,10 @@
 
 import copy
 import re
+import time
+from contextlib import contextmanager
 from BaseHTTPServer import BaseHTTPRequestHandler
+from functools import wraps
 from threading import Lock
 
 __all__ = ['Counter', 'Gauge', 'Summary']
@@ -165,6 +168,23 @@ class Counter(object):
     with self._lock:
       self._value += amount
 
+  @contextmanager
+  def trackBlockRaises(self):
+    """Decorator to increment if a block raises an exception."""
+    try:
+      yield
+    except Exception, e:
+      self.inc()
+      raise e
+
+  def trackFunctionRaises(self, f):
+    """Decorator to increment if a function raises an exception."""
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+      with self.trackBlockRaises():
+        return f(*args, **kwargs)
+    return wrapper
+
   def _samples(self):
     with self._lock:
       return (('', {}, self._value), )
@@ -187,9 +207,30 @@ class Gauge(object):
       self._value -= amount
 
   def set(self, value):
-    """Set gauge to the given amount."""
+    """Set gauge to the given value."""
     with self._lock:
       self._value = float(value)
+
+  def setToCurrentTime(self, value):
+    """Set gauge to the current unixtime."""
+    self.set(time.time())
+
+  @contextmanager
+  def trackBlockInprogress(self):
+    """Decorator to track how many of a block are in progress."""
+    self.inc()
+    try:
+      yield
+    finally:
+      self.dec()
+
+  def trackFunctionInprogress(self, f):
+    """Decorator to track how many of a function are in progress."""
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+      with self.trackBlockInprogress():
+        return f(*args, **kwargs)
+    return wrapper
 
   def _samples(self):
     with self._lock:
@@ -208,6 +249,24 @@ class Summary(object):
     with self._lock:
       self._count += 1
       self._sum += amount
+
+  @contextmanager
+  def timeBlock(self):
+    """Context manager to time how long a block of code takes in seconds."""
+    start = time.time()
+    try:
+      yield
+    finally:
+      # Time can go backwards.
+      self.observe(max(time.time() - start, 0))
+
+  def timeFunction(self, f):
+    """Decorator to time long a function takes in seconds."""
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+      with self.timeBlock():
+        return f(*args, **kwargs)
+    return wrapper
 
   def _samples(self):
     with self._lock:
@@ -256,7 +315,6 @@ if __name__ == '__main__':
  
   s = Summary('ss', 'A summary', ['a', 'b'])
   s.labels('c', 'd').observe(17)
- 
  
   from BaseHTTPServer import HTTPServer
   server_address = ('', 8000)

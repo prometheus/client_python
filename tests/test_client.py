@@ -18,6 +18,34 @@ class TestCounter(unittest.TestCase):
   def test_negative_increment_raises(self):
     self.assertRaises(ValueError, self.counter.inc, -1)
 
+  def test_function_decorator(self):
+    @self.counter.trackFunctionRaises
+    def f(r):
+      if r:
+        raise Exception
+    f(False)
+    self.assertEquals(0, self.registry.get_sample_value('c'))
+    raised = False
+    try:
+      f(True)
+    except:
+      raised = True
+    self.assertTrue(raised)
+    self.assertEquals(1, self.registry.get_sample_value('c'))
+
+  def test_block_decorator(self):
+    with self.counter.trackBlockRaises():
+      pass
+    self.assertEquals(0, self.registry.get_sample_value('c'))
+    raised = False
+    try:
+      with self.counter.trackBlockRaises():
+        raise Exception
+    except:
+      raised = True
+    self.assertTrue(raised)
+    self.assertEquals(1, self.registry.get_sample_value('c'))
+
 class TestGauge(unittest.TestCase):
   def setUp(self):
     self.registry = CollectorRegistry()
@@ -32,6 +60,20 @@ class TestGauge(unittest.TestCase):
     self.gauge.set(9)
     self.assertEquals(9, self.registry.get_sample_value('g'))
 
+  def test_function_decorator(self):
+    self.assertEquals(0, self.registry.get_sample_value('g'))
+    @self.gauge.trackFunctionInprogress
+    def f():
+      self.assertEquals(1, self.registry.get_sample_value('g'))
+    f()
+    self.assertEquals(0, self.registry.get_sample_value('g'))
+
+  def test_block_decorator(self):
+    self.assertEquals(0, self.registry.get_sample_value('g'))
+    with self.gauge.trackBlockInprogress():
+      self.assertEquals(1, self.registry.get_sample_value('g'))
+    self.assertEquals(0, self.registry.get_sample_value('g'))
+
 class TestSummary(unittest.TestCase):
   def setUp(self):
     self.registry = CollectorRegistry()
@@ -43,6 +85,20 @@ class TestSummary(unittest.TestCase):
     self.summary.observe(10)
     self.assertEquals(1, self.registry.get_sample_value('s_count'))
     self.assertEquals(10, self.registry.get_sample_value('s_sum'))
+
+  def test_function_decorator(self):
+    self.assertEquals(0, self.registry.get_sample_value('s_count'))
+    @self.summary.timeFunction
+    def f():
+      pass
+    f()
+    self.assertEquals(1, self.registry.get_sample_value('s_count'))
+
+  def test_block_decorator(self):
+    self.assertEquals(0, self.registry.get_sample_value('s_count'))
+    with self.summary.timeBlock():
+      pass
+    self.assertEquals(1, self.registry.get_sample_value('s_count'))
 
 class TestMetricWrapper(unittest.TestCase):
   def setUp(self):
