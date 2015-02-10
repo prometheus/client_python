@@ -169,7 +169,7 @@ class Counter(object):
       self._value += amount
 
   @contextmanager
-  def trackBlockRaises(self):
+  def countBlockExceptions(self):
     """Decorator to increment if a block raises an exception."""
     try:
       yield
@@ -177,11 +177,11 @@ class Counter(object):
       self.inc()
       raise e
 
-  def trackFunctionRaises(self, f):
+  def countFunctionExceptions(self, f):
     """Decorator to increment if a function raises an exception."""
     @wraps(f)
     def wrapper(*args, **kwargs):
-      with self.trackBlockRaises():
+      with self.countBlockExceptions():
         return f(*args, **kwargs)
     return wrapper
 

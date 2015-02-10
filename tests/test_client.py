@@ -19,7 +19,7 @@ class TestCounter(unittest.TestCase):
     self.assertRaises(ValueError, self.counter.inc, -1)
 
   def test_function_decorator(self):
-    @self.counter.trackFunctionRaises
+    @self.counter.countFunctionExceptions
     def f(r):
       if r:
         raise Exception
@@ -34,12 +34,12 @@ class TestCounter(unittest.TestCase):
     self.assertEquals(1, self.registry.get_sample_value('c'))
 
   def test_block_decorator(self):
-    with self.counter.trackBlockRaises():
+    with self.counter.countBlockExceptions():
       pass
     self.assertEquals(0, self.registry.get_sample_value('c'))
     raised = False
     try:
-      with self.counter.trackBlockRaises():
+      with self.counter.countBlockExceptions():
         raise Exception
     except:
       raised = True
