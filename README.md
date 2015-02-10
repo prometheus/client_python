@@ -120,4 +120,4 @@ httpd = HTTPServer(server_address, MetricsHandler)
 httpd.serve_forever()
 ```
 
-Visit http://localhost:8000/ to view the metrics.
+Visit [http://localhost:8000/](http://localhost:8000/) to view the metrics.
