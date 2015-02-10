@@ -8,7 +8,7 @@ from BaseHTTPServer import BaseHTTPRequestHandler
 from functools import wraps
 from threading import Lock
 
-__all__ = ['Counter', 'Gauge', 'Summary']
+__all__ = ['Counter', 'Gauge', 'Summary', 'CollectorRegistry']
 
 _METRIC_NAME_RE = re.compile(r'^[a-zA-Z_:][a-zA-Z0-9_:]*$')
 _METRIC_LABEL_NAME_RE = re.compile(r'^[a-zA-Z_:][a-zA-Z0-9_:]*$')
