@@ -1,7 +1,7 @@
 import unittest
 
 from prometheus_client import Gauge, Counter, Summary
-from prometheus_client import CollectorRegistry, generate004
+from prometheus_client import CollectorRegistry, generate_latest
 
 class TestCounter(unittest.TestCase):
   def setUp(self):
@@ -19,28 +19,31 @@ class TestCounter(unittest.TestCase):
     self.assertRaises(ValueError, self.counter.inc, -1)
 
   def test_function_decorator(self):
-    @self.counter.countFunctionExceptions
+    @self.counter.countExceptions(ValueError)
     def f(r):
       if r:
-        raise Exception
-    f(False)
+        raise ValueError
+      else:
+        raise TypeError
+    try:
+      f(False)
+    except TypeError:
+      pass
     self.assertEquals(0, self.registry.get_sample_value('c'))
-    raised = False
     try:
       f(True)
-    except:
+    except ValueError:
       raised = True
-    self.assertTrue(raised)
     self.assertEquals(1, self.registry.get_sample_value('c'))
 
   def test_block_decorator(self):
-    with self.counter.countBlockExceptions():
+    with self.counter.countExceptions():
       pass
     self.assertEquals(0, self.registry.get_sample_value('c'))
     raised = False
     try:
-      with self.counter.countBlockExceptions():
-        raise Exception
+      with self.counter.countExceptions():
+        raise ValueError
     except:
       raised = True
     self.assertTrue(raised)
@@ -62,7 +65,7 @@ class TestGauge(unittest.TestCase):
 
   def test_function_decorator(self):
     self.assertEquals(0, self.registry.get_sample_value('g'))
-    @self.gauge.trackFunctionInprogress
+    @self.gauge.trackInprogress()
     def f():
       self.assertEquals(1, self.registry.get_sample_value('g'))
     f()
@@ -70,7 +73,7 @@ class TestGauge(unittest.TestCase):
 
   def test_block_decorator(self):
     self.assertEquals(0, self.registry.get_sample_value('g'))
-    with self.gauge.trackBlockInprogress():
+    with self.gauge.trackInprogress():
       self.assertEquals(1, self.registry.get_sample_value('g'))
     self.assertEquals(0, self.registry.get_sample_value('g'))
 
@@ -88,7 +91,7 @@ class TestSummary(unittest.TestCase):
 
   def test_function_decorator(self):
     self.assertEquals(0, self.registry.get_sample_value('s_count'))
-    @self.summary.timeFunction
+    @self.summary.time()
     def f():
       pass
     f()
@@ -96,7 +99,7 @@ class TestSummary(unittest.TestCase):
 
   def test_block_decorator(self):
     self.assertEquals(0, self.registry.get_sample_value('s_count'))
-    with self.summary.timeBlock():
+    with self.summary.time():
       pass
     self.assertEquals(1, self.registry.get_sample_value('s_count'))
 
@@ -147,22 +150,22 @@ class TestGenerateText(unittest.TestCase):
   def test_counter(self):
     c = Counter('cc', 'A counter', registry=self.registry)
     c.inc()
-    self.assertEquals('# HELP cc A counter\n# TYPE cc counter\ncc 1.0\n', generate004(self.registry))
+    self.assertEquals('# HELP cc A counter\n# TYPE cc counter\ncc 1.0\n', generate_latest(self.registry))
 
   def test_gauge(self):
     g = Gauge('gg', 'A gauge', registry=self.registry)
     g.set(17)
-    self.assertEquals('# HELP gg A gauge\n# TYPE gg gauge\ngg 17.0\n', generate004(self.registry))
+    self.assertEquals('# HELP gg A gauge\n# TYPE gg gauge\ngg 17.0\n', generate_latest(self.registry))
 
   def test_summary(self):
     s = Summary('ss', 'A summary', ['a', 'b'], registry=self.registry)
     s.labels('c', 'd').observe(17)
-    self.assertEquals('# HELP ss A summary\n# TYPE ss summary\nss_count{a="c",b="d"} 1.0\nss_sum{a="c",b="d"} 17.0\n', generate004(self.registry))
+    self.assertEquals('# HELP ss A summary\n# TYPE ss summary\nss_count{a="c",b="d"} 1.0\nss_sum{a="c",b="d"} 17.0\n', generate_latest(self.registry))
 
   def test_escaping(self):
     c = Counter('cc', 'A\ncount\\er', ['a'], registry=self.registry)
     c.labels('\\x\n').inc(1)
-    self.assertEquals('# HELP cc A\\ncount\\\\er\n# TYPE cc counter\ncc{a="\\\\x\\n"} 1.0\n', generate004(self.registry))
+    self.assertEquals('# HELP cc A\\ncount\\\\er\n# TYPE cc counter\ncc{a="\\\\x\\n"} 1.0\n', generate_latest(self.registry))
 
 
 if __name__ == '__main__':

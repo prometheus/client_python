@@ -38,7 +38,7 @@ class CollectorRegistry(object):
       self._collectors.remove(collector)
 
   def collect(self):
-    """Yields metrics from the collectors in the registry."""
+    '''Yields metrics from the collectors in the registry.'''
     collectors = None
     with self._lock:
       collectors = copy.copy(self._collectors)
@@ -47,10 +47,10 @@ class CollectorRegistry(object):
         yield metric
 
   def get_sample_value(self, name, labels=None):
-    """Returns the sample value, or None if not found.
+    '''Returns the sample value, or None if not found.
     
     This is inefficient, and intended only for use in unittests.
-    """
+    '''
     if labels is None:
       labels = {}
     for metric in self.collect():
@@ -71,7 +71,7 @@ class Metric(object):
     self._name = name
     self._documentation = documentation
     if typ not in _METRIC_TYPES:
-      raise ValueError("Invalid metric type: " + typ)
+      raise ValueError('Invalid metric type: ' + typ)
     self._type = typ
     self._samples = []
 
@@ -94,9 +94,9 @@ class _LabelWrapper(object):
         raise InvalidLabelName(l)
 
   def labels(self, *labelvalues):
-    """Return the child for the given labelset."""
+    '''Return the child for the given labelset.'''
     if len(labelvalues) != len(self._labelnames):
-      raise ValueError("Incorrect label count")
+      raise ValueError('Incorrect label count')
     labelvalues = tuple(labelvalues)
     with self._lock:
       if labelvalues not in self._metrics:
@@ -104,9 +104,9 @@ class _LabelWrapper(object):
       return self._metrics[labelvalues]
 
   def remove(self, *labelvalues):
-    """Remove the given labelset from the metric."""
+    '''Remove the given labelset from the metric.'''
     if len(labelvalues) != len(self._labelnames):
-      raise ValueError("Incorrect label count")
+      raise ValueError('Incorrect label count')
     labelvalues = tuple(labelvalues)
     with self._lock:
       del self._metrics[labelvalues]
@@ -125,9 +125,9 @@ def _MetricWrapper(cls):
     if labelnames:
       for l in labelnames:
         if not _METRIC_LABEL_NAME_RE.match(l):
-          raise ValueError("Invalid label metric name: " + l)
+          raise ValueError('Invalid label metric name: ' + l)
         if _RESERVED_METRIC_LABEL_NAME_RE.match(l):
-          raise ValueError("Reserved label metric name: " + l)
+          raise ValueError('Reserved label metric name: ' + l)
       collector = _LabelWrapper(cls, labelnames)
     else:
       collector = cls()
@@ -140,7 +140,7 @@ def _MetricWrapper(cls):
     full_name += name
 
     if not _METRIC_NAME_RE.match(full_name):
-      raise ValueError("Invalid metric name: " + full_name)
+      raise ValueError('Invalid metric name: ' + full_name)
 
     def collect():
       metric = Metric(full_name, documentation, cls._type)
@@ -162,28 +162,33 @@ class Counter(object):
     self._lock = Lock()
 
   def inc(self, amount=1):
-    """Increment counter by the given amount."""
+    '''Increment counter by the given amount.'''
     if amount < 0:
-      raise ValueError("Counters can only be incremented by non-negative amounts.")
+      raise ValueError('Counters can only be incremented by non-negative amounts.')
     with self._lock:
       self._value += amount
 
-  @contextmanager
-  def countBlockExceptions(self):
-    """Decorator to increment if a block raises an exception."""
-    try:
-      yield
-    except Exception, e:
-      self.inc()
-      raise e
+  def countExceptions(self, exception=Exception):
+    '''Count exceptions in a block of code or function.
 
-  def countFunctionExceptions(self, f):
-    """Decorator to increment if a function raises an exception."""
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-      with self.countBlockExceptions():
-        return f(*args, **kwargs)
-    return wrapper
+    Can be used as a function decorator or context manager.
+    Increments the counter when an exception of the given
+    type is raised up out of the code.
+    '''
+    class ExceptionCounter(object):
+      def __init__(self, counter):
+        self._counter = counter
+      def __enter__(self): pass
+      def __exit__(self, typ, value, traceback):
+        if isinstance(value, exception):
+          self._counter.inc()
+      def __call__(self, f):
+        @wraps(f)
+        def wrapped(*args, **kwargs):
+          with self:
+            return f(*args, **kwargs)
+        return wrapped
+    return ExceptionCounter(self)
 
   def _samples(self):
     with self._lock:
@@ -197,40 +202,45 @@ class Gauge(object):
     self._lock = Lock()
 
   def inc(self, amount=1):
-    """Increment gauge by the given amount."""
+    '''Increment gauge by the given amount.'''
     with self._lock:
       self._value += amount
 
   def dec(self, amount=1):
-    """Decrement gauge by the given amount."""
+    '''Decrement gauge by the given amount.'''
     with self._lock:
       self._value -= amount
 
   def set(self, value):
-    """Set gauge to the given value."""
+    '''Set gauge to the given value.'''
     with self._lock:
       self._value = float(value)
 
   def setToCurrentTime(self, value):
-    """Set gauge to the current unixtime."""
+    '''Set gauge to the current unixtime.'''
     self.set(time.time())
 
-  @contextmanager
-  def trackBlockInprogress(self):
-    """Decorator to track how many of a block are in progress."""
-    self.inc()
-    try:
-      yield
-    finally:
-      self.dec()
+  def trackInprogress(self):
+    '''Track inprogress blocks of code or functions.
 
-  def trackFunctionInprogress(self, f):
-    """Decorator to track how many of a function are in progress."""
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-      with self.trackBlockInprogress():
-        return f(*args, **kwargs)
-    return wrapper
+    Can be used as a function decorator or context manager.
+    Increments the gauge when the code is entered,
+    and decrements when it is exited.
+    '''
+    class InprogressTracker(object):
+      def __init__(self, gauge):
+        self._gauge = gauge
+      def __enter__(self):
+        self._gauge.inc()
+      def __exit__(self, typ, value, traceback):
+        self._gauge.dec()
+      def __call__(self, f):
+        @wraps(f)
+        def wrapped(*args, **kwargs):
+          with self:
+            return f(*args, **kwargs)
+        return wrapped
+    return InprogressTracker(self)
 
   def _samples(self):
     with self._lock:
@@ -245,28 +255,31 @@ class Summary(object):
     self._lock = Lock()
 
   def observe(self, amount):
-    """Observe the given amount."""
+    '''Observe the given amount.'''
     with self._lock:
       self._count += 1
       self._sum += amount
 
-  @contextmanager
-  def timeBlock(self):
-    """Context manager to time how long a block of code takes in seconds."""
-    start = time.time()
-    try:
-      yield
-    finally:
-      # Time can go backwards.
-      self.observe(max(time.time() - start, 0))
+  def time(self):
+    '''Time a block of code or function, and observe the duration in seconds.
 
-  def timeFunction(self, f):
-    """Decorator to time long a function takes in seconds."""
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-      with self.timeBlock():
-        return f(*args, **kwargs)
-    return wrapper
+    Can be used as a function decorator or context manager.
+    '''
+    class Timer(object):
+      def __init__(self, summary):
+        self._summary = summary
+      def __enter__(self):
+        self._start = time.time()
+      def __exit__(self, typ, value, traceback):
+        # Time can go backwards.
+        self._summary.observe(max(time.time() - self._start, 0))
+      def __call__(self, f):
+        @wraps(f)
+        def wrapped(*args, **kwargs):
+          with self:
+            return f(*args, **kwargs)
+        return wrapped
+    return Timer(self)
 
   def _samples(self):
     with self._lock:
@@ -276,11 +289,11 @@ class Summary(object):
 
 
       
-CONTENT_TYPE_004 = 'text-plain; version=0.0.4; charset=utf-8'
-'''Content type of the text format v0.0.4'''
+CONTENT_TYPE_LATEST = 'text-plain; version=0.0.4; charset=utf-8'
+'''Content type of the latest text format'''
 
-def generate004(registry=REGISTRY):
-    '''Returns the metrics from the registry in text format v0.0.4 as a string.'''
+def generate_latest(registry=REGISTRY):
+    '''Returns the metrics from the registry in latest text format as a string.'''
     output = []
     for metric in registry.collect():
       output.append(u'# HELP %s %s' % (
@@ -290,7 +303,7 @@ def generate004(registry=REGISTRY):
         if labels:
           labelstr = u'{%s}' % ','.join(
               [u'%s="%s"' % (
-                  k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
+                  k, v.replace('\\', r'\\').replace('\n', r'\n').replace('\'', r'\''))
                for k, v in labels.items()])
         else:
           labelstr = u''
@@ -301,9 +314,9 @@ def generate004(registry=REGISTRY):
 class MetricsHandler(BaseHTTPRequestHandler):
   def do_GET(self):
     self.send_response(200)
-    self.send_header('Content-Type', CONTENT_TYPE_004)
+    self.send_header('Content-Type', CONTENT_TYPE_LATEST)
     self.end_headers()
-    self.wfile.write(generate004(REGISTRY))
+    self.wfile.write(generate_latest(REGISTRY))
 
 
 if __name__ == '__main__':
