@@ -53,7 +53,7 @@ Gauges can go up and down.
 from prometheus_client import Gauge
 g = Gauge('my_inprogress_requests', 'Description of gauge')
 g.inc()      # Increment by 1
-g.dev(10)    # Decrement by given value
+g.dec(10)    # Decrement by given value
 g.set(4.2)   # Set to a given value
 ```
 
