@@ -71,7 +71,7 @@ with g.trackInprogress():
   pass
 ```
 
-### Summaries
+### Summary
 
 Summaries track the size and number of events.
 
