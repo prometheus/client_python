@@ -1,6 +1,6 @@
 # Prometheus Python Client
 
-This is a first pass at a Python client for Prometheus.
+This client is under active development.
 
 ## Installation
 
