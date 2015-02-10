@@ -132,7 +132,7 @@ The [textfile collector](https://github.com/prometheus/node_exporter#textfile-co
 allows machine-level statistics to be exported out via the Node exporter.
 
 This is useful for monitoring cronjobs, or for writing cronjobs to expose metrics
-about your system that the Node exporter does not support or would not make sense
+about a machine system that the Node exporter does not support or would not make sense
 to perform at every scrape (for example, anything involving subprocesses).
 
 ```python
