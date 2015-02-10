@@ -17,7 +17,7 @@ setup(
     long_description = ("See https://github.com/brian-brazil/client_python/blob/master/README.md for documentation."),
     license = "Apache Software License 2.0",
     keywords = "prometheus monitoring instrumentation client",
-    url = "https://github.com/brian-brazil/client_python",
+    url = "https://github.com/prometheus/client_python",
     packages=['prometheus_client'],
     test_suite="tests",
     classifiers=[
