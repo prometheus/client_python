@@ -25,8 +25,8 @@ Counters go up, and reset when the process restarts.
 ```python
 from prometheus_client import Counter
 c = Counter('my_failures_total', 'Description of counter')
-c.inc()    # Increment by 1
-c.inc(10)  # Increment by given value
+c.inc()     # Increment by 1
+c.inc(1.6)  # Increment by given value
 ```
 
 There are utilities to count exceptions raised:
@@ -39,6 +39,7 @@ def f():
 with c.countExceptions():
   pass
 
+# Count only one type of exception
 with c.countExceptions(ValueError):
   pass
 ```
@@ -51,9 +52,9 @@ Gauges can go up and down.
 ```python
 from prometheus_client import Gauge
 g = Gauge('my_inprogress_requests', 'Description of gauge')
-g.inc()    # Increment by 1
-g.dev(10)  # Decrement by given value
-g.set(7)   # Set to a given value
+g.inc()      # Increment by 1
+g.dev(10)    # Decrement by given value
+g.set(4.2)   # Set to a given value
 ```
 
 There are utilities for common use cases:
@@ -77,18 +78,17 @@ Summaries track the size and number of events.
 ```python
 from prometheus_client import Summary
 s = Summary('request_latency_seconds', 'Description of summary')
-s.observe(5)    # Observe 5 (seconds)
+s.observe(4.7)    # Observe 4.7 (seconds in this case)
 ```
 
-There are utilities for common use cases:
+There are utilities for timing code:
 
 ```python
-# Increment when entered, decrement when exited.
-@g.time()
+@s.time()
 def f():
   pass
 
-with g.time():
+with s.time():
   pass
 ```
 
