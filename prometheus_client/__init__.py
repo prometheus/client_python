@@ -2,7 +2,9 @@
 
 import copy
 import re
+import os
 import time
+import threading
 from contextlib import contextmanager
 from BaseHTTPServer import BaseHTTPRequestHandler
 from functools import wraps
@@ -317,6 +319,17 @@ class MetricsHandler(BaseHTTPRequestHandler):
     self.send_header('Content-Type', CONTENT_TYPE_LATEST)
     self.end_headers()
     self.wfile.write(generate_latest(REGISTRY))
+
+def write_to_textfile(path, registry):
+  '''Write metrics to the given path.
+
+  This is intended for use with the Node exporter textfile collector.
+  The path must end in .prom for the textfile collector to process it.'''
+  tmppath = '%s.%s.%s' % (path, os.getpid(), threading.current_thread().ident)
+  with open(tmppath, 'wb') as f:
+    f.write(generate_latest(registry))
+  # rename(2) is atomic.
+  os.rename(tmppath, path)
 
 
 if __name__ == '__main__':

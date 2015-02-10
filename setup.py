@@ -10,7 +10,7 @@ def read(fname):
 
 setup(
     name = "prometheus_client",
-    version = "0.0.2",
+    version = "0.0.3",
     author = "Brian Brazil",
     author_email = "brian.brazil@gmail.com",
     description = ("Python client for the Prometheus monitoring system."),
