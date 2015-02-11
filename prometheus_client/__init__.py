@@ -291,7 +291,7 @@ class Summary(object):
 
 
       
-CONTENT_TYPE_LATEST = 'text-plain; version=0.0.4; charset=utf-8'
+CONTENT_TYPE_LATEST = 'text/plain; version=0.0.4; charset=utf-8'
 '''Content type of the latest text format'''
 
 def generate_latest(registry=REGISTRY):
