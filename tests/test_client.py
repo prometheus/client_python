@@ -19,7 +19,7 @@ class TestCounter(unittest.TestCase):
     self.assertRaises(ValueError, self.counter.inc, -1)
 
   def test_function_decorator(self):
-    @self.counter.countExceptions(ValueError)
+    @self.counter.count_exceptions(ValueError)
     def f(r):
       if r:
         raise ValueError
@@ -37,12 +37,12 @@ class TestCounter(unittest.TestCase):
     self.assertEquals(1, self.registry.get_sample_value('c'))
 
   def test_block_decorator(self):
-    with self.counter.countExceptions():
+    with self.counter.count_exceptions():
       pass
     self.assertEquals(0, self.registry.get_sample_value('c'))
     raised = False
     try:
-      with self.counter.countExceptions():
+      with self.counter.count_exceptions():
         raise ValueError
     except:
       raised = True
@@ -65,7 +65,7 @@ class TestGauge(unittest.TestCase):
 
   def test_function_decorator(self):
     self.assertEquals(0, self.registry.get_sample_value('g'))
-    @self.gauge.trackInprogress()
+    @self.gauge.track_inprogress()
     def f():
       self.assertEquals(1, self.registry.get_sample_value('g'))
     f()
@@ -73,7 +73,7 @@ class TestGauge(unittest.TestCase):
 
   def test_block_decorator(self):
     self.assertEquals(0, self.registry.get_sample_value('g'))
-    with self.gauge.trackInprogress():
+    with self.gauge.track_inprogress():
       self.assertEquals(1, self.registry.get_sample_value('g'))
     self.assertEquals(0, self.registry.get_sample_value('g'))
 

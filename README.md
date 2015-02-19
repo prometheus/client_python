@@ -32,15 +32,15 @@ c.inc(1.6)  # Increment by given value
 There are utilities to count exceptions raised:
 
 ```python
-@c.countExceptions()
+@c.count_exceptions()
 def f():
   pass
 
-with c.countExceptions():
+with c.count_exceptions():
   pass
 
 # Count only one type of exception
-with c.countExceptions(ValueError):
+with c.count_exceptions(ValueError):
   pass
 ```
 
@@ -60,14 +60,14 @@ g.set(4.2)   # Set to a given value
 There are utilities for common use cases:
 
 ```python
-g.setToCurrentTime()   # Set to current unixtime
+g.set_to_current_time()   # Set to current unixtime
 
 # Increment when entered, decrement when exited.
-@g.trackInprogress()
+@g.track_inprogress()
 def f():
   pass
 
-with g.trackInprogress():
+with g.track_inprogress():
   pass
 ```
 

@@ -170,7 +170,7 @@ class Counter(object):
     with self._lock:
       self._value += amount
 
-  def countExceptions(self, exception=Exception):
+  def count_exceptions(self, exception=Exception):
     '''Count exceptions in a block of code or function.
 
     Can be used as a function decorator or context manager.
@@ -218,11 +218,11 @@ class Gauge(object):
     with self._lock:
       self._value = float(value)
 
-  def setToCurrentTime(self, value):
+  def set_to_current_time(self):
     '''Set gauge to the current unixtime.'''
     self.set(time.time())
 
-  def trackInprogress(self):
+  def track_inprogress(self):
     '''Track inprogress blocks of code or functions.
 
     Can be used as a function decorator or context manager.
