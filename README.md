@@ -116,9 +116,21 @@ There are several options for exporting metrics.
 
 Metrics are usuall exposed over HTTP, to be read by the Prometheus server. For example:
 
+Python 2:
+
 ```python
 from prometheus_client import MetricsHandler
 from BaseHTTPServer import HTTPServer
+server_address = ('', 8000)
+httpd = HTTPServer(server_address, MetricsHandler)
+httpd.serve_forever()
+```
+
+Python 3:
+
+```python
+from prometheus_client import MetricsHandler
+from http.server import HTTPServer
 server_address = ('', 8000)
 httpd = HTTPServer(server_address, MetricsHandler)
 httpd.serve_forever()
