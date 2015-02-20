@@ -1,12 +1,18 @@
 #!/usr/bin/python
 
+from __future__ import unicode_literals
+
 import copy
 import re
 import os
 import time
 import threading
 from contextlib import contextmanager
-from BaseHTTPServer import BaseHTTPRequestHandler
+try:
+  from BaseHTTPServer import BaseHTTPRequestHandler
+except ImportError:
+  # Python 3
+  from http.server import BaseHTTPRequestHandler
 from functools import wraps
 from threading import Lock
 
@@ -116,7 +122,7 @@ class _LabelWrapper(object):
   def _samples(self):
     with self._lock:
       metrics = self._metrics.copy()
-    for labels, metric in metrics.iteritems():
+    for labels, metric in metrics.items():
       for suffix, _, value in metric._samples():
         yield (suffix, dict(zip(self._labelnames, labels)), value)
 
@@ -298,18 +304,18 @@ def generate_latest(registry=REGISTRY):
     '''Returns the metrics from the registry in latest text format as a string.'''
     output = []
     for metric in registry.collect():
-      output.append(u'# HELP %s %s' % (
+      output.append('# HELP {0} {1}'.format(
         metric._name, metric._documentation.replace('\\', r'\\').replace('\n', r'\n')))
-      output.append(u'\n# TYPE %s %s\n' % (metric._name, metric._type))
+      output.append('\n# TYPE {0} {1}\n'.format(metric._name, metric._type))
       for name, labels, value in metric._samples:
         if labels:
-          labelstr = u'{%s}' % ','.join(
-              [u'%s="%s"' % (
+          labelstr = '{{{0}}}'.format(','.join(
+              ['{0}="{1}"'.format(
                   k, v.replace('\\', r'\\').replace('\n', r'\n').replace('\'', r'\''))
-               for k, v in labels.items()])
+               for k, v in labels.items()]))
         else:
-          labelstr = u''
-        output.append(u'%s%s %s\n' % (name, labelstr, value))
+          labelstr = ''
+        output.append('{0}{1} {2}\n'.format(name, labelstr, value))
     return ''.join(output).encode('utf-8')
 
 
