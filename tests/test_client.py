@@ -1,7 +1,7 @@
 from __future__ import unicode_literals
 import unittest
 
-from prometheus_client import Gauge, Counter, Summary
+from prometheus_client import Gauge, Counter, Summary, Histogram
 from prometheus_client import CollectorRegistry, generate_latest
 
 class TestCounter(unittest.TestCase):
@@ -103,6 +103,72 @@ class TestSummary(unittest.TestCase):
     with self.summary.time():
       pass
     self.assertEqual(1, self.registry.get_sample_value('s_count'))
+
+class TestHistogram(unittest.TestCase):
+  def setUp(self):
+    self.registry = CollectorRegistry()
+    self.histogram = Histogram('h', 'help', registry=self.registry)
+
+  def test_histogram(self):
+    self.assertEqual(0, self.registry.get_sample_value('h_bucket', {'le': '1.0'}))
+    self.assertEqual(0, self.registry.get_sample_value('h_bucket', {'le': '2.5'}))
+    self.assertEqual(0, self.registry.get_sample_value('h_bucket', {'le': '5.0'}))
+    self.assertEqual(0, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
+    self.assertEqual(0, self.registry.get_sample_value('h_count'))
+    self.assertEqual(0, self.registry.get_sample_value('h_sum'))
+
+    self.histogram.observe(2)
+    self.assertEqual(0, self.registry.get_sample_value('h_bucket', {'le': '1.0'}))
+    self.assertEqual(1, self.registry.get_sample_value('h_bucket', {'le': '2.5'}))
+    self.assertEqual(1, self.registry.get_sample_value('h_bucket', {'le': '5.0'}))
+    self.assertEqual(1, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
+    self.assertEqual(1, self.registry.get_sample_value('h_count'))
+    self.assertEqual(2, self.registry.get_sample_value('h_sum'))
+
+    self.histogram.observe(2.5)
+    self.assertEqual(0, self.registry.get_sample_value('h_bucket', {'le': '1.0'}))
+    self.assertEqual(2, self.registry.get_sample_value('h_bucket', {'le': '2.5'}))
+    self.assertEqual(2, self.registry.get_sample_value('h_bucket', {'le': '5.0'}))
+    self.assertEqual(2, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
+    self.assertEqual(2, self.registry.get_sample_value('h_count'))
+    self.assertEqual(4.5, self.registry.get_sample_value('h_sum'))
+
+    self.histogram.observe(float("inf"))
+    self.assertEqual(0, self.registry.get_sample_value('h_bucket', {'le': '1.0'}))
+    self.assertEqual(2, self.registry.get_sample_value('h_bucket', {'le': '2.5'}))
+    self.assertEqual(2, self.registry.get_sample_value('h_bucket', {'le': '5.0'}))
+    self.assertEqual(3, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
+    self.assertEqual(3, self.registry.get_sample_value('h_count'))
+    self.assertEqual(float("inf"), self.registry.get_sample_value('h_sum'))
+
+  def test_setting_buckets(self):
+    h = Histogram('h', 'help', registry=None, buckets=[0, 1, 2])
+    self.assertEqual([0.0, 1.0, 2.0, float("inf")], h._upper_bounds)
+
+    h = Histogram('h', 'help', registry=None, buckets=[0, 1, 2, float("inf")])
+    self.assertEqual([0.0, 1.0, 2.0, float("inf")], h._upper_bounds)
+
+    self.assertRaises(ValueError, Histogram, 'h', 'help', registry=None, buckets=[])
+    self.assertRaises(ValueError, Histogram, 'h', 'help', registry=None, buckets=[float("inf")])
+    self.assertRaises(ValueError, Histogram, 'h', 'help', registry=None, buckets=[3, 1])
+
+  def test_function_decorator(self):
+    self.assertEqual(0, self.registry.get_sample_value('h_count'))
+    self.assertEqual(0, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
+    @self.histogram.time()
+    def f():
+      pass
+    f()
+    self.assertEqual(1, self.registry.get_sample_value('h_count'))
+    self.assertEqual(1, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
+
+  def test_block_decorator(self):
+    self.assertEqual(0, self.registry.get_sample_value('h_count'))
+    self.assertEqual(0, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
+    with self.histogram.time():
+      pass
+    self.assertEqual(1, self.registry.get_sample_value('h_count'))
+    self.assertEqual(1, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
 
 class TestMetricWrapper(unittest.TestCase):
   def setUp(self):
