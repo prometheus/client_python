@@ -14,7 +14,7 @@ setup(
     author = "Brian Brazil",
     author_email = "brian.brazil@gmail.com",
     description = ("Python client for the Prometheus monitoring system."),
-    long_description = ("See https://github.com/brian-brazil/client_python/blob/master/README.md for documentation."),
+    long_description = ("See https://github.com/prometheus/client_python/blob/master/README.md for documentation."),
     license = "Apache Software License 2.0",
     keywords = "prometheus monitoring instrumentation client",
     url = "https://github.com/prometheus/client_python",
