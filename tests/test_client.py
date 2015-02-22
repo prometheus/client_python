@@ -143,6 +143,7 @@ class TestMetricWrapper(unittest.TestCase):
     self.assertRaises(ValueError, Counter, '', 'help', subsystem='(')
     self.assertRaises(ValueError, Counter, 'c', '', labelnames=['^'])
     self.assertRaises(ValueError, Counter, 'c', '', labelnames=['__reserved'])
+    self.assertRaises(ValueError, Summary, 'c', '', labelnames=['quantile'])
 
 class TestGenerateText(unittest.TestCase):
   def setUp(self):
