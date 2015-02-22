@@ -136,6 +136,8 @@ def _MetricWrapper(cls):
           raise ValueError('Invalid label metric name: ' + l)
         if _RESERVED_METRIC_LABEL_NAME_RE.match(l):
           raise ValueError('Reserved label metric name: ' + l)
+        if l in cls._reserved_labelnames:
+          raise ValueError('Reserved label metric name: ' + l)
       collector = _LabelWrapper(cls, labelnames)
     else:
       collector = cls()
@@ -165,6 +167,7 @@ def _MetricWrapper(cls):
 @_MetricWrapper
 class Counter(object):
   _type = 'counter'
+  _reserved_labelnames = []
   def __init__(self):
     self._value = 0.0
     self._lock = Lock()
@@ -205,6 +208,7 @@ class Counter(object):
 @_MetricWrapper
 class Gauge(object):
   _type = 'gauge'
+  _reserved_labelnames = []
   def __init__(self):
     self._value = 0.0
     self._lock = Lock()
@@ -257,6 +261,7 @@ class Gauge(object):
 @_MetricWrapper
 class Summary(object):
   _type = 'summary'
+  _reserved_labelnames = ['quantile']
   def __init__(self):
     self._count = 0.0
     self._sum = 0.0
