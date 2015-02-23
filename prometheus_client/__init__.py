@@ -126,8 +126,9 @@ class _LabelWrapper(object):
     with self._lock:
       metrics = self._metrics.copy()
     for labels, metric in metrics.items():
-      for suffix, _, value in metric._samples():
-        yield (suffix, dict(zip(self._labelnames, labels)), value)
+      series_labels = list(dict(zip(self._labelnames, labels)).items())
+      for suffix, sample_labels, value in metric._samples():
+        yield (suffix, dict(series_labels + list(sample_labels.items())), value)
 
 
 def _MetricWrapper(cls):

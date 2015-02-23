@@ -108,6 +108,7 @@ class TestHistogram(unittest.TestCase):
   def setUp(self):
     self.registry = CollectorRegistry()
     self.histogram = Histogram('h', 'help', registry=self.registry)
+    self.labels = Histogram('hl', 'help', ['l'], registry=self.registry)
 
   def test_histogram(self):
     self.assertEqual(0, self.registry.get_sample_value('h_bucket', {'le': '1.0'}))
@@ -151,6 +152,15 @@ class TestHistogram(unittest.TestCase):
     self.assertRaises(ValueError, Histogram, 'h', 'help', registry=None, buckets=[])
     self.assertRaises(ValueError, Histogram, 'h', 'help', registry=None, buckets=[float("inf")])
     self.assertRaises(ValueError, Histogram, 'h', 'help', registry=None, buckets=[3, 1])
+
+  def test_labels(self):
+    self.labels.labels('a').observe(2)
+    self.assertEqual(0, self.registry.get_sample_value('hl_bucket', {'le': '1.0', 'l': 'a'}))
+    self.assertEqual(1, self.registry.get_sample_value('hl_bucket', {'le': '2.5', 'l': 'a'}))
+    self.assertEqual(1, self.registry.get_sample_value('hl_bucket', {'le': '5.0', 'l': 'a'}))
+    self.assertEqual(1, self.registry.get_sample_value('hl_bucket', {'le': '+Inf', 'l': 'a'}))
+    self.assertEqual(1, self.registry.get_sample_value('hl_count', {'l': 'a'}))
+    self.assertEqual(2, self.registry.get_sample_value('hl_sum', {'l': 'a'}))
 
   def test_function_decorator(self):
     self.assertEqual(0, self.registry.get_sample_value('h_count'))
