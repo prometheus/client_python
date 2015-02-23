@@ -16,11 +16,13 @@ except ImportError:
 from functools import wraps
 from threading import Lock
 
-__all__ = ['Counter', 'Gauge', 'Summary', 'CollectorRegistry']
+__all__ = ['Counter', 'Gauge', 'Summary', 'Histogram']
 
 _METRIC_NAME_RE = re.compile(r'^[a-zA-Z_:][a-zA-Z0-9_:]*$')
 _METRIC_LABEL_NAME_RE = re.compile(r'^[a-zA-Z_:][a-zA-Z0-9_:]*$')
 _RESERVED_METRIC_LABEL_NAME_RE = re.compile(r'^__.*$')
+_INF = float("inf")
+_MINUS_INF = float("-inf")
 
 
 
@@ -71,7 +73,7 @@ class CollectorRegistry(object):
 REGISTRY = CollectorRegistry()
 '''The default registry.'''
 
-_METRIC_TYPES = ('counter', 'gauge', 'summary', 'untyped')
+_METRIC_TYPES = ('counter', 'gauge', 'summary', 'histogram', 'untyped')
 
 class Metric(object):
   '''A single metric and it's samples.'''
@@ -90,10 +92,11 @@ class Metric(object):
 
 class _LabelWrapper(object):
   '''Handles labels for the wrapped metric.'''
-  def __init__(self, wrappedClass, labelnames):
+  def __init__(self, wrappedClass, labelnames, **kwargs):
     self._wrappedClass = wrappedClass
     self._type = wrappedClass._type
     self._labelnames = labelnames
+    self._kwargs = kwargs
     self._lock = Lock()
     self._metrics = {}
 
@@ -108,7 +111,7 @@ class _LabelWrapper(object):
     labelvalues = tuple(labelvalues)
     with self._lock:
       if labelvalues not in self._metrics:
-        self._metrics[labelvalues] = self._wrappedClass()
+        self._metrics[labelvalues] = self._wrappedClass(**self._kwargs)
       return self._metrics[labelvalues]
 
   def remove(self, *labelvalues):
@@ -129,7 +132,7 @@ class _LabelWrapper(object):
 
 def _MetricWrapper(cls):
   '''Provides common functionality for metrics.'''
-  def init(name, documentation, labelnames=(), namespace='', subsystem='', registry=REGISTRY):
+  def init(name, documentation, labelnames=(), namespace='', subsystem='', registry=REGISTRY, **kwargs):
     if labelnames:
       for l in labelnames:
         if not _METRIC_LABEL_NAME_RE.match(l):
@@ -138,9 +141,9 @@ def _MetricWrapper(cls):
           raise ValueError('Reserved label metric name: ' + l)
         if l in cls._reserved_labelnames:
           raise ValueError('Reserved label metric name: ' + l)
-      collector = _LabelWrapper(cls, labelnames)
+      collector = _LabelWrapper(cls, labelnames, **kwargs)
     else:
-      collector = cls()
+      collector = cls(**kwargs)
 
     full_name = ''
     if namespace:
@@ -159,7 +162,8 @@ def _MetricWrapper(cls):
       return [metric]
     collector.collect = collect
 
-    registry.register(collector)
+    if registry:
+      registry.register(collector)
     return collector
 
   return init
@@ -300,6 +304,73 @@ class Summary(object):
           ('_count', {}, self._count),
           ('_sum', {}, self._sum))
 
+def _floatToGoString(d):
+  if d == _INF:
+    return '+Inf'
+  elif d == _MINUS_INF:
+    return '-Inf'
+  else:
+    return repr(d)
+
+@_MetricWrapper
+class Histogram(object):
+  _type = 'histogram'
+  _reserved_labelnames = ['histogram']
+  def __init__(self, buckets=(.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, _INF)):
+    self._sum = 0.0
+    self._lock = Lock()
+    buckets = [float (b) for b in buckets]
+    if buckets != sorted(buckets):
+      # This is probably an error on the part of the user,
+      # so raise rather than sorting for them.
+      raise ValueError('Buckets not in sorted order')
+    if buckets and buckets[-1] != _INF:
+      buckets.append(_INF)
+    if len(buckets) < 2:
+      raise ValueError('Must have at least two buckets')
+    self._upper_bounds = buckets
+    self._buckets = [0.0] * len(buckets)
+
+  def observe(self, amount):
+    '''Observe the given amount.'''
+    with self._lock:
+      self._sum += amount
+      for i, bound in enumerate(self._upper_bounds):
+        if amount <= bound:
+          self._buckets[i] += 1
+          break
+
+  def time(self):
+    '''Time a block of code or function, and observe the duration in seconds.
+
+    Can be used as a function decorator or context manager.
+    '''
+    class Timer(object):
+      def __init__(self, histogram):
+        self._histogram = histogram
+      def __enter__(self):
+        self._start = time.time()
+      def __exit__(self, typ, value, traceback):
+        # Time can go backwards.
+        self._histogram.observe(max(time.time() - self._start, 0))
+      def __call__(self, f):
+        @wraps(f)
+        def wrapped(*args, **kwargs):
+          with self:
+            return f(*args, **kwargs)
+        return wrapped
+    return Timer(self)
+
+  def _samples(self):
+    with self._lock:
+      samples = []
+      acc = 0
+      for i, bound in enumerate(self._upper_bounds):
+        acc += self._buckets[i]
+        samples.append(('_bucket', {'le': _floatToGoString(bound)}, acc))
+      samples.append(('_count', {}, acc))
+      samples.append(('_sum', {}, self._sum))
+      return tuple(samples)
 
       
 CONTENT_TYPE_LATEST = 'text/plain; version=0.0.4; charset=utf-8'
@@ -320,7 +391,7 @@ def generate_latest(registry=REGISTRY):
                for k, v in labels.items()]))
         else:
           labelstr = ''
-        output.append('{0}{1} {2}\n'.format(name, labelstr, value))
+        output.append('{0}{1} {2}\n'.format(name, labelstr, _floatToGoString(value)))
     return ''.join(output).encode('utf-8')
 
 
@@ -353,6 +424,9 @@ if __name__ == '__main__':
   s = Summary('ss', 'A summary', ['a', 'b'])
   s.labels('c', 'd').observe(17)
  
+  h = Histogram('hh', 'A histogram')
+  h.observe(.6)
+
   from BaseHTTPServer import HTTPServer
   server_address = ('', 8000)
   httpd = HTTPServer(server_address, MetricsHandler)
