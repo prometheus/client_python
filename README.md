@@ -139,7 +139,7 @@ There are several options for exporting metrics.
 
 ## HTTP handler
 
-Metrics are usuall exposed over HTTP, to be read by the Prometheus server. For example:
+Metrics are usually exposed over HTTP, to be read by the Prometheus server. For example:
 
 Python 2:
 
