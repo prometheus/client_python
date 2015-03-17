@@ -7,7 +7,6 @@ import re
 import os
 import time
 import threading
-from contextlib import contextmanager
 try:
   from BaseHTTPServer import BaseHTTPRequestHandler
 except ImportError:
