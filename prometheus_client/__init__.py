@@ -102,7 +102,7 @@ class _LabelWrapper(object):
 
     for l in labelnames:
       if l.startswith('__'):
-        raise InvalidLabelName(l)
+        raise ValueError('Invalid label metric name: ' + l)
 
   def labels(self, *labelvalues):
     '''Return the child for the given labelset.'''
