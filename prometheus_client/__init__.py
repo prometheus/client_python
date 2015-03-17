@@ -5,8 +5,10 @@ from __future__ import unicode_literals
 import copy
 import re
 import os
+import socket
 import time
 import threading
+import urllib2
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler
 except ImportError:
@@ -14,6 +16,7 @@ except ImportError:
     from http.server import BaseHTTPRequestHandler
 from functools import wraps
 from threading import Lock
+
 
 __all__ = ['Counter', 'Gauge', 'Summary', 'Histogram']
 
@@ -432,6 +435,33 @@ class MetricsHandler(BaseHTTPRequestHandler):
         self.send_header('Content-Type', CONTENT_TYPE_LATEST)
         self.end_headers()
         self.wfile.write(generate_latest(REGISTRY))
+
+
+def build_pushgateway_url(job, instance=None, host='localhost', port=9091,
+                          use_fqdn_as_instance=True):
+    '''
+    Build a valid pushgateway url
+    '''
+
+    if instance is None and use_fqdn_as_instance:
+        instance = socket.getfqdn()
+
+    if instance:
+        instancestr = '/instances/{}'.format(instance)
+    else:
+        instancestr = ''
+
+    url = 'http://{}:{}/metrics/jobs/{}{}'.format(host, port, job, instancestr)
+    return url
+
+
+def push_to_gateway(url, registry, timeout=None):
+    '''Push metrics to the given url'''
+
+    resp = urllib2.urlopen(url, data=generate_latest(registry), timeout=timeout)
+    if resp.code >= 400:
+        raise IOError("error pushing to pushgateway: {0} {1}".format(
+            resp.code, resp.msg))
 
 
 def write_to_textfile(path, registry):

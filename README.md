@@ -181,3 +181,19 @@ write_to_textfile('/configured/textfile/path/raid.prom', registry)
 ```
 
 A separate registry is used, as the default registry may contain other metrics.
+
+## Exporting to a Pushgateway
+
+The [Pushgateway](https://github.com/prometheus/pushgateway)
+allows ephemeral and batch jobs to expose their metrics to Prometheus.
+
+```python
+from prometheus_client import CollectorRegistry,Gauge,build_pushgateway_url,push_to_gateway
+registry = CollectorRegistry()
+g = Gauge('raid_status', '1 if raid array is okay', registry=registry)
+g.set(1)
+url = build_pushgateway_url(job='cooljob', host='pushgateway.mydomain')
+push_to_gateway(url, registry)
+```
+
+A separate registry is used, as the default registry may contain other metrics.
