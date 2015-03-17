@@ -4,6 +4,7 @@ import unittest
 from prometheus_client import Gauge, Counter, Summary, Histogram
 from prometheus_client import CollectorRegistry, generate_latest
 
+
 class TestCounter(unittest.TestCase):
   def setUp(self):
     self.registry = CollectorRegistry()
@@ -15,7 +16,7 @@ class TestCounter(unittest.TestCase):
     self.assertEqual(1, self.registry.get_sample_value('c'))
     self.counter.inc(7)
     self.assertEqual(8, self.registry.get_sample_value('c'))
- 
+
   def test_negative_increment_raises(self):
     self.assertRaises(ValueError, self.counter.inc, -1)
 
@@ -50,6 +51,7 @@ class TestCounter(unittest.TestCase):
     self.assertTrue(raised)
     self.assertEqual(1, self.registry.get_sample_value('c'))
 
+
 class TestGauge(unittest.TestCase):
   def setUp(self):
     self.registry = CollectorRegistry()
@@ -66,6 +68,7 @@ class TestGauge(unittest.TestCase):
 
   def test_function_decorator(self):
     self.assertEqual(0, self.registry.get_sample_value('g'))
+
     @self.gauge.track_inprogress()
     def f():
       self.assertEqual(1, self.registry.get_sample_value('g'))
@@ -77,6 +80,7 @@ class TestGauge(unittest.TestCase):
     with self.gauge.track_inprogress():
       self.assertEqual(1, self.registry.get_sample_value('g'))
     self.assertEqual(0, self.registry.get_sample_value('g'))
+
 
 class TestSummary(unittest.TestCase):
   def setUp(self):
@@ -92,6 +96,7 @@ class TestSummary(unittest.TestCase):
 
   def test_function_decorator(self):
     self.assertEqual(0, self.registry.get_sample_value('s_count'))
+
     @self.summary.time()
     def f():
       pass
@@ -103,6 +108,7 @@ class TestSummary(unittest.TestCase):
     with self.summary.time():
       pass
     self.assertEqual(1, self.registry.get_sample_value('s_count'))
+
 
 class TestHistogram(unittest.TestCase):
   def setUp(self):
@@ -165,6 +171,7 @@ class TestHistogram(unittest.TestCase):
   def test_function_decorator(self):
     self.assertEqual(0, self.registry.get_sample_value('h_count'))
     self.assertEqual(0, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
+
     @self.histogram.time()
     def f():
       pass
@@ -179,6 +186,7 @@ class TestHistogram(unittest.TestCase):
       pass
     self.assertEqual(1, self.registry.get_sample_value('h_count'))
     self.assertEqual(1, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
+
 
 class TestMetricWrapper(unittest.TestCase):
   def setUp(self):
@@ -220,6 +228,7 @@ class TestMetricWrapper(unittest.TestCase):
     self.assertRaises(ValueError, Counter, 'c', '', labelnames=['^'])
     self.assertRaises(ValueError, Counter, 'c', '', labelnames=['__reserved'])
     self.assertRaises(ValueError, Summary, 'c', '', labelnames=['quantile'])
+
 
 class TestGenerateText(unittest.TestCase):
   def setUp(self):
