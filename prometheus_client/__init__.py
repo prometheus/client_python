@@ -7,7 +7,6 @@ import re
 import os
 import time
 import threading
-from contextlib import contextmanager
 try:
   from BaseHTTPServer import BaseHTTPRequestHandler
 except ImportError:
@@ -25,10 +24,9 @@ _INF = float("inf")
 _MINUS_INF = float("-inf")
 
 
-
 class CollectorRegistry(object):
   '''Metric collector registry.
-  
+
   Collectors must have a no-argument method 'collect' that returns a list of
   Metric objects. The returned metrics should be consistent with the Prometheus
   exposition formats.
@@ -58,7 +56,7 @@ class CollectorRegistry(object):
 
   def get_sample_value(self, name, labels=None):
     '''Returns the sample value, or None if not found.
-    
+
     This is inefficient, and intended only for use in unittests.
     '''
     if labels is None:
@@ -74,6 +72,7 @@ REGISTRY = CollectorRegistry()
 '''The default registry.'''
 
 _METRIC_TYPES = ('counter', 'gauge', 'summary', 'histogram', 'untyped')
+
 
 class Metric(object):
   '''A single metric and it's samples.'''
@@ -169,10 +168,12 @@ def _MetricWrapper(cls):
 
   return init
 
+
 @_MetricWrapper
 class Counter(object):
   _type = 'counter'
   _reserved_labelnames = []
+
   def __init__(self):
     self._value = 0.0
     self._lock = Lock()
@@ -194,10 +195,14 @@ class Counter(object):
     class ExceptionCounter(object):
       def __init__(self, counter):
         self._counter = counter
-      def __enter__(self): pass
+
+      def __enter__(self):
+        pass
+
       def __exit__(self, typ, value, traceback):
         if isinstance(value, exception):
           self._counter.inc()
+
       def __call__(self, f):
         @wraps(f)
         def wrapped(*args, **kwargs):
@@ -210,10 +215,12 @@ class Counter(object):
     with self._lock:
       return (('', {}, self._value), )
 
+
 @_MetricWrapper
 class Gauge(object):
   _type = 'gauge'
   _reserved_labelnames = []
+
   def __init__(self):
     self._value = 0.0
     self._lock = Lock()
@@ -247,10 +254,13 @@ class Gauge(object):
     class InprogressTracker(object):
       def __init__(self, gauge):
         self._gauge = gauge
+
       def __enter__(self):
         self._gauge.inc()
+
       def __exit__(self, typ, value, traceback):
         self._gauge.dec()
+
       def __call__(self, f):
         @wraps(f)
         def wrapped(*args, **kwargs):
@@ -263,10 +273,12 @@ class Gauge(object):
     with self._lock:
       return (('', {}, self._value), )
 
+
 @_MetricWrapper
 class Summary(object):
   _type = 'summary'
   _reserved_labelnames = ['quantile']
+
   def __init__(self):
     self._count = 0.0
     self._sum = 0.0
@@ -286,11 +298,14 @@ class Summary(object):
     class Timer(object):
       def __init__(self, summary):
         self._summary = summary
+
       def __enter__(self):
         self._start = time.time()
+
       def __exit__(self, typ, value, traceback):
         # Time can go backwards.
         self._summary.observe(max(time.time() - self._start, 0))
+
       def __call__(self, f):
         @wraps(f)
         def wrapped(*args, **kwargs):
@@ -305,6 +320,7 @@ class Summary(object):
           ('_count', {}, self._count),
           ('_sum', {}, self._sum))
 
+
 def _floatToGoString(d):
   if d == _INF:
     return '+Inf'
@@ -313,14 +329,16 @@ def _floatToGoString(d):
   else:
     return repr(d)
 
+
 @_MetricWrapper
 class Histogram(object):
   _type = 'histogram'
   _reserved_labelnames = ['histogram']
+
   def __init__(self, buckets=(.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, _INF)):
     self._sum = 0.0
     self._lock = Lock()
-    buckets = [float (b) for b in buckets]
+    buckets = [float(b) for b in buckets]
     if buckets != sorted(buckets):
       # This is probably an error on the part of the user,
       # so raise rather than sorting for them.
@@ -349,11 +367,14 @@ class Histogram(object):
     class Timer(object):
       def __init__(self, histogram):
         self._histogram = histogram
+
       def __enter__(self):
         self._start = time.time()
+
       def __exit__(self, typ, value, traceback):
         # Time can go backwards.
         self._histogram.observe(max(time.time() - self._start, 0))
+
       def __call__(self, f):
         @wraps(f)
         def wrapped(*args, **kwargs):
@@ -373,9 +394,10 @@ class Histogram(object):
       samples.append(('_sum', {}, self._sum))
       return tuple(samples)
 
-      
+
 CONTENT_TYPE_LATEST = 'text/plain; version=0.0.4; charset=utf-8'
 '''Content type of the latest text format'''
+
 
 def generate_latest(registry=REGISTRY):
     '''Returns the metrics from the registry in latest text format as a string.'''
@@ -403,6 +425,7 @@ class MetricsHandler(BaseHTTPRequestHandler):
     self.end_headers()
     self.wfile.write(generate_latest(REGISTRY))
 
+
 def write_to_textfile(path, registry):
   '''Write metrics to the given path.
 
@@ -418,13 +441,13 @@ def write_to_textfile(path, registry):
 if __name__ == '__main__':
   c = Counter('cc', 'A counter')
   c.inc()
- 
+
   g = Gauge('gg', 'A gauge')
   g.set(17)
- 
+
   s = Summary('ss', 'A summary', ['a', 'b'])
   s.labels('c', 'd').observe(17)
- 
+
   h = Histogram('hh', 'A histogram')
   h.observe(.6)
 
