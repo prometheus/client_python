@@ -42,7 +42,7 @@ class CollectorRegistry(object):
     with self._lock:
       self._collectors.add(collector)
 
-  def unregister(self, metric):
+  def unregister(self, collector):
     '''Remove a collector from the registry.'''
     with self._lock:
       self._collectors.remove(collector)
@@ -102,7 +102,7 @@ class _LabelWrapper(object):
 
     for l in labelnames:
       if l.startswith('__'):
-        raise InvalidLabelName(l)
+        raise ValueError('Invalid label metric name: ' + l)
 
   def labels(self, *labelvalues):
     '''Return the child for the given labelset.'''
