@@ -418,7 +418,7 @@ def generate_latest(registry=REGISTRY):
             if labels:
                 labelstr = '{{{0}}}'.format(','.join(
                     ['{0}="{1}"'.format(
-                     k, v.replace('\\', r'\\').replace('\n', r'\n').replace('\'', r'\''))
+                     k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
                      for k, v in labels.items()]))
             else:
                 labelstr = ''

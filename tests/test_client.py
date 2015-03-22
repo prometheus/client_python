@@ -262,8 +262,8 @@ class TestGenerateText(unittest.TestCase):
 
     def test_escaping(self):
         c = Counter('cc', 'A\ncount\\er', ['a'], registry=self.registry)
-        c.labels('\\x\n').inc(1)
-        self.assertEqual(b'# HELP cc A\\ncount\\\\er\n# TYPE cc counter\ncc{a="\\\\x\\n"} 1.0\n', generate_latest(self.registry))
+        c.labels('\\x\n"').inc(1)
+        self.assertEqual(b'# HELP cc A\\ncount\\\\er\n# TYPE cc counter\ncc{a="\\\\x\\n\\""} 1.0\n', generate_latest(self.registry))
 
 
 if __name__ == '__main__':
