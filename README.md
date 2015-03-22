@@ -246,6 +246,22 @@ write_to_textfile('/configured/textfile/path/raid.prom', registry)
 A separate registry is used, as the default registry may contain other metrics
 such as those from the Process Collector.
 
+## Exporting to a Pushgateway
+
+The [Pushgateway](https://github.com/prometheus/pushgateway)
+allows ephemeral and batch jobs to expose their metrics to Prometheus.
+
+```python
+from prometheus_client import CollectorRegistry,Gauge,push_to_gateway
+registry = CollectorRegistry()
+g = Gauge('job_last_success_unixtime', 'Last time a batch job successfully finished', registry=registry)
+g.set_to_current_time()
+push_to_gateway(registry, job='batchA')
+```
+
+A separate registry is used, as the default registry may contain other metrics
+such as those from the Process Collector.
+
 ## Bridges
 
 It is also possible to expose metrics to systems other than Prometheus.

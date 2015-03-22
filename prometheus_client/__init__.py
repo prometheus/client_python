@@ -4,6 +4,14 @@ from . import core
 from . import exposition
 from . import process_collector
 
+try:
+    from urllib2 import urlopen, quote
+except ImportError:
+    # Python 3
+    from urllib.request import urlopen
+    from urllib.parse import quote
+
+
 __all__ = ['Counter', 'Gauge', 'Summary', 'Histogram']
 # http://stackoverflow.com/questions/19913653/no-unicode-in-all-for-a-packages-init
 __all__ = [n.encode('ascii') for n in __all__]
@@ -21,6 +29,38 @@ generate_latest = exposition.generate_latest
 MetricsHandler = exposition.MetricsHandler
 start_http_server = exposition.start_http_server
 write_to_textfile = exposition.write_to_textfile
+
+
+def build_pushgateway_url(job, instance=None, host='localhost', port=9091):
+    '''
+    Build a valid pushgateway url
+    '''
+
+    if instance:
+        instancestr = '/instances/{}'.format(instance)
+    else:
+        instancestr = ''
+
+    url = 'http://{}:{}/metrics/jobs/{}{}'.format(host, port,
+                                                  quote(job),
+                                                  quote(instancestr))
+    return url
+
+
+def push_to_gateway_url(url, registry, timeout=None):
+    '''Push metrics to the given url'''
+
+    resp = urlopen(url, data=generate_latest(registry), timeout=timeout)
+    if resp.code >= 400:
+        raise IOError("error pushing to pushgateway: {0} {1}".format(
+            resp.code, resp.msg))
+
+
+def push_to_gateway(registry, job, instance=None, host='localhost', port=9091, timeout=None):
+    '''Push metrics to a pushgateway'''
+
+    url = build_pushgateway_url(job, instance, host, port)
+    push_to_gateway_url(url, registry, timeout)
 
 ProcessCollector = process_collector.ProcessCollector
 PROCESS_COLLECTOR = process_collector.PROCESS_COLLECTOR
