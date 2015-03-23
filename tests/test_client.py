@@ -280,6 +280,13 @@ class TestBuildPushgatewayUrl(unittest.TestCase):
         url = build_pushgateway_url('foojob', host='foohost', port=9092)
         self.assertEqual(url, expected)
 
+    def test_url_escaping(self):
+        expected = 'http://localhost:9091/metrics/jobs/foo%20job'
+
+        url = build_pushgateway_url('foo job')
+        self.assertEqual(url, expected)
+
+
 
 if __name__ == '__main__':
     unittest.main()

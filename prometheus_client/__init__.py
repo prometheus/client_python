@@ -446,7 +446,9 @@ def build_pushgateway_url(job, instance=None, host='localhost', port=9091):
     else:
         instancestr = ''
 
-    url = 'http://{}:{}/metrics/jobs/{}{}'.format(host, port, job, instancestr)
+    url = 'http://{}:{}/metrics/jobs/{}{}'.format(host, port,
+                                                  urllib2.quote(job),
+                                                  urllib2.quote(instancestr))
     return url
 
 
