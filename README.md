@@ -190,9 +190,9 @@ allows ephemeral and batch jobs to expose their metrics to Prometheus.
 ```python
 from prometheus_client import CollectorRegistry,Gauge,push_to_gateway
 registry = CollectorRegistry()
-g = Gauge('raid_status', '1 if raid array is okay', registry=registry)
-g.set(1)
-push_to_gateway(registry, job='somejob', host='pushgateway.mydomain')
+g = Gauge('job_finished_ok_at', 'last time a batch job successfully finished', registry=registry)
+g.set_to_current_time()
+push_to_gateway(registry, job='batchA', host='pushgateway.mydomain')
 ```
 
 A separate registry is used, as the default registry may contain other metrics.
