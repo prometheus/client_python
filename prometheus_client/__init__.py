@@ -450,13 +450,20 @@ def build_pushgateway_url(job, instance=None, host='localhost', port=9091):
     return url
 
 
-def push_to_gateway(url, registry, timeout=None):
+def push_to_gateway_url(url, registry, timeout=None):
     '''Push metrics to the given url'''
 
     resp = urllib2.urlopen(url, data=generate_latest(registry), timeout=timeout)
     if resp.code >= 400:
         raise IOError("error pushing to pushgateway: {0} {1}".format(
             resp.code, resp.msg))
+
+
+def push_to_gateway(registry, job, instance=None, host='localhost', port=9091, timeout=None):
+    '''Push metrics to a pushgateway'''
+
+    url = build_pushgateway_url(job, instance, host, port)
+    push_to_gateway_url(url, registry, timeout)
 
 
 def write_to_textfile(path, registry):
