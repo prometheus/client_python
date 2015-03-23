@@ -7,6 +7,14 @@ import re
 import os
 import time
 import threading
+
+try:
+    from urllib2 import urlopen, quote
+except ImportError:
+    # Python 3
+    from urllib.request import urlopen
+    from urllib.parse import quote
+
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler
 except ImportError:
@@ -14,6 +22,7 @@ except ImportError:
     from http.server import BaseHTTPRequestHandler
 from functools import wraps
 from threading import Lock
+
 
 __all__ = ['Counter', 'Gauge', 'Summary', 'Histogram']
 
@@ -432,6 +441,38 @@ class MetricsHandler(BaseHTTPRequestHandler):
         self.send_header('Content-Type', CONTENT_TYPE_LATEST)
         self.end_headers()
         self.wfile.write(generate_latest(REGISTRY))
+
+
+def build_pushgateway_url(job, instance=None, host='localhost', port=9091):
+    '''
+    Build a valid pushgateway url
+    '''
+
+    if instance:
+        instancestr = '/instances/{}'.format(instance)
+    else:
+        instancestr = ''
+
+    url = 'http://{}:{}/metrics/jobs/{}{}'.format(host, port,
+                                                  quote(job),
+                                                  quote(instancestr))
+    return url
+
+
+def push_to_gateway_url(url, registry, timeout=None):
+    '''Push metrics to the given url'''
+
+    resp = urlopen(url, data=generate_latest(registry), timeout=timeout)
+    if resp.code >= 400:
+        raise IOError("error pushing to pushgateway: {0} {1}".format(
+            resp.code, resp.msg))
+
+
+def push_to_gateway(registry, job, instance=None, host='localhost', port=9091, timeout=None):
+    '''Push metrics to a pushgateway'''
+
+    url = build_pushgateway_url(job, instance, host, port)
+    push_to_gateway_url(url, registry, timeout)
 
 
 def write_to_textfile(path, registry):

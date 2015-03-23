@@ -3,6 +3,7 @@ import unittest
 
 from prometheus_client import Gauge, Counter, Summary, Histogram
 from prometheus_client import CollectorRegistry, generate_latest
+from prometheus_client import build_pushgateway_url
 
 
 class TestCounter(unittest.TestCase):
@@ -264,6 +265,27 @@ class TestGenerateText(unittest.TestCase):
         c = Counter('cc', 'A\ncount\\er', ['a'], registry=self.registry)
         c.labels('\\x\n"').inc(1)
         self.assertEqual(b'# HELP cc A\\ncount\\\\er\n# TYPE cc counter\ncc{a="\\\\x\\n\\""} 1.0\n', generate_latest(self.registry))
+
+
+class TestBuildPushgatewayUrl(unittest.TestCase):
+    def test_job_instance(self):
+        expected = 'http://localhost:9091/metrics/jobs/foojob/instances/fooinstance'
+
+        url = build_pushgateway_url('foojob', 'fooinstance')
+        self.assertEqual(url, expected)
+
+    def test_host_port(self):
+        expected = 'http://foohost:9092/metrics/jobs/foojob'
+
+        url = build_pushgateway_url('foojob', host='foohost', port=9092)
+        self.assertEqual(url, expected)
+
+    def test_url_escaping(self):
+        expected = 'http://localhost:9091/metrics/jobs/foo%20job'
+
+        url = build_pushgateway_url('foo job')
+        self.assertEqual(url, expected)
+
 
 
 if __name__ == '__main__':
