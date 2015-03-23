@@ -7,7 +7,14 @@ import re
 import os
 import time
 import threading
-import urllib2
+
+try:
+    from urllib2 import urlopen, quote
+except ImportError:
+    # Python 3
+    from urllib.request import urlopen
+    from urllib.parse import quote
+
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler
 except ImportError:
@@ -447,15 +454,15 @@ def build_pushgateway_url(job, instance=None, host='localhost', port=9091):
         instancestr = ''
 
     url = 'http://{}:{}/metrics/jobs/{}{}'.format(host, port,
-                                                  urllib2.quote(job),
-                                                  urllib2.quote(instancestr))
+                                                  quote(job),
+                                                  quote(instancestr))
     return url
 
 
 def push_to_gateway_url(url, registry, timeout=None):
     '''Push metrics to the given url'''
 
-    resp = urllib2.urlopen(url, data=generate_latest(registry), timeout=timeout)
+    resp = urlopen(url, data=generate_latest(registry), timeout=timeout)
     if resp.code >= 400:
         raise IOError("error pushing to pushgateway: {0} {1}".format(
             resp.code, resp.msg))
