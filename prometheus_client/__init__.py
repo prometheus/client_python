@@ -5,7 +5,6 @@ from __future__ import unicode_literals
 import copy
 import re
 import os
-import socket
 import time
 import threading
 import urllib2
@@ -437,14 +436,10 @@ class MetricsHandler(BaseHTTPRequestHandler):
         self.wfile.write(generate_latest(REGISTRY))
 
 
-def build_pushgateway_url(job, instance=None, host='localhost', port=9091,
-                          use_fqdn_as_instance=True):
+def build_pushgateway_url(job, instance=None, host='localhost', port=9091):
     '''
     Build a valid pushgateway url
     '''
-
-    if instance is None and use_fqdn_as_instance:
-        instance = socket.getfqdn()
 
     if instance:
         instancestr = '/instances/{}'.format(instance)

@@ -1,5 +1,4 @@
 from __future__ import unicode_literals
-import socket
 import unittest
 
 from prometheus_client import Gauge, Counter, Summary, Histogram
@@ -278,21 +277,7 @@ class TestBuildPushgatewayUrl(unittest.TestCase):
     def test_host_port(self):
         expected = 'http://foohost:9092/metrics/jobs/foojob'
 
-        url = build_pushgateway_url('foojob', host='foohost', port=9092,
-                             use_fqdn_as_instance=False)
-        self.assertEqual(url, expected)
-
-    def test_no_fqdn(self):
-        expected = 'http://localhost:9091/metrics/jobs/foojob'
-
-        url = build_pushgateway_url(job='foojob', use_fqdn_as_instance=False)
-        self.assertEqual(url, expected)
-
-    def test_fqdn(self):
-        fqdn = socket.getfqdn()
-        expected = 'http://localhost:9091/metrics/jobs/foojob/instances/' + fqdn
-
-        url = build_pushgateway_url(job='foojob')
+        url = build_pushgateway_url('foojob', host='foohost', port=9092)
         self.assertEqual(url, expected)
 
 
