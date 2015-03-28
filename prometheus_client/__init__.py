@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 
 import copy
 import re
+import resource
 import os
 import time
 import threading
@@ -419,7 +420,7 @@ def generate_latest(registry=REGISTRY):
                 labelstr = '{{{0}}}'.format(','.join(
                     ['{0}="{1}"'.format(
                      k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
-                     for k, v in labels.items()]))
+                     for k, v in sorted(labels.items())]))
             else:
                 labelstr = ''
             output.append('{0}{1} {2}\n'.format(name, labelstr, _floatToGoString(value)))
@@ -444,6 +445,82 @@ def write_to_textfile(path, registry):
         f.write(generate_latest(registry))
     # rename(2) is atomic.
     os.rename(tmppath, path)
+
+
+
+class ProcessCollector(object):
+    """Collector for Standard Exports such as cpu and memory."""
+    def __init__(self, namespace='', pid='self', proc='/proc', registry=REGISTRY):
+        self._namespace = namespace
+        self._pid = os.path.join(proc, str(pid))
+        self._proc = proc
+        self._pagesize = resource.getpagesize()
+        if namespace:
+            self._prefix = namespace + '_process_'
+        else:
+            self._prefix = 'process_'
+        self._ticks = 100.0
+        try:
+            self._ticks = os.sysconf('SC_CLK_TCK')
+        except (ValueError, TypeError):
+            pass
+
+        self._can_read_proc = os.access(os.path.join(self._proc, 'stat'), os.R_OK)
+        if self._can_read_proc:
+            self._btime = self._boot_time()
+        if registry:
+          registry.register(self)
+
+    def _boot_time(self):
+        with open(os.path.join(self._proc, 'stat')) as stat:
+            for line in stat:
+                if line.startswith('btime '):
+                    return float(line.split()[1])
+
+    def collect(self):
+        if not self._can_read_proc:
+            return []
+
+        result = []
+        try:
+            with open(os.path.join(self._pid, 'stat')) as stat:
+                parts = (stat.read().split(')')[-1].split())
+            vmem = Metric(self._prefix + 'virtual_memory_bytes', 'Virtual memory size in bytes', 'gauge')
+            vmem.add_sample(self._prefix + 'virtual_memory_bytes', {}, float(parts[20]))
+            rss = Metric(self._prefix + 'resident_memory_bytes', 'Resident memory size in bytes', 'gauge')
+            rss.add_sample(self._prefix + 'resident_memory_bytes', {}, float(parts[21]) * self._pagesize)
+            start_time = Metric(self._prefix + 'start_time_seconds',
+                                'Start time of the process since unix epoch in seconds.', 'gauge')
+            start_time_secs = float(parts[18]) / self._ticks
+            start_time.add_sample(self._prefix + 'start_time_seconds',{} , start_time_secs + self._btime)
+            utime = float(parts[11]) / self._ticks
+            stime = float(parts[12]) / self._ticks
+            cpu = Metric(self._prefix + 'cpu_seconds_total',
+                         'Total user and system CPU time spent in seconds.', 'counter')
+            cpu.add_sample(self._prefix + 'cpu_seconds_total', {}, utime + stime)
+            result.extend([vmem, rss, start_time, cpu])
+        except (IOError):
+            pass
+
+        try:
+            max_fds = Metric(self._prefix + 'max_fds', 'Maximum number of open file descriptors.', 'gauge')
+            with open(os.path.join(self._pid, 'limits')) as limits:
+                for line in limits:
+                    if line.startswith('Max open file'):
+                        max_fds.add_sample(self._prefix + 'max_fds', {}, float(line.split()[3]))
+                        break
+            open_fds = Metric(self._prefix + 'open_fds', 'Number of open file descriptors.', 'gauge')
+            open_fds.add_sample(self._prefix + 'open_fds', {}, os.listdir(os.path.join(self._pid, 'fd')))
+            result.extend([open_fds, max_fds])
+        except IOError:
+            pass
+
+        return result
+
+
+PROCESS_COLLECTOR = ProcessCollector(proc='.')
+"""Default ProcessCollector in default Registry REGISTRY."""
+
 
 
 if __name__ == '__main__':
