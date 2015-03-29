@@ -280,12 +280,36 @@ class TestProcessCollector(unittest.TestCase):
 
         self.assertEqual(17.21, self.registry.get_sample_value('process_cpu_seconds_total'))
         self.assertEqual(56274944.0, self.registry.get_sample_value('process_virtual_memory_bytes'))
-        self.assertEqual(1981, self.registry.get_sample_value('process_resident_memory_bytes'))
-        self.assertEqual(0.0, self.registry.get_sample_value('process_start_time_seconds'))
+        self.assertEqual((1981.0*collector._pagesize), self.registry.get_sample_value('process_resident_memory_bytes'))
+        self.assertEqual((0.0/collector._ticks+1418183276), self.registry.get_sample_value('process_start_time_seconds'))
         self.assertEqual(2048.0, self.registry.get_sample_value('process_max_fds'))
-        self.assertEqual(5.0, self.registry.get_sample_value('process_open_fds'))
+        self.assertEqual(5.0, len(self.registry.get_sample_value('process_open_fds')))
+        self.assertEqual(None, self.registry.get_sample_value('process_fake_namespace'))
 
+    def test_working_584(self):
+        collector = ProcessCollector(proc=self.test_proc, pid=584, registry=self.registry)
+        collector._pagesize = 4096
+        collector._ticks = 100
 
+        self.assertEqual(0.0, self.registry.get_sample_value('process_cpu_seconds_total'))
+        self.assertEqual(10395648.0, self.registry.get_sample_value('process_virtual_memory_bytes'))
+        self.assertEqual((155.0*collector._pagesize), self.registry.get_sample_value('process_resident_memory_bytes'))
+        self.assertEqual((0.0/collector._ticks+1418183276), self.registry.get_sample_value('process_start_time_seconds'))
+        self.assertEqual(None, self.registry.get_sample_value('process_max_fds'))
+        self.assertEqual(None, (self.registry.get_sample_value('process_open_fds')))
+
+    def test_working_fake_pid(self):
+        collector = ProcessCollector(proc=self.test_proc, pid=123, registry=self.registry)
+        collector._pagesize = 4096
+        collector._ticks = 100
+
+        self.assertEqual(None, self.registry.get_sample_value('process_cpu_seconds_total'))
+        self.assertEqual(None, self.registry.get_sample_value('process_virtual_memory_bytes'))
+        self.assertEqual(None, self.registry.get_sample_value('process_resident_memory_bytes'))
+        self.assertEqual(None, self.registry.get_sample_value('process_start_time_seconds'))
+        self.assertEqual(None, self.registry.get_sample_value('process_max_fds'))
+        self.assertEqual(None, self.registry.get_sample_value('process_open_fds'))
+        self.assertEqual(None, self.registry.get_sample_value('process_fake_namespace'))
 
 
 
