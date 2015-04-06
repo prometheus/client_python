@@ -8,6 +8,7 @@ import resource
 import os
 import time
 import threading
+import types
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler
     from BaseHTTPServer import HTTPServer
@@ -278,6 +279,17 @@ class Gauge(object):
                 return wrapped
 
         return InprogressTracker(self)
+
+    def set_function(self, f):
+        '''Call the provided function to return the Gauge value.
+
+        The function must return a float, and may be called from
+        multiple threads.
+        All other methods of the Gauge become NOOPs.
+        '''
+        def samples(self):
+            return (('', {}, float(f())), )
+        self._samples = types.MethodType(samples, self)
 
     def _samples(self):
         with self._lock:

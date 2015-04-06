@@ -87,6 +87,15 @@ class TestGauge(unittest.TestCase):
             self.assertEqual(1, self.registry.get_sample_value('g'))
         self.assertEqual(0, self.registry.get_sample_value('g'))
 
+    def test_gauge_function(self):
+        x = {}
+        self.gauge.set_function(lambda: len(x))
+        self.assertEqual(0, self.registry.get_sample_value('g'))
+        self.gauge.inc()
+        self.assertEqual(0, self.registry.get_sample_value('g'))
+        x['a'] = None
+        self.assertEqual(1, self.registry.get_sample_value('g'))
+
 
 class TestSummary(unittest.TestCase):
     def setUp(self):
