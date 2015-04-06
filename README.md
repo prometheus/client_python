@@ -113,6 +113,14 @@ with g.track_inprogress():
   pass
 ```
 
+A Gauge can also take it's value from a callback:
+
+```python
+d = Gauge('data_objects', 'Number of objects')
+my_dict = {}
+d.set_function(lambda: len(my_dict))
+```
+
 ### Summary
 
 Summaries track the size and number of events.
