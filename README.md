@@ -12,9 +12,9 @@ This package can be found on [PyPI](https://pypi.python.org/pypi/prometheus_clie
 
 ## Instrumenting
 
-Three types of metric are offered: Counter, Gauge, and Summary.
+Four types of metric are offered: Counter, Gauge, Summary and Histogram.
 See the documentation on [metric types](http://prometheus.io/docs/concepts/metric_types/)
-and [instrumentation best practices](http://prometheus.io/docs/practices/instrumentation/#counter-vs.-gauge-vs.-summary)
+and [instrumentation best practices](http://prometheus.io/docs/practices/instrumentation/#counter-vs.-gauge,-summary-vs.-histogram)
 on how to use them.
 
 ### Counter
@@ -136,7 +136,7 @@ c.labels('post', '/submit').inc()
 ### Process Collector
 
 The Python Client automatically exports metrics about process CPU usage, RAM,
-file descriptors and start time. These all have the prefix `process\_`, and
+file descriptors and start time. These all have the prefix `process_`, and
 are only currently available on Linux.
 
 ## Exporting
