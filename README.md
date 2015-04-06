@@ -1,6 +1,48 @@
 # Prometheus Python Client
 
-This client is under active development.
+The official Python 2 and 3 client for [Prometheus](http://prometheus.io).
+
+## Three Step Demo
+
+**One**: Install the client:
+```
+pip install prometheus_client
+```
+
+**Two**: Paste the following into a Python interpreter:
+```python
+from prometheus_client import start_http_server,Summary
+import random
+import time
+
+# Create a metric to track time spent and requests made.
+REQUEST_TIME = Summary('request_processing_seconds', 'Time spent processing request')
+
+# Decorate function with metric.
+@REQUEST_TIME.time()
+def process_request(t):
+    """A dummy function that takes some time."""
+    time.sleep(t)
+
+if __name__ == '__main__':
+    # Start up the server to expose the metrics.
+    start_http_server(8000)
+    # Generate some requests.
+    while True:
+        process_request(random.random())
+```
+
+**Three**: Visit [http://localhost:8000/](http://localhost:8000/) to view the metrics.
+
+From one easy to use decorator you get:
+  * `request_processing_seconds_count`: Number of times this function was called.
+  * `request_processing_seconds_sum`: Total amount of time spent in this function.
+
+Prometheus's `rate` function allows calculation of both requests per second,
+and latency over time from this data.
+
+In addition if you're on Linux the `process` metrics expose CPU, memory and 
+other information about the process for free!
 
 ## Installation
 
@@ -8,7 +50,8 @@ This client is under active development.
 pip install prometheus_client
 ```
 
-This package can be found on [PyPI](https://pypi.python.org/pypi/prometheus_client).
+This package can be found on
+[PyPI](https://pypi.python.org/pypi/prometheus_client).
 
 ## Instrumenting
 
@@ -47,7 +90,6 @@ with c.count_exceptions(ValueError):
 ### Gauge
 
 Gauges can go up and down.
-
 
 ```python
 from prometheus_client import Gauge
@@ -136,7 +178,7 @@ c.labels('post', '/submit').inc()
 ### Process Collector
 
 The Python Client automatically exports metrics about process CPU usage, RAM,
-file descriptors and start time. These all have the prefix `process_`, and
+file descriptors and start time. These all have the prefix `process`, and
 are only currently available on Linux.
 
 The namespace and pid constructor arguments allows for exporting metrics about
@@ -149,31 +191,23 @@ ProcessCollector(namespace='mydaemon', pid=lambda: open('/var/run/daemon.pid').r
 
 There are several options for exporting metrics.
 
-## HTTP handler
+## HTTP
 
-Metrics are usually exposed over HTTP, to be read by the Prometheus server. For example:
+Metrics are usually exposed over HTTP, to be read by the Prometheus server.
 
-Python 2:
-
-```python
-from prometheus_client import MetricsHandler
-from BaseHTTPServer import HTTPServer
-server_address = ('', 8000)
-httpd = HTTPServer(server_address, MetricsHandler)
-httpd.serve_forever()
-```
-
-Python 3:
+The easiest way to do this is via `start_http_server`, which will start a HTTP
+server in a daemon thread on the given port:
 
 ```python
-from prometheus_client import MetricsHandler
-from http.server import HTTPServer
-server_address = ('', 8000)
-httpd = HTTPServer(server_address, MetricsHandler)
-httpd.serve_forever()
+from prometheus_client import start_http_server
+start_http_server(8000)
 ```
 
 Visit [http://localhost:8000/](http://localhost:8000/) to view the metrics.
+
+To add Prometheus exposition to an existing HTTP server, see the `MetricsServlet` class
+which provides a `BaseHTTPRequestHandler`. It also serves as a simple example of how
+to write a custom endpoint.
 
 ## Node exporter textfile collector
 

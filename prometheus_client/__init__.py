@@ -10,10 +10,12 @@ import time
 import threading
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler
+    from BaseHTTPServer import HTTPServer
 except ImportError:
     # Python 3
     unicode = str
     from http.server import BaseHTTPRequestHandler
+    from http.server import HTTPServer
 from functools import wraps
 from threading import Lock
 
@@ -436,6 +438,20 @@ class MetricsHandler(BaseHTTPRequestHandler):
         self.send_header('Content-Type', CONTENT_TYPE_LATEST)
         self.end_headers()
         self.wfile.write(generate_latest(REGISTRY))
+
+    def log_message(self, format, *args):
+        return
+
+
+def start_http_server(port, addr=''):
+    """Starts a HTTP server for prometheus metrics as a daemon thread."""
+    class PrometheusMetricsServer(threading.Thread):
+        def run(self):
+            httpd = HTTPServer((addr, port), MetricsHandler)
+            httpd.serve_forever()
+    t = PrometheusMetricsServer()
+    t.daemon = True
+    t.start()
 
 
 def write_to_textfile(path, registry):
