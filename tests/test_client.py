@@ -223,6 +223,18 @@ class TestMetricWrapper(unittest.TestCase):
         self.assertRaises(ValueError, self.counter.remove)
         self.assertRaises(ValueError, self.counter.remove, 'a', 'b')
 
+    def test_labels_coerced_to_string(self):
+        self.counter.labels(None).inc()
+        self.assertEqual(1, self.registry.get_sample_value('c', {'l': 'None'}))
+
+        self.counter.remove(None)
+        self.assertEqual(None, self.registry.get_sample_value('c', {'l': 'None'}))
+
+    def test_non_string_labels_raises(self):
+        class Test(object):
+            __str__ = None
+        self.assertRaises(TypeError, self.counter.labels, Test())
+
     def test_namespace_subsystem_concatenated(self):
         c = Counter('c', 'help', namespace='a', subsystem='b', registry=self.registry)
         c.inc()

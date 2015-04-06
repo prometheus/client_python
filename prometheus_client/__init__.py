@@ -12,11 +12,14 @@ try:
     from BaseHTTPServer import BaseHTTPRequestHandler
 except ImportError:
     # Python 3
+    unicode = str
     from http.server import BaseHTTPRequestHandler
 from functools import wraps
 from threading import Lock
 
 __all__ = ['Counter', 'Gauge', 'Summary', 'Histogram']
+# http://stackoverflow.com/questions/19913653/no-unicode-in-all-for-a-packages-init
+__all__ = [n.encode('ascii') for n in __all__]
 
 _METRIC_NAME_RE = re.compile(r'^[a-zA-Z_:][a-zA-Z0-9_:]*$')
 _METRIC_LABEL_NAME_RE = re.compile(r'^[a-zA-Z_:][a-zA-Z0-9_:]*$')
@@ -108,7 +111,7 @@ class _LabelWrapper(object):
         '''Return the child for the given labelset.'''
         if len(labelvalues) != len(self._labelnames):
             raise ValueError('Incorrect label count')
-        labelvalues = tuple(labelvalues)
+        labelvalues = tuple([unicode(l) for l in labelvalues])
         with self._lock:
             if labelvalues not in self._metrics:
                 self._metrics[labelvalues] = self._wrappedClass(**self._kwargs)
@@ -118,7 +121,7 @@ class _LabelWrapper(object):
         '''Remove the given labelset from the metric.'''
         if len(labelvalues) != len(self._labelnames):
             raise ValueError('Incorrect label count')
-        labelvalues = tuple(labelvalues)
+        labelvalues = tuple([unicode(l) for l in labelvalues])
         with self._lock:
             del self._metrics[labelvalues]
 
