@@ -139,6 +139,12 @@ The Python Client automatically exports metrics about process CPU usage, RAM,
 file descriptors and start time. These all have the prefix `process_`, and
 are only currently available on Linux.
 
+The namespace and pid constructor arguments allows for exporting metrics about
+other processes, for example:
+```
+ProcessCollector(namespace='mydaemon', pid=lambda: open('/var/run/daemon.pid').read())
+```
+
 ## Exporting
 
 There are several options for exporting metrics.
