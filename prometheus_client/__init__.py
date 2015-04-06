@@ -452,9 +452,9 @@ def write_to_textfile(path, registry):
 
 class ProcessCollector(object):
     """Collector for Standard Exports such as cpu and memory."""
-    def __init__(self, namespace='', pid='self', proc='/proc', registry=REGISTRY):
+    def __init__(self, namespace='', pid=lambda: 'self', proc='/proc', registry=REGISTRY):
         self._namespace = namespace
-        self._pid = os.path.join(proc, str(pid))
+        self._pid = pid
         self._proc = proc
         self._pagesize = resource.getpagesize()
         if namespace:
@@ -486,9 +486,16 @@ class ProcessCollector(object):
         if not self._btime:
             return []
 
+        try:
+          pid = os.path.join(self._proc, str(self._pid()).strip())
+        except:
+          # File likely didn't exist, fail silently.
+          raise
+          return []
+
         result = []
         try:
-            with open(os.path.join(self._pid, 'stat')) as stat:
+            with open(os.path.join(pid, 'stat')) as stat:
                 parts = (stat.read().split(')')[-1].split())
             vmem = Metric(self._prefix + 'virtual_memory_bytes', 'Virtual memory size in bytes', 'gauge')
             vmem.add_sample(self._prefix + 'virtual_memory_bytes', {}, float(parts[20]))
@@ -509,13 +516,13 @@ class ProcessCollector(object):
 
         try:
             max_fds = Metric(self._prefix + 'max_fds', 'Maximum number of open file descriptors.', 'gauge')
-            with open(os.path.join(self._pid, 'limits')) as limits:
+            with open(os.path.join(pid, 'limits')) as limits:
                 for line in limits:
                     if line.startswith('Max open file'):
                         max_fds.add_sample(self._prefix + 'max_fds', {}, float(line.split()[3]))
                         break
             open_fds = Metric(self._prefix + 'open_fds', 'Number of open file descriptors.', 'gauge')
-            open_fds.add_sample(self._prefix + 'open_fds', {}, len(os.listdir(os.path.join(self._pid, 'fd'))))
+            open_fds.add_sample(self._prefix + 'open_fds', {}, len(os.listdir(os.path.join(pid, 'fd'))))
             result.extend([open_fds, max_fds])
         except IOError:
             pass

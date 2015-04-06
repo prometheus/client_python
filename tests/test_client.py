@@ -286,7 +286,7 @@ class TestProcessCollector(unittest.TestCase):
         self.test_proc = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'proc')
 
     def test_working(self):
-        collector = ProcessCollector(proc=self.test_proc, pid=26231, registry=self.registry)
+        collector = ProcessCollector(proc=self.test_proc, pid=lambda: 26231, registry=self.registry)
         collector._pagesize = 4096
         collector._ticks = 100
 
@@ -299,7 +299,7 @@ class TestProcessCollector(unittest.TestCase):
         self.assertEqual(None, self.registry.get_sample_value('process_fake_namespace'))
 
     def test_namespace(self):
-        collector = ProcessCollector(proc=self.test_proc, pid=26231, registry=self.registry, namespace='n')
+        collector = ProcessCollector(proc=self.test_proc, pid=lambda: 26231, registry=self.registry, namespace='n')
         collector._pagesize = 4096
         collector._ticks = 100
 
@@ -312,7 +312,7 @@ class TestProcessCollector(unittest.TestCase):
         self.assertEqual(None, self.registry.get_sample_value('process_cpu_seconds_total'))
 
     def test_working_584(self):
-        collector = ProcessCollector(proc=self.test_proc, pid=584, registry=self.registry)
+        collector = ProcessCollector(proc=self.test_proc, pid=lambda: "584\n", registry=self.registry)
         collector._pagesize = 4096
         collector._ticks = 100
 
@@ -324,7 +324,7 @@ class TestProcessCollector(unittest.TestCase):
         self.assertEqual(None, self.registry.get_sample_value('process_open_fds'))
 
     def test_working_fake_pid(self):
-        collector = ProcessCollector(proc=self.test_proc, pid=123, registry=self.registry)
+        collector = ProcessCollector(proc=self.test_proc, pid=lambda: 123, registry=self.registry)
         collector._pagesize = 4096
         collector._ticks = 100
 
