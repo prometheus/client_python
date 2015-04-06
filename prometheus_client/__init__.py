@@ -447,7 +447,6 @@ def write_to_textfile(path, registry):
     os.rename(tmppath, path)
 
 
-
 class ProcessCollector(object):
     """Collector for Standard Exports such as cpu and memory."""
     def __init__(self, namespace='', pid='self', proc='/proc', registry=REGISTRY):
@@ -465,9 +464,12 @@ class ProcessCollector(object):
         except (ValueError, TypeError):
             pass
 
-        self._can_read_proc = os.access(os.path.join(self._proc, 'stat'), os.R_OK)
-        if self._can_read_proc:
+        # This is used to test if we can access /proc.
+        self._btime = 0
+        try:
             self._btime = self._boot_time()
+        except IOError:
+            pass
         if registry:
           registry.register(self)
 
@@ -478,7 +480,7 @@ class ProcessCollector(object):
                     return float(line.split()[1])
 
     def collect(self):
-        if not self._can_read_proc:
+        if not self._btime:
             return []
 
         result = []
@@ -491,7 +493,7 @@ class ProcessCollector(object):
             rss.add_sample(self._prefix + 'resident_memory_bytes', {}, float(parts[21]) * self._pagesize)
             start_time = Metric(self._prefix + 'start_time_seconds',
                                 'Start time of the process since unix epoch in seconds.', 'gauge')
-            start_time_secs = float(parts[18]) / self._ticks
+            start_time_secs = float(parts[19]) / self._ticks
             start_time.add_sample(self._prefix + 'start_time_seconds',{} , start_time_secs + self._btime)
             utime = float(parts[11]) / self._ticks
             stime = float(parts[12]) / self._ticks
@@ -499,7 +501,7 @@ class ProcessCollector(object):
                          'Total user and system CPU time spent in seconds.', 'counter')
             cpu.add_sample(self._prefix + 'cpu_seconds_total', {}, utime + stime)
             result.extend([vmem, rss, start_time, cpu])
-        except (IOError):
+        except IOError:
             pass
 
         try:
@@ -510,7 +512,7 @@ class ProcessCollector(object):
                         max_fds.add_sample(self._prefix + 'max_fds', {}, float(line.split()[3]))
                         break
             open_fds = Metric(self._prefix + 'open_fds', 'Number of open file descriptors.', 'gauge')
-            open_fds.add_sample(self._prefix + 'open_fds', {}, os.listdir(os.path.join(self._pid, 'fd')))
+            open_fds.add_sample(self._prefix + 'open_fds', {}, len(os.listdir(os.path.join(self._pid, 'fd'))))
             result.extend([open_fds, max_fds])
         except IOError:
             pass
@@ -518,9 +520,8 @@ class ProcessCollector(object):
         return result
 
 
-PROCESS_COLLECTOR = ProcessCollector(proc='.')
+PROCESS_COLLECTOR = ProcessCollector()
 """Default ProcessCollector in default Registry REGISTRY."""
-
 
 
 if __name__ == '__main__':
