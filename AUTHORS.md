@@ -7,3 +7,5 @@ The following individuals have contributed code to this repository
 
 * Andrea Fagan <andreafagan28@gmail.com>
 * Brian Brazil <brian.brazil@gmail.com>
+* Andrea Fagan <andreafagan28@gmail.com>
+
