@@ -111,10 +111,23 @@ class _LabelWrapper(object):
                 raise ValueError('Invalid label metric name: ' + l)
 
     def labels(self, *labelvalues):
-        '''Return the child for the given labelset.'''
-        if len(labelvalues) != len(self._labelnames):
-            raise ValueError('Incorrect label count')
-        labelvalues = tuple([unicode(l) for l in labelvalues])
+        '''Return the child for the given labelset.
+
+        Labels can be provided as a tuple or as a dict:
+            c = Counter('c', 'counter', ['l', 'm'])
+            # Set labels by position
+            c.labels('0', '1').inc()
+            # Set labels by name
+            c.labels({'l': '0', 'm': '1'}).inc()
+        '''
+        if len(labelvalues) == 1 and type(labelvalues[0]) == dict:
+            if sorted(labelvalues[0].keys()) != sorted(self._labelnames):
+                raise ValueError('Incorrect label names')
+            labelvalues = tuple([unicode(labelvalues[0][l]) for l in self._labelnames])
+        else:
+            if len(labelvalues) != len(self._labelnames):
+                raise ValueError('Incorrect label count')
+            labelvalues = tuple([unicode(l) for l in labelvalues])
         with self._lock:
             if labelvalues not in self._metrics:
                 self._metrics[labelvalues] = self._wrappedClass(**self._kwargs)
