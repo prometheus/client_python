@@ -4,7 +4,6 @@ from __future__ import unicode_literals
 
 import copy
 import re
-import resource
 import os
 import time
 import threading
@@ -17,6 +16,13 @@ except ImportError:
     unicode = str
     from http.server import BaseHTTPRequestHandler
     from http.server import HTTPServer
+try:
+  import resource
+  _PAGESIZE = resource.getpagesize()
+except ImportError:
+  # Not Unix
+  _PAGESIZE = 4096
+
 from functools import wraps
 from threading import Lock
 
@@ -497,7 +503,6 @@ class ProcessCollector(object):
         self._namespace = namespace
         self._pid = pid
         self._proc = proc
-        self._pagesize = resource.getpagesize()
         if namespace:
             self._prefix = namespace + '_process_'
         else:
@@ -505,7 +510,7 @@ class ProcessCollector(object):
         self._ticks = 100.0
         try:
             self._ticks = os.sysconf('SC_CLK_TCK')
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, AttributeError):
             pass
 
         # This is used to test if we can access /proc.
@@ -541,7 +546,7 @@ class ProcessCollector(object):
             vmem = Metric(self._prefix + 'virtual_memory_bytes', 'Virtual memory size in bytes', 'gauge')
             vmem.add_sample(self._prefix + 'virtual_memory_bytes', {}, float(parts[20]))
             rss = Metric(self._prefix + 'resident_memory_bytes', 'Resident memory size in bytes', 'gauge')
-            rss.add_sample(self._prefix + 'resident_memory_bytes', {}, float(parts[21]) * self._pagesize)
+            rss.add_sample(self._prefix + 'resident_memory_bytes', {}, float(parts[21]) * _PAGESIZE)
             start_time = Metric(self._prefix + 'start_time_seconds',
                                 'Start time of the process since unix epoch in seconds.', 'gauge')
             start_time_secs = float(parts[19]) / self._ticks
