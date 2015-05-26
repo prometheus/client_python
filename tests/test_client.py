@@ -7,9 +7,21 @@ from prometheus_client import Gauge, Counter, Summary, Histogram
 from prometheus_client import CollectorRegistry, generate_latest, ProcessCollector
 
 
+class TestCollectorRegistry(CollectorRegistry):
+    def get_sample_value(self, name, labels=None):
+        '''Returns the sample value, or None if not found.'''
+        if labels is None:
+            labels = {}
+        for metric in self.collect():
+            for n, l, value in metric._samples:
+                if n == name and l == labels:
+                    return value
+        return None
+
+
 class TestCounter(unittest.TestCase):
     def setUp(self):
-        self.registry = CollectorRegistry()
+        self.registry = TestCollectorRegistry()
         self.counter = Counter('c', 'help', registry=self.registry)
 
     def test_increment(self):
@@ -59,7 +71,7 @@ class TestCounter(unittest.TestCase):
 
 class TestGauge(unittest.TestCase):
     def setUp(self):
-        self.registry = CollectorRegistry()
+        self.registry = TestCollectorRegistry()
         self.gauge = Gauge('g', 'help', registry=self.registry)
 
     def test_gauge(self):
@@ -99,7 +111,7 @@ class TestGauge(unittest.TestCase):
 
 class TestSummary(unittest.TestCase):
     def setUp(self):
-        self.registry = CollectorRegistry()
+        self.registry = TestCollectorRegistry()
         self.summary = Summary('s', 'help', registry=self.registry)
 
     def test_summary(self):
@@ -128,7 +140,7 @@ class TestSummary(unittest.TestCase):
 
 class TestHistogram(unittest.TestCase):
     def setUp(self):
-        self.registry = CollectorRegistry()
+        self.registry = TestCollectorRegistry()
         self.histogram = Histogram('h', 'help', registry=self.registry)
         self.labels = Histogram('hl', 'help', ['l'], registry=self.registry)
 
@@ -207,7 +219,7 @@ class TestHistogram(unittest.TestCase):
 
 class TestMetricWrapper(unittest.TestCase):
     def setUp(self):
-        self.registry = CollectorRegistry()
+        self.registry = TestCollectorRegistry()
         self.counter = Counter('c', 'help', labelnames=['l'], registry=self.registry)
         self.two_labels = Counter('two', 'help', labelnames=['a', 'b'], registry=self.registry)
 
@@ -277,7 +289,7 @@ class TestMetricWrapper(unittest.TestCase):
 
 class TestGenerateText(unittest.TestCase):
     def setUp(self):
-        self.registry = CollectorRegistry()
+        self.registry = TestCollectorRegistry()
 
     def test_counter(self):
         c = Counter('cc', 'A counter', registry=self.registry)
@@ -307,7 +319,7 @@ class TestGenerateText(unittest.TestCase):
 
 class TestProcessCollector(unittest.TestCase):
     def setUp(self):
-        self.registry = CollectorRegistry()
+        self.registry = TestCollectorRegistry()
         self.test_proc = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'proc')
 
     def test_working(self):

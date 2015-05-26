@@ -61,19 +61,6 @@ class CollectorRegistry(object):
             for metric in collector.collect():
                 yield metric
 
-    def get_sample_value(self, name, labels=None):
-        '''Returns the sample value, or None if not found.
-
-        This is inefficient, and intended only for use in unittests.
-        '''
-        if labels is None:
-            labels = {}
-        for metric in self.collect():
-            for n, l, value in metric._samples:
-                if n == name and l == labels:
-                    return value
-        return None
-
 
 REGISTRY = CollectorRegistry()
 '''The default registry.'''
