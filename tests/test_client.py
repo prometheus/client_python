@@ -3,7 +3,7 @@ import os
 import unittest
 
 
-from prometheus_client import Gauge, Counter, Summary, Histogram
+from prometheus_client import Gauge, Counter, Summary, Histogram, Metric
 from prometheus_client import CollectorRegistry, generate_latest, ProcessCollector
 
 
@@ -303,6 +303,20 @@ class TestGenerateText(unittest.TestCase):
         c = Counter('cc', 'A\ncount\\er', ['a'], registry=self.registry)
         c.labels('\\x\n"').inc(1)
         self.assertEqual(b'# HELP cc A\\ncount\\\\er\n# TYPE cc counter\ncc{a="\\\\x\\n\\""} 1.0\n', generate_latest(self.registry))
+
+    def test_nonnumber(self):
+        class MyNumber():
+            def __repr__(self):
+              return "MyNumber(123)"
+            def __float__(self):
+              return 123.0
+        class MyCollector():
+            def collect(self):
+                metric = Metric("nonnumber", "Non number", 'untyped')
+                metric.add_sample("nonnumber", {}, MyNumber())
+                yield metric
+        self.registry.register(MyCollector())
+        self.assertEqual(b'# HELP nonnumber Non number\n# TYPE nonnumber untyped\nnonnumber 123.0\n', generate_latest(self.registry))
 
 
 class TestProcessCollector(unittest.TestCase):

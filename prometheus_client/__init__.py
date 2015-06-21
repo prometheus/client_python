@@ -370,7 +370,7 @@ def _floatToGoString(d):
     elif d == _MINUS_INF:
         return '-Inf'
     else:
-        return repr(d)
+        return repr(float(d))
 
 
 @_MetricWrapper
