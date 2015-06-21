@@ -1,6 +1,7 @@
 #!/usr/bin/python
 from __future__ import unicode_literals
 
+import logging
 import re
 import socket
 import time
@@ -35,7 +36,10 @@ class _RegularPush(threading.Thread):
                    break
                 # time.sleep can return early.
                 time.sleep(wait_until - now)
-            self._pusher.push()
+            try:
+                self._pusher.push()
+            except IOError as e:
+                logging.exception("Push failed")
 
 
 class GraphiteBridge(object):
