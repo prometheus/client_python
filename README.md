@@ -208,7 +208,7 @@ ProcessCollector(namespace='mydaemon', pid=lambda: open('/var/run/daemon.pid').r
 
 There are several options for exporting metrics.
 
-## HTTP
+### HTTP
 
 Metrics are usually exposed over HTTP, to be read by the Prometheus server.
 
@@ -226,7 +226,7 @@ To add Prometheus exposition to an existing HTTP server, see the `MetricsServlet
 which provides a `BaseHTTPRequestHandler`. It also serves as a simple example of how
 to write a custom endpoint.
 
-## Node exporter textfile collector
+### Node exporter textfile collector
 
 The [textfile collector](https://github.com/prometheus/node_exporter#textfile-collector)
 allows machine-level statistics to be exported out via the Node exporter.
@@ -245,3 +245,22 @@ write_to_textfile('/configured/textfile/path/raid.prom', registry)
 
 A separate registry is used, as the default registry may contain other metrics
 such as those from the Process Collector.
+
+## Bridges
+
+It is also possible to expose metrics to systems other than Prometheus.
+This allows you to take advantage of Prometheus instrumentation even
+if you are not quite ready to fully transition to Prometheus yet.
+
+### Graphite
+
+Metrics are pushed over TCP in the Graphite plaintext format.
+
+```python
+from prometheus_client.bridge.graphite import GraphiteBridge
+gb = GraphiteBridge(('graphite.your.org', 2003))
+# Push once.
+gb.push()
+# Push every 10 seconds in a daemon thread.
+gb.start(10.0)
+```
