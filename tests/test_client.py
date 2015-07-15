@@ -1,10 +1,22 @@
 from __future__ import unicode_literals
 import os
+import threading
 import unittest
 
 
 from prometheus_client import Gauge, Counter, Summary, Histogram, Metric
 from prometheus_client import CollectorRegistry, generate_latest, ProcessCollector
+from prometheus_client import push_to_gateway, pushadd_to_gateway, delete_from_gateway
+from prometheus_client import CONTENT_TYPE_LATEST, instance_ip_grouping_key
+
+try:
+    from BaseHTTPServer import BaseHTTPRequestHandler
+    from BaseHTTPServer import HTTPServer
+except ImportError:
+    # Python 3
+    from http.server import BaseHTTPRequestHandler
+    from http.server import HTTPServer
+
 
 
 class TestCounter(unittest.TestCase):
@@ -372,6 +384,80 @@ class TestProcessCollector(unittest.TestCase):
         self.assertEqual(None, self.registry.get_sample_value('process_fake_namespace'))
 
 
+class TestPushGateway(unittest.TestCase):
+    def setUp(self):
+        self.registry = CollectorRegistry()
+        self.counter = Gauge('g', 'help', registry=self.registry)
+        self.requests = requests = []
+        class TestHandler(BaseHTTPRequestHandler):
+            def do_PUT(self):
+                self.send_response(201)
+                length = int(self.headers['content-length'])
+                requests.append((self, self.rfile.read(length)))
+
+            do_POST = do_PUT
+            do_DELETE = do_PUT
+
+        httpd = HTTPServer(('', 0), TestHandler)
+        self.address = ':'.join([str(x) for x in httpd.server_address])
+        class TestServer(threading.Thread):
+            def run(self):
+                httpd.handle_request()
+        self.server = TestServer()
+        self.server.daemon = True
+        self.server.start()
+
+    def test_push(self):
+        push_to_gateway(self.address, "my_job", self.registry)
+        self.assertEqual(self.requests[0][0].command, 'PUT')
+        self.assertEqual(self.requests[0][0].path, '/job/my_job')
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
+        self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
+
+    def test_push_with_groupingkey(self):
+        push_to_gateway(self.address, "my_job", self.registry, {'a': 9})
+        self.assertEqual(self.requests[0][0].command, 'PUT')
+        self.assertEqual(self.requests[0][0].path, '/job/my_job/a/9')
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
+        self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
+
+    def test_push_with_complex_groupingkey(self):
+        push_to_gateway(self.address, "my_job", self.registry, {'a': 9, 'b': 'a/ z'})
+        self.assertEqual(self.requests[0][0].command, 'PUT')
+        self.assertEqual(self.requests[0][0].path, '/job/my_job/a/9/b/a%2F+z')
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
+        self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
+
+    def test_pushadd(self):
+        pushadd_to_gateway(self.address, "my_job", self.registry)
+        self.assertEqual(self.requests[0][0].command, 'POST')
+        self.assertEqual(self.requests[0][0].path, '/job/my_job')
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
+        self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
+
+    def test_pushadd_with_groupingkey(self):
+        pushadd_to_gateway(self.address, "my_job", self.registry, {'a': 9})
+        self.assertEqual(self.requests[0][0].command, 'POST')
+        self.assertEqual(self.requests[0][0].path, '/job/my_job/a/9')
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
+        self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
+
+    def test_delete(self):
+        delete_from_gateway(self.address, "my_job")
+        self.assertEqual(self.requests[0][0].command, 'DELETE')
+        self.assertEqual(self.requests[0][0].path, '/job/my_job')
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
+        self.assertEqual(self.requests[0][1], b'')
+
+    def test_pushadd_with_groupingkey(self):
+        delete_from_gateway(self.address, "my_job", {'a': 9})
+        self.assertEqual(self.requests[0][0].command, 'DELETE')
+        self.assertEqual(self.requests[0][0].path, '/job/my_job/a/9')
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
+        self.assertEqual(self.requests[0][1], b'')
+
+    def test_instance_ip_grouping_key(self):
+        self.assertTrue('' != instance_ip_grouping_key()['instance'])
 
 
 if __name__ == '__main__':

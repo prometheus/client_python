@@ -21,6 +21,10 @@ generate_latest = exposition.generate_latest
 MetricsHandler = exposition.MetricsHandler
 start_http_server = exposition.start_http_server
 write_to_textfile = exposition.write_to_textfile
+push_to_gateway = exposition.push_to_gateway
+pushadd_to_gateway = exposition.pushadd_to_gateway
+delete_from_gateway = exposition.delete_from_gateway
+instance_ip_grouping_key = exposition.instance_ip_grouping_key
 
 ProcessCollector = process_collector.ProcessCollector
 PROCESS_COLLECTOR = process_collector.PROCESS_COLLECTOR
