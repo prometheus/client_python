@@ -7,7 +7,7 @@ import unittest
 from prometheus_client import Gauge, Counter, Summary, Histogram, Metric
 from prometheus_client import CollectorRegistry, generate_latest, ProcessCollector
 from prometheus_client import push_to_gateway, pushadd_to_gateway, delete_from_gateway
-from prometheus_client import CONTENT_TYPE_LATEST
+from prometheus_client import CONTENT_TYPE_LATEST, instance_ip_grouping_key
 
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler
@@ -455,6 +455,9 @@ class TestPushGateway(unittest.TestCase):
         self.assertEqual(self.requests[0][0].path, '/job/my_job/a/9')
         self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
         self.assertEqual(self.requests[0][1], b'')
+
+    def test_instance_ip_grouping_key(self):
+        self.assertTrue('' != instance_ip_grouping_key()['instance'])
 
 
 if __name__ == '__main__':

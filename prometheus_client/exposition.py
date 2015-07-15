@@ -3,6 +3,7 @@
 from __future__ import unicode_literals
 
 import os
+import socket
 import time
 import threading
 
@@ -121,3 +122,9 @@ def _use_gateway(method, gateway, job, registry, grouping_key, timeout):
     if resp.code >= 400:
         raise IOError("error talking to pushgateway: {0} {1}".format(
             resp.code, resp.msg))
+
+def instance_ip_grouping_key():
+    '''Grouping key with instance set to the IP Address of this host.'''
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(('', 0))
+    return {'instance': s.getsockname()[0]}

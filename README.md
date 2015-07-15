@@ -262,6 +262,17 @@ push_to_gateway('localhost:9091', job='batchA', registry=registry)
 A separate registry is used, as the default registry may contain other metrics
 such as those from the Process Collector.
 
+Pushgateway functions take a grouping key. `push_to_gateway` replaces metrics
+with the same grouping key, `pushadd_to_gateway` only replaces metrics with the
+same name and grouping key and `delete_from_gateway` deletes metrics with the
+given job and grouping key. See the
+[Pushgateway documentation](https://github.com/prometheus/pushgateway/blob/master/README.md)
+for more information.
+
+`instance_ip_grouping_key` returns a grouping key with the instance label set
+to the host's IP address.
+
+
 ## Bridges
 
 It is also possible to expose metrics to systems other than Prometheus.
