@@ -142,7 +142,7 @@ with s.time():
   pass
 ```
 
-The python client doesn't store or expose quantile information at this time.
+The Python Client doesn't store or expose quantile information at this time.
 
 ### Histogram
 
