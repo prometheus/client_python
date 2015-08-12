@@ -142,7 +142,7 @@ with s.time():
   pass
 ```
 
-**Summary support is incomplete**. The python client doesn't store or expose quantile information at this time.
+The python client doesn't store or expose quantile information at this time.
 
 ### Histogram
 
