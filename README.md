@@ -41,7 +41,7 @@ From one easy to use decorator you get:
 Prometheus's `rate` function allows calculation of both requests per second,
 and latency over time from this data.
 
-In addition if you're on Linux the `process` metrics expose CPU, memory and 
+In addition if you're on Linux the `process` metrics expose CPU, memory and
 other information about the process for free!
 
 ## Installation
@@ -142,6 +142,8 @@ with s.time():
   pass
 ```
 
+The Python client doesn't store or expose quantile information at this time.
+
 ### Histogram
 
 Histograms track the size and number of events in buckets.
@@ -194,7 +196,7 @@ c.labels({'method': 'post', 'endpoint': '/submit'}).inc()
 
 ### Process Collector
 
-The Python Client automatically exports metrics about process CPU usage, RAM,
+The Python client automatically exports metrics about process CPU usage, RAM,
 file descriptors and start time. These all have the prefix `process`, and
 are only currently available on Linux.
 
