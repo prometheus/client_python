@@ -285,6 +285,32 @@ class Gauge(object):
 
         return InprogressTracker(self)
 
+    def time(self):
+        '''Time a block of code or function, and set the duration in seconds.
+
+        Can be used as a function decorator or context manager.
+        '''
+
+        class Timer(object):
+            def __init__(self, gauge):
+                self._gauge = gauge
+
+            def __enter__(self):
+                self._start = time.time()
+
+            def __exit__(self, typ, value, traceback):
+                # Time can go backwards.
+                self._gauge.set(max(time.time() - self._start, 0))
+
+            def __call__(self, f):
+                @wraps(f)
+                def wrapped(*args, **kwargs):
+                    with self:
+                        return f(*args, **kwargs)
+                return wrapped
+
+        return Timer(self)
+
     def set_function(self, f):
         '''Call the provided function to return the Gauge value.
 

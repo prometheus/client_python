@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
 import os
 import threading
+import time
 import unittest
 
 
@@ -107,6 +108,22 @@ class TestGauge(unittest.TestCase):
         self.assertEqual(0, self.registry.get_sample_value('g'))
         x['a'] = None
         self.assertEqual(1, self.registry.get_sample_value('g'))
+
+    def test_function_decorator(self):
+        self.assertEqual(0, self.registry.get_sample_value('g'))
+
+        @self.gauge.time()
+        def f():
+            time.sleep(.001)
+
+        f()
+        self.assertNotEqual(0, self.registry.get_sample_value('g'))
+
+    def test_block_decorator(self):
+        self.assertEqual(0, self.registry.get_sample_value('g'))
+        with self.gauge.time():
+            time.sleep(.001)
+        self.assertNotEqual(0, self.registry.get_sample_value('g'))
 
 
 class TestSummary(unittest.TestCase):
