@@ -79,7 +79,7 @@ def write_to_textfile(path, registry):
     os.rename(tmppath, path)
 
 
-def push_to_gateway(gateway, job, registry=core.REGISTRY, grouping_key=None, timeout=None):
+def push_to_gateway(gateway, job, registry, grouping_key=None, timeout=None):
     '''Push metrics to the given pushgateway.
 
     This overwrites all metrics with the same job and grouping_key.
@@ -87,7 +87,7 @@ def push_to_gateway(gateway, job, registry=core.REGISTRY, grouping_key=None, tim
     _use_gateway('PUT', gateway, job, registry, grouping_key, timeout)
 
 
-def pushadd_to_gateway(gateway, job, registry=core.REGISTRY, grouping_key=None, timeout=None):
+def pushadd_to_gateway(gateway, job, registry, grouping_key=None, timeout=None):
     '''PushAdd metrics to the given pushgateway.
 
     This replaces metrics with the same name, job and grouping_key.
