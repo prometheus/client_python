@@ -183,8 +183,7 @@ def _MetricWrapper(cls):
 
 @_MetricWrapper
 class Counter(object):
-    '''
-    A Counter tracks counts of events or running totals.
+    '''A Counter tracks counts of events or running totals.
 
     Example use cases for Counters:
     - Number of requests processed
@@ -347,8 +346,7 @@ class Gauge(object):
 
 @_MetricWrapper
 class Summary(object):
-    '''
-    A Summary tracks the size and number of events.
+    '''A Summary tracks the size and number of events.
 
     Example use cases for Summaries:
     - Response latency
@@ -418,9 +416,9 @@ def _floatToGoString(d):
 
 @_MetricWrapper
 class Histogram(object):
-    '''
-    A Histogram tracks the size and number of events in buckets,
-    allowing for aggregatable calculation of quantiles.
+    '''A Histogram tracks the size and number of events in buckets.
+
+    You can use Histograms for aggregatable calculation of quantiles.
 
     Example use cases:
     - Response latency
