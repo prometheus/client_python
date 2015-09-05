@@ -183,6 +183,23 @@ def _MetricWrapper(cls):
 
 @_MetricWrapper
 class Counter(object):
+    '''A Counter tracks counts of events or running totals.
+
+    Example use cases for Counters:
+    - Number of requests processed
+    - Number of items that were inserted into a queue
+    - Total amount of data that a system has processed
+
+    Counters can only go up (and be reset when the process restarts). If your use case can go down,
+    you should use a Gauge instead.
+
+    An example for a Counter:
+
+    from prometheus_client import Counter
+    c = Counter('my_failures_total', 'Description of counter')
+    c.inc()     # Increment by 1
+    c.inc(1.6)  # Increment by given value
+    '''
     _type = 'counter'
     _reserved_labelnames = []
 
@@ -346,6 +363,29 @@ class Gauge(object):
 
 @_MetricWrapper
 class Summary(object):
+    '''A Summary tracks the size and number of events.
+
+    Example use cases for Summaries:
+    - Response latency
+    - Request size
+
+    Example for a Summary:
+
+    from prometheus_client import Summary
+    s = Summary('request_size_bytes', 'Request size (bytes)')
+    s.observe(512) # Observe 512 (bytes)
+
+
+    Example for a Summary using time:
+    from prometheus_client import Summary
+    REQUEST_TIME = Summary('response_latency_seconds', 'Response latency (seconds)')
+
+    @REQUEST_TIME.time()
+    def create_response(request):
+    """A dummy function"""
+      time.sleep(1)
+
+    '''
     _type = 'summary'
     _reserved_labelnames = ['quantile']
 
@@ -404,6 +444,33 @@ def _floatToGoString(d):
 
 @_MetricWrapper
 class Histogram(object):
+    '''A Histogram tracks the size and number of events in buckets.
+
+    You can use Histograms for aggregatable calculation of quantiles.
+
+    Example use cases:
+    - Response latency
+    - Request size
+
+    Example for a Histogram:
+
+    from prometheus_client import Histogram
+    h = Histogram('request_size_bytes', 'Request size (bytes)')
+    h.observe(512) # Observe 512 (bytes)
+
+
+    Example for a Histogram using time:
+    from prometheus_client import Histogram
+    REQUEST_TIME = Histogram('response_latency_seconds', 'Response latency (seconds)')
+
+    @REQUEST_TIME.time()
+    def create_response(request):
+    """A dummy function"""
+      time.sleep(1)
+
+    The default buckets are intended to cover a typical web/rpc request from milliseconds to seconds.
+    They can be overridden by passing `buckets` keyword argument to `Histogram`.
+    '''
     _type = 'histogram'
     _reserved_labelnames = ['histogram']
 

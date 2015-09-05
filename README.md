@@ -127,8 +127,8 @@ Summaries track the size and number of events.
 
 ```python
 from prometheus_client import Summary
-s = Summary('request_latency_seconds', 'Description of summary')
-s.observe(4.7)    # Observe 4.7 (seconds in this case)
+s = Summary('request_size_bytes', 'Description of summary')
+s.observe(512)    # Observe 512 (bytes in this case)
 ```
 
 There are utilities for timing code:
@@ -151,8 +151,8 @@ This allows for aggregatable calculation of quantiles.
 
 ```python
 from prometheus_client import Histogram
-h = Histogram('request_latency_seconds', 'Description of histogram')
-h.observe(4.7)    # Observe 4.7 (seconds in this case)
+h = Histogram('request_size_bytes', 'Description of histogram')
+h.observe(512)    # Observe 512 (bytes in this case)
 ```
 
 The default buckets are intended to cover a typical web/rpc request from milliseconds to seconds.
