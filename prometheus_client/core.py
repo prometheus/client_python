@@ -232,6 +232,23 @@ class Counter(object):
 
 @_MetricWrapper
 class Gauge(object):
+    '''Gauge metric, to report instantaneous values.
+    
+     Examples of Gauges include:
+        Inprogress requests
+        Number of items in a queue
+        Free memory
+        Total memory
+        Temperature
+
+     Gauges can go both up and down.
+
+        from prometheus_client import Gauge
+        g = Gauge('my_inprogress_requests', 'Description of gauge')
+        g.inc()      # Increment by 1
+        g.dec(10)    # Decrement by given value
+        g.set(4.2)   # Set to a given value
+    '''
     _type = 'gauge'
     _reserved_labelnames = []
 
