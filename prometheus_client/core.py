@@ -355,8 +355,19 @@ class Summary(object):
     Example for a Summary:
 
     from prometheus_client import Summary
-    s = Summary('request_latency_seconds', 'Description of summary')
-    s.observe(4.7)    # Observe 4.7 (seconds in this case)
+    s = Summary('request_size_bytes', 'Request size (bytes)')
+    s.observe(512) # Observe 512 (bytes)
+
+
+    Example for a Summary using time:
+    from prometheus_client import Summary
+    REQUEST_TIME = Summary('response_latency_seconds', 'Response latency (seconds)')
+
+    @REQUEST_TIME.time()
+    def create_response(request):
+    """A dummy function"""
+      time.sleep(1)
+
     '''
     _type = 'summary'
     _reserved_labelnames = ['quantile']
@@ -427,8 +438,18 @@ class Histogram(object):
     Example for a Histogram:
 
     from prometheus_client import Histogram
-    h = Histogram('request_latency_seconds', 'Description of histogram')
-    h.observe(4.7)    # Observe 4.7 (seconds in this case)
+    h = Histogram('request_size_bytes', 'Request size (bytes)')
+    h.observe(512) # Observe 512 (bytes)
+
+
+    Example for a Histogram using time:
+    from prometheus_client import Histogram
+    REQUEST_TIME = Histogram('response_latency_seconds', 'Response latency (seconds)')
+
+    @REQUEST_TIME.time()
+    def create_response(request):
+    """A dummy function"""
+      time.sleep(1)
 
     The default buckets are intended to cover a typical web/rpc request from milliseconds to seconds.
     They can be overridden by passing `buckets` keyword argument to `Histogram`.
