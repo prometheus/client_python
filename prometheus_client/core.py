@@ -183,6 +183,24 @@ def _MetricWrapper(cls):
 
 @_MetricWrapper
 class Counter(object):
+    '''
+    A Counter tracks counts of events or running totals.
+
+    Example use cases for Counters:
+    - Number of requests processed
+    - Number of items that were inserted into a queue
+    - Total amount of data that a system has processed
+
+    Counters can only go up (and be reset when the process restarts). If your use case can go down,
+    you should use a Gauge instead.
+
+    An example for a Counter:
+
+    from prometheus_client import Counter
+    c = Counter('my_failures_total', 'Description of counter')
+    c.inc()     # Increment by 1
+    c.inc(1.6)  # Increment by given value
+    '''
     _type = 'counter'
     _reserved_labelnames = []
 
@@ -329,6 +347,19 @@ class Gauge(object):
 
 @_MetricWrapper
 class Summary(object):
+    '''
+    A Summary tracks the size and number of events.
+
+    Example use cases for Summaries:
+    - Response latency
+    - Request size
+
+    Example for a Summary:
+
+    from prometheus_client import Summary
+    s = Summary('request_latency_seconds', 'Description of summary')
+    s.observe(4.7)    # Observe 4.7 (seconds in this case)
+    '''
     _type = 'summary'
     _reserved_labelnames = ['quantile']
 
@@ -387,6 +418,23 @@ def _floatToGoString(d):
 
 @_MetricWrapper
 class Histogram(object):
+    '''
+    A Histogram tracks the size and number of events in buckets,
+    allowing for aggregatable calculation of quantiles.
+
+    Example use cases:
+    - Response latency
+    - Request size
+
+    Example for a Histogram:
+
+    from prometheus_client import Histogram
+    h = Histogram('request_latency_seconds', 'Description of histogram')
+    h.observe(4.7)    # Observe 4.7 (seconds in this case)
+
+    The default buckets are intended to cover a typical web/rpc request from milliseconds to seconds.
+    They can be overridden by passing `buckets` keyword argument to `Histogram`.
+    '''
     _type = 'histogram'
     _reserved_labelnames = ['histogram']
 
