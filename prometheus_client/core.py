@@ -88,11 +88,34 @@ class Metric(object):
         self._samples.append((name, labels, value))
 
 
+class _MutexValue(object):
+    '''A float protected by a mutex.'''
+
+    def __init__(self, name, labelnames, labelvalues):
+      self._value = 0.0
+      self._lock = Lock()
+
+    def inc(self, amount):
+      with self._lock:
+          self._value += amount
+
+    def set(self, value):
+      with self._lock:
+          self._value = value
+
+    def get(self):
+      with self._lock:
+          return self._value
+
+_ValueClass = _MutexValue
+
+
 class _LabelWrapper(object):
     '''Handles labels for the wrapped metric.'''
-    def __init__(self, wrappedClass, labelnames, **kwargs):
+    def __init__(self, wrappedClass, name, labelnames, **kwargs):
         self._wrappedClass = wrappedClass
         self._type = wrappedClass._type
+        self._name = name
         self._labelnames = labelnames
         self._kwargs = kwargs
         self._lock = Lock()
@@ -122,7 +145,7 @@ class _LabelWrapper(object):
             labelvalues = tuple([unicode(l) for l in labelvalues])
         with self._lock:
             if labelvalues not in self._metrics:
-                self._metrics[labelvalues] = self._wrappedClass(**self._kwargs)
+                self._metrics[labelvalues] = self._wrappedClass(self._name, self._labelnames, labelvalues, **self._kwargs)
             return self._metrics[labelvalues]
 
     def remove(self, *labelvalues):
@@ -145,7 +168,15 @@ class _LabelWrapper(object):
 def _MetricWrapper(cls):
     '''Provides common functionality for metrics.'''
     def init(name, documentation, labelnames=(), namespace='', subsystem='', registry=REGISTRY, **kwargs):
+        full_name = ''
+        if namespace:
+            full_name += namespace + '_'
+        if subsystem:
+            full_name += subsystem + '_'
+        full_name += name
+
         if labelnames:
+            labelnames = tuple(labelnames)
             for l in labelnames:
                 if not _METRIC_LABEL_NAME_RE.match(l):
                     raise ValueError('Invalid label metric name: ' + l)
@@ -153,16 +184,9 @@ def _MetricWrapper(cls):
                     raise ValueError('Reserved label metric name: ' + l)
                 if l in cls._reserved_labelnames:
                     raise ValueError('Reserved label metric name: ' + l)
-            collector = _LabelWrapper(cls, labelnames, **kwargs)
+            collector = _LabelWrapper(cls, name, labelnames, **kwargs)
         else:
-            collector = cls(**kwargs)
-
-        full_name = ''
-        if namespace:
-            full_name += namespace + '_'
-        if subsystem:
-            full_name += subsystem + '_'
-        full_name += name
+            collector = cls(name, labelnames, (), **kwargs)
 
         if not _METRIC_NAME_RE.match(full_name):
             raise ValueError('Invalid metric name: ' + full_name)
@@ -203,16 +227,14 @@ class Counter(object):
     _type = 'counter'
     _reserved_labelnames = []
 
-    def __init__(self):
-        self._value = 0.0
-        self._lock = Lock()
+    def __init__(self, name, labelnames, labelvalues):
+        self._value = _ValueClass(name, labelnames, labelvalues)
 
     def inc(self, amount=1):
         '''Increment counter by the given amount.'''
         if amount < 0:
             raise ValueError('Counters can only be incremented by non-negative amounts.')
-        with self._lock:
-            self._value += amount
+        self._value.inc(amount)
 
     def count_exceptions(self, exception=Exception):
         '''Count exceptions in a block of code or function.
@@ -243,8 +265,7 @@ class Counter(object):
         return ExceptionCounter(self)
 
     def _samples(self):
-        with self._lock:
-            return (('', {}, self._value), )
+        return (('', {}, self._value.get()), )
 
 
 @_MetricWrapper
@@ -269,24 +290,20 @@ class Gauge(object):
     _type = 'gauge'
     _reserved_labelnames = []
 
-    def __init__(self):
-        self._value = 0.0
-        self._lock = Lock()
+    def __init__(self, name, labelnames, labelvalues):
+        self._value = _ValueClass(name, labelnames, labelvalues)
 
     def inc(self, amount=1):
         '''Increment gauge by the given amount.'''
-        with self._lock:
-            self._value += amount
+        self._value.inc(amount)
 
     def dec(self, amount=1):
         '''Decrement gauge by the given amount.'''
-        with self._lock:
-            self._value -= amount
+        self._value.inc(-amount)
 
     def set(self, value):
         '''Set gauge to the given value.'''
-        with self._lock:
-            self._value = float(value)
+        self._value.set(float(value))
 
     def set_to_current_time(self):
         '''Set gauge to the current unixtime.'''
@@ -357,8 +374,7 @@ class Gauge(object):
         self._samples = types.MethodType(samples, self)
 
     def _samples(self):
-        with self._lock:
-            return (('', {}, self._value), )
+        return (('', {}, self._value.get()), )
 
 
 @_MetricWrapper
@@ -388,16 +404,14 @@ class Summary(object):
     _type = 'summary'
     _reserved_labelnames = ['quantile']
 
-    def __init__(self):
-        self._count = 0.0
-        self._sum = 0.0
-        self._lock = Lock()
+    def __init__(self, name, labelnames, labelvalues):
+        self._count = _ValueClass(name + '_count', labelnames, labelvalues)
+        self._sum = _ValueClass(name + '_sum', labelnames, labelvalues)
 
     def observe(self, amount):
         '''Observe the given amount.'''
-        with self._lock:
-            self._count += 1
-            self._sum += amount
+        self._count.inc(1)
+        self._sum.inc(amount)
 
     def time(self):
         '''Time a block of code or function, and observe the duration in seconds.
@@ -426,10 +440,9 @@ class Summary(object):
         return Timer(self)
 
     def _samples(self):
-        with self._lock:
-            return (
-                ('_count', {}, self._count),
-                ('_sum', {}, self._sum))
+        return (
+            ('_count', {}, self._count.get()),
+            ('_sum', {}, self._sum.get()))
 
 
 def _floatToGoString(d):
@@ -473,9 +486,8 @@ class Histogram(object):
     _type = 'histogram'
     _reserved_labelnames = ['histogram']
 
-    def __init__(self, buckets=(.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, _INF)):
-        self._sum = 0.0
-        self._lock = Lock()
+    def __init__(self, name, labelnames, labelvalues, buckets=(.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, _INF)):
+        self._sum = _ValueClass(name + '_sum', labelnames, labelvalues)
         buckets = [float(b) for b in buckets]
         if buckets != sorted(buckets):
             # This is probably an error on the part of the user,
@@ -486,16 +498,18 @@ class Histogram(object):
         if len(buckets) < 2:
             raise ValueError('Must have at least two buckets')
         self._upper_bounds = buckets
-        self._buckets = [0.0] * len(buckets)
+        self._buckets = []
+        bucket_labelnames = labelnames + ('le',)
+        for b in buckets:
+          self._buckets.append(_ValueClass(name + '_bucket', bucket_labelnames, labelvalues + (_floatToGoString(b),)))
 
     def observe(self, amount):
         '''Observe the given amount.'''
-        with self._lock:
-            self._sum += amount
-            for i, bound in enumerate(self._upper_bounds):
-                if amount <= bound:
-                    self._buckets[i] += 1
-                    break
+        self._sum.inc(amount)
+        for i, bound in enumerate(self._upper_bounds):
+            if amount <= bound:
+                self._buckets[i].inc(1)
+                break
 
     def time(self):
         '''Time a block of code or function, and observe the duration in seconds.
@@ -524,13 +538,12 @@ class Histogram(object):
         return Timer(self)
 
     def _samples(self):
-        with self._lock:
-            samples = []
-            acc = 0
-            for i, bound in enumerate(self._upper_bounds):
-                acc += self._buckets[i]
-                samples.append(('_bucket', {'le': _floatToGoString(bound)}, acc))
-            samples.append(('_count', {}, acc))
-            samples.append(('_sum', {}, self._sum))
-            return tuple(samples)
+        samples = []
+        acc = 0
+        for i, bound in enumerate(self._upper_bounds):
+            acc += self._buckets[i].get()
+            samples.append(('_bucket', {'le': _floatToGoString(bound)}, acc))
+        samples.append(('_count', {}, acc))
+        samples.append(('_sum', {}, self._sum.get()))
+        return tuple(samples)
 
