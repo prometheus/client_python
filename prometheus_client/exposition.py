@@ -31,9 +31,9 @@ def generate_latest(registry=core.REGISTRY):
     output = []
     for metric in registry.collect():
         output.append('# HELP {0} {1}'.format(
-            metric._name, metric._documentation.replace('\\', r'\\').replace('\n', r'\n')))
-        output.append('\n# TYPE {0} {1}\n'.format(metric._name, metric._type))
-        for name, labels, value in metric._samples:
+            metric.name, metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
+        output.append('\n# TYPE {0} {1}\n'.format(metric.name, metric.type))
+        for name, labels, value in metric.samples:
             if labels:
                 labelstr = '{{{0}}}'.format(','.join(
                     ['{0}="{1}"'.format(

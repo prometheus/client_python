@@ -61,7 +61,7 @@ class CollectorRegistry(object):
         if labels is None:
             labels = {}
         for metric in self.collect():
-            for n, l, value in metric._samples:
+            for n, l, value in metric.samples:
                 if n == name and l == labels:
                     return value
         return None
@@ -82,18 +82,18 @@ class Metric(object):
     and SummaryMetricFamily instead.
     '''
     def __init__(self, name, documentation, typ):
-        self._name = name
-        self._documentation = documentation
+        self.name = name
+        self.documentation = documentation
         if typ not in _METRIC_TYPES:
             raise ValueError('Invalid metric type: ' + typ)
-        self._type = typ
-        self._samples = []
+        self.type = typ
+        self.samples = []
 
     def add_sample(self, name, labels, value):
         '''Add a sample to the metric.
 
         Internal-only, do not use.'''
-        self._samples.append((name, labels, value))
+        self.samples.append((name, labels, value))
 
 
 class CounterMetricFamily(Metric):
@@ -118,7 +118,7 @@ class CounterMetricFamily(Metric):
           labels: A list of label values
           value: The value of the metric.
         '''
-        self._samples.append((self._name, dict(zip(self._labelnames, labels)), value))
+        self.samples.append((self.name, dict(zip(self._labelnames, labels)), value))
 
 
 class GaugeMetricFamily(Metric):
@@ -143,7 +143,7 @@ class GaugeMetricFamily(Metric):
           labels: A list of label values
           value: A float
         '''
-        self._samples.append((self._name, dict(zip(self._labelnames, labels)), value))
+        self.samples.append((self.name, dict(zip(self._labelnames, labels)), value))
 
 
 class SummaryMetricFamily(Metric):
@@ -171,8 +171,8 @@ class SummaryMetricFamily(Metric):
           count_value: The count value of the metric.
           sum_value: The sum value of the metric.
         '''
-        self._samples.append((self._name + u'_count', dict(zip(self._labelnames, labels)), count_value))
-        self._samples.append((self._name + u'_sum', dict(zip(self._labelnames, labels)), sum_value))
+        self.samples.append((self.name + '_count', dict(zip(self._labelnames, labels)), count_value))
+        self.samples.append((self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value))
 
 
 class HistogramMetricFamily(Metric):
@@ -202,10 +202,10 @@ class HistogramMetricFamily(Metric):
           sum_value: The sum value of the metric.
         '''
         for bucket, value in buckets:
-          self._samples.append((self._name + u'_bucket', dict(zip(self._labelnames, labels) + [(u'le', bucket)]), value))
+          self.samples.append((self.name + '_bucket', dict(list(zip(self._labelnames, labels)) + [('le', bucket)]), value))
         # +Inf is last and provides the count value.
-        self._samples.append((self._name + u'_count', dict(zip(self._labelnames, labels)), buckets[-1][1]))
-        self._samples.append((self._name + u'_sum', dict(zip(self._labelnames, labels)), sum_value))
+        self.samples.append((self.name + '_count', dict(zip(self._labelnames, labels)), buckets[-1][1]))
+        self.samples.append((self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value))
 
 
 class _MutexValue(object):
