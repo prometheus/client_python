@@ -3,6 +3,7 @@
 from __future__ import unicode_literals
 
 import copy
+import math
 import re
 import time
 import types
@@ -94,6 +95,13 @@ class Metric(object):
 
         Internal-only, do not use.'''
         self.samples.append((name, labels, value))
+
+    def __eq__(self, other):
+        return (isinstance(other, Metric)
+                and self.name == other.name
+                and self.documentation == other.documentation
+                and self.type == other.type
+                and self.samples == other.samples)
 
 
 class CounterMetricFamily(Metric):
@@ -570,6 +578,8 @@ def _floatToGoString(d):
         return '+Inf'
     elif d == _MINUS_INF:
         return '-Inf'
+    elif math.isnan(d):
+        return 'NaN'
     else:
         return repr(float(d))
 
