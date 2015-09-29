@@ -61,32 +61,29 @@ class ProcessCollector(object):
         try:
             with open(os.path.join(pid, 'stat')) as stat:
                 parts = (stat.read().split(')')[-1].split())
-            vmem = core.Metric(self._prefix + 'virtual_memory_bytes', 'Virtual memory size in bytes', 'gauge')
-            vmem.add_sample(self._prefix + 'virtual_memory_bytes', {}, float(parts[20]))
-            rss = core.Metric(self._prefix + 'resident_memory_bytes', 'Resident memory size in bytes', 'gauge')
-            rss.add_sample(self._prefix + 'resident_memory_bytes', {}, float(parts[21]) * _PAGESIZE)
-            start_time = core.Metric(self._prefix + 'start_time_seconds',
-                                'Start time of the process since unix epoch in seconds.', 'gauge')
+            vmem = core.GaugeMetricFamily(self._prefix + 'virtual_memory_bytes',
+                    'Virtual memory size in bytes', value=float(parts[20]))
+            rss = core.GaugeMetricFamily(self._prefix + 'resident_memory_bytes', 'Resident memory size in bytes', value=float(parts[21]) * _PAGESIZE)
             start_time_secs = float(parts[19]) / self._ticks
-            start_time.add_sample(self._prefix + 'start_time_seconds',{} , start_time_secs + self._btime)
+            start_time = core.GaugeMetricFamily(self._prefix + 'start_time_seconds',
+                    'Start time of the process since unix epoch in seconds.', value=start_time_secs + self._btime)
             utime = float(parts[11]) / self._ticks
             stime = float(parts[12]) / self._ticks
-            cpu = core.Metric(self._prefix + 'cpu_seconds_total',
-                         'Total user and system CPU time spent in seconds.', 'counter')
-            cpu.add_sample(self._prefix + 'cpu_seconds_total', {}, utime + stime)
+            cpu = core.CounterMetricFamily(self._prefix + 'cpu_seconds_total',
+                    'Total user and system CPU time spent in seconds.', value=utime + stime)
             result.extend([vmem, rss, start_time, cpu])
         except IOError:
             pass
 
         try:
-            max_fds = core.Metric(self._prefix + 'max_fds', 'Maximum number of open file descriptors.', 'gauge')
             with open(os.path.join(pid, 'limits')) as limits:
                 for line in limits:
                     if line.startswith('Max open file'):
-                        max_fds.add_sample(self._prefix + 'max_fds', {}, float(line.split()[3]))
+                        max_fds = core.GaugeMetricFamily(self._prefix + 'max_fds',
+                                'Maximum number of open file descriptors.', value=float(line.split()[3]))
                         break
-            open_fds = core.Metric(self._prefix + 'open_fds', 'Number of open file descriptors.', 'gauge')
-            open_fds.add_sample(self._prefix + 'open_fds', {}, len(os.listdir(os.path.join(pid, 'fd'))))
+            open_fds = core.GaugeMetricFamily(self._prefix + 'open_fds',
+                    'Number of open file descriptors.', len(os.listdir(os.path.join(pid, 'fd'))))
             result.extend([open_fds, max_fds])
         except IOError:
             pass

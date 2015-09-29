@@ -74,7 +74,14 @@ _METRIC_TYPES = ('counter', 'gauge', 'summary', 'histogram', 'untyped')
 
 
 class Metric(object):
-    '''A single metric and it's samples.'''
+    '''A single metric family and its samples.
+
+    This is intended only for internal use by the instrumentation client.
+
+
+    Custom collectors should use GaugeMetricFamily, CounterMetricFamily
+    and SummaryMetricFamily instead.
+    '''
     def __init__(self, name, documentation, typ):
         self._name = name
         self._documentation = documentation
@@ -83,9 +90,122 @@ class Metric(object):
         self._type = typ
         self._samples = []
 
-    '''Add a sample to the metric'''
     def add_sample(self, name, labels, value):
+        '''Add a sample to the metric.
+
+        Internal-only, do not use.'''
         self._samples.append((name, labels, value))
+
+
+class GaugeMetricFamily(Metric):
+    '''A single gauge and its samples.
+
+    For use by custom collectors.
+    '''
+    def __init__(self, name, documentation, value=None, labels=None):
+        Metric.__init__(self, name, documentation, 'gauge')
+        if labels is not None and value is not None:
+            raise ValueError('Can only specify at most one of value and labels.')
+        if labels is None:
+          labels = []
+        self._labelnames = labels
+        if value is not None:
+          self.add_metric([], value)
+
+    def add_metric(self, labels, value):
+        '''Add a metric to the metric family.
+
+        Args:
+          labels: A list of label values
+          value: A float
+        '''
+        self._samples.append((self._name, dict(zip(self._labelnames, labels)), value))
+
+
+class CounterMetricFamily(Metric):
+    '''A single counter and its samples.
+
+    For use by custom collectors.
+    '''
+    def __init__(self, name, documentation, value=None, labels=None):
+        Metric.__init__(self, name, documentation, 'counter')
+        if labels is not None and value is not None:
+            raise ValueError('Can only specify at most one of value and labels.')
+        if labels is None:
+          labels = []
+        self._labelnames = labels
+        if value is not None:
+          self.add_metric([], value)
+
+    def add_metric(self, labels, value):
+        '''Add a metric to the metric family.
+
+        Args:
+          labels: A list of label values
+          value: The value of the metric.
+        '''
+        self._samples.append((self._name, dict(zip(self._labelnames, labels)), value))
+
+
+class SummaryMetricFamily(Metric):
+    '''A single summary and its samples.
+
+    For use by custom collectors.
+    '''
+    def __init__(self, name, documentation, count_value=None, sum_value=None, labels=None):
+        Metric.__init__(self, name, documentation, 'summary')
+        if sum_value is not None != count_value is not None:
+            raise ValueError('count_value and sum_value must be provided together.')
+        if labels is not None and count_value is not None:
+            raise ValueError('Can only specify at most one of value and labels.')
+        if labels is None:
+          labels = []
+        self._labelnames = labels
+        if value is not None:
+          self.add_metric([], count_value, sum_value)
+
+    def add_metric(self, labels, count_value, sum_value):
+        '''Add a metric to the metric family.
+
+        Args:
+          labels: A list of label values
+          count_value: The count value of the metric.
+          sum_value: The sum value of the metric.
+        '''
+        self._samples.append((self._name + u'_count', dict(zip(self._labelnames, labels)), count_value))
+        self._samples.append((self._name + u'_sum', dict(zip(self._labelnames, labels)), sum_value))
+
+
+class HistogramMetricFamily(Metric):
+    '''A single histogram and its samples.
+
+    For use by custom collectors.
+    '''
+    def __init__(self, name, documentation, buckets=None, sum_value=None, labels=None):
+        Metric.__init__(self, name, documentation, 'histogram')
+        if sum_value is not None != buckets is not None:
+            raise ValueError('buckets and sum_value must be provided together.')
+        if labels is not None and buckets is not None:
+            raise ValueError('Can only specify at most one of buckets and labels.')
+        if labels is None:
+          labels = []
+        self._labelnames = labels
+        if value is not None:
+          self.add_metric([], buckets, sum_value)
+
+    def add_metric(self, labels, buckets, sum_value):
+        '''Add a metric to the metric family.
+
+        Args:
+          labels: A list of label values
+          buckets: A dict of bucket names to values. The +Inf key must be present.
+          sum_value: The sum value of the metric.
+        '''
+        for bucket, value in buckets.items:
+          self._samples.append((self._name + u'_bucket', dict(zip(self._labelnames, labels) + (u'le', bucket)), value))
+        self._samples.append((self._name + u'_count', dict(zip(self._labelnames, labels)), buckets['+Inf']))
+        self._samples.append((self._name + u'_sum', dict(zip(self._labelnames, labels)), sum_value))
+
 
 
 class _MutexValue(object):
@@ -271,7 +391,7 @@ class Counter(object):
 @_MetricWrapper
 class Gauge(object):
     '''Gauge metric, to report instantaneous values.
-    
+
      Examples of Gauges include:
         Inprogress requests
         Number of items in a queue
