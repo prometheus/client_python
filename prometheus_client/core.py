@@ -78,7 +78,6 @@ class Metric(object):
 
     This is intended only for internal use by the instrumentation client.
 
-
     Custom collectors should use GaugeMetricFamily, CounterMetricFamily
     and SummaryMetricFamily instead.
     '''
@@ -95,31 +94,6 @@ class Metric(object):
 
         Internal-only, do not use.'''
         self._samples.append((name, labels, value))
-
-
-class GaugeMetricFamily(Metric):
-    '''A single gauge and its samples.
-
-    For use by custom collectors.
-    '''
-    def __init__(self, name, documentation, value=None, labels=None):
-        Metric.__init__(self, name, documentation, 'gauge')
-        if labels is not None and value is not None:
-            raise ValueError('Can only specify at most one of value and labels.')
-        if labels is None:
-          labels = []
-        self._labelnames = labels
-        if value is not None:
-          self.add_metric([], value)
-
-    def add_metric(self, labels, value):
-        '''Add a metric to the metric family.
-
-        Args:
-          labels: A list of label values
-          value: A float
-        '''
-        self._samples.append((self._name, dict(zip(self._labelnames, labels)), value))
 
 
 class CounterMetricFamily(Metric):
@@ -147,6 +121,31 @@ class CounterMetricFamily(Metric):
         self._samples.append((self._name, dict(zip(self._labelnames, labels)), value))
 
 
+class GaugeMetricFamily(Metric):
+    '''A single gauge and its samples.
+
+    For use by custom collectors.
+    '''
+    def __init__(self, name, documentation, value=None, labels=None):
+        Metric.__init__(self, name, documentation, 'gauge')
+        if labels is not None and value is not None:
+            raise ValueError('Can only specify at most one of value and labels.')
+        if labels is None:
+          labels = []
+        self._labelnames = labels
+        if value is not None:
+          self.add_metric([], value)
+
+    def add_metric(self, labels, value):
+        '''Add a metric to the metric family.
+
+        Args:
+          labels: A list of label values
+          value: A float
+        '''
+        self._samples.append((self._name, dict(zip(self._labelnames, labels)), value))
+
+
 class SummaryMetricFamily(Metric):
     '''A single summary and its samples.
 
@@ -154,14 +153,14 @@ class SummaryMetricFamily(Metric):
     '''
     def __init__(self, name, documentation, count_value=None, sum_value=None, labels=None):
         Metric.__init__(self, name, documentation, 'summary')
-        if sum_value is not None != count_value is not None:
+        if (sum_value is None) != (count_value is None):
             raise ValueError('count_value and sum_value must be provided together.')
         if labels is not None and count_value is not None:
             raise ValueError('Can only specify at most one of value and labels.')
         if labels is None:
           labels = []
         self._labelnames = labels
-        if value is not None:
+        if count_value is not None:
           self.add_metric([], count_value, sum_value)
 
     def add_metric(self, labels, count_value, sum_value):
@@ -183,14 +182,14 @@ class HistogramMetricFamily(Metric):
     '''
     def __init__(self, name, documentation, buckets=None, sum_value=None, labels=None):
         Metric.__init__(self, name, documentation, 'histogram')
-        if sum_value is not None != buckets is not None:
+        if (sum_value is None) != (buckets is None):
             raise ValueError('buckets and sum_value must be provided together.')
         if labels is not None and buckets is not None:
             raise ValueError('Can only specify at most one of buckets and labels.')
         if labels is None:
           labels = []
         self._labelnames = labels
-        if value is not None:
+        if buckets is not None:
           self.add_metric([], buckets, sum_value)
 
     def add_metric(self, labels, buckets, sum_value):
@@ -198,14 +197,15 @@ class HistogramMetricFamily(Metric):
 
         Args:
           labels: A list of label values
-          buckets: A dict of bucket names to values. The +Inf key must be present.
+          buckets: A list of pairs of bucket names and values.
+              The buckets must be sorted, and +Inf present.
           sum_value: The sum value of the metric.
         '''
-        for bucket, value in buckets.items:
-          self._samples.append((self._name + u'_bucket', dict(zip(self._labelnames, labels) + (u'le', bucket)), value))
-        self._samples.append((self._name + u'_count', dict(zip(self._labelnames, labels)), buckets['+Inf']))
+        for bucket, value in buckets:
+          self._samples.append((self._name + u'_bucket', dict(zip(self._labelnames, labels) + [(u'le', bucket)]), value))
+        # +Inf is last and provides the count value.
+        self._samples.append((self._name + u'_count', dict(zip(self._labelnames, labels)), buckets[-1][1]))
         self._samples.append((self._name + u'_sum', dict(zip(self._labelnames, labels)), sum_value))
-
 
 
 class _MutexValue(object):

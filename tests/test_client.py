@@ -4,21 +4,7 @@ import threading
 import time
 import unittest
 
-
-from prometheus_client import Gauge, Counter, Summary, Histogram, Metric
-from prometheus_client import CollectorRegistry, generate_latest, ProcessCollector
-from prometheus_client import push_to_gateway, pushadd_to_gateway, delete_from_gateway
-from prometheus_client import CONTENT_TYPE_LATEST, instance_ip_grouping_key
-
-try:
-    from BaseHTTPServer import BaseHTTPRequestHandler
-    from BaseHTTPServer import HTTPServer
-except ImportError:
-    # Python 3
-    from http.server import BaseHTTPRequestHandler
-    from http.server import HTTPServer
-
-
+from prometheus_client.core import *
 
 class TestCounter(unittest.TestCase):
     def setUp(self):
@@ -304,178 +290,83 @@ class TestMetricWrapper(unittest.TestCase):
         self.assertRaises(ValueError, Summary, 'c', '', labelnames=['quantile'])
 
 
-class TestGenerateText(unittest.TestCase):
+class TestMetricFamilies(unittest.TestCase):
     def setUp(self):
         self.registry = CollectorRegistry()
+
+    def custom_collector(self, metric_family):
+        class CustomCollector(object):
+            def collect(self):
+                return [metric_family]
+        self.registry.register(CustomCollector())
 
     def test_counter(self):
-        c = Counter('cc', 'A counter', registry=self.registry)
-        c.inc()
-        self.assertEqual(b'# HELP cc A counter\n# TYPE cc counter\ncc 1.0\n', generate_latest(self.registry))
+        self.custom_collector(CounterMetricFamily('c', 'help', value=1))
+        self.assertEqual(1, self.registry.get_sample_value('c', {}))
+
+    def test_counter_labels(self):
+        cmf = CounterMetricFamily('c', 'help', labels=['a', 'c'])
+        cmf.add_metric(['b', 'd'], 2)
+        self.custom_collector(cmf)
+        self.assertEqual(2, self.registry.get_sample_value('c', {'a': 'b', 'c': 'd'}))
 
     def test_gauge(self):
-        g = Gauge('gg', 'A gauge', registry=self.registry)
-        g.set(17)
-        self.assertEqual(b'# HELP gg A gauge\n# TYPE gg gauge\ngg 17.0\n', generate_latest(self.registry))
+        self.custom_collector(GaugeMetricFamily('g', 'help', value=1))
+        self.assertEqual(1, self.registry.get_sample_value('g', {}))
+
+    def test_gauge_labels(self):
+        cmf = GaugeMetricFamily('g', 'help', labels=['a'])
+        cmf.add_metric(['b'], 2)
+        self.custom_collector(cmf)
+        self.assertEqual(2, self.registry.get_sample_value('g', {'a':'b'}))
 
     def test_summary(self):
-        s = Summary('ss', 'A summary', ['a', 'b'], registry=self.registry)
-        s.labels('c', 'd').observe(17)
-        self.assertEqual(b'# HELP ss A summary\n# TYPE ss summary\nss_count{a="c",b="d"} 1.0\nss_sum{a="c",b="d"} 17.0\n', generate_latest(self.registry))
+        self.custom_collector(SummaryMetricFamily('s', 'help', count_value=1, sum_value=2))
+        self.assertEqual(1, self.registry.get_sample_value('s_count', {}))
+        self.assertEqual(2, self.registry.get_sample_value('s_sum', {}))
 
-    def test_unicode(self):
-        c = Counter('cc', '\u4500', ['l'], registry=self.registry)
-        c.labels('\u4500').inc()
-        self.assertEqual(b'# HELP cc \xe4\x94\x80\n# TYPE cc counter\ncc{l="\xe4\x94\x80"} 1.0\n', generate_latest(self.registry))
+    def test_summary_labels(self):
+        cmf = SummaryMetricFamily('s', 'help', labels=['a'])
+        cmf.add_metric(['b'], count_value=1, sum_value=2)
+        self.custom_collector(cmf)
+        self.assertEqual(1, self.registry.get_sample_value('s_count', {'a': 'b'}))
+        self.assertEqual(2, self.registry.get_sample_value('s_sum', {'a': 'b'}))
 
-    def test_escaping(self):
-        c = Counter('cc', 'A\ncount\\er', ['a'], registry=self.registry)
-        c.labels('\\x\n"').inc(1)
-        self.assertEqual(b'# HELP cc A\\ncount\\\\er\n# TYPE cc counter\ncc{a="\\\\x\\n\\""} 1.0\n', generate_latest(self.registry))
+    def test_histogram(self):
+        self.custom_collector(HistogramMetricFamily('h', 'help', buckets=[('0', 1), ('+Inf', 2)], sum_value=3))
+        self.assertEqual(1, self.registry.get_sample_value('h_bucket', {'le': '0'}))
+        self.assertEqual(2, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
+        self.assertEqual(2, self.registry.get_sample_value('h_count', {}))
+        self.assertEqual(3, self.registry.get_sample_value('h_sum', {}))
 
-    def test_nonnumber(self):
-        class MyNumber():
-            def __repr__(self):
-              return "MyNumber(123)"
-            def __float__(self):
-              return 123.0
-        class MyCollector():
-            def collect(self):
-                metric = Metric("nonnumber", "Non number", 'untyped')
-                metric.add_sample("nonnumber", {}, MyNumber())
-                yield metric
-        self.registry.register(MyCollector())
-        self.assertEqual(b'# HELP nonnumber Non number\n# TYPE nonnumber untyped\nnonnumber 123.0\n', generate_latest(self.registry))
+    def test_histogram_labels(self):
+        cmf = HistogramMetricFamily('h', 'help', labels=['a'])
+        cmf.add_metric(['b'], buckets=[('0', 1), ('+Inf', 2)], sum_value=3)
+        self.custom_collector(cmf)
+        self.assertEqual(1, self.registry.get_sample_value('h_bucket', {'a': 'b', 'le': '0'}))
+        self.assertEqual(2, self.registry.get_sample_value('h_bucket', {'a': 'b', 'le': '+Inf'}))
+        self.assertEqual(2, self.registry.get_sample_value('h_count', {'a': 'b'}))
+        self.assertEqual(3, self.registry.get_sample_value('h_sum', {'a': 'b'}))
 
+    def test_bad_constructors(self):
+        self.assertRaises(ValueError, CounterMetricFamily, 'c', 'help', value=1, labels=[])
+        self.assertRaises(ValueError, CounterMetricFamily, 'c', 'help', value=1, labels=['a'])
 
-class TestProcessCollector(unittest.TestCase):
-    def setUp(self):
-        self.registry = CollectorRegistry()
-        self.test_proc = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'proc')
+        self.assertRaises(ValueError, GaugeMetricFamily, 'g', 'help', value=1, labels=[])
+        self.assertRaises(ValueError, GaugeMetricFamily, 'g', 'help', value=1, labels=['a'])
 
-    def test_working(self):
-        collector = ProcessCollector(proc=self.test_proc, pid=lambda: 26231, registry=self.registry)
-        collector._ticks = 100
+        self.assertRaises(ValueError, SummaryMetricFamily, 's', 'help', sum_value=1)
+        self.assertRaises(ValueError, SummaryMetricFamily, 's', 'help', count_value=1)
+        self.assertRaises(ValueError, SummaryMetricFamily, 's', 'help', count_value=1, labels=['a'])
+        self.assertRaises(ValueError, SummaryMetricFamily, 's', 'help', sum_value=1, labels=['a'])
+        self.assertRaises(ValueError, SummaryMetricFamily, 's', 'help', count_value=1, sum_value=1, labels=['a'])
 
-        self.assertEqual(17.21, self.registry.get_sample_value('process_cpu_seconds_total'))
-        self.assertEqual(56274944.0, self.registry.get_sample_value('process_virtual_memory_bytes'))
-        self.assertEqual(8114176, self.registry.get_sample_value('process_resident_memory_bytes'))
-        self.assertEqual(1418184099.75, self.registry.get_sample_value('process_start_time_seconds'))
-        self.assertEqual(2048.0, self.registry.get_sample_value('process_max_fds'))
-        self.assertEqual(5.0, self.registry.get_sample_value('process_open_fds'))
-        self.assertEqual(None, self.registry.get_sample_value('process_fake_namespace'))
-
-    def test_namespace(self):
-        collector = ProcessCollector(proc=self.test_proc, pid=lambda: 26231, registry=self.registry, namespace='n')
-        collector._ticks = 100
-
-        self.assertEqual(17.21, self.registry.get_sample_value('n_process_cpu_seconds_total'))
-        self.assertEqual(56274944.0, self.registry.get_sample_value('n_process_virtual_memory_bytes'))
-        self.assertEqual(8114176, self.registry.get_sample_value('n_process_resident_memory_bytes'))
-        self.assertEqual(1418184099.75, self.registry.get_sample_value('n_process_start_time_seconds'))
-        self.assertEqual(2048.0, self.registry.get_sample_value('n_process_max_fds'))
-        self.assertEqual(5.0, self.registry.get_sample_value('n_process_open_fds'))
-        self.assertEqual(None, self.registry.get_sample_value('process_cpu_seconds_total'))
-
-    def test_working_584(self):
-        collector = ProcessCollector(proc=self.test_proc, pid=lambda: "584\n", registry=self.registry)
-        collector._ticks = 100
-
-        self.assertEqual(0.0, self.registry.get_sample_value('process_cpu_seconds_total'))
-        self.assertEqual(10395648.0, self.registry.get_sample_value('process_virtual_memory_bytes'))
-        self.assertEqual(634880, self.registry.get_sample_value('process_resident_memory_bytes'))
-        self.assertEqual(1418291667.75, self.registry.get_sample_value('process_start_time_seconds'))
-        self.assertEqual(None, self.registry.get_sample_value('process_max_fds'))
-        self.assertEqual(None, self.registry.get_sample_value('process_open_fds'))
-
-    def test_working_fake_pid(self):
-        collector = ProcessCollector(proc=self.test_proc, pid=lambda: 123, registry=self.registry)
-        collector._ticks = 100
-
-        self.assertEqual(None, self.registry.get_sample_value('process_cpu_seconds_total'))
-        self.assertEqual(None, self.registry.get_sample_value('process_virtual_memory_bytes'))
-        self.assertEqual(None, self.registry.get_sample_value('process_resident_memory_bytes'))
-        self.assertEqual(None, self.registry.get_sample_value('process_start_time_seconds'))
-        self.assertEqual(None, self.registry.get_sample_value('process_max_fds'))
-        self.assertEqual(None, self.registry.get_sample_value('process_open_fds'))
-        self.assertEqual(None, self.registry.get_sample_value('process_fake_namespace'))
-
-
-class TestPushGateway(unittest.TestCase):
-    def setUp(self):
-        self.registry = CollectorRegistry()
-        self.counter = Gauge('g', 'help', registry=self.registry)
-        self.requests = requests = []
-        class TestHandler(BaseHTTPRequestHandler):
-            def do_PUT(self):
-                length = int(self.headers['content-length'])
-                requests.append((self, self.rfile.read(length)))
-                self.send_response(201)
-                self.end_headers()
-
-            do_POST = do_PUT
-            do_DELETE = do_PUT
-
-        httpd = HTTPServer(('', 0), TestHandler)
-        self.address = 'localhost:' + str(httpd.server_address[1])
-        class TestServer(threading.Thread):
-            def run(self):
-                httpd.handle_request()
-        self.server = TestServer()
-        self.server.daemon = True
-        self.server.start()
-
-    def test_push(self):
-        push_to_gateway(self.address, "my_job", self.registry)
-        self.assertEqual(self.requests[0][0].command, 'PUT')
-        self.assertEqual(self.requests[0][0].path, '/job/my_job')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
-        self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
-
-    def test_push_with_groupingkey(self):
-        push_to_gateway(self.address, "my_job", self.registry, {'a': 9})
-        self.assertEqual(self.requests[0][0].command, 'PUT')
-        self.assertEqual(self.requests[0][0].path, '/job/my_job/a/9')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
-        self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
-
-    def test_push_with_complex_groupingkey(self):
-        push_to_gateway(self.address, "my_job", self.registry, {'a': 9, 'b': 'a/ z'})
-        self.assertEqual(self.requests[0][0].command, 'PUT')
-        self.assertEqual(self.requests[0][0].path, '/job/my_job/a/9/b/a%2F+z')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
-        self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
-
-    def test_pushadd(self):
-        pushadd_to_gateway(self.address, "my_job", self.registry)
-        self.assertEqual(self.requests[0][0].command, 'POST')
-        self.assertEqual(self.requests[0][0].path, '/job/my_job')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
-        self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
-
-    def test_pushadd_with_groupingkey(self):
-        pushadd_to_gateway(self.address, "my_job", self.registry, {'a': 9})
-        self.assertEqual(self.requests[0][0].command, 'POST')
-        self.assertEqual(self.requests[0][0].path, '/job/my_job/a/9')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
-        self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
-
-    def test_delete(self):
-        delete_from_gateway(self.address, "my_job")
-        self.assertEqual(self.requests[0][0].command, 'DELETE')
-        self.assertEqual(self.requests[0][0].path, '/job/my_job')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
-        self.assertEqual(self.requests[0][1], b'')
-
-    def test_delete_with_groupingkey(self):
-        delete_from_gateway(self.address, "my_job", {'a': 9})
-        self.assertEqual(self.requests[0][0].command, 'DELETE')
-        self.assertEqual(self.requests[0][0].path, '/job/my_job/a/9')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
-        self.assertEqual(self.requests[0][1], b'')
-
-    def test_instance_ip_grouping_key(self):
-        self.assertTrue('' != instance_ip_grouping_key()['instance'])
+        self.assertRaises(ValueError, HistogramMetricFamily, 'h', 'help', sum_value=1)
+        self.assertRaises(ValueError, HistogramMetricFamily, 'h', 'help', buckets={})
+        self.assertRaises(ValueError, HistogramMetricFamily, 'h', 'help', sum_value=1, labels=['a'])
+        self.assertRaises(ValueError, HistogramMetricFamily, 'h', 'help', buckets={}, labels=['a'])
+        self.assertRaises(ValueError, HistogramMetricFamily, 'h', 'help', buckets={}, sum_value=1, labels=['a'])
+        self.assertRaises(KeyError, HistogramMetricFamily, 'h', 'help', buckets={}, sum_value=1)
 
 
 if __name__ == '__main__':
