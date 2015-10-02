@@ -408,15 +408,16 @@ class TestPushGateway(unittest.TestCase):
         self.requests = requests = []
         class TestHandler(BaseHTTPRequestHandler):
             def do_PUT(self):
-                self.send_response(201)
                 length = int(self.headers['content-length'])
                 requests.append((self, self.rfile.read(length)))
+                self.send_response(201)
+                self.end_headers()
 
             do_POST = do_PUT
             do_DELETE = do_PUT
 
         httpd = HTTPServer(('', 0), TestHandler)
-        self.address = ':'.join([str(x) for x in httpd.server_address])
+        self.address = 'localhost:' + str(httpd.server_address[1])
         class TestServer(threading.Thread):
             def run(self):
                 httpd.handle_request()
@@ -466,7 +467,7 @@ class TestPushGateway(unittest.TestCase):
         self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
         self.assertEqual(self.requests[0][1], b'')
 
-    def test_pushadd_with_groupingkey(self):
+    def test_delete_with_groupingkey(self):
         delete_from_gateway(self.address, "my_job", {'a': 9})
         self.assertEqual(self.requests[0][0].command, 'DELETE')
         self.assertEqual(self.requests[0][0].path, '/job/my_job/a/9')
