@@ -28,7 +28,9 @@ class TestGraphiteBridge(unittest.TestCase):
         self.t = ServingThread()
         self.t.start()
         
-        self.gb = GraphiteBridge(server.server_address, self.registry, _time=FakeTime())
+        # Explicitly use localhost as the target host, since connecting to 0.0.0.0 fails on Windows
+        address = ('localhost', server.server_address[1])
+        self.gb = GraphiteBridge(address, self.registry, _time=FakeTime())
 
     def test_nolabels(self):
         counter = Counter('c', 'help', registry=self.registry)
