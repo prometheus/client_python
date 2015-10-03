@@ -49,9 +49,14 @@ class GraphiteBridge(object):
         self._timeout = timeout_seconds
         self._time = _time
 
-    def push(self):
+    def push(self, prefix=''):
         now = int(self._time.time())
         output = []
+
+        prefixstr = ''
+        if prefix:
+            prefixstr = prefix + '.'
+
         for metric in self._registry.collect():
             for name, labels, value in metric._samples:
                 if labels:
@@ -61,8 +66,8 @@ class GraphiteBridge(object):
                          for k, v in sorted(labels.items())])
                 else:
                     labelstr = ''
-                output.append('{0}{1} {2} {3}\n'.format(
-                    _sanitize(name), labelstr, float(value), now))
+                output.append('{0}{1}{2} {3} {4}\n'.format(
+                    prefixstr, _sanitize(name), labelstr, float(value), now))
 
         conn = socket.create_connection(self._address, self._timeout)
         conn.sendall(''.join(output).encode('ascii'))
