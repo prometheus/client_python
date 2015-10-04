@@ -19,10 +19,11 @@ def _sanitize(s):
 
 
 class _RegularPush(threading.Thread):
-    def __init__(self, pusher, interval):
+    def __init__(self, pusher, interval, prefix):
         super(_RegularPush, self).__init__()
         self._pusher = pusher
         self._interval = interval
+        self._prefix = prefix
 
     def run(self):
         wait_until = time.time()
@@ -37,7 +38,7 @@ class _RegularPush(threading.Thread):
                 # time.sleep can return early.
                 time.sleep(wait_until - now)
             try:
-                self._pusher.push()
+                self._pusher.push(prefix=self._prefix)
             except IOError:
                 logging.exception("Push failed")
 
@@ -49,9 +50,14 @@ class GraphiteBridge(object):
         self._timeout = timeout_seconds
         self._time = _time
 
-    def push(self):
+    def push(self, prefix=''):
         now = int(self._time.time())
         output = []
+
+        prefixstr = ''
+        if prefix:
+            prefixstr = prefix + '.'
+
         for metric in self._registry.collect():
             for name, labels, value in metric._samples:
                 if labels:
@@ -61,14 +67,14 @@ class GraphiteBridge(object):
                          for k, v in sorted(labels.items())])
                 else:
                     labelstr = ''
-                output.append('{0}{1} {2} {3}\n'.format(
-                    _sanitize(name), labelstr, float(value), now))
+                output.append('{0}{1}{2} {3} {4}\n'.format(
+                    prefixstr, _sanitize(name), labelstr, float(value), now))
 
         conn = socket.create_connection(self._address, self._timeout)
         conn.sendall(''.join(output).encode('ascii'))
         conn.close()
 
-    def start(self, interval=60.0):
-        t = _RegularPush(self, interval)
+    def start(self, interval=60.0, prefix=''):
+        t = _RegularPush(self, interval, prefix)
         t.daemon = True
         t.start()

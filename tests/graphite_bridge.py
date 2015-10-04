@@ -50,6 +50,15 @@ class TestGraphiteBridge(unittest.TestCase):
 
         self.assertEqual(b'labels.a.c.b.d 1.0 1434898897\n', self.data)
 
+    def test_prefix(self):
+        labels = Counter('labels', 'help', ['a', 'b'], registry=self.registry)
+        labels.labels('c', 'd').inc()
+
+        self.gb.push(prefix = 'pre.fix')
+        self.t.join()
+
+        self.assertEqual(b'pre.fix.labels.a.c.b.d 1.0 1434898897\n', self.data)
+
     def test_sanitizing(self):
         labels = Counter('labels', 'help', ['a'], registry=self.registry)
         labels.labels('c.:8').inc()
