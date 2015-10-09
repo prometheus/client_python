@@ -3,9 +3,9 @@ from setuptools import setup
 
 setup(
     name = "prometheus_client",
-    version = "0.0.11",
+    version = "0.0.12",
     author = "Brian Brazil",
-    author_email = "brian.brazil@gmail.com",
+    author_email = "brian.brazil@robustperception.io",
     description = ("Python client for the Prometheus monitoring system."),
     long_description = ("See https://github.com/prometheus/client_python/blob/master/README.md for documentation."),
     license = "Apache Software License 2.0",
