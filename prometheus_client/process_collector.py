@@ -62,8 +62,8 @@ class ProcessCollector(object):
             with open(os.path.join(pid, 'stat')) as stat:
                 parts = (stat.read().split(')')[-1].split())
             vmem = core.GaugeMetricFamily(self._prefix + 'virtual_memory_bytes',
-                    'Virtual memory size in bytes', value=float(parts[20]))
-            rss = core.GaugeMetricFamily(self._prefix + 'resident_memory_bytes', 'Resident memory size in bytes', value=float(parts[21]) * _PAGESIZE)
+                    'Virtual memory size in bytes.', value=float(parts[20]))
+            rss = core.GaugeMetricFamily(self._prefix + 'resident_memory_bytes', 'Resident memory size in bytes.', value=float(parts[21]) * _PAGESIZE)
             start_time_secs = float(parts[19]) / self._ticks
             start_time = core.GaugeMetricFamily(self._prefix + 'start_time_seconds',
                     'Start time of the process since unix epoch in seconds.', value=start_time_secs + self._btime)
