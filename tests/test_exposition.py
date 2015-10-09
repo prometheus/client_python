@@ -113,49 +113,49 @@ class TestPushGateway(unittest.TestCase):
     def test_push(self):
         push_to_gateway(self.address, "my_job", self.registry)
         self.assertEqual(self.requests[0][0].command, 'PUT')
-        self.assertEqual(self.requests[0][0].path, '/job/my_job')
+        self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job')
         self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
     def test_push_with_groupingkey(self):
         push_to_gateway(self.address, "my_job", self.registry, {'a': 9})
         self.assertEqual(self.requests[0][0].command, 'PUT')
-        self.assertEqual(self.requests[0][0].path, '/job/my_job/a/9')
+        self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job/a/9')
         self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
     def test_push_with_complex_groupingkey(self):
         push_to_gateway(self.address, "my_job", self.registry, {'a': 9, 'b': 'a/ z'})
         self.assertEqual(self.requests[0][0].command, 'PUT')
-        self.assertEqual(self.requests[0][0].path, '/job/my_job/a/9/b/a%2F+z')
+        self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job/a/9/b/a%2F+z')
         self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
     def test_pushadd(self):
         pushadd_to_gateway(self.address, "my_job", self.registry)
         self.assertEqual(self.requests[0][0].command, 'POST')
-        self.assertEqual(self.requests[0][0].path, '/job/my_job')
+        self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job')
         self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
     def test_pushadd_with_groupingkey(self):
         pushadd_to_gateway(self.address, "my_job", self.registry, {'a': 9})
         self.assertEqual(self.requests[0][0].command, 'POST')
-        self.assertEqual(self.requests[0][0].path, '/job/my_job/a/9')
+        self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job/a/9')
         self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
     def test_delete(self):
         delete_from_gateway(self.address, "my_job")
         self.assertEqual(self.requests[0][0].command, 'DELETE')
-        self.assertEqual(self.requests[0][0].path, '/job/my_job')
+        self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job')
         self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
         self.assertEqual(self.requests[0][1], b'')
 
     def test_delete_with_groupingkey(self):
         delete_from_gateway(self.address, "my_job", {'a': 9})
         self.assertEqual(self.requests[0][0].command, 'DELETE')
-        self.assertEqual(self.requests[0][0].path, '/job/my_job/a/9')
+        self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job/a/9')
         self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
         self.assertEqual(self.requests[0][1], b'')
 
