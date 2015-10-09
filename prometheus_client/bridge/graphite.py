@@ -59,12 +59,12 @@ class GraphiteBridge(object):
             prefixstr = prefix + '.'
 
         for metric in self._registry.collect():
-            for name, labels, value in metric._samples:
+            for name, labels, value in metric.samples:
                 if labels:
                     labelstr = '.' + '.'.join(
                         ['{0}.{1}'.format(
-                            _sanitize(k), _sanitize(v))
-                         for k, v in sorted(labels.items())])
+                             _sanitize(k), _sanitize(v))
+                             for k, v in sorted(labels.items())])
                 else:
                     labelstr = ''
                 output.append('{0}{1}{2} {3} {4}\n'.format(
