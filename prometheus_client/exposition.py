@@ -105,7 +105,7 @@ def delete_from_gateway(gateway, job, grouping_key=None, timeout=None):
 
 
 def _use_gateway(method, gateway, job, registry, grouping_key, timeout):
-    url = 'http://{0}/job/{1}'.format(gateway, quote_plus(job))
+    url = 'http://{0}/metrics/job/{1}'.format(gateway, quote_plus(job))
 
     data = b''
     if method != 'DELETE':
