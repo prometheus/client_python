@@ -113,7 +113,7 @@ with g.track_inprogress():
   pass
 ```
 
-A Gauge can also take it's value from a callback:
+A Gauge can also take its value from a callback:
 
 ```python
 d = Gauge('data_objects', 'Number of objects')
