@@ -228,6 +228,24 @@ To add Prometheus exposition to an existing HTTP server, see the `MetricsServlet
 which provides a `BaseHTTPRequestHandler`. It also serves as a simple example of how
 to write a custom endpoint.
 
+#### Twisted
+
+To use prometheus with [twisted](https://twistedmatrix.com/), there is `MetricsResource` which exposes metrics as a twisted resource.
+
+```python
+from prometheus_client.twisted import MetricsResource
+from twisted.web.server import Site
+from twisted.web.resource import Resource
+from twisted.internet import reactor
+
+root = Resource()
+root.putChild(b'metrics', MetricsResource())
+
+factory = Site(root)
+reactor.listenTCP(8000, factory)
+reactor.run()
+```
+
 ### Node exporter textfile collector
 
 The [textfile collector](https://github.com/prometheus/node_exporter#textfile-collector)
