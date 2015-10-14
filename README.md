@@ -224,7 +224,7 @@ start_http_server(8000)
 
 Visit [http://localhost:8000/](http://localhost:8000/) to view the metrics.
 
-To add Prometheus exposition to an existing HTTP server, see the `MetricsServlet` class
+To add Prometheus exposition to an existing HTTP server, see the `MetricsHandler` class
 which provides a `BaseHTTPRequestHandler`. It also serves as a simple example of how
 to write a custom endpoint.
 
