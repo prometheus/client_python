@@ -13,6 +13,9 @@ setup(
     url = "https://github.com/prometheus/client_python",
     packages=['prometheus_client', 'prometheus_client.bridge'],
     test_suite="tests",
+    extras_require={
+        "bridge.newrelic": ["newrelic"]
+    },
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
