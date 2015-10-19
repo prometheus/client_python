@@ -50,7 +50,7 @@ class GraphiteBridge(object):
         self._timeout = timeout_seconds
         self._time = _time
 
-    def push(self, prefix=''):
+    def push(self, prefix='', filter_re=None):
         now = int(self._time.time())
         output = []
 
@@ -60,6 +60,9 @@ class GraphiteBridge(object):
 
         for metric in self._registry.collect():
             for name, labels, value in metric.samples:
+                if filter_re and not filter_re.search(name):
+                    continue
+
                 if labels:
                     labelstr = '.' + '.'.join(
                         ['{0}.{1}'.format(
