@@ -256,12 +256,25 @@ class _LabelWrapper(object):
     def labels(self, *labelvalues):
         '''Return the child for the given labelset.
 
-        Labels can be provided as a tuple or as a dict:
-            c = Counter('c', 'counter', ['l', 'm'])
-            # Set labels by position
-            c.labels('0', '1').inc()
-            # Set labels by name
-            c.labels({'l': '0', 'm': '1'}).inc()
+        All metrics can have labels, allowing grouping of related time series.
+        Taking a counter as an example:
+
+            from prometheus_client import Counter
+
+            c = Counter('my_requests_total', 'HTTP Failures', ['method', 'endpoint'])
+            c.labels('get', '/').inc()
+            c.labels('post', '/submit').inc()
+
+        Labels can also be provided as a dict:
+
+            from prometheus_client import Counter
+
+            c = Counter('my_requests_total', 'HTTP Failures', ['method', 'endpoint'])
+            c.labels({'method': 'get', 'endpoint': '/'}).inc()
+            c.labels({'method': 'post', 'endpoint': '/submit'}).inc()
+
+        See the best practices on [naming](http://prometheus.io/docs/practices/naming/)
+        and [labels](http://prometheus.io/docs/practices/instrumentation/#use-labels).
         '''
         if len(labelvalues) == 1 and type(labelvalues[0]) == dict:
             if sorted(labelvalues[0].keys()) != sorted(self._labelnames):
@@ -347,10 +360,24 @@ class Counter(object):
 
     An example for a Counter:
 
-    from prometheus_client import Counter
-    c = Counter('my_failures_total', 'Description of counter')
-    c.inc()     # Increment by 1
-    c.inc(1.6)  # Increment by given value
+        from prometheus_client import Counter
+
+        c = Counter('my_failures_total', 'Description of counter')
+        c.inc()     # Increment by 1
+        c.inc(1.6)  # Increment by given value
+
+    There are utilities to count exceptions raised:
+
+        @c.count_exceptions()
+        def f():
+            pass
+
+        with c.count_exceptions():
+            pass
+
+        # Count only one type of exception
+        with c.count_exceptions(ValueError):
+            pass
     '''
     _type = 'counter'
     _reserved_labelnames = []
@@ -401,19 +428,38 @@ class Gauge(object):
     '''Gauge metric, to report instantaneous values.
 
      Examples of Gauges include:
-        Inprogress requests
-        Number of items in a queue
-        Free memory
-        Total memory
-        Temperature
+        - Inprogress requests
+        - Number of items in a queue
+        - Free memory
+        - Total memory
+        - Temperature
 
      Gauges can go both up and down.
 
         from prometheus_client import Gauge
+
         g = Gauge('my_inprogress_requests', 'Description of gauge')
         g.inc()      # Increment by 1
         g.dec(10)    # Decrement by given value
         g.set(4.2)   # Set to a given value
+
+     There are utilities for common use cases:
+
+        g.set_to_current_time()   # Set to current unixtime
+
+        # Increment when entered, decrement when exited.
+        @g.track_inprogress()
+        def f():
+            pass
+
+        with g.track_inprogress():
+            pass
+
+     A Gauge can also take its value from a callback:
+
+        d = Gauge('data_objects', 'Number of objects')
+        my_dict = {}
+        d.set_function(lambda: len(my_dict))
     '''
     _type = 'gauge'
     _reserved_labelnames = []
@@ -494,8 +540,7 @@ class Gauge(object):
         '''Call the provided function to return the Gauge value.
 
         The function must return a float, and may be called from
-        multiple threads.
-        All other methods of the Gauge become NOOPs.
+        multiple threads. All other methods of the Gauge become NOOPs.
         '''
         def samples(self):
             return (('', {}, float(f())), )
@@ -515,19 +560,26 @@ class Summary(object):
 
     Example for a Summary:
 
-    from prometheus_client import Summary
-    s = Summary('request_size_bytes', 'Request size (bytes)')
-    s.observe(512)  # Observe 512 (bytes)
+        from prometheus_client import Summary
+
+        s = Summary('request_size_bytes', 'Request size (bytes)')
+        s.observe(512)  # Observe 512 (bytes)
 
     Example for a Summary using time:
-    from prometheus_client import Summary
-    REQUEST_TIME = Summary('response_latency_seconds', 'Response latency (seconds)')
 
-    @REQUEST_TIME.time()
-    def create_response(request):
-      """A dummy function"""
-      time.sleep(1)
+        from prometheus_client import Summary
 
+        REQUEST_TIME = Summary('response_latency_seconds', 'Response latency (seconds)')
+
+        @REQUEST_TIME.time()
+        def create_response(request):
+          """A dummy function"""
+          time.sleep(1)
+
+    Example for using the same Summary object as a context manager:
+
+        with REQUEST_TIME.time():
+            pass  # Logic to be timed
     '''
     _type = 'summary'
     _reserved_labelnames = ['quantile']
@@ -596,22 +648,31 @@ class Histogram(object):
 
     Example for a Histogram:
 
-    from prometheus_client import Histogram
-    h = Histogram('request_size_bytes', 'Request size (bytes)')
-    h.observe(512)  # Observe 512 (bytes)
+        from prometheus_client import Histogram
 
+        h = Histogram('request_size_bytes', 'Request size (bytes)')
+        h.observe(512)  # Observe 512 (bytes)
 
     Example for a Histogram using time:
-    from prometheus_client import Histogram
-    REQUEST_TIME = Histogram('response_latency_seconds', 'Response latency (seconds)')
 
-    @REQUEST_TIME.time()
-    def create_response(request):
-      """A dummy function"""
-      time.sleep(1)
+        from prometheus_client import Histogram
+
+        REQUEST_TIME = Histogram('response_latency_seconds', 'Response latency (seconds)')
+
+        @REQUEST_TIME.time()
+        def create_response(request):
+          """A dummy function"""
+          time.sleep(1)
+
+    Example of using the same Histogram object as a context manager:
+
+        with REQUEST_TIME.time():
+            pass  # Logic to be timed
 
     The default buckets are intended to cover a typical web/rpc request from milliseconds to seconds.
     They can be overridden by passing `buckets` keyword argument to `Histogram`.
+
+    **NB** The Python client doesn't store or expose quantile information at this time.
     '''
     _type = 'histogram'
     _reserved_labelnames = ['histogram']
