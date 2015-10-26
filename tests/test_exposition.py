@@ -97,6 +97,7 @@ class TestPushGateway(unittest.TestCase):
                 self.send_response(201)
                 length = int(self.headers['content-length'])
                 requests.append((self, self.rfile.read(length)))
+                self.end_headers()
 
             do_POST = do_PUT
             do_DELETE = do_PUT
