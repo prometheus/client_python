@@ -4,7 +4,10 @@ from __future__ import unicode_literals
 
 import copy
 import math
+import json
+import os
 import re
+import shelve
 import time
 import types
 
@@ -219,7 +222,9 @@ class HistogramMetricFamily(Metric):
 class _MutexValue(object):
     '''A float protected by a mutex.'''
 
-    def __init__(self, name, labelnames, labelvalues):
+    _multiprocess = False
+
+    def __init__(self, typ, metric_name, name, labelnames, labelvalues, **kwargs):
       self._value = 0.0
       self._lock = Lock()
 
@@ -235,7 +240,60 @@ class _MutexValue(object):
       with self._lock:
           return self._value
 
-_ValueClass = _MutexValue
+
+def _MultiProcessValue(__pid=os.getpid()):
+    pid = __pid
+    samples = {}
+    samples_lock = Lock()
+
+    class _ShelveValue(object):
+        '''A float protected by a mutex backed by a per-process shelve.'''
+
+        _multiprocess = True
+
+        def __init__(self, typ, metric_name, name, labelnames, labelvalues, multiprocess_mode='', **kwargs):
+            with samples_lock:
+                if typ == 'gauge':
+                    file_prefix = typ + '_' +  multiprocess_mode
+                else:
+                    file_prefix = typ
+                if file_prefix not in samples:
+                    filename = os.path.join(os.environ['prometheus_multiproc_dir'], '{0}_{1}.db'.format(file_prefix, pid))
+                    samples[file_prefix] = shelve.open(filename)
+            self._samples = samples[file_prefix]
+            self._key = json.dumps((metric_name, name, labelnames, labelvalues))
+            self._value = self._samples.get(self._key, 0.0)
+            self._samples[self._key] = self._value
+            self._samples.sync()
+            self._lock = Lock()
+
+        def inc(self, amount):
+            with self._lock:
+                self._value += amount
+                self._samples[self._key] = self._value
+                self._samples.sync()
+
+        def set(self, value):
+            with self._lock:
+                self._value = value
+                self._samples[self._key] = self._value
+                self._samples.sync()
+
+        def get(self):
+            with self._lock:
+                return self._value
+
+    return _ShelveValue
+
+
+# Should we enable multi-process mode?
+# This needs to be chosen before the first metric is constructed,
+# and as that may be in some arbitrary library the user/admin has
+# no control over we use an enviroment variable.
+if 'prometheus_multiproc_dir' in os.environ:
+    _ValueClass = _MultiProcessValue()
+else:
+    _ValueClass = _MutexValue
 
 
 class _LabelWrapper(object):
@@ -383,7 +441,7 @@ class Counter(object):
     _reserved_labelnames = []
 
     def __init__(self, name, labelnames, labelvalues):
-        self._value = _ValueClass(name, labelnames, labelvalues)
+        self._value = _ValueClass(self._type, name, name, labelnames, labelvalues)
 
     def inc(self, amount=1):
         '''Increment counter by the given amount.'''
@@ -464,8 +522,12 @@ class Gauge(object):
     _type = 'gauge'
     _reserved_labelnames = []
 
-    def __init__(self, name, labelnames, labelvalues):
-        self._value = _ValueClass(name, labelnames, labelvalues)
+    def __init__(self, name, labelnames, labelvalues, multiprocess_mode='all'):
+        if (_ValueClass._multiprocess
+                and multiprocess_mode not in ['min', 'max', 'livesum', 'liveall', 'all']):
+            raise ValueError('Invalid multiprocess mode: ' + multiprocess_mode)
+        self._value = _ValueClass(self._type, name, name, labelnames,
+                labelvalues, multiprocess_mode=multiprocess_mode)
 
     def inc(self, amount=1):
         '''Increment gauge by the given amount.'''
@@ -585,8 +647,8 @@ class Summary(object):
     _reserved_labelnames = ['quantile']
 
     def __init__(self, name, labelnames, labelvalues):
-        self._count = _ValueClass(name + '_count', labelnames, labelvalues)
-        self._sum = _ValueClass(name + '_sum', labelnames, labelvalues)
+        self._count = _ValueClass(self._type, name, name + '_count', labelnames, labelvalues)
+        self._sum = _ValueClass(self._type, name, name + '_sum', labelnames, labelvalues)
 
     def observe(self, amount):
         '''Observe the given amount.'''
@@ -678,7 +740,7 @@ class Histogram(object):
     _reserved_labelnames = ['histogram']
 
     def __init__(self, name, labelnames, labelvalues, buckets=(.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, _INF)):
-        self._sum = _ValueClass(name + '_sum', labelnames, labelvalues)
+        self._sum = _ValueClass(self._type, name, name + '_sum', labelnames, labelvalues)
         buckets = [float(b) for b in buckets]
         if buckets != sorted(buckets):
             # This is probably an error on the part of the user,
@@ -692,7 +754,7 @@ class Histogram(object):
         self._buckets = []
         bucket_labelnames = labelnames + ('le',)
         for b in buckets:
-          self._buckets.append(_ValueClass(name + '_bucket', bucket_labelnames, labelvalues + (_floatToGoString(b),)))
+          self._buckets.append(_ValueClass(self._type, name, name + '_bucket', bucket_labelnames, labelvalues + (_floatToGoString(b),)))
 
     def observe(self, amount):
         '''Observe the given amount.'''
