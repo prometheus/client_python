@@ -11,7 +11,7 @@ pip install prometheus_client
 
 **Two**: Paste the following into a Python interpreter:
 ```python
-from prometheus_client import start_http_server,Summary
+from prometheus_client import start_http_server, Summary
 import random
 import time
 
@@ -219,6 +219,7 @@ server in a daemon thread on the given port:
 
 ```python
 from prometheus_client import start_http_server
+
 start_http_server(8000)
 ```
 
@@ -238,7 +239,8 @@ about a machine system that the Node exporter does not support or would not make
 to perform at every scrape (for example, anything involving subprocesses).
 
 ```python
-from prometheus_client import CollectorRegistry,Gauge,write_to_textfile
+from prometheus_client import CollectorRegistry, Gauge, write_to_textfile
+
 registry = CollectorRegistry()
 g = Gauge('raid_status', '1 if raid array is okay', registry=registry)
 g.set(1)
@@ -254,7 +256,8 @@ The [Pushgateway](https://github.com/prometheus/pushgateway)
 allows ephemeral and batch jobs to expose their metrics to Prometheus.
 
 ```python
-from prometheus_client import CollectorRegistry,Gauge,push_to_gateway
+from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
+
 registry = CollectorRegistry()
 g = Gauge('job_last_success_unixtime', 'Last time a batch job successfully finished', registry=registry)
 g.set_to_current_time()
@@ -287,6 +290,7 @@ Metrics are pushed over TCP in the Graphite plaintext format.
 
 ```python
 from prometheus_client.bridge.graphite import GraphiteBridge
+
 gb = GraphiteBridge(('graphite.your.org', 2003))
 # Push once.
 gb.push()
@@ -331,5 +335,4 @@ for family in text_string_to_metric_families("my_gauge 1.0\n"):
   for sample in family.samples:
     print("Name: {0} Labels: {1} Value: {2}".format(*sample))
 ```
-
 
