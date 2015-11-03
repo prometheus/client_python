@@ -39,7 +39,7 @@ class MetricsResourceTest(TestCase):
 
         agent = Agent(reactor)
         port = server.getHost().port
-        url = u"http://localhost:{port}/metrics".format(port=port)
+        url = "http://localhost:{port}/metrics".format(port=port)
         d = agent.request(b"GET", url.encode("ascii"))
 
         d.addCallback(readBody)
