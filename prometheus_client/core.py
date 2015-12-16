@@ -257,27 +257,46 @@ def _MultiProcessValue(__pid=os.getpid()):
                     file_prefix = typ + '_' +  multiprocess_mode
                 else:
                     file_prefix = typ
+
                 if file_prefix not in samples:
                     filename = os.path.join(os.environ['prometheus_multiproc_dir'], '{0}_{1}.db'.format(file_prefix, pid))
-                    samples[file_prefix] = shelve.open(filename)
-            self._samples = samples[file_prefix]
-            self._key = json.dumps((metric_name, name, labelnames, labelvalues))
-            self._value = self._samples.get(self._key, 0.0)
-            self._samples[self._key] = self._value
-            self._samples.sync()
-            self._lock = Lock()
+                    self._samples_filename = filename
+                    db = shelve.open(filename)
+                    self._key = json.dumps((metric_name, name, labelnames, labelvalues))
+                    self._value = db.get(self._key, 0.0)
+                    db[self._key] = self._value
+                    db.close()
+                else:
+                    self._samples = {}
+                    self._key = json.dumps((metric_name, name, labelnames, labelvalues))
+                    self._value = self._samples.get(self._key, 0.0)
+                    self._samples[self._key] = self._value
+
+                self._lock = Lock()
 
         def inc(self, amount):
             with self._lock:
                 self._value += amount
-                self._samples[self._key] = self._value
-                self._samples.sync()
+
+                if hasattr(self, "_samples"):
+                    self._samples[self._key] = self._value
+                else:
+                    db = shelve.open(self._samples_filename)
+                    db[self._key] = self._value
+                    db.sync()
+                    db.close()
 
         def set(self, value):
             with self._lock:
                 self._value = value
-                self._samples[self._key] = self._value
-                self._samples.sync()
+
+                if hasattr(self, "_samples"):
+                    self._samples[self._key] = self._value
+                else:
+                    db = shelve.open(self._samples_filename)
+                    db[self._key] = self._value
+                    db.sync()
+                    db.close()
 
         def get(self):
             with self._lock:

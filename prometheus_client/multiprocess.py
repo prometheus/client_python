@@ -21,7 +21,8 @@ class MultiProcessCollector(object):
         for f in glob.glob(os.path.join(self._path, '*.db')):
             parts = os.path.basename(f).split('_')
             typ = parts[0]
-            for key, value in shelve.open(f).items():
+            db = shelve.open(f)
+            for key, value in db.items():
                 metric_name, name, labelnames, labelvalues = json.loads(key)
                 metrics.setdefault(metric_name, core.Metric(metric_name, 'Multiprocess metric', typ))
                 metric = metrics[metric_name]
@@ -32,6 +33,7 @@ class MultiProcessCollector(object):
                 else:
                     # The deplucates and labels are fixed in the next for.
                     metric.add_sample(name, tuple(zip(labelnames, labelvalues)), value)
+            db.close()
 
         for metric in metrics.values():
             samples = {}
