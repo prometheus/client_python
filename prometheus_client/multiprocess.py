@@ -10,6 +10,18 @@ import shelve
 from . import core
 
 
+class MetricKind:
+    """Constants to represent a metric kind.
+    """
+
+    GAUGE = "gauge"
+    HISTOGRAM = "histogram"
+    COUNTER = "counter"
+    SUMMARY = "summary"
+
+    __all__ = (GAUGE, HISTOGRAM, COUNTER, SUMMARY)
+
+
 class Submetric(object):
     """Simple submetric with a parent and value.
     """
@@ -179,16 +191,18 @@ class PartitionedCollector(object):
     def gather(self):
         """Gather metrics prior to collection.
 
-        This method must gather the necessary metrics and set them as a dict
-        of a JSON-encoded key to another dict of (at least) value and kind:
+        This method must gather the necessary metrics and return them as a list
+        of dicts with key, value, kind, and optionally partition and
+        collect_mode.
 
-        {
-            '["h", "h_sum", [], []]': {
+        [
+            {
+                'key': '["h", "h_sum", [], []]'
                 'kind': 'gauge',
                 'value': 0.5,
                 'partition': '123'
             }
-        }
+        ]
         """
         raise NotImplementedError
 
@@ -217,22 +231,21 @@ class PartitionedCollector(object):
             buckets = {}
 
             for submetric in metric.submetrics:
-                if submetric.kind == "gauge":
+                if submetric.kind == MetricKind.GAUGE:
                     samples = GaugePartitionedMetric.build(submetric, samples)
-                elif submetric.kind == "histogram":
+                elif submetric.kind == MetricKind.HISTOGRAM:
                     samples, buckets = HistogramPartitionedMetric.build(
                         submetric,
                         samples,
                         buckets
                     )
-                else:
-                    # Counter and Summary.
+                elif submetric.kind in (MetricKind.COUNTER, MetricKind.SUMMARY):
                     key = (submetric.name, tuple(submetric.labels))
                     sample = samples.get(key, 0.0)
                     samples[key] = sample + submetric.value
 
             # Accumulate bucket values.
-            if metric.kind == "histogram":
+            if metric.kind == MetricKind.HISTOGRAM:
                 for labels, values in buckets.items():
                     acc = 0.0
                     for bucket, value in sorted(values.items()):
@@ -264,7 +277,7 @@ class ShelveCollector(PartitionedCollector):
                     value=value
                 )
 
-                if kind == "gauge":
+                if kind == MetricKind.GAUGE:
                     payload["partition"] = parts[2][:-3]  # pid
                     payload["collect_mode"] = parts[1]
 
