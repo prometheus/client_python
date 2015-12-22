@@ -14,40 +14,36 @@ class Submetric(object):
     """Simple submetric with a parent and value.
     """
 
-    def __init__(self, name, parent_name, value=None, labels=None, kind=None):
+    def __init__(self, name, parent, value=None, labels=None, kind=None, collect_mode=None):
         self.name = name
-        self.parent_name = parent_name
+        self.parent = parent
         self.value = value
         self.labels = labels
         self.kind = kind
-        self.meta = None
-
-    def __repr__(self):
-        return "Submetric('{}', '{}', value={}, labels={}, kind='{}')".format(
-            self.name,
-            self.parent_name,
-            self.value,
-            self.labels,
-            self.kind
-        )
+        self.collect_mode = collect_mode
 
     @classmethod
-    def from_key(cls, key, kind, value=None):
-        """Generates a ``Submetric`` from a legacy encoded key.
+    def from_data(cls, data):
+        """Generates a ``Submetric`` from an opqaue dict.
         """
-        parent_name, name, label_names, label_values = json.loads(key)
+        parent, name, label_names, label_values = json.loads(data["key"])
+        labels = zip(label_names, label_values)
+
+        if data.get("parition") is not None:
+            labels += (("partition", data["partition"]), )
 
         return cls(
             name,
-            parent_name,
-            value=value,
-            labels=zip(label_names, label_values),
-            kind=kind
+            parent,
+            value=data["value"],
+            labels=labels,
+            kind=data["kind"],
+            collect_mode=data.get("collect_mode")
         )
 
 
 class Metric(object):
-    """Full metric that groups submetrics.
+    """Full metric comprised of at least one submetric.
     """
 
     def __init__(self, name=None, kind=None, labels=None):
@@ -56,7 +52,7 @@ class Metric(object):
         self.labels = labels or []
 
         self._samples = []
-        self._submetrics = []
+        self.submetrics = []
 
     def add_submetric(self, submetric):
         """Merges in a new submetric, given it is of the same type.
@@ -68,21 +64,24 @@ class Metric(object):
                 "Cannot add item of type '%r', expected 'Submetric'" % type(submetric)
             )
 
-        if self.name != submetric.parent_name:
+        if self.name != submetric.parent:
             raise ValueError("Cannot add submetric with different parent")
 
         if self.kind != submetric.kind:
             raise ValueError("Cannot add submetrics of different kinds")
 
-        self._submetrics.append(submetric)
+        self.submetrics.append(submetric)
 
     def materialize(self):
-        """Express the Metric as a fully-formed Prometheus metric with samples.
+        """Express the metric as a core Prometheus metric with proper samples.
         """
         metric = core.Metric(self.name, "Multiprocess metric", self.kind)
-        metric.samples = [
-            (name, dict(labels), value) for (name, labels), value in self._samples.iteritems()
-        ]
+
+        samples = []
+        for (name, labels), val in self._samples.iteritems():
+            samples.append((name, dict(labels), val))
+
+        metric.samples = samples
         return metric
 
     @classmethod
@@ -95,21 +94,21 @@ class Metric(object):
             )
 
         metric = cls(
-            name=submetric.parent_name,
+            name=submetric.parent,
             kind=submetric.kind,
             labels=submetric.labels
         )
-        metric._submetrics = [submetric]
+        metric.submetrics = [submetric]
         return metric
 
 
-class MergeMetric(object):
-    """Metric intended to be merged against others during collection.
+class PartitionedMetric(object):
+    """Metric that must be merged with all other partitions during collection.
     """
     pass
 
 
-class GaugeMergeMetric(MergeMetric):
+class GaugePartitionedMetric(PartitionedMetric):
 
     @classmethod
     def build(cls, submetric, samples):
@@ -117,7 +116,7 @@ class GaugeMergeMetric(MergeMetric):
         """
         labels_without_partition = tuple([l for l in submetric.labels if l[0] != "partition"])
         key = (submetric.name, labels_without_partition)
-        mode = submetric.meta["collect_mode"]
+        mode = submetric.collect_mode
 
         if mode == "min":
             sample = samples.get(key)
@@ -137,7 +136,7 @@ class GaugeMergeMetric(MergeMetric):
         return samples
 
 
-class HistogramMergeMetric(MergeMetric):
+class HistogramPartitionedMetric(PartitionedMetric):
 
     @classmethod
     def build(cls, submetric, samples, buckets):
@@ -193,23 +192,57 @@ class PartitionedCollector(object):
         """
         raise NotImplementedError
 
-    def post_gather(self, raw):
+    def build_from_raw(self, raw):
         for data in raw:
-            submetric = Submetric.from_key(data["key"], data["kind"], value=data["value"])
-            submetric.meta = data.get("meta")
+            submetric = Submetric.from_data(data)
 
             if data.get("partition") is not None:
                 submetric.labels += (("partition", data["partition"]), )
 
-            if submetric.parent_name in self.metrics:
-                self.metrics[submetric.parent_name].add_submetric(submetric)
+            if submetric.parent in self.metrics:
+                self.metrics[submetric.parent].add_submetric(submetric)
             else:
-                self.metrics[submetric.parent_name] = Metric.from_submetric(submetric)
+                self.metrics[submetric.parent] = Metric.from_submetric(submetric)
 
     def collect(self):
-        """Entry point that must collect and return from multiple ``Metric``s.
+        """Fold up all metrics properly by kind.
         """
-        raise NotImplementedError
+        self.metrics = {}
+        raw = self.gather()
+        self.build_from_raw(raw)
+            
+        results = []
+        for metric_key, metric in self.metrics.iteritems():
+            samples = {}
+            buckets = {}
+
+            for submetric in metric.submetrics:
+                if submetric.kind == "gauge":
+                    samples = GaugePartitionedMetric.build(submetric, samples)
+                elif submetric.kind == "histogram":
+                    samples, buckets = HistogramPartitionedMetric.build(
+                        submetric,
+                        samples,
+                        buckets
+                    )
+                else:
+                    # Counter and Summary.
+                    key = (submetric.name, tuple(submetric.labels))
+                    sample = samples.get(key, 0.0)
+                    samples[key] = sample + submetric.value
+
+            # Accumulate bucket values.
+            if metric.kind == "histogram":
+                for labels, values in buckets.items():
+                    acc = 0.0
+                    for bucket, value in sorted(values.items()):
+                        acc += value
+                        samples[(metric.name + '_bucket', labels + (('le', core._floatToGoString(bucket)), ))] = acc
+                    samples[(metric.name + '_count', labels)] = acc
+
+            metric._samples = samples
+            results.append(metric.materialize())
+        return results
 
 
 class ShelveCollector(PartitionedCollector):
@@ -233,53 +266,11 @@ class ShelveCollector(PartitionedCollector):
 
                 if kind == "gauge":
                     payload["partition"] = parts[2][:-3]  # pid
-                    payload["meta"] = dict(
-                        collect_mode=parts[1]
-                    )
+                    payload["collect_mode"] = parts[1]
 
                 raw.append(payload)
             db.close()
         return raw
-
-    def collect(self):
-        """Fold up all metrics properly by kind.
-        """
-        self.metrics = {}
-        raw = self.gather()
-        self.post_gather(raw)
-            
-        results = []
-        for metric_key, metric in self.metrics.iteritems():
-            samples = {}
-            buckets = {}
-
-            for submetric in metric._submetrics:
-                if submetric.kind == "gauge":
-                    samples = GaugeMergeMetric.build(submetric, samples)
-                elif submetric.kind == "histogram":
-                    samples, buckets = HistogramMergeMetric.build(
-                        submetric,
-                        samples,
-                        buckets
-                    )
-                else:
-                    # Counter and Summary.
-                    key = (submetric.name, tuple(submetric.labels))
-                    sample = samples.get(key, 0.0)
-                    samples[key] = sample + submetric.value
-
-            # Accumulate bucket values.
-            if metric.kind == "histogram":
-                for labels, values in buckets.items():
-                    acc = 0.0
-                    for bucket, value in sorted(values.items()):
-                        acc += value
-                        samples[(metric.name + '_bucket', labels + (('le', core._floatToGoString(bucket)), ))] = acc
-                    samples[(metric.name + '_count', labels)] = acc
-
-            metric._samples = samples
-            results.append(metric.materialize())
-        return results
 
 
 def mark_process_dead(pid, path=os.environ.get('prometheus_multiproc_dir')):
