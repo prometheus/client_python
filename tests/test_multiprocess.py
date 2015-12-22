@@ -15,7 +15,7 @@ class TestMultiProcess(unittest.TestCase):
         os.environ['prometheus_multiproc_dir'] = self.tempdir
         prometheus_client.core._ValueClass = prometheus_client.core._MultiProcessValue(123)
         self.registry = CollectorRegistry()
-        MultiProcessCollector(self.registry, self.tempdir)
+        ShelveCollector(self.registry, self.tempdir)
 
     def tearDown(self):
         del os.environ['prometheus_multiproc_dir']
@@ -59,27 +59,27 @@ class TestMultiProcess(unittest.TestCase):
         g1 = Gauge('g', 'help', registry=None)
         prometheus_client.core._ValueClass = prometheus_client.core._MultiProcessValue(456)
         g2 = Gauge('g', 'help', registry=None)
-        self.assertEqual(0, self.registry.get_sample_value('g', {'pid': '123'}))
-        self.assertEqual(0, self.registry.get_sample_value('g', {'pid': '456'}))
+        self.assertEqual(0, self.registry.get_sample_value('g', {'partition': '123'}))
+        self.assertEqual(0, self.registry.get_sample_value('g', {'partition': '456'}))
         g1.set(1)
         g2.set(2)
         mark_process_dead(123, os.environ['prometheus_multiproc_dir'])
-        self.assertEqual(1, self.registry.get_sample_value('g', {'pid': '123'}))
-        self.assertEqual(2, self.registry.get_sample_value('g', {'pid': '456'}))
+        self.assertEqual(1, self.registry.get_sample_value('g', {'partition': '123'}))
+        self.assertEqual(2, self.registry.get_sample_value('g', {'partition': '456'}))
 
     def test_gauge_liveall(self):
         g1 = Gauge('g', 'help', registry=None, multiprocess_mode='liveall')
         prometheus_client.core._ValueClass = prometheus_client.core._MultiProcessValue(456)
         g2 = Gauge('g', 'help', registry=None, multiprocess_mode='liveall')
-        self.assertEqual(0, self.registry.get_sample_value('g', {'pid': '123'}))
-        self.assertEqual(0, self.registry.get_sample_value('g', {'pid': '456'}))
+        self.assertEqual(0, self.registry.get_sample_value('g', {'partition': '123'}))
+        self.assertEqual(0, self.registry.get_sample_value('g', {'partition': '456'}))
         g1.set(1)
         g2.set(2)
-        self.assertEqual(1, self.registry.get_sample_value('g', {'pid': '123'}))
-        self.assertEqual(2, self.registry.get_sample_value('g', {'pid': '456'}))
+        self.assertEqual(1, self.registry.get_sample_value('g', {'partition': '123'}))
+        self.assertEqual(2, self.registry.get_sample_value('g', {'partition': '456'}))
         mark_process_dead(123, os.environ['prometheus_multiproc_dir'])
-        self.assertEqual(None, self.registry.get_sample_value('g', {'pid': '123'}))
-        self.assertEqual(2, self.registry.get_sample_value('g', {'pid': '456'}))
+        self.assertEqual(None, self.registry.get_sample_value('g', {'partition': '123'}))
+        self.assertEqual(2, self.registry.get_sample_value('g', {'partition': '456'}))
 
     def test_gauge_min(self):
         g1 = Gauge('g', 'help', registry=None, multiprocess_mode='min')
