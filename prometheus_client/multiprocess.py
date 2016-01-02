@@ -314,23 +314,14 @@ class UWSGICollector(PartitionedCollector):
 
     def gather(self):
         import uwsgi
-        import uwsgidecorators
 
-        # Get the magic worker listing from cache
-        @uwsgidecorators.lock
-        def cache_get_workers():
-            workers = uwsgi.cache_get("prometheus_workers")
-            return workers.split(".")
-
-        #workers = cache_get_workers()
         workers = uwsgi.workers()
         resolution = 1000000
 
         raw = []
-        #for w in workers:
         keys = uwsgi.cache_keys()
         for key in keys:
-            if key.startswith("prometheus_") and key != "prometheus_workers":
+            if key.startswith("prometheus_"):
                 key_body = key.replace("prometheus_", "")
                 key_prefix, encoded_key = key_body.split("-")
 

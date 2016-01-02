@@ -310,17 +310,8 @@ def _ShelveValue(__pid=os.getpid()):
 
 
 def _UWSGIValue(pid=os.getpid()):
-    import uwsgidecorators
-
     samples = {}
     samples_lock = Lock()
-
-    @uwsgidecorators.postfork
-    @uwsgidecorators.lock
-    def register():
-        existing_workers = uwsgi.cache_get("prometheus_workers")
-        workers = "{}.{}".format(existing_workers, pid)
-        uwsgi.cache_update("prometheus_workers", workers)
 
     class UWSGIValue(_PartitionedValue):
 
