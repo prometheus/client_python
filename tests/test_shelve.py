@@ -13,7 +13,7 @@ class TestMultiProcess(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
         os.environ['prometheus_multiproc_dir'] = self.tempdir
-        prometheus_client.core._ValueClass = prometheus_client.core._MultiProcessValue(123)
+        prometheus_client.core._ValueClass = prometheus_client.core._ShelveValue(123)
         self.registry = CollectorRegistry()
         ShelveCollector(self.registry, self.tempdir)
 
@@ -24,7 +24,7 @@ class TestMultiProcess(unittest.TestCase):
 
     def test_counter_adds(self):
         c1 = Counter('c', 'help', registry=None)
-        prometheus_client.core._ValueClass = prometheus_client.core._MultiProcessValue(456)
+        prometheus_client.core._ValueClass = prometheus_client.core._ShelveValue(456)
         c2 = Counter('c', 'help', registry=None)
         self.assertEqual(0, self.registry.get_sample_value('c'))
         c1.inc(1)
@@ -33,7 +33,7 @@ class TestMultiProcess(unittest.TestCase):
 
     def test_summary_adds(self):
         s1 = Summary('s', 'help', registry=None)
-        prometheus_client.core._ValueClass = prometheus_client.core._MultiProcessValue(456)
+        prometheus_client.core._ValueClass = prometheus_client.core._ShelveValue(456)
         s2 = Summary('s', 'help', registry=None)
         self.assertEqual(0, self.registry.get_sample_value('s_count'))
         self.assertEqual(0, self.registry.get_sample_value('s_sum'))
@@ -44,7 +44,7 @@ class TestMultiProcess(unittest.TestCase):
 
     def test_histogram_adds(self):
         h1 = Histogram('h', 'help', registry=None)
-        prometheus_client.core._ValueClass = prometheus_client.core._MultiProcessValue(456)
+        prometheus_client.core._ValueClass = prometheus_client.core._ShelveValue(456)
         h2 = Histogram('h', 'help', registry=None)
         self.assertEqual(0, self.registry.get_sample_value('h_count'))
         self.assertEqual(0, self.registry.get_sample_value('h_sum'))
@@ -57,7 +57,7 @@ class TestMultiProcess(unittest.TestCase):
 
     def test_gauge_all(self):
         g1 = Gauge('g', 'help', registry=None)
-        prometheus_client.core._ValueClass = prometheus_client.core._MultiProcessValue(456)
+        prometheus_client.core._ValueClass = prometheus_client.core._ShelveValue(456)
         g2 = Gauge('g', 'help', registry=None)
         self.assertEqual(0, self.registry.get_sample_value('g', {'partition': '123'}))
         self.assertEqual(0, self.registry.get_sample_value('g', {'partition': '456'}))
@@ -69,7 +69,7 @@ class TestMultiProcess(unittest.TestCase):
 
     def test_gauge_liveall(self):
         g1 = Gauge('g', 'help', registry=None, multiprocess_mode='liveall')
-        prometheus_client.core._ValueClass = prometheus_client.core._MultiProcessValue(456)
+        prometheus_client.core._ValueClass = prometheus_client.core._ShelveValue(456)
         g2 = Gauge('g', 'help', registry=None, multiprocess_mode='liveall')
         self.assertEqual(0, self.registry.get_sample_value('g', {'partition': '123'}))
         self.assertEqual(0, self.registry.get_sample_value('g', {'partition': '456'}))
@@ -83,7 +83,7 @@ class TestMultiProcess(unittest.TestCase):
 
     def test_gauge_min(self):
         g1 = Gauge('g', 'help', registry=None, multiprocess_mode='min')
-        prometheus_client.core._ValueClass = prometheus_client.core._MultiProcessValue(456)
+        prometheus_client.core._ValueClass = prometheus_client.core._ShelveValue(456)
         g2 = Gauge('g', 'help', registry=None, multiprocess_mode='min')
         self.assertEqual(0, self.registry.get_sample_value('g'))
         g1.set(1)
@@ -92,7 +92,7 @@ class TestMultiProcess(unittest.TestCase):
 
     def test_gauge_max(self):
         g1 = Gauge('g', 'help', registry=None, multiprocess_mode='max')
-        prometheus_client.core._ValueClass = prometheus_client.core._MultiProcessValue(456)
+        prometheus_client.core._ValueClass = prometheus_client.core._ShelveValue(456)
         g2 = Gauge('g', 'help', registry=None, multiprocess_mode='max')
         self.assertEqual(0, self.registry.get_sample_value('g'))
         g1.set(1)
@@ -101,7 +101,7 @@ class TestMultiProcess(unittest.TestCase):
 
     def test_gauge_livesum(self):
         g1 = Gauge('g', 'help', registry=None, multiprocess_mode='livesum')
-        prometheus_client.core._ValueClass = prometheus_client.core._MultiProcessValue(456)
+        prometheus_client.core._ValueClass = prometheus_client.core._ShelveValue(456)
         g2 = Gauge('g', 'help', registry=None, multiprocess_mode='livesum')
         self.assertEqual(0, self.registry.get_sample_value('g'))
         g1.set(1)

@@ -286,6 +286,80 @@ class ShelveCollector(PartitionedCollector):
         return raw
 
 
+class UWSGICollector(PartitionedCollector):
+
+    @staticmethod
+    def _pid_dead(pid, workers):
+        """Checks uWSGI worker statuses for the given PID.
+
+        :note:
+          The enum of potential statuses is undocumented in uWSGI's Python
+          module. The options are:
+
+          - ``cheap``: Worker is killed (has been "cheaped")
+          - ``pause``: Worker has been paused or suspended
+          - ``sigN``: Worker is handling signal N
+          - ``busy``: Worker is alive and currently processing a request
+          - ``idle``: Worker is alive and idle
+
+          This implementation simply assumes the status is NOT ``cheap`` or
+          ``pause``.
+        """
+        ws = [w for w in workers if str(w["pid"]) == str(pid)]
+        if ws:
+            return ws[0]["status"] in ["cheap", "pause"]
+
+        # XXX: If the worker is not in the list of workers, it's probably dead
+        return True
+
+    def gather(self):
+        import uwsgi
+        import uwsgidecorators
+
+        # Get the magic worker listing from cache
+        @uwsgidecorators.lock
+        def cache_get_workers():
+            workers = uwsgi.cache_get("prometheus_workers")
+            return workers.split(".")
+
+        #workers = cache_get_workers()
+        workers = uwsgi.workers()
+        resolution = 1000000
+
+        raw = []
+        #for w in workers:
+        keys = uwsgi.cache_keys()
+        for key in keys:
+            if key.startswith("prometheus_") and key != "prometheus_workers":
+                key_body = key.replace("prometheus_", "")
+                key_prefix, encoded_key = key_body.split("-")
+
+                parts = key_prefix.split('_')
+                kind = parts[0]
+                partition = parts[1]
+
+                if len(parts) > 2:
+                    collect_mode = parts[1]
+                    partition = parts[2]
+
+                value = uwsgi.cache_num(key) / resolution
+                payload = dict(
+                    key=encoded_key,
+                    kind=kind,
+                    value=value
+                )
+
+                if kind == MetricKind.GAUGE:
+                    payload["partition"] = partition
+                    payload["collect_mode"] = collect_mode
+
+                    if collect_mode in ["livesum", "liveall"] and self._pid_dead(partition, workers):
+                        continue
+
+                raw.append(payload)
+        return raw
+
+
 def mark_process_dead(pid, path=os.environ.get('prometheus_multiproc_dir')):
     """Do bookkeeping for when one process dies in a multi-process setup."""
     for f in glob.glob(os.path.join(path, 'gauge_livesum_{0}.db'.format(pid))):
