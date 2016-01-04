@@ -310,56 +310,37 @@ def _ShelveValue(__pid=os.getpid()):
 
 
 def _UWSGIValue(pid=os.getpid()):
-    samples = {}
-    samples_lock = Lock()
+    _lock = Lock()
 
     class UWSGIValue(_PartitionedValue):
 
         _multiprocess = True
 
         def __init__(self, typ, metric_name, name, labelnames, labelvalues, multiprocess_mode='', **kwargs):
-            self._lock = Lock()
-            self._resolution = 1000000
-            self._sampling = False
+            self._resolution = 100000000000000
 
-            with samples_lock:
+            with _lock:
                 encoded = json.dumps((metric_name, name, labelnames, labelvalues))
                 self._key = "prometheus_{}_{}-{}".format(typ, pid, encoded)
-                if typ == 'gauge':
+                if typ == "gauge":
                     self._key = "prometheus_{}_{}_{}-{}".format(typ, multiprocess_mode, pid, encoded)
 
-                if self._key not in samples:
-                    self._value = uwsgi.cache_num(self._key) / self._resolution
-                    self.set(self._value)
-                else:
-                    self._sampling = True
-                    self._samples = {}
-                    self._value = self._samples.get(self._key, 0.0)
-                    self._samples[self._key] = self._value
+                if not uwsgi.cache_exists(self._key):
+                    uwsgi.cache_inc(self._key, 0)
 
         def inc(self, amount):
-            with self._lock:
-                self._value += amount
-
-                if self._sampling:
-                    self._samples[self._key] = self._value
-                else:
-                    uwsgi.cache_inc(self._key, int(amount * self._resolution))
+            with _lock:
+                uwsgi.cache_inc(self._key, int(amount * self._resolution))
 
         def set(self, value):
-            with self._lock:
-                self._value = value
-
-                if self._sampling:
-                    self._samples[self._key] = self._value
-                else:
-                    current = uwsgi.cache_num(self._key)
-                    value_ = int(value * self._resolution)
-                    uwsgi.cache_inc(self._key, value_ - current)
+            with _lock:
+                current = uwsgi.cache_num(self._key)
+                value_ = int(value * self._resolution)
+                uwsgi.cache_inc(self._key, value_ - current)
 
         def get(self):
-            with self._lock:
-                return self._value / self._resolution
+            with _lock:
+                return uwsgi.cache_num(self._key) / self._resolution
 
     return UWSGIValue
 

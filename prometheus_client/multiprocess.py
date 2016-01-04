@@ -316,7 +316,7 @@ class UWSGICollector(PartitionedCollector):
         import uwsgi
 
         workers = uwsgi.workers()
-        resolution = 1000000
+        resolution = 100000000000000.0
 
         raw = []
         keys = uwsgi.cache_keys()
