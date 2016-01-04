@@ -241,12 +241,16 @@ class _MutexValue(object):
           return self._value
 
 
-def _MultiProcessValue(__pid=os.getpid()):
+class _PartitionedValue(object):
+    pass
+
+
+def _ShelveValue(__pid=os.getpid()):
     pid = __pid
     samples = {}
     samples_lock = Lock()
 
-    class _ShelveValue(object):
+    class ShelveValue(_PartitionedValue):
         '''A float protected by a mutex backed by a per-process shelve.'''
 
         _multiprocess = True
@@ -257,43 +261,102 @@ def _MultiProcessValue(__pid=os.getpid()):
                     file_prefix = typ + '_' +  multiprocess_mode
                 else:
                     file_prefix = typ
+
                 if file_prefix not in samples:
                     filename = os.path.join(os.environ['prometheus_multiproc_dir'], '{0}_{1}.db'.format(file_prefix, pid))
-                    samples[file_prefix] = shelve.open(filename)
-            self._samples = samples[file_prefix]
-            self._key = json.dumps((metric_name, name, labelnames, labelvalues))
-            self._value = self._samples.get(self._key, 0.0)
-            self._samples[self._key] = self._value
-            self._samples.sync()
-            self._lock = Lock()
+                    self._samples_filename = filename
+                    db = shelve.open(filename)
+                    self._key = json.dumps((metric_name, name, labelnames, labelvalues))
+                    self._value = db.get(self._key, 0.0)
+                    db[self._key] = self._value
+                    db.close()
+                else:
+                    self._samples = {}
+                    self._key = json.dumps((metric_name, name, labelnames, labelvalues))
+                    self._value = self._samples.get(self._key, 0.0)
+                    self._samples[self._key] = self._value
+
+                self._lock = Lock()
 
         def inc(self, amount):
             with self._lock:
                 self._value += amount
-                self._samples[self._key] = self._value
-                self._samples.sync()
+
+                if hasattr(self, "_samples"):
+                    self._samples[self._key] = self._value
+                else:
+                    db = shelve.open(self._samples_filename)
+                    db[self._key] = self._value
+                    db.sync()
+                    db.close()
 
         def set(self, value):
             with self._lock:
                 self._value = value
-                self._samples[self._key] = self._value
-                self._samples.sync()
+
+                if hasattr(self, "_samples"):
+                    self._samples[self._key] = self._value
+                else:
+                    db = shelve.open(self._samples_filename)
+                    db[self._key] = self._value
+                    db.sync()
+                    db.close()
 
         def get(self):
             with self._lock:
                 return self._value
 
-    return _ShelveValue
+    return ShelveValue
+
+
+def _UWSGIValue(pid=os.getpid()):
+    _lock = Lock()
+
+    class UWSGIValue(_PartitionedValue):
+
+        _multiprocess = True
+
+        def __init__(self, typ, metric_name, name, labelnames, labelvalues, multiprocess_mode='', **kwargs):
+            self._resolution = 100000000000000
+
+            with _lock:
+                encoded = json.dumps((metric_name, name, labelnames, labelvalues))
+                self._key = "prometheus_{}_{}-{}".format(typ, pid, encoded)
+                if typ == "gauge":
+                    self._key = "prometheus_{}_{}_{}-{}".format(typ, multiprocess_mode, pid, encoded)
+
+                if not uwsgi.cache_exists(self._key):
+                    uwsgi.cache_inc(self._key, 0)
+
+        def inc(self, amount):
+            with _lock:
+                uwsgi.cache_inc(self._key, int(amount * self._resolution))
+
+        def set(self, value):
+            with _lock:
+                current = uwsgi.cache_num(self._key)
+                value_ = int(value * self._resolution)
+                uwsgi.cache_inc(self._key, value_ - current)
+
+        def get(self):
+            with _lock:
+                return uwsgi.cache_num(self._key) / self._resolution
+
+    return UWSGIValue
 
 
 # Should we enable multi-process mode?
 # This needs to be chosen before the first metric is constructed,
 # and as that may be in some arbitrary library the user/admin has
 # no control over we use an enviroment variable.
-if 'prometheus_multiproc_dir' in os.environ:
-    _ValueClass = _MultiProcessValue()
-else:
-    _ValueClass = _MutexValue
+try:
+    import uwsgi
+    _ValueClass = _UWSGIValue()
+except ImportError:
+    if 'prometheus_multiproc_dir' in os.environ:
+        _ValueClass = _ShelveValue()
+    else:
+        _ValueClass = _MutexValue
 
 
 class _LabelWrapper(object):
