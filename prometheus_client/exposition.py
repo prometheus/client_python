@@ -7,6 +7,7 @@ import socket
 import time
 import threading
 from contextlib import closing
+from wsgiref.simple_server import make_server
 
 from . import core
 try:
@@ -23,8 +24,29 @@ except ImportError:
     from urllib.parse import quote_plus
 
 
-CONTENT_TYPE_LATEST = 'text/plain; version=0.0.4; charset=utf-8'
+CONTENT_TYPE_LATEST = str('text/plain; version=0.0.4; charset=utf-8')
 '''Content type of the latest text format'''
+
+
+def make_wsgi_app():
+    '''Create a WSGI app which serves the metrics from the registry.'''
+    def prometheus_app(environ, start_response):
+        status = str('200 OK')
+        headers = [(str('Content-type'), CONTENT_TYPE_LATEST)]
+        start_response(status, headers)
+        return [generate_latest(core.REGISTRY)]
+    return prometheus_app
+
+
+def start_wsgi_server(port, addr=''):
+    """Starts a WSGI server for prometheus metrics as a daemon thread."""
+    class PrometheusMetricsServer(threading.Thread):
+        def run(self):
+            httpd = make_server(addr, port, make_wsgi_app())
+            httpd.serve_forever()
+    t = PrometheusMetricsServer()
+    t.daemon = True
+    t.start()
 
 
 def generate_latest(registry=core.REGISTRY):

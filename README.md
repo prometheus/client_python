@@ -247,6 +247,32 @@ reactor.listenTCP(8000, factory)
 reactor.run()
 ```
 
+#### WSGI
+
+To use Prometheus with [WSGI](http://wsgi.readthedocs.org/en/latest/), there is
+`make_wsgi_app` which creates a WSGI application.
+
+```python
+from prometheus_client import make_wsgi_app
+from wsgiref.simple_server import make_server
+
+app = make_wsgi_app()
+httpd = make_server('', 8000, app)
+httpd.serve_forever()
+```
+
+Such an application can be useful when integrating Prometheus metrics with WSGI
+apps.
+
+The method `start_wsgi_server` can be used to serve the metrics through the
+WSGI reference implementation in a new thread.
+
+```python
+from prometheus_client import start_wsgi_server
+
+start_wsgi_server(8000)
+```
+
 ### Node exporter textfile collector
 
 The [textfile collector](https://github.com/prometheus/node_exporter#textfile-collector)
