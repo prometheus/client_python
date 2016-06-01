@@ -398,26 +398,7 @@ class Counter(object):
         Increments the counter when an exception of the given
         type is raised up out of the code.
         '''
-
-        class ExceptionCounter(object):
-            def __init__(self, counter):
-                self._counter = counter
-
-            def __enter__(self):
-                pass
-
-            def __exit__(self, typ, value, traceback):
-                if isinstance(value, exception):
-                    self._counter.inc()
-
-            def __call__(self, f):
-                @wraps(f)
-                def wrapped(*args, **kwargs):
-                    with self:
-                        return f(*args, **kwargs)
-                return wrapped
-
-        return ExceptionCounter(self)
+        return _ExceptionCounter(self, exception)
 
     def _samples(self):
         return (('', {}, self._value.get()), )
@@ -490,51 +471,14 @@ class Gauge(object):
         Increments the gauge when the code is entered,
         and decrements when it is exited.
         '''
-
-        class InprogressTracker(object):
-            def __init__(self, gauge):
-                self._gauge = gauge
-
-            def __enter__(self):
-                self._gauge.inc()
-
-            def __exit__(self, typ, value, traceback):
-                self._gauge.dec()
-
-            def __call__(self, f):
-                @wraps(f)
-                def wrapped(*args, **kwargs):
-                    with self:
-                        return f(*args, **kwargs)
-                return wrapped
-
-        return InprogressTracker(self)
+        return _InprogressTracker(self)
 
     def time(self):
         '''Time a block of code or function, and set the duration in seconds.
 
         Can be used as a function decorator or context manager.
         '''
-
-        class Timer(object):
-            def __init__(self, gauge):
-                self._gauge = gauge
-
-            def __enter__(self):
-                self._start = time.time()
-
-            def __exit__(self, typ, value, traceback):
-                # Time can go backwards.
-                self._gauge.set(max(time.time() - self._start, 0))
-
-            def __call__(self, f):
-                @wraps(f)
-                def wrapped(*args, **kwargs):
-                    with self:
-                        return f(*args, **kwargs)
-                return wrapped
-
-        return Timer(self)
+        return _GaugeTimer(self)
 
     def set_function(self, f):
         '''Call the provided function to return the Gauge value.
@@ -598,26 +542,7 @@ class Summary(object):
 
         Can be used as a function decorator or context manager.
         '''
-
-        class Timer(object):
-            def __init__(self, summary):
-                self._summary = summary
-
-            def __enter__(self):
-                self._start = time.time()
-
-            def __exit__(self, typ, value, traceback):
-                # Time can go backwards.
-                self._summary.observe(max(time.time() - self._start, 0))
-
-            def __call__(self, f):
-                @wraps(f)
-                def wrapped(*args, **kwargs):
-                    with self:
-                        return f(*args, **kwargs)
-                return wrapped
-
-        return Timer(self)
+        return _SummaryTimer(self)
 
     def _samples(self):
         return (
@@ -707,26 +632,7 @@ class Histogram(object):
 
         Can be used as a function decorator or context manager.
         '''
-
-        class Timer(object):
-            def __init__(self, histogram):
-                self._histogram = histogram
-
-            def __enter__(self):
-                self._start = time.time()
-
-            def __exit__(self, typ, value, traceback):
-                # Time can go backwards.
-                self._histogram.observe(max(time.time() - self._start, 0))
-
-            def __call__(self, f):
-                @wraps(f)
-                def wrapped(*args, **kwargs):
-                    with self:
-                        return f(*args, **kwargs)
-                return wrapped
-
-        return Timer(self)
+        return _HistogramTimer(self)
 
     def _samples(self):
         samples = []
@@ -738,3 +644,97 @@ class Histogram(object):
         samples.append(('_sum', {}, self._sum.get()))
         return tuple(samples)
 
+
+class _HistogramTimer(object):
+    def __init__(self, histogram):
+        self._histogram = histogram
+
+    def __enter__(self):
+        self._start = time.time()
+
+    def __exit__(self, typ, value, traceback):
+        # Time can go backwards.
+        self._histogram.observe(max(time.time() - self._start, 0))
+
+    def __call__(self, f):
+        @wraps(f)
+        def wrapped(*args, **kwargs):
+            with self:
+                return f(*args, **kwargs)
+        return wrapped
+
+
+class _ExceptionCounter(object):
+    def __init__(self, counter, exception):
+        self._counter = counter
+        self._exception = exception
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, typ, value, traceback):
+        if isinstance(value, self._exception):
+            self._counter.inc()
+
+    def __call__(self, f):
+        @wraps(f)
+        def wrapped(*args, **kwargs):
+            with self:
+                return f(*args, **kwargs)
+        return wrapped
+
+
+class _InprogressTracker(object):
+    def __init__(self, gauge):
+        self._gauge = gauge
+
+    def __enter__(self):
+        self._gauge.inc()
+
+    def __exit__(self, typ, value, traceback):
+        self._gauge.dec()
+
+    def __call__(self, f):
+        @wraps(f)
+        def wrapped(*args, **kwargs):
+            with self:
+                return f(*args, **kwargs)
+        return wrapped
+
+
+class _SummaryTimer(object):
+    def __init__(self, summary):
+        self._summary = summary
+
+    def __enter__(self):
+        self._start = time.time()
+
+    def __exit__(self, typ, value, traceback):
+        # Time can go backwards.
+        self._summary.observe(max(time.time() - self._start, 0))
+
+    def __call__(self, f):
+        @wraps(f)
+        def wrapped(*args, **kwargs):
+            with self:
+                return f(*args, **kwargs)
+        return wrapped
+
+
+class _GaugeTimer(object):
+    def __init__(self, gauge):
+        self._gauge = gauge
+
+    def __enter__(self):
+        self._start = time.time()
+
+    def __exit__(self, typ, value, traceback):
+        # Time can go backwards.
+        self._gauge.set(max(time.time() - self._start, 0))
+
+    def __call__(self, f):
+        @wraps(f)
+        def wrapped(*args, **kwargs):
+            with self:
+                return f(*args, **kwargs)
+        return wrapped
