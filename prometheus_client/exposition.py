@@ -28,21 +28,21 @@ CONTENT_TYPE_LATEST = str('text/plain; version=0.0.4; charset=utf-8')
 '''Content type of the latest text format'''
 
 
-def make_wsgi_app():
-    '''Create a WSGI app which serves the metrics from the registry.'''
+def make_wsgi_app(registry=core.REGISTRY):
+    '''Create a WSGI app which serves the metrics from a registry.'''
     def prometheus_app(environ, start_response):
         status = str('200 OK')
         headers = [(str('Content-type'), CONTENT_TYPE_LATEST)]
         start_response(status, headers)
-        return [generate_latest(core.REGISTRY)]
+        return [generate_latest(registry)]
     return prometheus_app
 
 
-def start_wsgi_server(port, addr=''):
+def start_wsgi_server(port, addr='', registry=core.REGISTRY):
     """Starts a WSGI server for prometheus metrics as a daemon thread."""
     class PrometheusMetricsServer(threading.Thread):
         def run(self):
-            httpd = make_server(addr, port, make_wsgi_app())
+            httpd = make_server(addr, port, make_wsgi_app(registry))
             httpd.serve_forever()
     t = PrometheusMetricsServer()
     t.daemon = True
