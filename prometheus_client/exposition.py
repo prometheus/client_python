@@ -2,6 +2,7 @@
 
 from __future__ import unicode_literals
 
+import logging
 import os
 import socket
 import time
@@ -70,10 +71,18 @@ def generate_latest(registry=core.REGISTRY):
 
 class MetricsHandler(BaseHTTPRequestHandler):
     def do_GET(self):
+        try:
+            content = generate_latest(core.REGISTRY)
+        except:
+            logging.exception('error generating response')
+            self.send_error(500, 'error generating metrics')
+            self.end_headers()
+            return
+
         self.send_response(200)
         self.send_header('Content-Type', CONTENT_TYPE_LATEST)
         self.end_headers()
-        self.wfile.write(generate_latest(core.REGISTRY))
+        self.wfile.write(content)
 
     def log_message(self, format, *args):
         return
