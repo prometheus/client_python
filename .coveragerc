@@ -1,0 +1,12 @@
+[run]
+branch = True
+source = prometheus_client
+
+[paths]
+source =
+   prometheus_client
+   .tox/*/lib/python*/site-packages/prometheus_client
+   .tox/pypy/site-packages/prometheus_client
+
+[report]
+show_missing = True
