@@ -185,7 +185,16 @@ c.labels('get', '/').inc()
 c.labels('post', '/submit').inc()
 ```
 
-Labels can also be provided as a dict:
+Labels can also be passed as keyword-arguments:
+
+```python
+from prometheus_client import Counter
+c = Counter('my_requests_total', 'HTTP Failures', ['method', 'endpoint'])
+c.labels(method='get', endpoint='/').inc()
+c.labels(method='post', endpoint='/submit').inc()
+```
+
+Or as a dict:
 
 ```python
 from prometheus_client import Counter
@@ -369,7 +378,7 @@ REGISTRY.register(CustomCollector())
 ## Parser
 
 The Python client supports parsing the Promeheus text format.
-This is intended for advanced use cases where you have servers 
+This is intended for advanced use cases where you have servers
 exposing Prometheus metrics and need to get them into some other
 system.
 
@@ -379,4 +388,3 @@ for family in text_string_to_metric_families("my_gauge 1.0\n"):
   for sample in family.samples:
     print("Name: {0} Labels: {1} Value: {2}".format(*sample))
 ```
-

@@ -280,6 +280,21 @@ class TestMetricWrapper(unittest.TestCase):
         self.assertRaises(ValueError, self.two_labels.labels, {'c': 'z'})
         self.assertRaises(ValueError, self.two_labels.labels, {})
 
+    def test_labels_by_kwarg(self):
+        self.counter.labels(l='x').inc()
+        self.assertEqual(1, self.registry.get_sample_value('c', {'l': 'x'}))
+        self.assertRaises(ValueError, self.counter.labels, l='x', m='y')
+        self.assertRaises(ValueError, self.counter.labels, m='y')
+        self.assertRaises(ValueError, self.counter.labels)
+        self.two_labels.labels(a='x', b='y').inc()
+        self.assertEqual(1, self.registry.get_sample_value('two', {'a': 'x', 'b': 'y'}))
+        self.assertRaises(ValueError, self.two_labels.labels, a='x', b='y', c='z')
+        self.assertRaises(ValueError, self.two_labels.labels, a='x', c='z')
+        self.assertRaises(ValueError, self.two_labels.labels, b='y', c='z')
+        self.assertRaises(ValueError, self.two_labels.labels, c='z')
+        self.assertRaises(ValueError, self.two_labels.labels)
+        self.assertRaises(ValueError, self.two_labels.labels, {'a': 'x'}, b='y')
+
     def test_invalid_names_raise(self):
         self.assertRaises(ValueError, Counter, '', 'help')
         self.assertRaises(ValueError, Counter, '^', 'help')
