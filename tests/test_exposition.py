@@ -1,5 +1,6 @@
 from __future__ import unicode_literals
 import os
+import sys
 import threading
 import time
 import unittest
@@ -160,6 +161,10 @@ class TestPushGateway(unittest.TestCase):
         self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
         self.assertEqual(self.requests[0][1], b'')
 
+    @unittest.skipIf(
+        sys.platform == "darwin",
+        "instance_ip_grouping_key() does not work on macOS."
+    )
     def test_instance_ip_grouping_key(self):
         self.assertTrue('' != instance_ip_grouping_key()['instance'])
 
