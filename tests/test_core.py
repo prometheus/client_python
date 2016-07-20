@@ -1,4 +1,6 @@
 from __future__ import unicode_literals
+
+import inspect
 import os
 import threading
 import time
@@ -28,6 +30,8 @@ class TestCounter(unittest.TestCase):
                 raise ValueError
             else:
                 raise TypeError
+
+        self.assertEqual((["r"], None, None, None), inspect.getargspec(f))
 
         try:
             f(False)
@@ -77,6 +81,8 @@ class TestGauge(unittest.TestCase):
         def f():
             self.assertEqual(1, self.registry.get_sample_value('g'))
 
+        self.assertEqual(([], None, None, None), inspect.getargspec(f))
+
         f()
         self.assertEqual(0, self.registry.get_sample_value('g'))
 
@@ -101,6 +107,8 @@ class TestGauge(unittest.TestCase):
         @self.gauge.time()
         def f():
             time.sleep(.001)
+
+        self.assertEqual(([], None, None, None), inspect.getargspec(f))
 
         f()
         self.assertNotEqual(0, self.registry.get_sample_value('g'))
@@ -130,6 +138,8 @@ class TestSummary(unittest.TestCase):
         @self.summary.time()
         def f():
             pass
+
+        self.assertEqual(([], None, None, None), inspect.getargspec(f))
 
         f()
         self.assertEqual(1, self.registry.get_sample_value('s_count'))
@@ -206,6 +216,8 @@ class TestHistogram(unittest.TestCase):
         @self.histogram.time()
         def f():
             pass
+
+        self.assertEqual(([], None, None, None), inspect.getargspec(f))
 
         f()
         self.assertEqual(1, self.registry.get_sample_value('h_count'))

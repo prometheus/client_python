@@ -1,6 +1,8 @@
 [run]
 branch = True
 source = prometheus_client
+omit =
+    prometheus_client/decorator.py
 
 [paths]
 source =

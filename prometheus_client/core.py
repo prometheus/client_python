@@ -14,8 +14,9 @@ except ImportError:
     # Python 3
     unicode = str
 
-from functools import wraps
 from threading import Lock
+
+from .decorator import decorate
 
 _METRIC_NAME_RE = re.compile(r'^[a-zA-Z_:][a-zA-Z0-9_:]*$')
 _METRIC_LABEL_NAME_RE = re.compile(r'^[a-zA-Z_:][a-zA-Z0-9_:]*$')
@@ -657,11 +658,10 @@ class _HistogramTimer(object):
         self._histogram.observe(max(time.time() - self._start, 0))
 
     def __call__(self, f):
-        @wraps(f)
-        def wrapped(*args, **kwargs):
+        def wrapped(func, *args, **kwargs):
             with self:
-                return f(*args, **kwargs)
-        return wrapped
+                return func(*args, **kwargs)
+        return decorate(f, wrapped)
 
 
 class _ExceptionCounter(object):
@@ -677,11 +677,10 @@ class _ExceptionCounter(object):
             self._counter.inc()
 
     def __call__(self, f):
-        @wraps(f)
-        def wrapped(*args, **kwargs):
+        def wrapped(func, *args, **kwargs):
             with self:
-                return f(*args, **kwargs)
-        return wrapped
+                return func(*args, **kwargs)
+        return decorate(f, wrapped)
 
 
 class _InprogressTracker(object):
@@ -695,11 +694,10 @@ class _InprogressTracker(object):
         self._gauge.dec()
 
     def __call__(self, f):
-        @wraps(f)
-        def wrapped(*args, **kwargs):
+        def wrapped(func, *args, **kwargs):
             with self:
-                return f(*args, **kwargs)
-        return wrapped
+                return func(*args, **kwargs)
+        return decorate(f, wrapped)
 
 
 class _SummaryTimer(object):
@@ -714,11 +712,10 @@ class _SummaryTimer(object):
         self._summary.observe(max(time.time() - self._start, 0))
 
     def __call__(self, f):
-        @wraps(f)
-        def wrapped(*args, **kwargs):
+        def wrapped(func, *args, **kwargs):
             with self:
-                return f(*args, **kwargs)
-        return wrapped
+                return func(*args, **kwargs)
+        return decorate(f, wrapped)
 
 
 class _GaugeTimer(object):
@@ -733,8 +730,7 @@ class _GaugeTimer(object):
         self._gauge.set(max(time.time() - self._start, 0))
 
     def __call__(self, f):
-        @wraps(f)
-        def wrapped(*args, **kwargs):
+        def wrapped(func, *args, **kwargs):
             with self:
-                return f(*args, **kwargs)
-        return wrapped
+                return func(*args, **kwargs)
+        return decorate(f, wrapped)
