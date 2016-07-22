@@ -279,11 +279,7 @@ class _LabelWrapper(object):
         if labelvalues and labelkwargs:
             raise ValueError("Can't pass both *args and **kwargs")
 
-        if len(labelvalues) == 1 and type(labelvalues[0]) == dict:
-            if sorted(labelvalues[0].keys()) != sorted(self._labelnames):
-                raise ValueError('Incorrect label names')
-            labelvalues = tuple([unicode(labelvalues[0][l]) for l in self._labelnames])
-        elif labelkwargs:
+        if labelkwargs:
             if sorted(labelkwargs) != sorted(self._labelnames):
                 raise ValueError('Incorrect label names')
             labelvalues = tuple([unicode(labelkwargs[l]) for l in self._labelnames])

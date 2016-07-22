@@ -194,15 +194,6 @@ c.labels(method='get', endpoint='/').inc()
 c.labels(method='post', endpoint='/submit').inc()
 ```
 
-Or as a dict:
-
-```python
-from prometheus_client import Counter
-c = Counter('my_requests_total', 'HTTP Failures', ['method', 'endpoint'])
-c.labels({'method': 'get', 'endpoint': '/'}).inc()
-c.labels({'method': 'post', 'endpoint': '/submit'}).inc()
-```
-
 ### Process Collector
 
 The Python client automatically exports metrics about process CPU usage, RAM,
