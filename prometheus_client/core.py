@@ -254,7 +254,7 @@ class _LabelWrapper(object):
             if l.startswith('__'):
                 raise ValueError('Invalid label metric name: ' + l)
 
-    def labels(self, *labelvalues):
+    def labels(self, *labelvalues, **labelkwargs):
         '''Return the child for the given labelset.
 
         All metrics can have labels, allowing grouping of related time series.
@@ -277,10 +277,13 @@ class _LabelWrapper(object):
         See the best practices on [naming](http://prometheus.io/docs/practices/naming/)
         and [labels](http://prometheus.io/docs/practices/instrumentation/#use-labels).
         '''
-        if len(labelvalues) == 1 and type(labelvalues[0]) == dict:
-            if sorted(labelvalues[0].keys()) != sorted(self._labelnames):
+        if labelvalues and labelkwargs:
+            raise ValueError("Can't pass both *args and **kwargs")
+
+        if labelkwargs:
+            if sorted(labelkwargs) != sorted(self._labelnames):
                 raise ValueError('Incorrect label names')
-            labelvalues = tuple([unicode(labelvalues[0][l]) for l in self._labelnames])
+            labelvalues = tuple([unicode(labelkwargs[l]) for l in self._labelnames])
         else:
             if len(labelvalues) != len(self._labelnames):
                 raise ValueError('Incorrect label count')
