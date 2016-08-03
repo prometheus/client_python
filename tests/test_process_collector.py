@@ -2,8 +2,8 @@ from __future__ import unicode_literals
 import os
 import unittest
 
-
 from prometheus_client import CollectorRegistry, ProcessCollector
+
 
 class TestProcessCollector(unittest.TestCase):
     def setUp(self):
