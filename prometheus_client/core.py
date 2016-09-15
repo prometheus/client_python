@@ -5,8 +5,8 @@ from __future__ import unicode_literals
 import copy
 import math
 import re
-import time
 import types
+from timeit import default_timer
 
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler
@@ -466,7 +466,7 @@ class Gauge(object):
 
     def set_to_current_time(self):
         '''Set gauge to the current unixtime.'''
-        self.set(time.time())
+        self.set(default_timer())
 
     def track_inprogress(self):
         '''Track inprogress blocks of code or functions.
@@ -654,11 +654,11 @@ class _HistogramTimer(object):
         self._histogram = histogram
 
     def __enter__(self):
-        self._start = time.time()
+        self._start = default_timer()
 
     def __exit__(self, typ, value, traceback):
         # Time can go backwards.
-        self._histogram.observe(max(time.time() - self._start, 0))
+        self._histogram.observe(max(default_timer() - self._start, 0))
 
     def __call__(self, f):
         def wrapped(func, *args, **kwargs):
@@ -708,11 +708,11 @@ class _SummaryTimer(object):
         self._summary = summary
 
     def __enter__(self):
-        self._start = time.time()
+        self._start = default_timer()
 
     def __exit__(self, typ, value, traceback):
         # Time can go backwards.
-        self._summary.observe(max(time.time() - self._start, 0))
+        self._summary.observe(max(default_timer() - self._start, 0))
 
     def __call__(self, f):
         def wrapped(func, *args, **kwargs):
@@ -726,11 +726,11 @@ class _GaugeTimer(object):
         self._gauge = gauge
 
     def __enter__(self):
-        self._start = time.time()
+        self._start = default_timer()
 
     def __exit__(self, typ, value, traceback):
         # Time can go backwards.
-        self._gauge.set(max(time.time() - self._start, 0))
+        self._gauge.set(max(default_timer() - self._start, 0))
 
     def __call__(self, f):
         def wrapped(func, *args, **kwargs):

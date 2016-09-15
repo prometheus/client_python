@@ -8,9 +8,8 @@ except ImportError:
 from prometheus_client import Counter, CollectorRegistry
 from prometheus_client.bridge.graphite import GraphiteBridge
 
-class FakeTime(object):
-    def time(self):
-        return 1434898897.5
+def fake_timer():
+    return 1434898897.5
 
 class TestGraphiteBridge(unittest.TestCase):
     def setUp(self):
@@ -27,10 +26,10 @@ class TestGraphiteBridge(unittest.TestCase):
                 server.socket.close()
         self.t = ServingThread()
         self.t.start()
-        
+
         # Explicitly use localhost as the target host, since connecting to 0.0.0.0 fails on Windows
         address = ('localhost', server.server_address[1])
-        self.gb = GraphiteBridge(address, self.registry, _time=FakeTime())
+        self.gb = GraphiteBridge(address, self.registry, _timer=fake_timer)
 
     def test_nolabels(self):
         counter = Counter('c', 'help', registry=self.registry)
