@@ -82,10 +82,15 @@ class MetricsHandler(BaseHTTPRequestHandler):
 def start_http_server(port, addr=''):
     """Starts a HTTP server for prometheus metrics as a daemon thread."""
     class PrometheusMetricsServer(threading.Thread):
+        def __init__(self, httpd):
+            self.httpd = httpd
+            super(PrometheusMetricsServer, self).__init__()
+
         def run(self):
-            httpd = HTTPServer((addr, port), MetricsHandler)
-            httpd.serve_forever()
-    t = PrometheusMetricsServer()
+            self.httpd.serve_forever()
+
+    httpd = HTTPServer((addr, port), MetricsHandler)
+    t = PrometheusMetricsServer(httpd)
     t.daemon = True
     t.start()
 
