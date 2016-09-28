@@ -15,13 +15,14 @@ try:
     from BaseHTTPServer import HTTPServer
     from urllib2 import build_opener, Request, HTTPHandler
     from urllib import quote_plus
+    from urlparse import urlparse
 except ImportError:
     # Python 3
     unicode = str
     from http.server import BaseHTTPRequestHandler
     from http.server import HTTPServer
     from urllib.request import build_opener, Request, HTTPHandler
-    from urllib.parse import quote_plus
+    from urllib.parse import quote_plus, urlparse
 
 
 CONTENT_TYPE_LATEST = str('text/plain; version=0.0.4; charset=utf-8')
@@ -105,6 +106,8 @@ def write_to_textfile(path, registry):
 def push_to_gateway(gateway, job, registry, grouping_key=None, timeout=None):
     '''Push metrics to the given pushgateway.
 
+    `gateway` is a url, but will assume http if no other scheme is provided.
+
     This overwrites all metrics with the same job and grouping_key.
     This uses the PUT HTTP method.'''
     _use_gateway('PUT', gateway, job, registry, grouping_key, timeout)
@@ -112,6 +115,8 @@ def push_to_gateway(gateway, job, registry, grouping_key=None, timeout=None):
 
 def pushadd_to_gateway(gateway, job, registry, grouping_key=None, timeout=None):
     '''PushAdd metrics to the given pushgateway.
+
+    `gateway` is a url, but will assume http if no other scheme is provided.
 
     This replaces metrics with the same name, job and grouping_key.
     This uses the POST HTTP method.'''
@@ -121,13 +126,17 @@ def pushadd_to_gateway(gateway, job, registry, grouping_key=None, timeout=None):
 def delete_from_gateway(gateway, job, grouping_key=None, timeout=None):
     '''Delete metrics from the given pushgateway.
 
+    `gateway` is a url, but will assume http if no other scheme is provided.
+
     This deletes metrics with the given job and grouping_key.
     This uses the DELETE HTTP method.'''
     _use_gateway('DELETE', gateway, job, None, grouping_key, timeout)
 
 
 def _use_gateway(method, gateway, job, registry, grouping_key, timeout):
-    url = 'http://{0}/metrics/job/{1}'.format(gateway, quote_plus(job))
+    if len(urlparse(gateway).scheme) == 0:
+        gateway = 'http://{0}'.format(gateway)
+    url = '{0}/metrics/job/{1}'.format(gateway, quote_plus(job))
 
     data = b''
     if method != 'DELETE':
