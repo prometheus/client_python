@@ -106,7 +106,13 @@ def write_to_textfile(path, registry):
 def push_to_gateway(gateway, job, registry, grouping_key=None, timeout=None):
     '''Push metrics to the given pushgateway.
 
-    `gateway` is a url, but will assume http if no other scheme is provided.
+    `gateway` is a url. Scheme defaults to 'http' if none is provided
+    `job` is the name of the local routine pushing metrics
+    `registry` is an instance of CollectorRegistry
+    `grouping_key` please see the pushgateway documentation for details.
+                   Defaults to None
+    `timeout` is how long push will attempt to connect before giving up.
+              Defaults to None
 
     This overwrites all metrics with the same job and grouping_key.
     This uses the PUT HTTP method.'''
@@ -116,7 +122,13 @@ def push_to_gateway(gateway, job, registry, grouping_key=None, timeout=None):
 def pushadd_to_gateway(gateway, job, registry, grouping_key=None, timeout=None):
     '''PushAdd metrics to the given pushgateway.
 
-    `gateway` is a url, but will assume http if no other scheme is provided.
+    `gateway` is a url. Scheme defaults to 'http' if none is provided
+    `job` is the name of the local routine pushing metrics
+    `registry` is an instance of CollectorRegistry
+    `grouping_key` please see the pushgateway documentation for details.
+                   Defaults to None
+    `timeout` is how long push will attempt to connect before giving up.
+              Defaults to None
 
     This replaces metrics with the same name, job and grouping_key.
     This uses the POST HTTP method.'''
@@ -126,7 +138,12 @@ def pushadd_to_gateway(gateway, job, registry, grouping_key=None, timeout=None):
 def delete_from_gateway(gateway, job, grouping_key=None, timeout=None):
     '''Delete metrics from the given pushgateway.
 
-    `gateway` is a url, but will assume http if no other scheme is provided.
+    `gateway` is a url. Scheme defaults to 'http' if none is provided
+    `job` is the name of the local routine pushing metrics
+    `grouping_key` please see the pushgateway documentation for details.
+                   Defaults to None
+    `timeout` is how long delete will attempt to connect before giving up.
+              Defaults to None
 
     This deletes metrics with the given job and grouping_key.
     This uses the DELETE HTTP method.'''
