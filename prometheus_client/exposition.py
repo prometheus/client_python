@@ -15,14 +15,13 @@ try:
     from BaseHTTPServer import HTTPServer
     from urllib2 import build_opener, Request, HTTPHandler
     from urllib import quote_plus
-    from urlparse import urlparse
 except ImportError:
     # Python 3
     unicode = str
     from http.server import BaseHTTPRequestHandler
     from http.server import HTTPServer
     from urllib.request import build_opener, Request, HTTPHandler
-    from urllib.parse import quote_plus, urlparse
+    from urllib.parse import quote_plus
 
 
 CONTENT_TYPE_LATEST = str('text/plain; version=0.0.4; charset=utf-8')
