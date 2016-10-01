@@ -3,16 +3,14 @@
 from __future__ import unicode_literals
 
 import os
-import time
-import threading
 
 from . import core
 try:
-  import resource
-  _PAGESIZE = resource.getpagesize()
+    import resource
+    _PAGESIZE = resource.getpagesize()
 except ImportError:
-  # Not Unix
-  _PAGESIZE = 4096
+    # Not Unix
+    _PAGESIZE = 4096
 
 
 class ProcessCollector(object):
@@ -38,7 +36,7 @@ class ProcessCollector(object):
         except IOError:
             pass
         if registry:
-          registry.register(self)
+            registry.register(self)
 
     def _boot_time(self):
         with open(os.path.join(self._proc, 'stat')) as stat:
@@ -50,27 +48,25 @@ class ProcessCollector(object):
         if not self._btime:
             return []
 
-        try:
-          pid = os.path.join(self._proc, str(self._pid()).strip())
-        except:
-          # File likely didn't exist, fail silently.
-          raise
-          return []
+        pid = os.path.join(self._proc, str(self._pid()).strip())
 
         result = []
         try:
             with open(os.path.join(pid, 'stat')) as stat:
                 parts = (stat.read().split(')')[-1].split())
             vmem = core.GaugeMetricFamily(self._prefix + 'virtual_memory_bytes',
-                    'Virtual memory size in bytes.', value=float(parts[20]))
-            rss = core.GaugeMetricFamily(self._prefix + 'resident_memory_bytes', 'Resident memory size in bytes.', value=float(parts[21]) * _PAGESIZE)
+                                          'Virtual memory size in bytes.', value=float(parts[20]))
+            rss = core.GaugeMetricFamily(self._prefix + 'resident_memory_bytes', 'Resident memory size in bytes.',
+                                         value=float(parts[21]) * _PAGESIZE)
             start_time_secs = float(parts[19]) / self._ticks
             start_time = core.GaugeMetricFamily(self._prefix + 'start_time_seconds',
-                    'Start time of the process since unix epoch in seconds.', value=start_time_secs + self._btime)
+                                                'Start time of the process since unix epoch in seconds.',
+                                                value=start_time_secs + self._btime)
             utime = float(parts[11]) / self._ticks
             stime = float(parts[12]) / self._ticks
             cpu = core.CounterMetricFamily(self._prefix + 'cpu_seconds_total',
-                    'Total user and system CPU time spent in seconds.', value=utime + stime)
+                                           'Total user and system CPU time spent in seconds.',
+                                           value=utime + stime)
             result.extend([vmem, rss, start_time, cpu])
         except IOError:
             pass
@@ -80,10 +76,12 @@ class ProcessCollector(object):
                 for line in limits:
                     if line.startswith('Max open file'):
                         max_fds = core.GaugeMetricFamily(self._prefix + 'max_fds',
-                                'Maximum number of open file descriptors.', value=float(line.split()[3]))
+                                                         'Maximum number of open file descriptors.',
+                                                         value=float(line.split()[3]))
                         break
             open_fds = core.GaugeMetricFamily(self._prefix + 'open_fds',
-                    'Number of open file descriptors.', len(os.listdir(os.path.join(pid, 'fd'))))
+                                              'Number of open file descriptors.',
+                                              len(os.listdir(os.path.join(pid, 'fd'))))
             result.extend([open_fds, max_fds])
         except IOError:
             pass

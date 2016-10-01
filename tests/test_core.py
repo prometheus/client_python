@@ -1,4 +1,6 @@
 from __future__ import unicode_literals
+
+import inspect
 import os
 import threading
 import time
@@ -28,6 +30,8 @@ class TestCounter(unittest.TestCase):
                 raise ValueError
             else:
                 raise TypeError
+
+        self.assertEqual((["r"], None, None, None), inspect.getargspec(f))
 
         try:
             f(False)
@@ -77,6 +81,8 @@ class TestGauge(unittest.TestCase):
         def f():
             self.assertEqual(1, self.registry.get_sample_value('g'))
 
+        self.assertEqual(([], None, None, None), inspect.getargspec(f))
+
         f()
         self.assertEqual(0, self.registry.get_sample_value('g'))
 
@@ -101,6 +107,8 @@ class TestGauge(unittest.TestCase):
         @self.gauge.time()
         def f():
             time.sleep(.001)
+
+        self.assertEqual(([], None, None, None), inspect.getargspec(f))
 
         f()
         self.assertNotEqual(0, self.registry.get_sample_value('g'))
@@ -130,6 +138,8 @@ class TestSummary(unittest.TestCase):
         @self.summary.time()
         def f():
             pass
+
+        self.assertEqual(([], None, None, None), inspect.getargspec(f))
 
         f()
         self.assertEqual(1, self.registry.get_sample_value('s_count'))
@@ -207,6 +217,8 @@ class TestHistogram(unittest.TestCase):
         def f():
             pass
 
+        self.assertEqual(([], None, None, None), inspect.getargspec(f))
+
         f()
         self.assertEqual(1, self.registry.get_sample_value('h_count'))
         self.assertEqual(1, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
@@ -249,7 +261,7 @@ class TestMetricWrapper(unittest.TestCase):
 
     def test_labels_coerced_to_string(self):
         self.counter.labels(None).inc()
-        self.counter.labels({'l': None}).inc()
+        self.counter.labels(l=None).inc()
         self.assertEqual(2, self.registry.get_sample_value('c', {'l': 'None'}))
 
         self.counter.remove(None)
@@ -259,26 +271,27 @@ class TestMetricWrapper(unittest.TestCase):
         class Test(object):
             __str__ = None
         self.assertRaises(TypeError, self.counter.labels, Test())
-        self.assertRaises(TypeError, self.counter.labels, {'l': Test()})
+        self.assertRaises(TypeError, self.counter.labels, l=Test())
 
     def test_namespace_subsystem_concatenated(self):
         c = Counter('c', 'help', namespace='a', subsystem='b', registry=self.registry)
         c.inc()
         self.assertEqual(1, self.registry.get_sample_value('a_b_c'))
 
-    def test_labels_by_dict(self):
-        self.counter.labels({'l': 'x'}).inc()
+    def test_labels_by_kwarg(self):
+        self.counter.labels(l='x').inc()
         self.assertEqual(1, self.registry.get_sample_value('c', {'l': 'x'}))
-        self.assertRaises(ValueError, self.counter.labels, {'l': 'x', 'm': 'y'})
-        self.assertRaises(ValueError, self.counter.labels, {'m': 'y'})
-        self.assertRaises(ValueError, self.counter.labels, {})
-        self.two_labels.labels({'a': 'x', 'b': 'y'}).inc()
+        self.assertRaises(ValueError, self.counter.labels, l='x', m='y')
+        self.assertRaises(ValueError, self.counter.labels, m='y')
+        self.assertRaises(ValueError, self.counter.labels)
+        self.two_labels.labels(a='x', b='y').inc()
         self.assertEqual(1, self.registry.get_sample_value('two', {'a': 'x', 'b': 'y'}))
-        self.assertRaises(ValueError, self.two_labels.labels, {'a': 'x', 'b': 'y', 'c': 'z'})
-        self.assertRaises(ValueError, self.two_labels.labels, {'a': 'x', 'c': 'z'})
-        self.assertRaises(ValueError, self.two_labels.labels, {'b': 'y', 'c': 'z'})
-        self.assertRaises(ValueError, self.two_labels.labels, {'c': 'z'})
-        self.assertRaises(ValueError, self.two_labels.labels, {})
+        self.assertRaises(ValueError, self.two_labels.labels, a='x', b='y', c='z')
+        self.assertRaises(ValueError, self.two_labels.labels, a='x', c='z')
+        self.assertRaises(ValueError, self.two_labels.labels, b='y', c='z')
+        self.assertRaises(ValueError, self.two_labels.labels, c='z')
+        self.assertRaises(ValueError, self.two_labels.labels)
+        self.assertRaises(ValueError, self.two_labels.labels, {'a': 'x'}, b='y')
 
     def test_invalid_names_raise(self):
         self.assertRaises(ValueError, Counter, '', 'help')

@@ -185,13 +185,13 @@ c.labels('get', '/').inc()
 c.labels('post', '/submit').inc()
 ```
 
-Labels can also be provided as a dict:
+Labels can also be passed as keyword-arguments:
 
 ```python
 from prometheus_client import Counter
 c = Counter('my_requests_total', 'HTTP Failures', ['method', 'endpoint'])
-c.labels({'method': 'get', 'endpoint': '/'}).inc()
-c.labels({'method': 'post', 'endpoint': '/submit'}).inc()
+c.labels(method='get', endpoint='/').inc()
+c.labels(method='post', endpoint='/submit').inc()
 ```
 
 ### Process Collector
@@ -228,6 +228,50 @@ Visit [http://localhost:8000/](http://localhost:8000/) to view the metrics.
 To add Prometheus exposition to an existing HTTP server, see the `MetricsHandler` class
 which provides a `BaseHTTPRequestHandler`. It also serves as a simple example of how
 to write a custom endpoint.
+
+#### Twisted
+
+To use prometheus with [twisted](https://twistedmatrix.com/), there is `MetricsResource` which exposes metrics as a twisted resource.
+
+```python
+from prometheus_client.twisted import MetricsResource
+from twisted.web.server import Site
+from twisted.web.resource import Resource
+from twisted.internet import reactor
+
+root = Resource()
+root.putChild(b'metrics', MetricsResource())
+
+factory = Site(root)
+reactor.listenTCP(8000, factory)
+reactor.run()
+```
+
+#### WSGI
+
+To use Prometheus with [WSGI](http://wsgi.readthedocs.org/en/latest/), there is
+`make_wsgi_app` which creates a WSGI application.
+
+```python
+from prometheus_client import make_wsgi_app
+from wsgiref.simple_server import make_server
+
+app = make_wsgi_app()
+httpd = make_server('', 8000, app)
+httpd.serve_forever()
+```
+
+Such an application can be useful when integrating Prometheus metrics with WSGI
+apps.
+
+The method `start_wsgi_server` can be used to serve the metrics through the
+WSGI reference implementation in a new thread.
+
+```python
+from prometheus_client import start_wsgi_server
+
+start_wsgi_server(8000)
+```
 
 ### Node exporter textfile collector
 
@@ -393,14 +437,13 @@ Gauges have several modes they can run in, which can be selected with the
 ## Parser
 
 The Python client supports parsing the Promeheus text format.
-This is intended for advanced use cases where you have servers 
+This is intended for advanced use cases where you have servers
 exposing Prometheus metrics and need to get them into some other
 system.
 
-```
+```python
 from prometheus_client.parser import text_string_to_metric_families
 for family in text_string_to_metric_families("my_gauge 1.0\n"):
   for sample in family.samples:
     print("Name: {0} Labels: {1} Value: {2}".format(*sample))
 ```
-

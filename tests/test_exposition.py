@@ -1,9 +1,13 @@
 from __future__ import unicode_literals
-import os
-import threading
-import time
-import unittest
 
+import sys
+import threading
+
+if sys.version_info < (2, 7):
+    # We need the skip decorators from unittest2 on Python 2.6.
+    import unittest2 as unittest
+else:
+    import unittest
 
 from prometheus_client import Gauge, Counter, Summary, Histogram, Metric
 from prometheus_client import CollectorRegistry, generate_latest
@@ -38,6 +42,7 @@ class TestGenerateText(unittest.TestCase):
         s.labels('c', 'd').observe(17)
         self.assertEqual(b'# HELP ss A summary\n# TYPE ss summary\nss_count{a="c",b="d"} 1.0\nss_sum{a="c",b="d"} 17.0\n', generate_latest(self.registry))
 
+    @unittest.skipIf(sys.version_info < (2, 7), "Test requires Python 2.7+.")
     def test_histogram(self):
         s = Histogram('hh', 'A histogram', registry=self.registry)
         s.observe(0.05)
@@ -102,7 +107,7 @@ class TestPushGateway(unittest.TestCase):
             do_POST = do_PUT
             do_DELETE = do_PUT
 
-        httpd = HTTPServer(('', 0), TestHandler)
+        httpd = HTTPServer(('localhost', 0), TestHandler)
         self.address = ':'.join([str(x) for x in httpd.server_address])
         class TestServer(threading.Thread):
             def run(self):
@@ -160,6 +165,10 @@ class TestPushGateway(unittest.TestCase):
         self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
         self.assertEqual(self.requests[0][1], b'')
 
+    @unittest.skipIf(
+        sys.platform == "darwin",
+        "instance_ip_grouping_key() does not work on macOS."
+    )
     def test_instance_ip_grouping_key(self):
         self.assertTrue('' != instance_ip_grouping_key()['instance'])
 
