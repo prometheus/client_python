@@ -1,6 +1,12 @@
 from __future__ import unicode_literals
 
-import unittest
+import sys
+
+if sys.version_info < (2, 7):
+    # We need the skip decorators from unittest2 on Python 2.6.
+    import unittest2 as unittest
+else:
+    import unittest
 
 from prometheus_client.core import *
 from prometheus_client.exposition import *
@@ -36,7 +42,7 @@ a_sum 2
 a_count 1
 a_sum 2
 a{quantile="0.5"} 0.7
-""")    
+""")
         # The Python client doesn't support quantiles, but we
         # still need to be able to parse them.
         metric_family = SummaryMetricFamily("a", "help", count_value=1, sum_value=2)
@@ -131,6 +137,7 @@ a{foo="b\\\\a\\z"} 2
         metric_family.add_metric(["b\\a\\z"], 2)
         self.assertEqual([metric_family], list(families))
 
+    @unittest.skipIf(sys.version_info < (2, 7), "Test requires Python 2.7+.")
     def test_roundtrip(self):
         text = """# HELP go_gc_duration_seconds A summary of the GC invocation durations.
 # TYPE go_gc_duration_seconds summary

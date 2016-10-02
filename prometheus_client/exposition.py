@@ -7,6 +7,7 @@ import socket
 import time
 import threading
 from contextlib import closing
+from wsgiref.simple_server import make_server
 
 from . import core
 try:
@@ -23,8 +24,29 @@ except ImportError:
     from urllib.parse import quote_plus
 
 
-CONTENT_TYPE_LATEST = 'text/plain; version=0.0.4; charset=utf-8'
+CONTENT_TYPE_LATEST = str('text/plain; version=0.0.4; charset=utf-8')
 '''Content type of the latest text format'''
+
+
+def make_wsgi_app(registry=core.REGISTRY):
+    '''Create a WSGI app which serves the metrics from a registry.'''
+    def prometheus_app(environ, start_response):
+        status = str('200 OK')
+        headers = [(str('Content-type'), CONTENT_TYPE_LATEST)]
+        start_response(status, headers)
+        return [generate_latest(registry)]
+    return prometheus_app
+
+
+def start_wsgi_server(port, addr='', registry=core.REGISTRY):
+    """Starts a WSGI server for prometheus metrics as a daemon thread."""
+    class PrometheusMetricsServer(threading.Thread):
+        def run(self):
+            httpd = make_server(addr, port, make_wsgi_app(registry))
+            httpd.serve_forever()
+    t = PrometheusMetricsServer()
+    t.daemon = True
+    t.start()
 
 
 def generate_latest(registry=core.REGISTRY):
@@ -83,6 +105,16 @@ def write_to_textfile(path, registry):
 def push_to_gateway(gateway, job, registry, grouping_key=None, timeout=None):
     '''Push metrics to the given pushgateway.
 
+    `gateway` the url for your push gateway. Either of the form
+              'http://pushgateway.local', or 'pushgateway.local'.
+              Scheme defaults to 'http' if none is provided
+    `job` is the job label to be attached to all pushed metrics
+    `registry` is an instance of CollectorRegistry
+    `grouping_key` please see the pushgateway documentation for details.
+                   Defaults to None
+    `timeout` is how long push will attempt to connect before giving up.
+              Defaults to None
+
     This overwrites all metrics with the same job and grouping_key.
     This uses the PUT HTTP method.'''
     _use_gateway('PUT', gateway, job, registry, grouping_key, timeout)
@@ -90,6 +122,16 @@ def push_to_gateway(gateway, job, registry, grouping_key=None, timeout=None):
 
 def pushadd_to_gateway(gateway, job, registry, grouping_key=None, timeout=None):
     '''PushAdd metrics to the given pushgateway.
+
+    `gateway` the url for your push gateway. Either of the form
+              'http://pushgateway.local', or 'pushgateway.local'.
+              Scheme defaults to 'http' if none is provided
+    `job` is the job label to be attached to all pushed metrics
+    `registry` is an instance of CollectorRegistry
+    `grouping_key` please see the pushgateway documentation for details.
+                   Defaults to None
+    `timeout` is how long push will attempt to connect before giving up.
+              Defaults to None
 
     This replaces metrics with the same name, job and grouping_key.
     This uses the POST HTTP method.'''
@@ -99,13 +141,24 @@ def pushadd_to_gateway(gateway, job, registry, grouping_key=None, timeout=None):
 def delete_from_gateway(gateway, job, grouping_key=None, timeout=None):
     '''Delete metrics from the given pushgateway.
 
+    `gateway` the url for your push gateway. Either of the form
+              'http://pushgateway.local', or 'pushgateway.local'.
+              Scheme defaults to 'http' if none is provided
+    `job` is the job label to be attached to all pushed metrics
+    `grouping_key` please see the pushgateway documentation for details.
+                   Defaults to None
+    `timeout` is how long delete will attempt to connect before giving up.
+              Defaults to None
+
     This deletes metrics with the given job and grouping_key.
     This uses the DELETE HTTP method.'''
     _use_gateway('DELETE', gateway, job, None, grouping_key, timeout)
 
 
 def _use_gateway(method, gateway, job, registry, grouping_key, timeout):
-    url = 'http://{0}/metrics/job/{1}'.format(gateway, quote_plus(job))
+    if not (gateway.startswith('http://') or gateway.startswith('https://')):
+        gateway = 'http://{0}'.format(gateway)
+    url = '{0}/metrics/job/{1}'.format(gateway, quote_plus(job))
 
     data = b''
     if method != 'DELETE':
