@@ -365,6 +365,74 @@ REGISTRY.register(CustomCollector())
 
 `SummaryMetricFamily` and `HistogramMetricFamily` work similarly.
 
+## Multiprocess Mode (Gunicorn)
+
+**Experimental: This feature is new and has rough edges.**
+
+Prometheus client libaries presume a threaded model, where metrics are shared
+across workers. This doesn't work so well for languages such as Python where
+it's common to have processes rather than threads to handle large workloads.
+
+To handle this the client library can be put in multiprocess mode.
+This comes with a number of limitations:
+
+- Registries can not be used as normal, all instantiated metrics are exported
+- Custom collectors do not work (e.g. cpu and memory metrics)
+- The pushgateway cannot be used
+- Gauges cannot use the `pid` label
+- Gunicron's `preload_app` feature is not supported
+
+There's several steps to getting this working:
+
+**One**: Gunicorn deployment
+
+The `prometheus_multiproc_dir` environment variable must be set to a directory
+that the client library can use for metrics. This directory must be wiped
+between Gunicorn runs (before startup is recommended).
+
+Put the following in the config file:
+```python
+def worker_exit(server, worker):
+    from prometheus_client import multiprocess
+    multiprocess.mark_process_dead(worker.pid)
+```
+
+**Two**: Inside the application
+```python
+from prometheus_client import multiprocess
+from prometheus_client import generate_latest, CollectorRegistry, CONTENT_TYPE_LATEST, Gauge
+
+# Example gauge.
+IN_PROGRESS = Gauge("inprogress_requests", "help", multiprocess_mode='livesum')
+
+
+# Expose metrics.
+@IN_PROGRESS.track_inprogress()
+def app(environ, start_response):
+    registry = CollectorRegistry()
+    multiprocess.MultiProcessCollector(registry)
+    data = generate_latest(registry)
+    status = '200 OK'
+    response_headers = [
+        ('Content-type', CONTENT_TYPE_LATEST),
+        ('Content-Length', str(len(data)))
+    ]
+    start_response(status, response_headers)
+    return iter([data])
+```
+
+**Three**: Instrumentation
+
+Counters, Summarys and Histograms work as normal.
+
+Gauges have several modes they can run in, which can be selected with the
+`multiprocess_mode` parameter.
+
+- 'all': Default. Return a timeseries per process alive or dead.
+- 'liveall': Return a timeseries per process that is still alive.
+- 'livesum': Return a single timeseries that is the sum of the values of alive processes.
+- 'max': Return a single timeseries that is the maximum of the values of all processes, alive or dead.
+- 'min': Return a single timeseries that is the minimum of the values of all processes, alive or dead.
 
 ## Parser
 

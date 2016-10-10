@@ -3,8 +3,12 @@
 from __future__ import unicode_literals
 
 import copy
+import json
 import math
+import mmap
+import os
 import re
+import struct
 import types
 from timeit import default_timer
 
@@ -23,6 +27,7 @@ _METRIC_LABEL_NAME_RE = re.compile(r'^[a-zA-Z_:][a-zA-Z0-9_:]*$')
 _RESERVED_METRIC_LABEL_NAME_RE = re.compile(r'^__.*$')
 _INF = float("inf")
 _MINUS_INF = float("-inf")
+_INITIAL_MMAP_SIZE = 1024*1024
 
 
 class CollectorRegistry(object):
@@ -220,7 +225,9 @@ class HistogramMetricFamily(Metric):
 class _MutexValue(object):
     '''A float protected by a mutex.'''
 
-    def __init__(self, name, labelnames, labelvalues):
+    _multiprocess = False
+
+    def __init__(self, typ, metric_name, name, labelnames, labelvalues, **kwargs):
       self._value = 0.0
       self._lock = Lock()
 
@@ -236,7 +243,139 @@ class _MutexValue(object):
       with self._lock:
           return self._value
 
-_ValueClass = _MutexValue
+class _MmapedDict(object):
+    """A dict of doubles, backed by an mmapped file.
+
+    The file starts with a 4 byte int, indicating how much of it is used.
+    Then 4 bytes of padding.
+    There's then a number of entries, consisting of a 4 byte int which is the
+    side of the next field, a utf-8 encoded string key, padding to a 8 byte
+    alignment, and then a 8 byte float which is the value.
+    """
+    def __init__(self, filename):
+        self._lock = Lock()
+        self._f = open(filename, 'a+b')
+        if os.fstat(self._f.fileno()).st_size == 0:
+            self._f.truncate(_INITIAL_MMAP_SIZE)
+        self._capacity = os.fstat(self._f.fileno()).st_size
+        self._m = mmap.mmap(self._f.fileno(), self._capacity)
+
+        self._positions = {}
+        self._used = struct.unpack_from(b'i', self._m, 0)[0]
+        if self._used == 0:
+            self._used = 8
+            struct.pack_into(b'i', self._m, 0, self._used)
+        else:
+            for key, _, pos in self._read_all_values():
+                self._positions[key] = pos
+
+    def _init_value(self, key):
+        """Initilize a value. Lock must be held by caller."""
+        encoded = key.encode('utf-8')
+        # Pad to be 8-byte aligned.
+        padded = encoded + (b' ' * (8 - (len(encoded) + 4) % 8))
+        value = struct.pack('i{0}sd'.format(len(padded)).encode(), len(encoded), padded, 0.0)
+        while self._used + len(value) > self._capacity:
+            self._capacity *= 2
+            self._f.truncate(self._capacity * 2)
+            self._m = mmap.mmap(self._f.fileno(), self._capacity)
+        self._m[self._used:self._used + len(value)] = value
+
+        # Update how much space we've used.
+        self._used += len(value)
+        struct.pack_into(b'i', self._m, 0, self._used)
+        self._positions[key] = self._used - 8
+
+    def _read_all_values(self):
+        """Yield (key, value, pos). No locking is performed."""
+        pos = 8
+        while pos < self._used:
+            encoded_len = struct.unpack_from(b'i', self._m, pos)[0]
+            pos += 4
+            encoded = struct.unpack_from('{0}s'.format(encoded_len).encode(), self._m, pos)[0]
+            padded_len = encoded_len + (8 - (encoded_len + 4) % 8)
+            pos += padded_len
+            value = struct.unpack_from(b'd', self._m, pos)[0]
+            yield encoded.decode('utf-8'), value, pos
+            pos += 8
+
+    def read_all_values(self):
+        """Yield (key, value, pos). No locking is performed."""
+        for k, v, _ in self._read_all_values():
+            yield k, v
+
+    def read_value(self, key):
+        with self._lock:
+            if key not in self._positions:
+                self._init_value(key)
+        pos = self._positions[key]
+        # We assume that reading from an 8 byte aligned value is atomic
+        return struct.unpack_from(b'd', self._m, pos)[0]
+
+    def write_value(self, key, value):
+        with self._lock:
+            if key not in self._positions:
+                self._init_value(key)
+        pos = self._positions[key]
+        # We assume that writing to an 8 byte aligned value is atomic
+        struct.pack_into(b'd', self._m, pos, value)
+
+    def close(self):
+        if self._f:
+            self._f.close()
+            self._f = None
+
+
+def _MultiProcessValue(__pid=os.getpid()):
+    pid = __pid
+    files = {}
+    files_lock = Lock()
+
+    class _MmapedValue(object):
+        '''A float protected by a mutex backed by a per-process mmaped file.'''
+
+        _multiprocess = True
+
+        def __init__(self, typ, metric_name, name, labelnames, labelvalues, multiprocess_mode='', **kwargs):
+            if typ == 'gauge':
+                file_prefix = typ + '_' +  multiprocess_mode
+            else:
+                file_prefix = typ
+            with files_lock:
+                if file_prefix not in files:
+                    filename = os.path.join(
+                            os.environ['prometheus_multiproc_dir'], '{0}_{1}.db'.format(file_prefix, pid))
+                    files[file_prefix] = _MmapedDict(filename)
+            self._file = files[file_prefix]
+            self._key = json.dumps((metric_name, name, labelnames, labelvalues))
+            self._value = self._file.read_value(self._key)
+            self._lock = Lock()
+
+        def inc(self, amount):
+            with self._lock:
+                self._value += amount
+                self._file.write_value(self._key, self._value)
+
+        def set(self, value):
+            with self._lock:
+                self._value = value
+                self._file.write_value(self._key, self._value)
+
+        def get(self):
+            with self._lock:
+                return self._value
+
+    return _MmapedValue
+
+
+# Should we enable multi-process mode?
+# This needs to be chosen before the first metric is constructed,
+# and as that may be in some arbitrary library the user/admin has
+# no control over we use an enviroment variable.
+if 'prometheus_multiproc_dir' in os.environ:
+    _ValueClass = _MultiProcessValue()
+else:
+    _ValueClass = _MutexValue
 
 
 class _LabelWrapper(object):
@@ -387,7 +526,7 @@ class Counter(object):
     _reserved_labelnames = []
 
     def __init__(self, name, labelnames, labelvalues):
-        self._value = _ValueClass(name, labelnames, labelvalues)
+        self._value = _ValueClass(self._type, name, name, labelnames, labelvalues)
 
     def inc(self, amount=1):
         '''Increment counter by the given amount.'''
@@ -449,8 +588,12 @@ class Gauge(object):
     _type = 'gauge'
     _reserved_labelnames = []
 
-    def __init__(self, name, labelnames, labelvalues):
-        self._value = _ValueClass(name, labelnames, labelvalues)
+    def __init__(self, name, labelnames, labelvalues, multiprocess_mode='all'):
+        if (_ValueClass._multiprocess
+                and multiprocess_mode not in ['min', 'max', 'livesum', 'liveall', 'all']):
+            raise ValueError('Invalid multiprocess mode: ' + multiprocess_mode)
+        self._value = _ValueClass(self._type, name, name, labelnames,
+                labelvalues, multiprocess_mode=multiprocess_mode)
 
     def inc(self, amount=1):
         '''Increment gauge by the given amount.'''
@@ -533,8 +676,8 @@ class Summary(object):
     _reserved_labelnames = ['quantile']
 
     def __init__(self, name, labelnames, labelvalues):
-        self._count = _ValueClass(name + '_count', labelnames, labelvalues)
-        self._sum = _ValueClass(name + '_sum', labelnames, labelvalues)
+        self._count = _ValueClass(self._type, name, name + '_count', labelnames, labelvalues)
+        self._sum = _ValueClass(self._type, name, name + '_sum', labelnames, labelvalues)
 
     def observe(self, amount):
         '''Observe the given amount.'''
@@ -607,7 +750,7 @@ class Histogram(object):
     _reserved_labelnames = ['histogram']
 
     def __init__(self, name, labelnames, labelvalues, buckets=(.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, _INF)):
-        self._sum = _ValueClass(name + '_sum', labelnames, labelvalues)
+        self._sum = _ValueClass(self._type, name, name + '_sum', labelnames, labelvalues)
         buckets = [float(b) for b in buckets]
         if buckets != sorted(buckets):
             # This is probably an error on the part of the user,
@@ -621,7 +764,7 @@ class Histogram(object):
         self._buckets = []
         bucket_labelnames = labelnames + ('le',)
         for b in buckets:
-          self._buckets.append(_ValueClass(name + '_bucket', bucket_labelnames, labelvalues + (_floatToGoString(b),)))
+          self._buckets.append(_ValueClass(self._type, name, name + '_bucket', bucket_labelnames, labelvalues + (_floatToGoString(b),)))
 
     def observe(self, amount):
         '''Observe the given amount.'''
