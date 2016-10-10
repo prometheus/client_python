@@ -21,7 +21,8 @@ class MultiProcessCollector(object):
         for f in glob.glob(os.path.join(self._path, '*.db')):
             parts = os.path.basename(f).split('_')
             typ = parts[0]
-            for key, value in shelve.open(f).items():
+            d = core._MmapedDict(f)
+            for key, value in d.read_all_values():
                 metric_name, name, labelnames, labelvalues = json.loads(key)
                 metrics.setdefault(metric_name, core.Metric(metric_name, 'Multiprocess metric', typ))
                 metric = metrics[metric_name]
@@ -30,8 +31,9 @@ class MultiProcessCollector(object):
                     metric._multiprocess_mode = parts[1]
                     metric.add_sample(name, tuple(zip(labelnames, labelvalues)) + (('pid', pid), ), value)
                 else:
-                    # The deplucates and labels are fixed in the next for.
+                    # The duplicates and labels are fixed in the next for.
                     metric.add_sample(name, tuple(zip(labelnames, labelvalues)), value)
+            d.close()
 
         for metric in metrics.values():
             samples = {}
