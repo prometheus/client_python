@@ -9,8 +9,8 @@ import mmap
 import os
 import re
 import struct
+import time
 import types
-from timeit import default_timer
 
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler
@@ -19,6 +19,7 @@ except ImportError:
     unicode = str
 
 from threading import Lock
+from timeit import default_timer
 
 from .decorator import decorate
 
@@ -609,7 +610,7 @@ class Gauge(object):
 
     def set_to_current_time(self):
         '''Set gauge to the current unixtime.'''
-        self.set(default_timer())
+        self.set(time.time())
 
     def track_inprogress(self):
         '''Track inprogress blocks of code or functions.
