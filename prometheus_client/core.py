@@ -38,25 +38,61 @@ class CollectorRegistry(object):
     Metric objects. The returned metrics should be consistent with the Prometheus
     exposition formats.
     '''
-    def __init__(self):
-        self._collectors = set()
+    def __init__(self, auto_describe=False):
+        self._collector_to_names = {}
+        self._names_to_collectors = {}
+        self._auto_describe = auto_describe
         self._lock = Lock()
 
     def register(self, collector):
         '''Add a collector to the registry.'''
         with self._lock:
-            self._collectors.add(collector)
+            names = self._get_names(collector)
+            for name in names:
+                if name in self._names_to_collectors:
+                    raise ValueError('Timeseries already present '
+                            'in CollectorRegistry: ' + name)
+            for name in names:
+                self._names_to_collectors[name] = collector
+            self._collector_to_names[collector] = names
 
     def unregister(self, collector):
         '''Remove a collector from the registry.'''
         with self._lock:
-            self._collectors.remove(collector)
+            for name in self._collector_to_names[collector]:
+                del self._names_to_collectors[name]
+            del self._collector_to_names[collector]
+
+    def _get_names(self, collector):
+        '''Get names of timeseries the collector produces.'''
+        desc_func = None
+        # If there's a describe function, use it.
+        try:
+            desc_func = collector.describe
+        except AttributeError:
+            pass
+        # Otherwise, if auto describe is enabled use the collect function.
+        if not desc_func and self._auto_describe:
+            desc_func = collector.collect
+
+        if not desc_func:
+            return []
+
+        result = []
+        type_suffixes = {
+            'summary': ['', '_sum', '_count'],
+            'histogram': ['_bucket', '_sum', '_count']
+        }
+        for metric in desc_func():
+            for suffix in type_suffixes.get(metric.type, ['']):
+                result.append(metric.name + suffix)
+        return result
 
     def collect(self):
         '''Yields metrics from the collectors in the registry.'''
         collectors = None
         with self._lock:
-            collectors = copy.copy(self._collectors)
+            collectors = copy.copy(self._collector_to_names)
         for collector in collectors:
             for metric in collector.collect():
                 yield metric
@@ -75,7 +111,7 @@ class CollectorRegistry(object):
         return None
 
 
-REGISTRY = CollectorRegistry()
+REGISTRY = CollectorRegistry(auto_describe=True)
 '''The default registry.'''
 
 _METRIC_TYPES = ('counter', 'gauge', 'summary', 'histogram', 'untyped')
@@ -475,6 +511,10 @@ def _MetricWrapper(cls):
 
         if not _METRIC_NAME_RE.match(full_name):
             raise ValueError('Invalid metric name: ' + full_name)
+
+        def describe():
+            return [Metric(full_name, documentation, cls._type)]
+        collector.describe = describe
 
         def collect():
             metric = Metric(full_name, documentation, cls._type)
