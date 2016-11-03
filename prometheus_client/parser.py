@@ -197,7 +197,7 @@ def text_fd_to_metric_families(fd):
                     'gauge': [''],
                     'summary': ['_count', '_sum', ''],
                     'histogram': ['_count', '_sum', '_bucket'],
-                    }.get(typ, [parts[2]])
+                    }.get(typ, [''])
                 allowed_names = [name + n for n in allowed_names]
             else:
                 # Ignore other comment tokens

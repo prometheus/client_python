@@ -66,6 +66,21 @@ a_sum 2
         metric_family.add_sample("a", {}, 1)
         self.assertEqual([metric_family], list(families))
 
+    def test_untyped(self):
+        # https://github.com/prometheus/client_python/issues/79
+        families = text_string_to_metric_families("""# HELP redis_connected_clients Redis connected clients
+# TYPE redis_connected_clients untyped
+redis_connected_clients{instance="rough-snowflake-web",port="6380"} 10.0
+redis_connected_clients{instance="rough-snowflake-web",port="6381"} 12.0
+""")
+        m = Metric("redis_connected_clients", "Redis connected clients", "untyped")
+        m.samples = [
+            ("redis_connected_clients", {"instance": "rough-snowflake-web", "port": "6380"}, 10),
+            ("redis_connected_clients", {"instance": "rough-snowflake-web", "port": "6381"}, 12),
+        ]
+        self.assertEqual([m], list(families))
+
+
     def test_type_help_switched(self):
         families = text_string_to_metric_families("""# HELP a help
 # TYPE a counter
