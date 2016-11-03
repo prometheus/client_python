@@ -431,6 +431,15 @@ class TestCollectorRegistry(unittest.TestCase):
         self.custom_collector(CounterMetricFamily('c', 'help', value=1), registry)
         self.assertRaises(ValueError, self.custom_collector, CounterMetricFamily('c', 'help', value=1), registry)
 
+    def test_restricted_registry(self):
+        registry = CollectorRegistry()
+        Counter('c', 'help', registry=registry)
+        Summary('s', 'help', registry=registry).observe(7)
+
+        m = Metric('s', 'help', 'summary')
+        m.samples = [('s_sum', {}, 7)]
+        self.assertEquals([m], registry.restricted_registry(['s_sum']).collect())
+
 
 if __name__ == '__main__':
     unittest.main()

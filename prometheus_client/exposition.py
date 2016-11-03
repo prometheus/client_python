@@ -15,13 +15,14 @@ try:
     from BaseHTTPServer import HTTPServer
     from urllib2 import build_opener, Request, HTTPHandler
     from urllib import quote_plus
+    from urlparse import parse_qs, urlparse
 except ImportError:
     # Python 3
     unicode = str
     from http.server import BaseHTTPRequestHandler
     from http.server import HTTPServer
     from urllib.request import build_opener, Request, HTTPHandler
-    from urllib.parse import quote_plus
+    from urllib.parse import quote_plus, parse_qs, urlparse
 
 
 CONTENT_TYPE_LATEST = str('text/plain; version=0.0.4; charset=utf-8')
@@ -34,7 +35,11 @@ def make_wsgi_app(registry=core.REGISTRY):
         status = str('200 OK')
         headers = [(str('Content-type'), CONTENT_TYPE_LATEST)]
         start_response(status, headers)
-        return [generate_latest(registry)]
+        params = parse_qs(environ['QUERY_STRING'])
+        r = registry
+        if 'name[]' in params:
+            r = r.restricted_registry(params['name[]'])
+        return [generate_latest(r)]
     return prometheus_app
 
 
@@ -73,7 +78,11 @@ class MetricsHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Content-Type', CONTENT_TYPE_LATEST)
         self.end_headers()
-        self.wfile.write(generate_latest(core.REGISTRY))
+        registry = core.REGISTRY
+        params = parse_qs(urlparse(self.path).query)
+        if 'name[]' in params:
+            registry = registry.restricted_registry(params['name[]'])
+        self.wfile.write(generate_latest(registry))
 
     def log_message(self, format, *args):
         return
