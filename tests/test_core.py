@@ -299,6 +299,7 @@ class TestMetricWrapper(unittest.TestCase):
         self.assertRaises(ValueError, Counter, '', 'help', namespace='&')
         self.assertRaises(ValueError, Counter, '', 'help', subsystem='(')
         self.assertRaises(ValueError, Counter, 'c', '', labelnames=['^'])
+        self.assertRaises(ValueError, Counter, 'c', '', labelnames=['a:b'])
         self.assertRaises(ValueError, Counter, 'c', '', labelnames=['__reserved'])
         self.assertRaises(ValueError, Summary, 'c', '', labelnames=['quantile'])
 
