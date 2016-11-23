@@ -111,7 +111,7 @@ def write_to_textfile(path, registry):
     os.rename(tmppath, path)
 
 
-def push_to_gateway(gateway, job, registry, grouping_key=None, timeout=None):
+def push_to_gateway(gateway, job, registry, grouping_key=None, timeout=None, handler=None):
     '''Push metrics to the given pushgateway.
 
     `gateway` the url for your push gateway. Either of the form
@@ -126,10 +126,10 @@ def push_to_gateway(gateway, job, registry, grouping_key=None, timeout=None):
 
     This overwrites all metrics with the same job and grouping_key.
     This uses the PUT HTTP method.'''
-    _use_gateway('PUT', gateway, job, registry, grouping_key, timeout)
+    _use_gateway('PUT', gateway, job, registry, grouping_key, timeout, handler)
 
 
-def pushadd_to_gateway(gateway, job, registry, grouping_key=None, timeout=None):
+def pushadd_to_gateway(gateway, job, registry, grouping_key=None, timeout=None, handler=None):
     '''PushAdd metrics to the given pushgateway.
 
     `gateway` the url for your push gateway. Either of the form
@@ -144,10 +144,10 @@ def pushadd_to_gateway(gateway, job, registry, grouping_key=None, timeout=None):
 
     This replaces metrics with the same name, job and grouping_key.
     This uses the POST HTTP method.'''
-    _use_gateway('POST', gateway, job, registry, grouping_key, timeout)
+    _use_gateway('POST', gateway, job, registry, grouping_key, timeout, handler)
 
 
-def delete_from_gateway(gateway, job, grouping_key=None, timeout=None):
+def delete_from_gateway(gateway, job, grouping_key=None, timeout=None, handler=None):
     '''Delete metrics from the given pushgateway.
 
     `gateway` the url for your push gateway. Either of the form
@@ -161,10 +161,10 @@ def delete_from_gateway(gateway, job, grouping_key=None, timeout=None):
 
     This deletes metrics with the given job and grouping_key.
     This uses the DELETE HTTP method.'''
-    _use_gateway('DELETE', gateway, job, None, grouping_key, timeout)
+    _use_gateway('DELETE', gateway, job, None, grouping_key, timeout, handler)
 
 
-def _use_gateway(method, gateway, job, registry, grouping_key, timeout):
+def _use_gateway(method, gateway, job, registry, grouping_key, timeout, handler):
     gateway_url = urlparse(gateway)
     if not gateway_url.scheme:
         gateway = 'http://{0}'.format(gateway)
@@ -182,10 +182,14 @@ def _use_gateway(method, gateway, job, registry, grouping_key, timeout):
     request = Request(url, data=data)
     request.add_header('Content-Type', CONTENT_TYPE_LATEST)
     request.get_method = lambda: method
-    resp = build_opener(HTTPHandler).open(request, timeout=timeout)
-    if resp.code >= 400:
-        raise IOError("error talking to pushgateway: {0} {1}".format(
-            resp.code, resp.msg))
+    if handler is None:
+        resp = build_opener(handler).open(request, timeout=timeout)
+        if resp.code >= 400:
+            raise IOError("error talking to pushgateway: {0} {1}".format(
+                resp.code, resp.msg))
+    else:
+        handler(url=url, method=lambda: method, timeout=timeout,
+                headers=[('Content-Type', CONTENT_TYPE_LATEST)], content=data)
 
 def instance_ip_grouping_key():
     '''Grouping key with instance set to the IP Address of this host.'''
