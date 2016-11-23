@@ -165,7 +165,8 @@ def delete_from_gateway(gateway, job, grouping_key=None, timeout=None):
 
 
 def _use_gateway(method, gateway, job, registry, grouping_key, timeout):
-    if not (gateway.startswith('http://') or gateway.startswith('https://')):
+    gateway_url = urlparse(gateway)
+    if not gateway_url.scheme:
         gateway = 'http://{0}'.format(gateway)
     url = '{0}/metrics/job/{1}'.format(gateway, quote_plus(job))
 
