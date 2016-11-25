@@ -32,14 +32,16 @@ CONTENT_TYPE_LATEST = str('text/plain; version=0.0.4; charset=utf-8')
 def make_wsgi_app(registry=core.REGISTRY):
     '''Create a WSGI app which serves the metrics from a registry.'''
     def prometheus_app(environ, start_response):
-        status = str('200 OK')
-        headers = [(str('Content-type'), CONTENT_TYPE_LATEST)]
-        start_response(status, headers)
         params = parse_qs(environ['QUERY_STRING'])
         r = registry
         if 'name[]' in params:
             r = r.restricted_registry(params['name[]'])
-        return [generate_latest(r)]
+        output = generate_latest(r)
+
+        status = str('200 OK')
+        headers = [(str('Content-type'), CONTENT_TYPE_LATEST)]
+        start_response(status, headers)
+        return [output]
     return prometheus_app
 
 
@@ -75,14 +77,19 @@ def generate_latest(registry=core.REGISTRY):
 
 class MetricsHandler(BaseHTTPRequestHandler):
     def do_GET(self):
-        self.send_response(200)
-        self.send_header('Content-Type', CONTENT_TYPE_LATEST)
-        self.end_headers()
         registry = core.REGISTRY
         params = parse_qs(urlparse(self.path).query)
         if 'name[]' in params:
             registry = registry.restricted_registry(params['name[]'])
-        self.wfile.write(generate_latest(registry))
+        try:
+            output = generate_latest(registry)
+        except:
+            self.send_error(500, 'error generating metric output')
+            raise
+        self.send_response(200)
+        self.send_header('Content-Type', CONTENT_TYPE_LATEST)
+        self.end_headers()
+        self.wfile.write(output)
 
     def log_message(self, format, *args):
         return
