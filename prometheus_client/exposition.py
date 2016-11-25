@@ -123,6 +123,30 @@ def push_to_gateway(gateway, job, registry, grouping_key=None, timeout=None, han
                    Defaults to None
     `timeout` is how long push will attempt to connect before giving up.
               Defaults to None
+    `handler` is an optional function which can be provided to perform
+              requests to the 'gateway'.
+              Defaults to None, in which case an http or https request
+              will be carried out by a default handler.
+              If not None, the argument must be a function which accepts
+              the following arguments:
+              url, method, timeout, headers, and content
+              May be used to implement additional functionality not
+              supported by the built-in default handler (such as SSL
+              client certicates, and HTTP authentication mechanisms).
+              'url' is the URL for the request, the 'gateway' argument
+              described earlier will form the basis of this URL.
+              'method' is the HTTP method which should be used when
+              carrying out the request.
+              'timeout' requests not successfully completed after this
+              many seconds should be aborted.  If timeout is None, then
+              the handler should not set a timeout.
+              'headers' is a list of ("header-name","header-value") tuples
+              which must be passed to the pushgateway in the form of HTTP
+              request headers.
+              The function should raise an exception (e.g. IOError) on
+              failure.
+              'content' is the data which should be used to form the HTTP
+              Message Body.
 
     This overwrites all metrics with the same job and grouping_key.
     This uses the PUT HTTP method.'''
@@ -141,6 +165,12 @@ def pushadd_to_gateway(gateway, job, registry, grouping_key=None, timeout=None, 
                    Defaults to None
     `timeout` is how long push will attempt to connect before giving up.
               Defaults to None
+    `handler` is an optional function which can be provided to perform
+              requests to the 'gateway'.
+              Defaults to None, in which case an http or https request
+              will be carried out by a default handler.
+              See the 'prometheus_client.push_to_gateway' documentation
+              for implementation requirements.
 
     This replaces metrics with the same name, job and grouping_key.
     This uses the POST HTTP method.'''
@@ -158,6 +188,12 @@ def delete_from_gateway(gateway, job, grouping_key=None, timeout=None, handler=N
                    Defaults to None
     `timeout` is how long delete will attempt to connect before giving up.
               Defaults to None
+    `handler` is an optional function which can be provided to perform
+              requests to the 'gateway'.
+              Defaults to None, in which case an http or https request
+              will be carried out by a default handler.
+              See the 'prometheus_client.push_to_gateway' documentation
+              for implementation requirements.
 
     This deletes metrics with the given job and grouping_key.
     This uses the DELETE HTTP method.'''
