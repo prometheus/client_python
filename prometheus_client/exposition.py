@@ -118,7 +118,7 @@ def write_to_textfile(path, registry):
     os.rename(tmppath, path)
 
 
-def push_to_gateway(gateway, job, registry, grouping_key=None, timeout=None):
+def push_to_gateway(gateway, job, registry, grouping_key=None, timeout=None, handler=None):
     '''Push metrics to the given pushgateway.
 
     `gateway` the url for your push gateway. Either of the form
@@ -130,13 +130,37 @@ def push_to_gateway(gateway, job, registry, grouping_key=None, timeout=None):
                    Defaults to None
     `timeout` is how long push will attempt to connect before giving up.
               Defaults to None
+    `handler` is an optional function which can be provided to perform
+              requests to the 'gateway'.
+              Defaults to None, in which case an http or https request
+              will be carried out by a default handler.
+              If not None, the argument must be a function which accepts
+              the following arguments:
+              url, method, timeout, headers, and content
+              May be used to implement additional functionality not
+              supported by the built-in default handler (such as SSL
+              client certicates, and HTTP authentication mechanisms).
+              'url' is the URL for the request, the 'gateway' argument
+              described earlier will form the basis of this URL.
+              'method' is the HTTP method which should be used when
+              carrying out the request.
+              'timeout' requests not successfully completed after this
+              many seconds should be aborted.  If timeout is None, then
+              the handler should not set a timeout.
+              'headers' is a list of ("header-name","header-value") tuples
+              which must be passed to the pushgateway in the form of HTTP
+              request headers.
+              The function should raise an exception (e.g. IOError) on
+              failure.
+              'content' is the data which should be used to form the HTTP
+              Message Body.
 
     This overwrites all metrics with the same job and grouping_key.
     This uses the PUT HTTP method.'''
-    _use_gateway('PUT', gateway, job, registry, grouping_key, timeout)
+    _use_gateway('PUT', gateway, job, registry, grouping_key, timeout, handler)
 
 
-def pushadd_to_gateway(gateway, job, registry, grouping_key=None, timeout=None):
+def pushadd_to_gateway(gateway, job, registry, grouping_key=None, timeout=None, handler=None):
     '''PushAdd metrics to the given pushgateway.
 
     `gateway` the url for your push gateway. Either of the form
@@ -148,13 +172,19 @@ def pushadd_to_gateway(gateway, job, registry, grouping_key=None, timeout=None):
                    Defaults to None
     `timeout` is how long push will attempt to connect before giving up.
               Defaults to None
+    `handler` is an optional function which can be provided to perform
+              requests to the 'gateway'.
+              Defaults to None, in which case an http or https request
+              will be carried out by a default handler.
+              See the 'prometheus_client.push_to_gateway' documentation
+              for implementation requirements.
 
     This replaces metrics with the same name, job and grouping_key.
     This uses the POST HTTP method.'''
-    _use_gateway('POST', gateway, job, registry, grouping_key, timeout)
+    _use_gateway('POST', gateway, job, registry, grouping_key, timeout, handler)
 
 
-def delete_from_gateway(gateway, job, grouping_key=None, timeout=None):
+def delete_from_gateway(gateway, job, grouping_key=None, timeout=None, handler=None):
     '''Delete metrics from the given pushgateway.
 
     `gateway` the url for your push gateway. Either of the form
@@ -165,14 +195,21 @@ def delete_from_gateway(gateway, job, grouping_key=None, timeout=None):
                    Defaults to None
     `timeout` is how long delete will attempt to connect before giving up.
               Defaults to None
+    `handler` is an optional function which can be provided to perform
+              requests to the 'gateway'.
+              Defaults to None, in which case an http or https request
+              will be carried out by a default handler.
+              See the 'prometheus_client.push_to_gateway' documentation
+              for implementation requirements.
 
     This deletes metrics with the given job and grouping_key.
     This uses the DELETE HTTP method.'''
-    _use_gateway('DELETE', gateway, job, None, grouping_key, timeout)
+    _use_gateway('DELETE', gateway, job, None, grouping_key, timeout, handler)
 
 
-def _use_gateway(method, gateway, job, registry, grouping_key, timeout):
-    if not (gateway.startswith('http://') or gateway.startswith('https://')):
+def _use_gateway(method, gateway, job, registry, grouping_key, timeout, handler):
+    gateway_url = urlparse(gateway)
+    if not gateway_url.scheme:
         gateway = 'http://{0}'.format(gateway)
     url = '{0}/metrics/job/{1}'.format(gateway, quote_plus(job))
 
@@ -188,10 +225,14 @@ def _use_gateway(method, gateway, job, registry, grouping_key, timeout):
     request = Request(url, data=data)
     request.add_header('Content-Type', CONTENT_TYPE_LATEST)
     request.get_method = lambda: method
-    resp = build_opener(HTTPHandler).open(request, timeout=timeout)
-    if resp.code >= 400:
-        raise IOError("error talking to pushgateway: {0} {1}".format(
-            resp.code, resp.msg))
+    if handler is None:
+        resp = build_opener(handler).open(request, timeout=timeout)
+        if resp.code >= 400:
+            raise IOError("error talking to pushgateway: {0} {1}".format(
+                resp.code, resp.msg))
+    else:
+        handler(url=url, method=lambda: method, timeout=timeout,
+                headers=[('Content-Type', CONTENT_TYPE_LATEST)], content=data)
 
 def instance_ip_grouping_key():
     '''Grouping key with instance set to the IP Address of this host.'''
