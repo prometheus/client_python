@@ -56,7 +56,7 @@ def start_wsgi_server(port, addr='', registry=core.REGISTRY):
     t.start()
 
 
-def generate_latest(registry=core.REGISTRY, params):
+def generate_latest(registry=core.REGISTRY, params=None):
     '''Returns the metrics from the registry in latest text format as a string.'''
     output = []
     for metric in registry.collect(params):
