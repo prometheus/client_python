@@ -438,7 +438,7 @@ class TestCollectorRegistry(unittest.TestCase):
 
         m = Metric('s', 'help', 'summary')
         m.samples = [('s_sum', {}, 7)]
-        self.assertEquals([m], registry.restricted_registry(['s_sum']).collect())
+        self.assertEquals([m], registry.restricted_registry(['s_sum']).collect({}))
 
 
 if __name__ == '__main__':

@@ -11,6 +11,7 @@ import re
 import struct
 import time
 import types
+from functools import partial
 
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler
@@ -73,7 +74,7 @@ class CollectorRegistry(object):
             pass
         # Otherwise, if auto describe is enabled use the collect function.
         if not desc_func and self._auto_describe:
-            desc_func = collector.collect
+            desc_func = partial(collector.collect, {})
 
         if not desc_func:
             return []
@@ -88,13 +89,13 @@ class CollectorRegistry(object):
                 result.append(metric.name + suffix)
         return result
 
-    def collect(self):
+    def collect(self, params):
         '''Yields metrics from the collectors in the registry.'''
         collectors = None
         with self._lock:
             collectors = copy.copy(self._collector_to_names)
         for collector in collectors:
-            for metric in collector.collect():
+            for metric in collector.collect(params):
                 yield metric
 
     def restricted_registry(self, names):
@@ -115,7 +116,7 @@ class CollectorRegistry(object):
                     collectors.add(self._names_to_collectors[name])
         metrics = []
         for collector in collectors:
-            for metric in collector.collect():
+            for metric in collector.collect({}):
                 samples = [s for s in metric.samples if s[0] in names]
                 if samples:
                     m = Metric(metric.name, metric.documentation, metric.type)
@@ -133,7 +134,7 @@ class CollectorRegistry(object):
         '''
         if labels is None:
             labels = {}
-        for metric in self.collect():
+        for metric in self.collect({}):
             for n, l, value in metric.samples:
                 if n == name and l == labels:
                     return value
