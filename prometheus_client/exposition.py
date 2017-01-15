@@ -11,7 +11,7 @@ from wsgiref.simple_server import make_server
 
 from . import core
 
-from handlers.base import handler as default_handler
+from .handlers.base import handler as default_handler
 
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler
