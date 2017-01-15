@@ -121,7 +121,7 @@ def write_to_textfile(path, registry):
     os.rename(tmppath, path)
 
 
-def push_to_gateway(gateway, job, registry, grouping_key=None, timeout=None, handler=None):
+def push_to_gateway(gateway, job, registry, grouping_key=None, timeout=None, handler=None, handler_args=None):
     '''Push metrics to the given pushgateway.
 
     `gateway` the url for your push gateway. Either of the form
@@ -157,13 +157,14 @@ def push_to_gateway(gateway, job, registry, grouping_key=None, timeout=None, han
               failure.
               'content' is the data which should be used to form the HTTP
               Message Body.
+    `handler_args` is an optional dict of extra arguments to provide
 
     This overwrites all metrics with the same job and grouping_key.
     This uses the PUT HTTP method.'''
-    _use_gateway('PUT', gateway, job, registry, grouping_key, timeout, handler)
+    _use_gateway('PUT', gateway, job, registry, grouping_key, timeout, handler, handler_args)
 
 
-def pushadd_to_gateway(gateway, job, registry, grouping_key=None, timeout=None, handler=None):
+def pushadd_to_gateway(gateway, job, registry, grouping_key=None, timeout=None, handler=None, handler_args=None):
     '''PushAdd metrics to the given pushgateway.
 
     `gateway` the url for your push gateway. Either of the form
@@ -184,10 +185,10 @@ def pushadd_to_gateway(gateway, job, registry, grouping_key=None, timeout=None, 
 
     This replaces metrics with the same name, job and grouping_key.
     This uses the POST HTTP method.'''
-    _use_gateway('POST', gateway, job, registry, grouping_key, timeout, handler)
+    _use_gateway('POST', gateway, job, registry, grouping_key, timeout, handler, handler_args)
 
 
-def delete_from_gateway(gateway, job, grouping_key=None, timeout=None, handler=None):
+def delete_from_gateway(gateway, job, grouping_key=None, timeout=None, handler=None, handler_args=None):
     '''Delete metrics from the given pushgateway.
 
     `gateway` the url for your push gateway. Either of the form
@@ -207,10 +208,10 @@ def delete_from_gateway(gateway, job, grouping_key=None, timeout=None, handler=N
 
     This deletes metrics with the given job and grouping_key.
     This uses the DELETE HTTP method.'''
-    _use_gateway('DELETE', gateway, job, None, grouping_key, timeout, handler)
+    _use_gateway('DELETE', gateway, job, None, grouping_key, timeout, handler, handler_args)
 
 
-def _use_gateway(method, gateway, job, registry, grouping_key, timeout, handler):
+def _use_gateway(method, gateway, job, registry, grouping_key, timeout, handler, handler_args):
     gateway_url = urlparse(gateway)
     if not gateway_url.scheme:
         gateway = 'http://{0}'.format(gateway)
@@ -228,8 +229,10 @@ def _use_gateway(method, gateway, job, registry, grouping_key, timeout, handler)
     headers=[('Content-Type', CONTENT_TYPE_LATEST)]
     if handler is None:
         handler = default_handler
+    if handler_args is None:
+        handler_args = dict()
     handler(url=url, method=method, timeout=timeout,
-            headers=headers, data=data)
+            headers=headers, data=data, **handler_args)
 
 def instance_ip_grouping_key():
     '''Grouping key with instance set to the IP Address of this host.'''

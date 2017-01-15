@@ -6,7 +6,7 @@ except ImportError:
     # Python 3
     from urllib.request import build_opener, Request, HTTPHandler
 
-def handler(url, method, timeout, headers, data):
+def handler(url, method, timeout, headers, data, **kwargs):
     '''Default handler that implements HTTP/HTTPS connections.'''
     request = Request(url, data=data)
     request.get_method = lambda: method
