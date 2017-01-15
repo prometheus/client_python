@@ -10,6 +10,9 @@ from contextlib import closing
 from wsgiref.simple_server import make_server
 
 from . import core
+
+from handlers.base import handler as default_handler
+
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler
     from BaseHTTPServer import HTTPServer
@@ -222,17 +225,11 @@ def _use_gateway(method, gateway, job, registry, grouping_key, timeout, handler)
     url = url + ''.join(['/{0}/{1}'.format(quote_plus(str(k)), quote_plus(str(v)))
                              for k, v in sorted(grouping_key.items())])
 
-    request = Request(url, data=data)
-    request.add_header('Content-Type', CONTENT_TYPE_LATEST)
-    request.get_method = lambda: method
+    headers=[('Content-Type', CONTENT_TYPE_LATEST)]
     if handler is None:
-        resp = build_opener(handler).open(request, timeout=timeout)
-        if resp.code >= 400:
-            raise IOError("error talking to pushgateway: {0} {1}".format(
-                resp.code, resp.msg))
-    else:
-        handler(url=url, method=lambda: method, timeout=timeout,
-                headers=[('Content-Type', CONTENT_TYPE_LATEST)], content=data)
+        handler = default_handler
+    handler(url=url, method=method, timeout=timeout,
+            headers=headers, data=data)
 
 def instance_ip_grouping_key():
     '''Grouping key with instance set to the IP Address of this host.'''
