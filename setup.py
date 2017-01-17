@@ -12,7 +12,7 @@ setup(
     keywords = "prometheus monitoring instrumentation client",
     url = "https://github.com/prometheus/client_python",
     packages=['prometheus_client', 'prometheus_client.bridge', 'prometheus_client.twisted', 'prometheus_client.handlers'],
-    extras_requires={
+    extras_require={
         'twisted': ['twisted'],
     },
     test_suite="tests",
