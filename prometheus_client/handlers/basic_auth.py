@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import os, base64
+import base64
 
 from prometheus_client.handlers.base import handler as default_handler
 
