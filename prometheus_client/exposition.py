@@ -16,7 +16,6 @@ from .handlers.base import handler as default_handler
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler
     from BaseHTTPServer import HTTPServer
-    from urllib2 import build_opener, Request, HTTPHandler
     from urllib import quote_plus
     from urlparse import parse_qs, urlparse
 except ImportError:
@@ -24,7 +23,6 @@ except ImportError:
     unicode = str
     from http.server import BaseHTTPRequestHandler
     from http.server import HTTPServer
-    from urllib.request import build_opener, Request, HTTPHandler
     from urllib.parse import quote_plus, parse_qs, urlparse
 
 
