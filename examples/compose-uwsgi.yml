@@ -1,0 +1,24 @@
+version: "2.0"
+
+services:
+  dev_flask_app:
+    image: dev_flask_app:latest
+    build:
+      dockerfile: Dockerfile
+      context: .
+    environment:
+      - PROMETEUS_STATUS=1
+      - prometheus_multiproc_dir=/usr/src/app/storage/prometheus/
+      #- PROMETHEUS_UWSGI_SHAREDAREA=1
+      - PYTHONUNBUFFERED=1
+
+    command:
+      - "rm -rf /usr/src/app/storage/prometheus/* && find /usr/src/app/ -name '*.pyc' -exec rm -f {} +  && cd /prometheus_client && python /prometheus_client/setup.py install && cd /uwsgi_lib && python /uwsgi_lib/uwsgiconfig.py --build && cd /usr/src/app/ && /uwsgi_lib/uwsgi --ini=/usr/src/app/uwsgi.ini"
+    volumes:
+      - ./uwsgi.ini:/usr/src/app/uwsgi.ini
+      - ./:/usr/src/app/
+      - ../:/prometheus_client
+      - /projects/libs/uwsgi:/uwsgi_lib
+
+    ports:
+      - 8051:8051
