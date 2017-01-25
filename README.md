@@ -321,6 +321,24 @@ for more information.
 `instance_ip_grouping_key` returns a grouping key with the instance label set
 to the host's IP address.
 
+### Handlers for authentication
+
+If the push gateway you are connecting to is protected with HTTP Basic Auth,
+you can use a special handler to set the Authorization header.
+
+```python
+from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
+import os
+
+def my_auth_handler(url, method, timeout, headers, data):
+    username = os.environ['PUSHGW_USERNAME']
+    password = os.environ['PUSHGW_PASSWORD']
+    return basic_auth_handler(url, method, timeout, headers, data, username, password)
+registry = CollectorRegistry()
+g = Gauge('job_last_success_unixtime', 'Last time a batch job successfully finished', registry=registry)
+g.set_to_current_time()
+push_to_gateway('localhost:9091', job='batchA', registry=registry, handler=my_auth_handler)
+```
 
 ## Bridges
 

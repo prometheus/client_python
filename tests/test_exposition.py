@@ -14,6 +14,7 @@ from prometheus_client import CollectorRegistry, generate_latest
 from prometheus_client import push_to_gateway, pushadd_to_gateway, delete_from_gateway
 from prometheus_client import CONTENT_TYPE_LATEST, instance_ip_grouping_key
 from prometheus_client.handlers.base import handler as default_handler
+from prometheus_client.handlers.basic_auth import handler as basic_auth_handler
 
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler
@@ -99,7 +100,10 @@ class TestPushGateway(unittest.TestCase):
         self.requests = requests = []
         class TestHandler(BaseHTTPRequestHandler):
             def do_PUT(self):
-                self.send_response(201)
+                if 'with_basic_auth' in self.requestline and self.headers['authorization'] != 'Basic Zm9vOmJhcg==':
+                    self.send_response(401)
+                else:
+                    self.send_response(201)
                 length = int(self.headers['content-length'])
                 requests.append((self, self.rfile.read(length)))
                 self.end_headers()
@@ -168,12 +172,21 @@ class TestPushGateway(unittest.TestCase):
     def test_push_with_handler(self):
         def my_test_handler(url, method, timeout, headers, data):
             headers.append(['X-Test-Header', 'foobar'])
-            default_handler(url, method, timeout, headers, data)
+            return default_handler(url, method, timeout, headers, data)
         push_to_gateway(self.address, "my_job", self.registry, handler=my_test_handler)
         self.assertEqual(self.requests[0][0].command, 'PUT')
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job')
         self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
         self.assertEqual(self.requests[0][0].headers.get('x-test-header'), 'foobar')
+        self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
+
+    def test_push_with_basic_auth_handler(self):
+        def my_auth_handler(url, method, timeout, headers, data):
+            return basic_auth_handler(url, method, timeout, headers, data, "foo", "bar")
+        push_to_gateway(self.address, "my_job_with_basic_auth", self.registry, handler=my_auth_handler)
+        self.assertEqual(self.requests[0][0].command, 'PUT')
+        self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job_with_basic_auth')
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
     @unittest.skipIf(
