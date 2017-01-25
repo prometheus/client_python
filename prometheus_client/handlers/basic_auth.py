@@ -2,7 +2,7 @@
 
 import base64
 
-from prometheus_client.handlers.base import handler as default_handler
+from prometheus_client.exposition import default_handler
 
 def handler(url, method, timeout, headers, data, username = None, password = None):
     def handle():

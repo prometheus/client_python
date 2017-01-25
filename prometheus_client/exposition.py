@@ -10,12 +10,10 @@ from contextlib import closing
 from wsgiref.simple_server import make_server
 
 from . import core
-
-from .handlers.base import handler as default_handler
-
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler
     from BaseHTTPServer import HTTPServer
+    from urllib2 import build_opener, Request, HTTPHandler
     from urllib import quote_plus
     from urlparse import parse_qs, urlparse
 except ImportError:
@@ -23,6 +21,7 @@ except ImportError:
     unicode = str
     from http.server import BaseHTTPRequestHandler
     from http.server import HTTPServer
+    from urllib.request import build_opener, Request, HTTPHandler
     from urllib.parse import quote_plus, parse_qs, urlparse
 
 
@@ -119,7 +118,22 @@ def write_to_textfile(path, registry):
     os.rename(tmppath, path)
 
 
-def push_to_gateway(gateway, job, registry, grouping_key=None, timeout=None, handler=None):
+def default_handler(url, method, timeout, headers, data):
+    def handle():
+        '''Default handler that implements HTTP/HTTPS connections.'''
+        request = Request(url, data=data)
+        request.get_method = lambda: method
+        for k, v in headers:
+            request.add_header(k, v)
+        resp = build_opener(HTTPHandler).open(request, timeout=timeout)
+        if resp.code >= 400:
+            raise IOError("error talking to pushgateway: {0} {1}".format(
+                resp.code, resp.msg))
+
+    return handle
+
+
+def push_to_gateway(gateway, job, registry, grouping_key=None, timeout=None, handler=default_handler):
     '''Push metrics to the given pushgateway.
 
     `gateway` the url for your push gateway. Either of the form
@@ -161,7 +175,7 @@ def push_to_gateway(gateway, job, registry, grouping_key=None, timeout=None, han
     _use_gateway('PUT', gateway, job, registry, grouping_key, timeout, handler)
 
 
-def pushadd_to_gateway(gateway, job, registry, grouping_key=None, timeout=None, handler=None):
+def pushadd_to_gateway(gateway, job, registry, grouping_key=None, timeout=None, handler=default_handler):
     '''PushAdd metrics to the given pushgateway.
 
     `gateway` the url for your push gateway. Either of the form
@@ -185,7 +199,7 @@ def pushadd_to_gateway(gateway, job, registry, grouping_key=None, timeout=None, 
     _use_gateway('POST', gateway, job, registry, grouping_key, timeout, handler)
 
 
-def delete_from_gateway(gateway, job, grouping_key=None, timeout=None, handler=None):
+def delete_from_gateway(gateway, job, grouping_key=None, timeout=None, handler=default_handler):
     '''Delete metrics from the given pushgateway.
 
     `gateway` the url for your push gateway. Either of the form
@@ -224,8 +238,6 @@ def _use_gateway(method, gateway, job, registry, grouping_key, timeout, handler)
                              for k, v in sorted(grouping_key.items())])
 
     headers=[('Content-Type', CONTENT_TYPE_LATEST)]
-    if handler is None:
-        handler = default_handler
     handler(url=url, method=method, timeout=timeout,
             headers=headers, data=data)()
 
