@@ -8,6 +8,7 @@ import time
 import threading
 from contextlib import closing
 from wsgiref.simple_server import make_server
+import base64
 
 from . import core
 try:
@@ -119,8 +120,10 @@ def write_to_textfile(path, registry):
 
 
 def default_handler(url, method, timeout, headers, data):
+    '''Default handler that implements HTTP/HTTPS connections.
+
+    Used by the push_to_gateway functions. Can be re-used by other handlers.'''
     def handle():
-        '''Default handler that implements HTTP/HTTPS connections.'''
         request = Request(url, data=data)
         request.get_method = lambda: method
         for k, v in headers:
@@ -129,6 +132,23 @@ def default_handler(url, method, timeout, headers, data):
         if resp.code >= 400:
             raise IOError("error talking to pushgateway: {0} {1}".format(
                 resp.code, resp.msg))
+
+    return handle
+
+
+def basic_auth_handler(url, method, timeout, headers, data, username=None, password=None):
+    '''Handler that implements HTTP/HTTPS connections with Basic Auth.
+
+    Sets auth headers using supplied 'username' and 'password', if set.
+    Used by the push_to_gateway functions. Can be re-used by other handlers.'''
+    def handle():
+        '''Handler that implements HTTP Basic Auth.
+        '''
+        if username is not None and password is not None:
+            auth_value = "{0}:{1}".format(username, password)
+            auth_header = "Basic {0}".format(base64.b64encode(bytes(auth_value)))
+            headers.append(['Authorization', auth_header])
+        default_handler(url, method, timeout, headers, data)()
 
     return handle
 

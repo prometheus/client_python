@@ -11,7 +11,7 @@ setup(
     license = "Apache Software License 2.0",
     keywords = "prometheus monitoring instrumentation client",
     url = "https://github.com/prometheus/client_python",
-    packages=['prometheus_client', 'prometheus_client.bridge', 'prometheus_client.twisted', 'prometheus_client.handlers'],
+    packages=['prometheus_client', 'prometheus_client.bridge', 'prometheus_client.twisted'],
     extras_require={
         'twisted': ['twisted'],
     },

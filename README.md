@@ -328,7 +328,7 @@ you can use a special handler to set the Authorization header.
 
 ```python
 from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
-from prometheus_client.handlers.basic_auth import handler as basic_auth_handler
+from prometheus_client.exposition import basic_auth_handler
 
 def my_auth_handler(url, method, timeout, headers, data):
     username = 'foobar'
