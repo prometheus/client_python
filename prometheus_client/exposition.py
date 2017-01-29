@@ -146,7 +146,8 @@ def basic_auth_handler(url, method, timeout, headers, data, username=None, passw
         '''
         if username is not None and password is not None:
             auth_value = "{0}:{1}".format(username, password)
-            auth_header = "Basic {0}".format(base64.b64encode(bytes(auth_value, 'utf8')))
+            auth_token = base64.b64encode(auth_value)
+            auth_header = "Basic {0}".format(auth_token)
             headers.append(['Authorization', auth_header])
         default_handler(url, method, timeout, headers, data)()
 
