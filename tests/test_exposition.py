@@ -111,7 +111,7 @@ class TestPushGateway(unittest.TestCase):
             do_DELETE = do_PUT
 
         httpd = HTTPServer(('localhost', 0), TestHandler)
-        self.address = 'http://{0}'.format(':'.join([str(x) for x in httpd.server_address]))
+        self.address = ':'.join([str(x) for x in httpd.server_address])
         class TestServer(threading.Thread):
             def run(self):
                 httpd.handle_request()
