@@ -135,6 +135,26 @@ a\t\t{\t\tfoo\t\t=\t\t"baz"\t\t}\t\t2
         metric_family.add_metric(["baz"], 2)
         self.assertEqual([metric_family], list(families))
 
+    def test_commas(self):
+        families = text_string_to_metric_families("""# TYPE a counter
+# HELP a help
+a{foo="bar",} 1
+# TYPE b counter
+# HELP b help
+b{,} 2
+""")
+        a = CounterMetricFamily("a", "help", labels=["foo"])
+        a.add_metric(["bar"], 1)
+        b = CounterMetricFamily("b", "help", value=2)
+        self.assertEqual([a, b], list(families))
+
+    def test_empty_brackets(self):
+        families = text_string_to_metric_families("""# TYPE a counter
+# HELP a help
+a{} 1
+""")
+        self.assertEqual([CounterMetricFamily("a", "help", value=1)], list(families))
+
     def test_nan(self):
         families = text_string_to_metric_families("""a NaN
 """)

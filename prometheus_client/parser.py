@@ -71,7 +71,7 @@ def _parse_sample(text):
                 value.append(char)
                 state = 'value'
         elif state == 'startoflabelname':
-            if char == ' ' or char == '\t':
+            if char == ' ' or char == '\t' or char == ',':
                 pass
             elif char == '}':
                 state = 'endoflabels'
@@ -121,7 +121,7 @@ def _parse_sample(text):
                 labelvalue.append('\\' + char)
         elif state == 'nextlabel':
             if char == ',':
-                state = 'labelname'
+                state = 'startoflabelname'
             elif char == '}':
                 state = 'endoflabels'
             elif char == ' ' or char == '\t':
