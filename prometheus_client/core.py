@@ -336,7 +336,7 @@ class _MmapedDict(object):
                 self._positions[key] = pos
 
     def _init_value(self, key):
-        """Initilize a value. Lock must be held by caller."""
+        """Initialize a value. Lock must be held by caller."""
         encoded = key.encode('utf-8')
         # Pad to be 8-byte aligned.
         padded = encoded + (b' ' * (8 - (len(encoded) + 4) % 8))
