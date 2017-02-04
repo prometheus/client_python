@@ -409,7 +409,7 @@ This comes with a number of limitations:
 - Custom collectors do not work (e.g. cpu and memory metrics)
 - The pushgateway cannot be used
 - Gauges cannot use the `pid` label
-- Gunicron's `preload_app` feature are equivilents are not supported
+- Gunicorn's `preload_app` feature and equivalents are not supported
 
 There's several steps to getting this working:
 
