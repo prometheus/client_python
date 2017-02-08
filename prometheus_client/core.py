@@ -471,13 +471,13 @@ class _LabelWrapper(object):
             c.labels('get', '/').inc()
             c.labels('post', '/submit').inc()
 
-        Labels can also be provided as a dict:
+        Labels can also be provided as keyword arguments:
 
             from prometheus_client import Counter
 
             c = Counter('my_requests_total', 'HTTP Failures', ['method', 'endpoint'])
-            c.labels({'method': 'get', 'endpoint': '/'}).inc()
-            c.labels({'method': 'post', 'endpoint': '/submit'}).inc()
+            c.labels(method='get', endpoint='/').inc()
+            c.labels(method='post', endpoint='/submit').inc()
 
         See the best practices on [naming](http://prometheus.io/docs/practices/naming/)
         and [labels](http://prometheus.io/docs/practices/instrumentation/#use-labels).
