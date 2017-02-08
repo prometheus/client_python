@@ -5,7 +5,6 @@ from __future__ import unicode_literals
 import copy
 import json
 import math
-import mmap
 import os
 import re
 import struct
@@ -319,12 +318,13 @@ class _MmapedDict(object):
     alignment, and then a 8 byte float which is the value.
     """
     def __init__(self, filename):
+        self.mmap = __import__('mmap')
         self._lock = Lock()
         self._f = open(filename, 'a+b')
         if os.fstat(self._f.fileno()).st_size == 0:
             self._f.truncate(_INITIAL_MMAP_SIZE)
         self._capacity = os.fstat(self._f.fileno()).st_size
-        self._m = mmap.mmap(self._f.fileno(), self._capacity)
+        self._m = self.mmap.mmap(self._f.fileno(), self._capacity)
 
         self._positions = {}
         self._used = struct.unpack_from(b'i', self._m, 0)[0]
@@ -344,7 +344,7 @@ class _MmapedDict(object):
         while self._used + len(value) > self._capacity:
             self._capacity *= 2
             self._f.truncate(self._capacity * 2)
-            self._m = mmap.mmap(self._f.fileno(), self._capacity)
+            self._m = self.mmap.mmap(self._f.fileno(), self._capacity)
         self._m[self._used:self._used + len(value)] = value
 
         # Update how much space we've used.
