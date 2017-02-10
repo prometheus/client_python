@@ -315,7 +315,7 @@ class _MmapedDict(object):
     The file starts with a 4 byte int, indicating how much of it is used.
     Then 4 bytes of padding.
     There's then a number of entries, consisting of a 4 byte int which is the
-    side of the next field, a utf-8 encoded string key, padding to a 8 byte
+    size of the next field, a utf-8 encoded string key, padding to a 8 byte
     alignment, and then a 8 byte float which is the value.
     """
     def __init__(self, filename):
@@ -343,7 +343,7 @@ class _MmapedDict(object):
         value = struct.pack('i{0}sd'.format(len(padded)).encode(), len(encoded), padded, 0.0)
         while self._used + len(value) > self._capacity:
             self._capacity *= 2
-            self._f.truncate(self._capacity * 2)
+            self._f.truncate(self._capacity)
             self._m = mmap.mmap(self._f.fileno(), self._capacity)
         self._m[self._used:self._used + len(value)] = value
 
