@@ -12,8 +12,8 @@ from wsgiref.simple_server import make_server
 
 from . import core
 try:
-    from BaseHTTPServer import BaseHTTPRequestHandler
-    from BaseHTTPServer import HTTPServer
+    from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
+    from  SocketServer import ThreadingMixIn
     from urllib2 import build_opener, Request, HTTPHandler
     from urllib import quote_plus
     from urlparse import parse_qs, urlparse
@@ -97,10 +97,13 @@ class MetricsHandler(BaseHTTPRequestHandler):
 
 
 def start_http_server(port, addr=''):
-    """Starts a HTTP server for prometheus metrics as a daemon thread."""
+    """Spawns each HTTPServer in a new thread to prevent blocking"""
+    class ThreadingSimpleServer(ThreadingMixIn, HTTPServer):
+        pass
+    """Starts a HTTP server for prometheus metrics in a new thread"""
     class PrometheusMetricsServer(threading.Thread):
         def run(self):
-            httpd = HTTPServer((addr, port), MetricsHandler)
+            httpd = ThreadingSimpleServer((addr, port), MetricsHandler)
             httpd.serve_forever()
     t = PrometheusMetricsServer()
     t.daemon = True
