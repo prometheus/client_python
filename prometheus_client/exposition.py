@@ -12,16 +12,16 @@ from wsgiref.simple_server import make_server
 
 from . import core
 try:
-    from BaseHTTPServer import BaseHTTPRequestHandler
-    from BaseHTTPServer import HTTPServer
+    from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
+    from SocketServer import ThreadingMixIn
     from urllib2 import build_opener, Request, HTTPHandler
     from urllib import quote_plus
     from urlparse import parse_qs, urlparse
 except ImportError:
     # Python 3
     unicode = str
-    from http.server import BaseHTTPRequestHandler
-    from http.server import HTTPServer
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    from socketserver import ThreadingMixIn
     from urllib.request import build_opener, Request, HTTPHandler
     from urllib.parse import quote_plus, parse_qs, urlparse
 
@@ -97,10 +97,12 @@ class MetricsHandler(BaseHTTPRequestHandler):
 
 
 def start_http_server(port, addr=''):
-    """Starts a HTTP server for prometheus metrics as a daemon thread."""
+    """Starts an HTTP server for prometheus metrics as a daemon thread"""
+    class ThreadingSimpleServer(ThreadingMixIn, HTTPServer):
+        pass
     class PrometheusMetricsServer(threading.Thread):
         def run(self):
-            httpd = HTTPServer((addr, port), MetricsHandler)
+            httpd = ThreadingSimpleServer((addr, port), MetricsHandler)
             httpd.serve_forever()
     t = PrometheusMetricsServer()
     t.daemon = True
