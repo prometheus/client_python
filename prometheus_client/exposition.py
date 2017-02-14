@@ -97,10 +97,9 @@ class MetricsHandler(BaseHTTPRequestHandler):
 
 
 def start_http_server(port, addr=''):
-    """Spawns each HTTPServer in a new thread to prevent blocking."""
+    """Starts an HTTP server for prometheus metrics as a daemon thread"""
     class ThreadingSimpleServer(ThreadingMixIn, HTTPServer):
         pass
-    """Starts a HTTP server for prometheus metrics as a daemon thread."""
     class PrometheusMetricsServer(threading.Thread):
         def run(self):
             httpd = ThreadingSimpleServer((addr, port), MetricsHandler)
