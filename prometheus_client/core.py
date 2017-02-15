@@ -11,6 +11,14 @@ import re
 import struct
 import time
 import types
+import uuid
+from logging import getLogger
+from contextlib import contextmanager
+
+try:
+    import uwsgi
+except ImportError:
+    uwsgi = None
 
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler
@@ -30,6 +38,11 @@ _INF = float("inf")
 _MINUS_INF = float("-inf")
 _INITIAL_MMAP_SIZE = 1024*1024
 
+
+logger = getLogger('prometheus_client')
+
+class InvalidUWSGISharedareaPagesize(Exception):
+    pass
 
 class CollectorRegistry(object):
     '''Metric collector registry.
@@ -93,6 +106,7 @@ class CollectorRegistry(object):
         collectors = None
         with self._lock:
             collectors = copy.copy(self._collector_to_names)
+
         for collector in collectors:
             for metric in collector.collect():
                 yield metric
@@ -309,6 +323,339 @@ class _MutexValue(object):
       with self._lock:
           return self._value
 
+
+
+class _UWSGISharedareaDict(object):
+    """A dict of doubles, backend by uwsgi sharedarea
+    """
+
+    SHAREDAREA_ID = int(os.environ.get('PROMETHEUS_UWSGI_SHAREDAREA', 0))
+    KEY_SIZE_SIZE = 4
+    KEY_VALUE_SIZE = 8
+    SIGN_SIZE = 10
+    AREA_SIZE_SIZE = 4
+    SIGN_POSITION = 4
+    AREA_SIZE_POSITION = 0
+
+    def __init__(self):
+        self._used = None
+        # Changed every time then keys added
+        self._sign = None
+        self._positions = {}
+        self._rlocked = False
+        self._wlocked = False
+        self._m = uwsgi.sharedarea_memoryview(self.SHAREDAREA_ID)
+        self.init_memory()
+
+    @property
+    def m(self):
+        return self._m
+
+    @property
+    def wlocked(self):
+        return self._wlocked
+
+    @wlocked.setter
+    def wlocked(self, value):
+        self._wlocked = value
+        return self._wlocked
+
+    @property
+    def rlocked(self):
+        return self._rlocked
+
+    @rlocked.setter
+    def rlocked(self, value):
+        self._rlocked = value
+        return self._rlocked
+
+    def get_area_size_with_lock(self):
+        with self.lock():
+            return self.get_area_size()
+
+    def get_slice(self, start, size):
+        return slice(start, start+size)
+
+    def get_area_size(self):
+        """Read area size from uwsgi
+        """
+        return struct.unpack(b'i', self.m[self.get_slice(self.AREA_SIZE_POSITION, self.AREA_SIZE_SIZE)])[0]
+
+    def init_area_size(self):
+        return self.update_area_size(self.AREA_SIZE_SIZE)
+
+    def update_area_size(self, size):
+        self._used = size
+        self.m[self.get_slice(self.AREA_SIZE_POSITION, self.AREA_SIZE_SIZE)] = struct.pack(b'i', size)
+        return True
+
+    def update_area_sign(self):
+        self._sign = os.urandom(self.SIGN_SIZE)
+        self.m[self.get_slice(self.SIGN_POSITION, self.SIGN_SIZE)] = self._sign
+
+
+    def get_area_sign(self):
+        """Get current area sign from memory
+        """
+        return self.m[self.get_slice(self.SIGN_POSITION, self.SIGN_SIZE)].tobytes()
+
+    def init_memory(self):
+        """Initialize default memory addresses
+        """
+        with self.lock():
+            if self._used is None:
+                self._used = self.get_area_size()
+
+            if self._used == 0:
+                self.update_area_sign()
+                self.update_area_size(self.SIGN_SIZE + self.AREA_SIZE_SIZE)
+
+            self.validate_actuality()
+
+
+    def read_memory(self):
+        """Read all keys from sharedared
+        """
+        pos = self.AREA_SIZE_POSITION + self.AREA_SIZE_SIZE + self.SIGN_SIZE
+        self._used = self.get_area_size()
+        self._sign = self.get_area_sign()
+
+        while pos < self._used + self.AREA_SIZE_POSITION:
+
+            key_size, (key, key_value), positions = self.read_item(pos)
+            yield key_size, (key, key_value), positions
+            pos = positions[3]
+
+    def load_exists_positions(self):
+        """Load all keys from memory
+        """
+
+        self._used = self.get_area_size()
+        self._sign = self.get_area_sign()
+
+        for _, (key, _), positions in self.read_memory():
+            self._positions[key] = positions
+
+
+    def get_string_padding(self, key):
+        """Calculate string padding
+
+        :param key: encoded string
+        """
+        return (8 - (len(key) + 4) % 8)
+
+    def init_key(self, key):
+        """Initialize memory for key
+
+        :param key: key string
+        """
+        encoded = key.encode('utf-8')
+
+        # Pad to be 8-byte aligned
+        padding = self.get_string_padding(encoded)
+        key_size = len(encoded) + self.get_string_padding(encoded)
+
+        item_template = 'i{0}sd'.format(key_size).encode()
+
+        value = struct.pack(item_template, len(encoded), encoded, 0.0)
+
+        key_string_position = self._used + self.AREA_SIZE_POSITION
+
+        self.m[self.get_slice(self._used + self.AREA_SIZE_POSITION, len(value))] = value
+
+        self.update_area_size(self._used + len(value))
+        self._positions[key] = [key_string_position, key_string_position + self.KEY_SIZE_SIZE,
+                                self._used - self.KEY_VALUE_SIZE, self._used+self.AREA_SIZE_POSITION]
+        self.update_area_sign()
+        return self._positions[key]
+
+    def read_key_string(self, position, size):
+        """Read key value from position by given size
+
+        :param position: int offset for key string
+        :param size:  int key size in bytes to read
+        """
+        key_string_bytes = self.m[self.get_slice(position, size)]
+        return struct.unpack(b'{0}s'.format(size), key_string_bytes)[0]
+
+    def read_key_value(self, position):
+        """Read float value of position
+
+        :param position: int offset for key value float
+        """
+        key_value_bytes = self.m[self.get_slice(position, self.KEY_VALUE_SIZE)]
+        return struct.unpack(b'd', key_value_bytes)[0]
+
+    def read_key_size(self, position):
+        """Read key size from position
+
+        :param position: int offset for 4-byte key size
+        """
+        key_size_bytes = self.m[self.get_slice(position, self.KEY_SIZE_SIZE)]
+        return struct.unpack(b'i', key_size_bytes)[0]
+
+    def write_key_value(self, position, value):
+        """Write float value to position
+
+        :param position: int offset for 8-byte float value
+        """
+        self.m[self.get_slice(position, self.KEY_VALUE_SIZE)] = struct.pack(b'd', value)
+        return True
+
+    def read_item(self, position):
+        """Read key info from given position
+
+        4 bytes int key size
+        n bytes key value of utf-8 encoded string key padding to a 8 byte
+        8 bytes float counter value
+        """
+
+        key_size = self.read_key_size(position)
+
+        key_string_position = position + self.KEY_SIZE_SIZE
+        key = self.read_key_string(key_string_position, key_size)
+
+        key_value_position = key_string_position + self.get_string_padding(key.encode('utf-8')) + key_size
+
+        key_value = self.read_key_value(key_value_position)
+
+        return (key_size,
+                (key, key_value),
+                (position, key_string_position,
+                 key_value_position, key_value_position + self.KEY_VALUE_SIZE))
+
+    def get_key_position(self, key):
+        return self._positions.get(key, None) or self.init_key(key)
+
+    def inc_value(self, key, value):
+        """Increase/decrease key value
+
+        :param key: key string
+        :param value: key value
+        """
+        with self.lock():
+            try:
+                self.validate_actuality()
+                position = self.get_key_position(key)[2]
+                return self.write_key_value(position, self.read_key_value(position) + value)
+            except InvalidUWSGISharedareaPagesize as e:
+                logger.error("Invalid sharedarea pagesize {0} bytes".format(len(self._m)))
+                return 0
+
+    def write_value(self, key, value):
+        """Write value to shared memory
+
+        :param key: key string
+        :param value: key value
+        """
+        with self.lock():
+            try:
+                self.validate_actuality()
+                return self.write_key_value(self.get_key_position(key)[2], value)
+            except InvalidUWSGISharedareaPagesize as e:
+                logger.error("Invalid sharedarea pagesize {0} bytes".format(len(self._m)))
+                return None
+
+    def read_value(self, key):
+        """Read value from shared memory
+
+        :param key: key string
+        """
+        with self.lock():
+            try:
+                self.validate_actuality()
+                return self.read_key_value(self.get_key_position(key)[2])
+            except InvalidUWSGISharedareaPagesize:
+                logger.error("Invalid sharedarea pagesize {0} bytes".format(len(self._m)))
+                return 0
+
+    def validate_actuality(self):
+        """For prevent data corruption
+
+        Reload data from sharedmemory into process if sign changed
+        """
+        if self._sign != self.get_area_sign():
+            self.load_exists_positions()
+
+    @contextmanager
+    def lock(self):
+        lock_id = uuid.uuid4().hex
+        if not self.wlocked and not self.rlocked:
+            self.wlocked, self.rlocked = lock_id, lock_id
+            uwsgi.sharedarea_wlock(self.SHAREDAREA_ID)
+            yield
+            uwsgi.sharedarea_unlock(self.SHAREDAREA_ID)
+            self.wlocked, self.rlocked = False, False
+        else:
+            yield
+
+    @contextmanager
+    def rlock(self):
+        lock_id = uuid.uuid4().hex
+        if not self.rlocked:
+            self.rlocked = lock_id
+            uwsgi.sharedarea_rlock(self.SHAREDAREA_ID)
+            yield
+            uwsgi.sharedarea_unlock(self.SHAREDAREA_ID)
+            self.rlocked = False
+        else:
+            yield
+
+    def unlock(self):
+        self._wlocked, self._rlocked = False, False
+        uwsgi.sharedarea_unlock(self.SHAREDAREA_ID)
+
+
+def _UWSGISharedareaInit():
+    KEYS_CACHE = {}
+
+    STORAGE = _UWSGISharedareaDict()
+
+    class _UWSGISharedareaValue(object):
+        """
+        A float protected by uwsgi sharedarea pages
+        """
+        _multiprocess = False
+
+        def __init__(self, metric_type, metric_name, name, labelnames, labelvalues, **kwargs):
+            self._metric_type = metric_type
+            self._metric_name = metric_name
+            self._name = name
+            self._labelnames = labelnames
+            self._labelvalues = labelvalues
+            self._key = self._get_key((metric_name, name, tuple(labelnames), tuple(labelvalues)))
+            self._storage = STORAGE
+
+        def inc(self, amount):
+            """increase key value
+
+            :param amount:
+            """
+            self._storage.inc_value(self._key, amount)
+
+        def set(self, value):
+            """Set value for key
+
+            :param value:
+            """
+            return self._storage.write_value(self._key, value)
+
+        def get(self):
+            """Get key value
+            """
+            return self._storage.read_value(self._key)
+
+        def _get_key(self, values):
+            try:
+                return KEYS_CACHE[values]
+            except KeyError:
+                pass
+            KEYS_CACHE[values] = json.dumps(values)
+            return KEYS_CACHE[values]
+
+    return _UWSGISharedareaValue
+
+
 class _MmapedDict(object):
     """A dict of doubles, backed by an mmapped file.
 
@@ -339,6 +686,9 @@ class _MmapedDict(object):
         """Initialize a value. Lock must be held by caller."""
         encoded = key.encode('utf-8')
         # Pad to be 8-byte aligned.
+        # pseudo-code, see actual code below
+        # padding = (align - (offset mod align)) mod align
+        # new offset = offset + padding = offset + (align - (offset mod align)) mod align
         padded = encoded + (b' ' * (8 - (len(encoded) + 4) % 8))
         value = struct.pack('i{0}sd'.format(len(padded)).encode(), len(encoded), padded, 0.0)
         while self._used + len(value) > self._capacity:
@@ -392,6 +742,7 @@ class _MmapedDict(object):
             self._f = None
 
 
+
 def _MultiProcessValue(__pid=os.getpid()):
     pid = __pid
     files = {}
@@ -438,7 +789,11 @@ def _MultiProcessValue(__pid=os.getpid()):
 # This needs to be chosen before the first metric is constructed,
 # and as that may be in some arbitrary library the user/admin has
 # no control over we use an enviroment variable.
-if 'prometheus_multiproc_dir' in os.environ:
+if "PROMETHEUS_UWSGI_SHAREDAREA" in os.environ:
+    if not uwsgi:
+        raise RuntimeError("uwsgi not found")
+    _ValueClass = _UWSGISharedareaInit()
+elif 'prometheus_multiproc_dir' in os.environ:
     _ValueClass = _MultiProcessValue()
 else:
     _ValueClass = _MutexValue

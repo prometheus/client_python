@@ -1,0 +1,5 @@
+include setup.py README.rst MANIFEST.in LICENSE *.txt
+recursive-include client_python/ *
+graft tests
+global-exclude *~
+recursive-exclude dist/* examples/*

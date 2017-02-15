@@ -476,3 +476,22 @@ for family in text_string_to_metric_families("my_gauge 1.0\n"):
   for sample in family.samples:
     print("Name: {0} Labels: {1} Value: {2}".format(*sample))
 ```
+
+
+## UWSGI sharedarea MODE
+
+This mode enable uwsgi sharedarea memory to store all metrics and sync between processes.
+
+To enable mode, setup `PROMETHEUS_UWSGI_SHAREDAREA` environment variable with sharedarea id value.
+
+Example uwsgi config:
+
+``` ini
+
+[uwsgi]
+
+#...
+
+sharedarea=10
+
+```

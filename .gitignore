@@ -6,3 +6,5 @@ dist
 .coverage.*
 .coverage
 .tox
+examples/loadtest/logs/*
+examples/storage/*

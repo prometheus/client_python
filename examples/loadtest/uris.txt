@@ -1,0 +1,20 @@
+[Connection: close]
+[Host: dev_flask_app]
+[Cookie: None]
+
+/api/v
+/business/
+/auto/
+/starlife/
+/politics/
+/sport/
+/kids/
+/lifestyle/
+/incidents/
+/9may/
+/health/
+/newyear/
+/kinomusic/
+/games/
+/scitech/
+/
