@@ -75,34 +75,33 @@ def generate_latest(registry=core.REGISTRY):
             output.append('{0}{1} {2}\n'.format(name, labelstr, core._floatToGoString(value)))
     return ''.join(output).encode('utf-8')
 
+def generate_metrics_handler(registry):
+    class MetricsHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            params = parse_qs(urlparse(self.path).query)
+            if 'name[]' in params:
+                registry = registry.restricted_registry(params['name[]'])
+            try:
+                output = generate_latest(registry)
+            except:
+                self.send_error(500, 'error generating metric output')
+                raise
+            self.send_response(200)
+            self.send_header('Content-Type', CONTENT_TYPE_LATEST)
+            self.end_headers()
+            self.wfile.write(output)
 
-class MetricsHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        registry = core.REGISTRY
-        params = parse_qs(urlparse(self.path).query)
-        if 'name[]' in params:
-            registry = registry.restricted_registry(params['name[]'])
-        try:
-            output = generate_latest(registry)
-        except:
-            self.send_error(500, 'error generating metric output')
-            raise
-        self.send_response(200)
-        self.send_header('Content-Type', CONTENT_TYPE_LATEST)
-        self.end_headers()
-        self.wfile.write(output)
-
-    def log_message(self, format, *args):
-        return
+        def log_message(self, format, *args):
+            return
 
 
-def start_http_server(port, addr=''):
+def start_http_server(port, addr='', registry=core.REGISTRY):
     """Starts an HTTP server for prometheus metrics as a daemon thread"""
     class ThreadingSimpleServer(ThreadingMixIn, HTTPServer):
         pass
     class PrometheusMetricsServer(threading.Thread):
         def run(self):
-            httpd = ThreadingSimpleServer((addr, port), MetricsHandler)
+            httpd = ThreadingSimpleServer((addr, port), generate_metrics_handler(registry))
             httpd.serve_forever()
     t = PrometheusMetricsServer()
     t.daemon = True
