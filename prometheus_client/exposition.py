@@ -109,7 +109,7 @@ def start_http_server(port, addr=''):
     t.start()
 
 
-def write_to_textfile(path, registry):
+def write_to_textfile(path, registry=core.REGISTRY):
     '''Write metrics to the given path.
 
     This is intended for use with the Node exporter textfile collector.
