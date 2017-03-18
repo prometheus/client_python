@@ -421,8 +421,9 @@ between Gunicorn runs (before startup is recommended).
 
 Put the following in the config file:
 ```python
-def worker_exit(server, worker):
-    from prometheus_client import multiprocess
+from prometheus_client import multiprocess
+
+def child_exit(server, worker):
     multiprocess.mark_process_dead(worker.pid)
 ```
 
