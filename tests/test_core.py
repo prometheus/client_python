@@ -303,6 +303,10 @@ class TestMetricWrapper(unittest.TestCase):
         self.assertRaises(ValueError, Counter, 'c', '', labelnames=['__reserved'])
         self.assertRaises(ValueError, Summary, 'c', '', labelnames=['quantile'])
 
+    def test_empty_labels_list(self):
+        h = Histogram('h', 'help', [], registry=self.registry)
+        self.assertEqual(0, self.registry.get_sample_value('h_sum'))
+
 
 class TestMetricFamilies(unittest.TestCase):
     def setUp(self):
