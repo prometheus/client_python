@@ -307,6 +307,9 @@ class TestMetricWrapper(unittest.TestCase):
         h = Histogram('h', 'help', [], registry=self.registry)
         self.assertEqual(0, self.registry.get_sample_value('h_sum'))
 
+    def test_wrapped_original_class(self):
+        self.assertEqual(Counter.__wrapped__, Counter('foo', 'bar').__class__)
+
 
 class TestMetricFamilies(unittest.TestCase):
     def setUp(self):
@@ -385,6 +388,7 @@ class TestMetricFamilies(unittest.TestCase):
         self.assertRaises(ValueError, HistogramMetricFamily, 'h', 'help', buckets={}, labels=['a'])
         self.assertRaises(ValueError, HistogramMetricFamily, 'h', 'help', buckets={}, sum_value=1, labels=['a'])
         self.assertRaises(KeyError, HistogramMetricFamily, 'h', 'help', buckets={}, sum_value=1)
+
 
 class TestCollectorRegistry(unittest.TestCase):
     def test_duplicate_metrics_raises(self):
