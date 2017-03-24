@@ -556,6 +556,7 @@ def _MetricWrapper(cls):
             registry.register(collector)
         return collector
 
+    init.__wrapped__ = cls
     return init
 
 
