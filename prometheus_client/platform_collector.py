@@ -86,7 +86,7 @@ class PlatformCollector(object):
         release, version, csd, ptype = self._platform.win32_ver()
         return "system_info", "System information (Windows)", {
             "system": "Windows",
-            "name": "Windows {}".format(release),
+            "name": "Windows {0}".format(release),
             "kernel": version,
             "version": version,
             "csd": csd,
@@ -98,7 +98,7 @@ class PlatformCollector(object):
         _, _, kernel, _, _, _ = self._platform.uname()
         return "system_info", "System information (Darwin)", {
             "system": "Darwin",
-            "name": "Mac OS {}".format(release),
+            "name": "Mac OS {0}".format(release),
             "kernel": kernel,
             "version": release
         }
