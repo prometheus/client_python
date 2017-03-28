@@ -208,7 +208,7 @@ ProcessCollector(namespace='mydaemon', pid=lambda: open('/var/run/daemon.pid').r
 
 ### Platform Collector
 
-The client also automatically exports some metadata about python. If using Jython,
+The client also automatically exports some metadata about Python. If using Jython,
 metadata about the JVM in use is also included. This information is available as 
 labels on the `python_info` metric. The value of the metric is 1, since it is the 
 labels that carry information.

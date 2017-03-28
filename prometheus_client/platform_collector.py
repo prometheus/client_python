@@ -56,4 +56,4 @@ class PlatformCollector(object):
 
 
 PLATFORM_COLLECTOR = PlatformCollector()
-"""PlatfprmCollector in default Registry REGISTRY"""
+"""PlatformCollector in default Registry REGISTRY"""
