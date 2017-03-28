@@ -206,6 +206,14 @@ other processes, for example:
 ProcessCollector(namespace='mydaemon', pid=lambda: open('/var/run/daemon.pid').read())
 ```
 
+### Platform Collector
+
+The client also automatically exports some metadata about the platform, such
+as versions of python, operating system, kernel and important system libraries,
+implementation details, and hardware details. This information is available as 
+labels on the `python_info`, `machine_info` and `system_info` metrics. These all 
+have the value 1, since it is the labels that carry information.
+
 ## Exporting
 
 There are several options for exporting metrics.
