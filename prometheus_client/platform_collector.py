@@ -12,10 +12,12 @@ class PlatformCollector(object):
 
     def __init__(self, registry=core.REGISTRY, platform=None):
         self._platform = pf if platform is None else platform
+        info = self._info()
+        system = self._platform.system()
+        if system == "Java":
+            info.update(self._java())
         self._metrics = [
-            self._add_metric(*self._python()),
-            self._add_metric(*self._machine()),
-            self._add_metric(*self._system())
+            self._add_metric("python_info", "Python information", info)
         ]
         if registry:
             registry.register(self)
@@ -31,9 +33,9 @@ class PlatformCollector(object):
         g.add_metric(values, 1)
         return g
 
-    def _python(self):
+    def _info(self):
         major, minor, patchlevel = self._platform.python_version_tuple()
-        return "python_info", "Python information", {
+        return {
             "version": self._platform.python_version(),
             "implementation": self._platform.python_implementation(),
             "major": major,
@@ -41,80 +43,15 @@ class PlatformCollector(object):
             "patchlevel": patchlevel
         }
 
-    def _machine(self):
-        _, _, _, _, machine, processor = self._platform.uname()
-        bits, linkage = self._platform.architecture()
-        return "machine_info", "Machine information", {
-            "bits": bits,
-            "linkage": linkage,
-            "machine": machine,
-            "processor": processor
-        }
-
-    def _system(self):
-        system = self._platform.system()
-        return {
-            "Linux": self._linux,
-            "Windows": self._win32,
-            "Java": self._java,
-            "Darwin": self._mac,
-        }.get(system, self._system_other)()
-
-    def _system_other(self):
-        system, _, release, version, _, _ = self._platform.uname()
-        return "system_info", "System information", {
-            "system": system,
-            "kernel": release,
-            "version": version
-        }
-
     def _java(self):
         java_version, _, vminfo, osinfo = self._platform.java_ver()
         vm_name, vm_release, vm_vendor = vminfo
         system, kernel, _ = osinfo
-        return "system_info", "System information (Java)", {
-            "system": system,
-            "name": "Java",
-            "kernel": kernel,
-            "java_version": java_version,
-            "vm_release": vm_release,
-            "vm_vendor": vm_vendor,
-            "vm_name": vm_name
-        }
-
-    def _win32(self):
-        release, version, csd, ptype = self._platform.win32_ver()
-        return "system_info", "System information (Windows)", {
-            "system": "Windows",
-            "name": "Windows {0}".format(release),
-            "kernel": version,
-            "version": version,
-            "csd": csd,
-            "ptype": ptype
-        }
-
-    def _mac(self):
-        release, _, machine = self._platform.mac_ver()
-        _, _, kernel, _, _, _ = self._platform.uname()
-        return "system_info", "System information (Darwin)", {
-            "system": "Darwin",
-            "name": "Mac OS {0}".format(release),
-            "kernel": kernel,
-            "version": release
-        }
-
-    def _linux(self):
-        name, version, dist_id = self._platform.linux_distribution()
-        libc, libc_version = self._platform.libc_ver()
-        _, _, kernel, _, _, _ = self._platform.uname()
-        return "system_info", "System information (Linux)", {
-            "system": "Linux",
-            "name": name.strip(),
-            "kernel": kernel,
-            "version": version,
-            "dist_id": dist_id,
-            "libc": libc,
-            "libc_version": libc_version
+        return {
+            "jvm_version": java_version,
+            "jvm_release": vm_release,
+            "jvm_vendor": vm_vendor,
+            "jvm_name": vm_name
         }
 
 
