@@ -61,4 +61,9 @@ class _MockPlatform(object):
         return self._system
 
     def java_ver(self):
-        return "jv_release", "jv_vendor", ("vm_name", "vm_release", "vm_vendor"), ("os_name", "os_version", "os_arch")
+        return (
+            "jv_release",
+            "jv_vendor",
+            ("vm_name", "vm_release", "vm_vendor"),
+            ("os_name", "os_version", "os_arch")
+        )

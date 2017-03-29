@@ -8,7 +8,7 @@ from . import core
 
 
 class PlatformCollector(object):
-    """Collector for platform information"""
+    """Collector for python platform information"""
 
     def __init__(self, registry=core.REGISTRY, platform=None):
         self._platform = pf if platform is None else platform
@@ -17,7 +17,7 @@ class PlatformCollector(object):
         if system == "Java":
             info.update(self._java())
         self._metrics = [
-            self._add_metric("python_info", "Python information", info)
+            self._add_metric("python_info", "Python platform information", info)
         ]
         if registry:
             registry.register(self)
@@ -46,7 +46,6 @@ class PlatformCollector(object):
     def _java(self):
         java_version, _, vminfo, osinfo = self._platform.java_ver()
         vm_name, vm_release, vm_vendor = vminfo
-        system, kernel, _ = osinfo
         return {
             "jvm_version": java_version,
             "jvm_release": vm_release,
