@@ -3,6 +3,7 @@
 from . import core
 from . import exposition
 from . import process_collector
+from . import platform_collector
 
 __all__ = ['Counter', 'Gauge', 'Summary', 'Histogram']
 # http://stackoverflow.com/questions/19913653/no-unicode-in-all-for-a-packages-init
@@ -30,6 +31,9 @@ instance_ip_grouping_key = exposition.instance_ip_grouping_key
 
 ProcessCollector = process_collector.ProcessCollector
 PROCESS_COLLECTOR = process_collector.PROCESS_COLLECTOR
+
+PlatformCollector = platform_collector.PlatformCollector
+PLATFORM_COLLECTOR = platform_collector.PLATFORM_COLLECTOR
 
 
 if __name__ == '__main__':
