@@ -458,6 +458,8 @@ def app(environ, start_response):
     return iter([data])
 ```
 
+**Note: don't initialize metric with MultiProcessCollector registry argument.**
+
 **Three**: Instrumentation
 
 Counters, Summarys and Histograms work as normal.
