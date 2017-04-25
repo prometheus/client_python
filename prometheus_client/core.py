@@ -534,9 +534,9 @@ def _MetricWrapper(cls):
                     raise ValueError('Reserved label metric name: ' + l)
                 if l in cls._reserved_labelnames:
                     raise ValueError('Reserved label metric name: ' + l)
-            collector = _LabelWrapper(cls, name, labelnames, **kwargs)
+            collector = _LabelWrapper(cls, full_name, labelnames, **kwargs)
         else:
-            collector = cls(name, (), (), **kwargs)
+            collector = cls(full_name, (), (), **kwargs)
 
         if not _METRIC_NAME_RE.match(full_name):
             raise ValueError('Invalid metric name: ' + full_name)
