@@ -185,13 +185,13 @@ c.labels('get', '/').inc()
 c.labels('post', '/submit').inc()
 ```
 
-Labels can also be passed as keyword-arguments:
+Labels can also be passed as a dict:
 
 ```python
 from prometheus_client import Counter
 c = Counter('my_requests_total', 'HTTP Failures', ['method', 'endpoint'])
-c.labels(method='get', endpoint='/').inc()
-c.labels(method='post', endpoint='/submit').inc()
+c.labels({'method': 'get', 'endpoint': '/'}).inc()
+c.labels({'method': 'post', 'endpoint': '/submit'}).inc()
 ```
 
 ### Process Collector
