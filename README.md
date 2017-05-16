@@ -367,6 +367,42 @@ gb.push()
 gb.start(10.0)
 ```
 
+### New Relic
+
+In order to expose your metrics to New Relic, you need to register a custom data source with the
+[New Relic agent](https://docs.newrelic.com/docs/agents/python-agent):
+
+```python
+import newrelic.agent
+from prometheus_client.bridge.newrelic import PrometheusDataSource
+newrelic.agent.register_data_source(PrometheusDataSource)
+```
+
+Alternatively you can add the following to your `newrelic.ini` configuration file:
+
+```ini
+[data-source:prometheus]
+enabled = true
+function = prometheus_client.bridge.newrelic:PrometheusDataSource
+```
+
+This will export all of your metrics with names like `Custom/metric_name`. By defining settings for the data source as
+shown below, it is also possible to add a prefix to all metric names.
+
+```python
+newrelic.agent.register_data_source(PrometheusDataSource, settings={'prefix': 'some.prefix'})
+```
+
+```ini
+[data-source:prometheus]
+enabled = true
+function = prometheus_client.bridge.newrelic:PrometheusDataSource
+settings = prometheus
+
+[prometheus]
+prefix = some.prefix
+```
+
 ## Custom Collectors
 
 Sometimes it is not possible to directly instrument code, as it is not

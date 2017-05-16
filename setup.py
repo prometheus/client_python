@@ -16,6 +16,9 @@ setup(
         'twisted': ['twisted'],
     },
     test_suite="tests",
+    extras_require={
+        "bridge.newrelic": ["newrelic"]
+    },
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
