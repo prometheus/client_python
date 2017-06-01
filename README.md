@@ -473,7 +473,7 @@ Gauges have several modes they can run in, which can be selected with the
 
 ## Parser
 
-The Python client supports parsing the Promeheus text format.
+The Python client supports parsing the Prometheus text format.
 This is intended for advanced use cases where you have servers
 exposing Prometheus metrics and need to get them into some other
 system.
