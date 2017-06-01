@@ -309,6 +309,7 @@ class _MutexValue(object):
       with self._lock:
           return self._value
 
+
 class _MmapedDict(object):
     """A dict of doubles, backed by an mmapped file.
 
@@ -317,9 +318,10 @@ class _MmapedDict(object):
     There's then a number of entries, consisting of a 4 byte int which is the
     size of the next field, a utf-8 encoded string key, padding to a 8 byte
     alignment, and then a 8 byte float which is the value.
+
+    Not thread safe.
     """
     def __init__(self, filename):
-        self._lock = Lock()
         self._f = open(filename, 'a+b')
         if os.fstat(self._f.fileno()).st_size == 0:
             self._f.truncate(_INITIAL_MMAP_SIZE)
@@ -371,17 +373,15 @@ class _MmapedDict(object):
             yield k, v
 
     def read_value(self, key):
-        with self._lock:
-            if key not in self._positions:
-                self._init_value(key)
+        if key not in self._positions:
+            self._init_value(key)
         pos = self._positions[key]
         # We assume that reading from an 8 byte aligned value is atomic
         return struct.unpack_from(b'd', self._m, pos)[0]
 
     def write_value(self, key, value):
-        with self._lock:
-            if key not in self._positions:
-                self._init_value(key)
+        if key not in self._positions:
+            self._init_value(key)
         pos = self._positions[key]
         # We assume that writing to an 8 byte aligned value is atomic
         struct.pack_into(b'd', self._m, pos, value)
@@ -395,7 +395,10 @@ class _MmapedDict(object):
 def _MultiProcessValue(__pid=os.getpid()):
     pid = __pid
     files = {}
-    files_lock = Lock()
+    # Use a single global lock when in multi-processing mode
+    # as we presume this means there is no threading going on.
+    # This avoids the need to also have mutexes in __MmapDict.
+    lock = Lock()
 
     class _MmapedValue(object):
         '''A float protected by a mutex backed by a per-process mmaped file.'''
@@ -407,7 +410,7 @@ def _MultiProcessValue(__pid=os.getpid()):
                 file_prefix = typ + '_' +  multiprocess_mode
             else:
                 file_prefix = typ
-            with files_lock:
+            with lock:
                 if file_prefix not in files:
                     filename = os.path.join(
                             os.environ['prometheus_multiproc_dir'], '{0}_{1}.db'.format(file_prefix, pid))
@@ -415,20 +418,19 @@ def _MultiProcessValue(__pid=os.getpid()):
             self._file = files[file_prefix]
             self._key = json.dumps((metric_name, name, labelnames, labelvalues))
             self._value = self._file.read_value(self._key)
-            self._lock = Lock()
 
         def inc(self, amount):
-            with self._lock:
+            with lock:
                 self._value += amount
                 self._file.write_value(self._key, self._value)
 
         def set(self, value):
-            with self._lock:
+            with lock:
                 self._value = value
                 self._file.write_value(self._key, self._value)
 
         def get(self):
-            with self._lock:
+            with lock:
                 return self._value
 
     return _MmapedValue
