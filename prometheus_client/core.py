@@ -876,7 +876,7 @@ class _HistogramTimer(object):
 
     def __call__(self, f):
         def wrapped(func, *args, **kwargs):
-            with self:
+            with _HistogramTimer(self._histogram):
                 return func(*args, **kwargs)
         return decorate(f, wrapped)
 
