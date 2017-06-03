@@ -7,6 +7,8 @@ import json
 import os
 import shelve
 
+import psutil
+
 from . import core
 
 class MultiProcessCollector(object):
@@ -21,13 +23,18 @@ class MultiProcessCollector(object):
         for f in glob.glob(os.path.join(self._path, '*.db')):
             parts = os.path.basename(f).split('_')
             typ = parts[0]
+            if typ == 'gauge':
+                pid = parts[2][:-3]
+                if not psutil.pid_exists(int(pid)):
+                    # Dead process not properly cleaned up
+                    os.remove(f)
+                    continue
             d = core._MmapedDict(f)
             for key, value in d.read_all_values():
                 metric_name, name, labelnames, labelvalues = json.loads(key)
                 metrics.setdefault(metric_name, core.Metric(metric_name, 'Multiprocess metric', typ))
                 metric = metrics[metric_name]
                 if typ == 'gauge':
-                    pid = parts[2][:-3]
                     metric._multiprocess_mode = parts[1]
                     metric.add_sample(name, tuple(zip(labelnames, labelvalues)) + (('pid', pid), ), value)
                 else:
