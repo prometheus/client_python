@@ -37,7 +37,7 @@ def make_wsgi_app(registry=core.REGISTRY):
         r = registry
         if 'name[]' in params:
             r = r.restricted_registry(params['name[]'])
-        output = generate_latest(r)
+        output = generate_latest(r, params)
 
         status = str('200 OK')
         headers = [(str('Content-type'), CONTENT_TYPE_LATEST)]
@@ -57,10 +57,10 @@ def start_wsgi_server(port, addr='', registry=core.REGISTRY):
     t.start()
 
 
-def generate_latest(registry=core.REGISTRY):
+def generate_latest(registry=core.REGISTRY, params=None):
     '''Returns the metrics from the registry in latest text format as a string.'''
     output = []
-    for metric in registry.collect():
+    for metric in registry.collect(params):
         output.append('# HELP {0} {1}'.format(
             metric.name, metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
         output.append('\n# TYPE {0} {1}\n'.format(metric.name, metric.type))
@@ -83,7 +83,7 @@ class MetricsHandler(BaseHTTPRequestHandler):
         if 'name[]' in params:
             registry = registry.restricted_registry(params['name[]'])
         try:
-            output = generate_latest(registry)
+            output = generate_latest(registry, params)
         except:
             self.send_error(500, 'error generating metric output')
             raise

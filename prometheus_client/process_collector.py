@@ -44,7 +44,7 @@ class ProcessCollector(object):
                 if line.startswith('btime '):
                     return float(line.split()[1])
 
-    def collect(self):
+    def collect(self, params):
         if not self._btime:
             return []
 

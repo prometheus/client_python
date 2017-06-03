@@ -59,7 +59,7 @@ class GraphiteBridge(object):
         if prefix:
             prefixstr = prefix + '.'
 
-        for metric in self._registry.collect():
+        for metric in self._registry.collect({}):
             for name, labels, value in metric.samples:
                 if labels:
                     labelstr = '.' + '.'.join(
