@@ -392,8 +392,7 @@ class _MmapedDict(object):
             self._f = None
 
 
-def _MultiProcessValue(__pid=os.getpid()):
-    pid = __pid
+def _MultiProcessValue(_pid=None):
     files = {}
     # Use a single global lock when in multi-processing mode
     # as we presume this means there is no threading going on.
@@ -406,6 +405,8 @@ def _MultiProcessValue(__pid=os.getpid()):
         _multiprocess = True
 
         def __init__(self, typ, metric_name, name, labelnames, labelvalues, multiprocess_mode='', **kwargs):
+            pid = _pid or os.getpid()
+
             if typ == 'gauge':
                 file_prefix = typ + '_' +  multiprocess_mode
             else:
