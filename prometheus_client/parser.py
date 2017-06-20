@@ -12,7 +12,7 @@ from . import core
 
 
 def text_string_to_metric_families(text):
-    """Parse Prometheus text format from a string.
+    """Parse Prometheus text format from a unicode string.
 
     See text_fd_to_metric_families.
     """
