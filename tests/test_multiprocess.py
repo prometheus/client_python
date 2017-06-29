@@ -4,6 +4,7 @@ import shutil
 import tempfile
 import time
 import unittest
+from multiprocessing import Process
 
 import prometheus_client
 from prometheus_client.core import *
@@ -21,6 +22,20 @@ class TestMultiProcess(unittest.TestCase):
         del os.environ['prometheus_multiproc_dir']
         shutil.rmtree(self.tempdir)
         prometheus_client.core._ValueClass = prometheus_client.core._MutexValue
+
+    def test_mpval_different_pids(self):
+        def worker_fn():
+            prometheus_client.core._ValueClass = prometheus_client.core._MultiProcessValue()
+            c = Counter('mpc', 'help', registry=None)
+            c.inc()
+
+        procs = [Process(target=worker_fn) for _ in range(4)]
+        for p in procs:
+            p.start()
+        for p in procs:
+            p.join()
+
+        self.assertEqual(4, self.registry.get_sample_value('mpc'))
 
     def test_counter_adds(self):
         c1 = Counter('c', 'help', registry=None)
