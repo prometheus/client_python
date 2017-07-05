@@ -6,7 +6,6 @@ import re
 import socket
 import time
 import threading
-from timeit import default_timer
 
 from .. import core
 
@@ -27,10 +26,10 @@ class _RegularPush(threading.Thread):
         self._prefix = prefix
 
     def run(self):
-        wait_until = default_timer()
+        wait_until = time.time()
         while True:
             while True:
-                now = default_timer()
+                now = time.time()
                 if now >= wait_until:
                     # May need to skip some pushes.
                     while wait_until < now:
@@ -45,7 +44,7 @@ class _RegularPush(threading.Thread):
 
 
 class GraphiteBridge(object):
-    def __init__(self, address, registry=core.REGISTRY, timeout_seconds=30, _timer=default_timer):
+    def __init__(self, address, registry=core.REGISTRY, timeout_seconds=30, _timer=time.time):
         self._address = address
         self._registry = registry
         self._timeout = timeout_seconds
@@ -64,8 +63,8 @@ class GraphiteBridge(object):
                 if labels:
                     labelstr = '.' + '.'.join(
                         ['{0}.{1}'.format(
-                             _sanitize(k), _sanitize(v))
-                             for k, v in sorted(labels.items())])
+                            _sanitize(k), _sanitize(v))
+                            for k, v in sorted(labels.items())])
                 else:
                     labelstr = ''
                 output.append('{0}{1}{2} {3} {4}\n'.format(
