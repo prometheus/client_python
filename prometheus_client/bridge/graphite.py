@@ -45,7 +45,7 @@ class _RegularPush(threading.Thread):
 
 
 class GraphiteBridge(object):
-    def __init__(self, address, registry=core.REGISTRY, timeout_seconds=30, _timer=default_timer):
+    def __init__(self, address, registry=core.REGISTRY, timeout_seconds=30, _timer=time.time):
         self._address = address
         self._registry = registry
         self._timeout = timeout_seconds
@@ -64,8 +64,8 @@ class GraphiteBridge(object):
                 if labels:
                     labelstr = '.' + '.'.join(
                         ['{0}.{1}'.format(
-                             _sanitize(k), _sanitize(v))
-                             for k, v in sorted(labels.items())])
+                            _sanitize(k), _sanitize(v))
+                            for k, v in sorted(labels.items())])
                 else:
                     labelstr = ''
                 output.append('{0}{1}{2} {3} {4}\n'.format(
