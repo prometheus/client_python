@@ -6,6 +6,7 @@ import re
 import socket
 import time
 import threading
+from timeit import default_timer
 
 from .. import core
 
@@ -26,10 +27,10 @@ class _RegularPush(threading.Thread):
         self._prefix = prefix
 
     def run(self):
-        wait_until = time.time()
+        wait_until = default_timer()
         while True:
             while True:
-                now = time.time()
+                now = default_timer()
                 if now >= wait_until:
                     # May need to skip some pushes.
                     while wait_until < now:
