@@ -59,6 +59,16 @@ def start_wsgi_server(port, addr='', registry=core.REGISTRY):
 
 def generate_latest(registry=core.REGISTRY):
     '''Returns the metrics from the registry in latest text format as a string.'''
+    def sampleconv(s):
+        # s may be a (value, timestamp) tuple or simply a value
+
+        if not isinstance(s, tuple):
+            return core._floatToGoString(s)
+        if s[1] is None:
+            return core._floatToGoString(s[0])
+        # return the pair
+        return ('{} {}'.format(core._floatToGoString(s[0]), int(s[1])))
+
     output = []
     for metric in registry.collect():
         output.append('# HELP {0} {1}'.format(
@@ -72,7 +82,7 @@ def generate_latest(registry=core.REGISTRY):
                      for k, v in sorted(labels.items())]))
             else:
                 labelstr = ''
-            output.append('{0}{1} {2}\n'.format(name, labelstr, core._floatToGoString(value)))
+            output.append('{0}{1} {2}\n'.format(name, labelstr, sampleconv(value)))
     return ''.join(output).encode('utf-8')
 
 

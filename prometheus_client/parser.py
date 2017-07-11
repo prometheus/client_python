@@ -50,6 +50,7 @@ def _parse_sample(text):
     labelname = []
     labelvalue = []
     value = []
+    timestamp = []
     labels = {}
 
     state = 'name'
@@ -136,12 +137,28 @@ def _parse_sample(text):
                 state = 'value'
         elif state == 'value':
             if char == ' ' or char == '\t':
-                # Timestamps are not supported, halt
-                break
+                state = 'endofvalue'
             else:
                 value.append(char)
-    return (''.join(name), labels, float(''.join(value)))
-    
+        elif state == 'endofvalue':
+            if char == ' ' or char == '\t':
+                pass
+            else:
+                state = 'timestamp'
+                timestamp.append(char)
+        elif state == 'timestamp':
+            if char == ' ' or char == '\t':
+                break
+            else:
+                timestamp.append(char)
+
+    if len(timestamp) == 0:
+        timestamp = None
+    else:
+        timestamp = int(''.join(timestamp))
+
+    return (''.join(name), labels, (float(''.join(value)), timestamp))
+
 
 def text_fd_to_metric_families(fd):
     """Parse Prometheus text format from a file descriptor.

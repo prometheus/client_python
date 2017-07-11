@@ -46,7 +46,7 @@ a{quantile="0.5"} 0.7
         # The Python client doesn't support quantiles, but we
         # still need to be able to parse them.
         metric_family = SummaryMetricFamily("a", "help", count_value=1, sum_value=2)
-        metric_family.add_sample("a", {"quantile": "0.5"}, 0.7)
+        metric_family.add_sample("a", {"quantile": "0.5"}, (0.7, None))
         self.assertEqual([metric_family], list(families))
 
     def test_simple_histogram(self):
@@ -63,7 +63,7 @@ a_sum 2
         families = text_string_to_metric_families("""a 1
 """)
         metric_family = Metric("a", "", "untyped")
-        metric_family.add_sample("a", {}, 1)
+        metric_family.add_sample("a", {}, (1, None))
         self.assertEqual([metric_family], list(families))
 
     def test_untyped(self):
@@ -75,8 +75,8 @@ redis_connected_clients{instance="rough-snowflake-web",port="6381"} 12.0
 """)
         m = Metric("redis_connected_clients", "Redis connected clients", "untyped")
         m.samples = [
-            ("redis_connected_clients", {"instance": "rough-snowflake-web", "port": "6380"}, 10),
-            ("redis_connected_clients", {"instance": "rough-snowflake-web", "port": "6381"}, 12),
+            ("redis_connected_clients", {"instance": "rough-snowflake-web", "port": "6380"}, (10, None)),
+            ("redis_connected_clients", {"instance": "rough-snowflake-web", "port": "6381"}, (12, None)),
         ]
         self.assertEqual([m], list(families))
 
@@ -159,7 +159,7 @@ a{} 1
         families = text_string_to_metric_families("""a NaN
 """)
         # Can't use a simple comparison as nan != nan.
-        self.assertTrue(math.isnan(list(families)[0].samples[0][2]))
+        self.assertTrue(math.isnan(list(families)[0].samples[0][2][0]))
 
     def test_escaping(self):
         families = text_string_to_metric_families("""# TYPE a counter
@@ -172,18 +172,6 @@ a{foo="b\\\\a\\z"} 2
         metric_family.add_metric(["b\\a\\z"], 2)
         self.assertEqual([metric_family], list(families))
 
-    def test_timestamps_discarded(self):
-        families = text_string_to_metric_families("""# TYPE a counter
-# HELP a help
-a{foo="bar"} 1\t000
-# TYPE b counter
-# HELP b help
-b 2  1234567890
-""")
-        a = CounterMetricFamily("a", "help", labels=["foo"])
-        a.add_metric(["bar"], 1)
-        b = CounterMetricFamily("b", "help", value=2)
-        self.assertEqual([a, b], list(families))
 
     @unittest.skipIf(sys.version_info < (2, 7), "Test requires Python 2.7+.")
     def test_roundtrip(self):

@@ -38,20 +38,24 @@ class MultiProcessCollector(object):
         for metric in metrics.values():
             samples = {}
             buckets = {}
+            latest_ts = None
             for name, labels, value in metric.samples:
+                if value[1] is not None:
+                    latest_ts = max(latest_ts, value[1])
                 if metric.type == 'gauge':
                     without_pid = tuple([l for l in labels if l[0] != 'pid'])
                     if metric._multiprocess_mode == 'min':
                         samples.setdefault((name, without_pid), value)
-                        if samples[(name, without_pid)] > value:
+                        if samples[(name, without_pid)][0] > value[0]:
                             samples[(name, without_pid)] = value
                     elif metric._multiprocess_mode == 'max':
                         samples.setdefault((name, without_pid), value)
-                        if samples[(name, without_pid)] < value:
+                        if samples[(name, without_pid)][0] < value[0]:
                             samples[(name, without_pid)] = value
                     elif metric._multiprocess_mode == 'livesum':
-                        samples.setdefault((name, without_pid), 0.0)
-                        samples[(name, without_pid)] += value
+                        samples.setdefault((name, without_pid), [0.0, None])
+                        samples[(name, without_pid)][0] += value[0]
+                        samples[(name, without_pid)][1] = latest_ts
                     else:  # all/liveall
                         samples[(name, labels)] = value
                 elif metric.type == 'histogram':
@@ -60,29 +64,36 @@ class MultiProcessCollector(object):
                         # _bucket
                         without_le = tuple([l for l in labels if l[0] != 'le'])
                         buckets.setdefault(without_le, {})
-                        buckets[without_le].setdefault(bucket[0], 0.0)
-                        buckets[without_le][bucket[0]] += value
+                        buckets[without_le].setdefault(bucket[0], [0.0, None])
+                        buckets[without_le][bucket[0]][0] += value[0]
+                        buckets[without_le][bucket[0]][1] = latest_ts
                     else:
                         # _sum/_count
-                        samples.setdefault((name, labels), 0.0)
-                        samples[(name, labels)] += value
+                        samples.setdefault((name, labels), [0.0, None])
+                        samples[(name, labels)][0] += value[0]
+                        samples[(name, labels)][1] = latest_ts
                 else:
                     # Counter and Summary.
-                    samples.setdefault((name, labels), 0.0)
-                    samples[(name, labels)] += value
+                    samples.setdefault((name, labels), [0.0, None])
+                    samples[(name, labels)][0] += value[0]
+                    samples[(name, labels)][1] = value[1]
 
 
             # Accumulate bucket values.
             if metric.type == 'histogram':
                 for labels, values in buckets.items():
+                    latest_ts = None
                     acc = 0.0
                     for bucket, value in sorted(values.items()):
-                        acc += value
-                        samples[(metric.name + '_bucket', labels + (('le', core._floatToGoString(bucket)), ))] = acc
-                    samples[(metric.name + '_count', labels)] = acc
+                        acc += value[0]
+                        if value[1] is not None:
+                            latest_ts = max(latest_ts, value[1])
+                        samples[(metric.name + '_bucket', labels + (('le', core._floatToGoString(bucket)), ))] = \
+                            (acc, value[1])
+                    samples[(metric.name + '_count', labels)] = (acc, latest_ts)
 
             # Convert to correct sample format.
-            metric.samples = [(name, dict(labels), value) for (name, labels), value in samples.items()]
+            metric.samples = [(name, dict(labels), tuple(value)) for (name, labels), value in samples.items()]
         return metrics.values()
 
 
