@@ -67,7 +67,10 @@ def generate_latest(registry=core.REGISTRY):
         if s[1] is None:
             return core._floatToGoString(s[0])
         # return the pair
-        return ('{} {}'.format(core._floatToGoString(s[0]), int(s[1])))
+        return ('{val} {timestamp}'.format(
+            val=core._floatToGoString(s[0]),
+            timestamp=int(s[1]))
+        )
 
     output = []
     for metric in registry.collect():
