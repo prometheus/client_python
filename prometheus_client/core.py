@@ -368,7 +368,7 @@ class _MmapedDict(object):
             pos += 8
 
     def read_all_values(self):
-        """Yield (key, value, pos). No locking is performed."""
+        """Yield (key, value). No locking is performed."""
         for k, v, _ in self._read_all_values():
             yield k, v
 
