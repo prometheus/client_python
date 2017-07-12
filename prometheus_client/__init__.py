@@ -6,8 +6,6 @@ from . import process_collector
 from . import platform_collector
 
 __all__ = ['Counter', 'Gauge', 'Summary', 'Histogram']
-# http://stackoverflow.com/questions/19913653/no-unicode-in-all-for-a-packages-init
-__all__ = [n.encode('ascii') for n in __all__]
 
 CollectorRegistry = core.CollectorRegistry
 REGISTRY = core.REGISTRY
