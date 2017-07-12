@@ -123,23 +123,23 @@ class TestMmapedDict(unittest.TestCase):
         self.d = core._MmapedDict(self.tempfile)
 
     def test_process_restart(self):
-        self.d.write_value('abc', 123.0)
+        self.d.write_value('abc', (123.0, None))
         self.d.close()
         self.d = core._MmapedDict(self.tempfile)
-        self.assertEqual(123, self.d.read_value('abc'))
-        self.assertEqual([('abc', 123.0)], list(self.d.read_all_values()))
+        self.assertEqual((123, None), self.d.read_value('abc'))
+        self.assertEqual([('abc', (123.0, None))], list(self.d.read_all_values()))
 
     def test_expansion(self):
         key = 'a' * core._INITIAL_MMAP_SIZE
-        self.d.write_value(key, 123.0)
-        self.assertEqual([(key, 123.0)], list(self.d.read_all_values()))
+        self.d.write_value(key, (123.0, None))
+        self.assertEqual([(key, (123.0, None))], list(self.d.read_all_values()))
 
     def test_multi_expansion(self):
         key = 'a' * core._INITIAL_MMAP_SIZE * 4
-        self.d.write_value('abc', 42.0)
-        self.d.write_value(key, 123.0)
-        self.d.write_value('def', 17.0)
-        self.assertEqual([('abc', 42.0), (key, 123.0), ('def', 17.0)],
+        self.d.write_value('abc', (42.0, None))
+        self.d.write_value(key, (123.0, None))
+        self.d.write_value('def', (17.0, None))
+        self.assertEqual([('abc', (42.0, None)), (key, (123.0, None)), ('def', (17.0, None))],
                 list(self.d.read_all_values()))
 
     def tearDown(self):

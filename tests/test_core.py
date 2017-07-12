@@ -94,7 +94,7 @@ class TestGauge(unittest.TestCase):
 
     def test_gauge_function(self):
         x = {}
-        self.gauge.set_function(lambda: len(x))
+        self.gauge.set_function(lambda: (len(x), None))
         self.assertEqual(0, self.registry.get_sample_value('g'))
         self.gauge.inc()
         self.assertEqual(0, self.registry.get_sample_value('g'))
@@ -445,7 +445,7 @@ class TestCollectorRegistry(unittest.TestCase):
         Summary('s', 'help', registry=registry).observe(7)
 
         m = Metric('s', 'help', 'summary')
-        m.samples = [('s_sum', {}, 7)]
+        m.samples = [('s_sum', {}, (7, None))]
         self.assertEquals([m], registry.restricted_registry(['s_sum']).collect())
 
 

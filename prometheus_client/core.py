@@ -127,7 +127,9 @@ class CollectorRegistry(object):
         return RestrictedRegistry()
 
     def get_sample_value(self, name, labels=None):
-        '''Returns the sample value, or None if not found.
+        '''Returns the value: a tuple with value and timestamp if
+        if timestamp is present, or just the non-tuple value if no
+        timestamp, or None if not found.
 
         This is inefficient, and intended only for use in unittests.
         '''
@@ -136,7 +138,10 @@ class CollectorRegistry(object):
         for metric in self.collect():
             for n, l, value in metric.samples:
                 if n == name and l == labels:
-                    return value
+                    if value[1] is not None:
+                        return value
+                    else:
+                        return value[0]
         return None
 
 
@@ -181,7 +186,7 @@ class CounterMetricFamily(Metric):
 
     For use by custom collectors.
     '''
-    def __init__(self, name, documentation, value=None, labels=None):
+    def __init__(self, name, documentation, value=None, labels=None, timestamp=None):
         Metric.__init__(self, name, documentation, 'counter')
         if labels is not None and value is not None:
             raise ValueError('Can only specify at most one of value and labels.')
@@ -189,16 +194,16 @@ class CounterMetricFamily(Metric):
           labels = []
         self._labelnames = labels
         if value is not None:
-          self.add_metric([], value)
+          self.add_metric([], value, timestamp)
 
-    def add_metric(self, labels, value):
+    def add_metric(self, labels, value, timestamp=None):
         '''Add a metric to the metric family.
 
         Args:
           labels: A list of label values
           value: The value of the metric.
         '''
-        self.samples.append((self.name, dict(zip(self._labelnames, labels)), value))
+        self.samples.append((self.name, dict(zip(self._labelnames, labels)), (value, timestamp)))
 
 
 class GaugeMetricFamily(Metric):
@@ -206,7 +211,7 @@ class GaugeMetricFamily(Metric):
 
     For use by custom collectors.
     '''
-    def __init__(self, name, documentation, value=None, labels=None):
+    def __init__(self, name, documentation, value=None, labels=None, timestamp=None):
         Metric.__init__(self, name, documentation, 'gauge')
         if labels is not None and value is not None:
             raise ValueError('Can only specify at most one of value and labels.')
@@ -214,16 +219,16 @@ class GaugeMetricFamily(Metric):
           labels = []
         self._labelnames = labels
         if value is not None:
-          self.add_metric([], value)
+          self.add_metric([], value, timestamp)
 
-    def add_metric(self, labels, value):
+    def add_metric(self, labels, value, timestamp=None):
         '''Add a metric to the metric family.
 
         Args:
           labels: A list of label values
           value: A float
         '''
-        self.samples.append((self.name, dict(zip(self._labelnames, labels)), value))
+        self.samples.append((self.name, dict(zip(self._labelnames, labels)), (value, timestamp)))
 
 
 class SummaryMetricFamily(Metric):
@@ -231,7 +236,7 @@ class SummaryMetricFamily(Metric):
 
     For use by custom collectors.
     '''
-    def __init__(self, name, documentation, count_value=None, sum_value=None, labels=None):
+    def __init__(self, name, documentation, count_value=None, sum_value=None, labels=None, timestamp=None):
         Metric.__init__(self, name, documentation, 'summary')
         if (sum_value is None) != (count_value is None):
             raise ValueError('count_value and sum_value must be provided together.')
@@ -241,9 +246,9 @@ class SummaryMetricFamily(Metric):
           labels = []
         self._labelnames = labels
         if count_value is not None:
-          self.add_metric([], count_value, sum_value)
+          self.add_metric([], count_value, sum_value, timestamp)
 
-    def add_metric(self, labels, count_value, sum_value):
+    def add_metric(self, labels, count_value, sum_value, timestamp=None):
         '''Add a metric to the metric family.
 
         Args:
@@ -251,8 +256,8 @@ class SummaryMetricFamily(Metric):
           count_value: The count value of the metric.
           sum_value: The sum value of the metric.
         '''
-        self.samples.append((self.name + '_count', dict(zip(self._labelnames, labels)), count_value))
-        self.samples.append((self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value))
+        self.samples.append((self.name + '_count', dict(zip(self._labelnames, labels)), (count_value, timestamp)))
+        self.samples.append((self.name + '_sum', dict(zip(self._labelnames, labels)), (sum_value, timestamp)))
 
 
 class HistogramMetricFamily(Metric):
@@ -260,7 +265,7 @@ class HistogramMetricFamily(Metric):
 
     For use by custom collectors.
     '''
-    def __init__(self, name, documentation, buckets=None, sum_value=None, labels=None):
+    def __init__(self, name, documentation, buckets=None, sum_value=None, labels=None, timestamp=None):
         Metric.__init__(self, name, documentation, 'histogram')
         if (sum_value is None) != (buckets is None):
             raise ValueError('buckets and sum_value must be provided together.')
@@ -270,9 +275,9 @@ class HistogramMetricFamily(Metric):
           labels = []
         self._labelnames = labels
         if buckets is not None:
-          self.add_metric([], buckets, sum_value)
+          self.add_metric([], buckets, sum_value, timestamp)
 
-    def add_metric(self, labels, buckets, sum_value):
+    def add_metric(self, labels, buckets, sum_value, timestamp=None):
         '''Add a metric to the metric family.
 
         Args:
@@ -282,32 +287,34 @@ class HistogramMetricFamily(Metric):
           sum_value: The sum value of the metric.
         '''
         for bucket, value in buckets:
-          self.samples.append((self.name + '_bucket', dict(list(zip(self._labelnames, labels)) + [('le', bucket)]), value))
+          self.samples.append((self.name + '_bucket', dict(list(zip(self._labelnames, labels)) + [('le', bucket)]), (value, timestamp)))
         # +Inf is last and provides the count value.
-        self.samples.append((self.name + '_count', dict(zip(self._labelnames, labels)), buckets[-1][1]))
-        self.samples.append((self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value))
+        self.samples.append((self.name + '_count', dict(zip(self._labelnames, labels)), (buckets[-1][1], timestamp)))
+        self.samples.append((self.name + '_sum', dict(zip(self._labelnames, labels)), (sum_value, timestamp)))
 
 
 class _MutexValue(object):
-    '''A float protected by a mutex.'''
+    '''A [float value, longlong timestamp] list protected by a mutex.'''
 
     _multiprocess = False
 
     def __init__(self, typ, metric_name, name, labelnames, labelvalues, **kwargs):
-      self._value = 0.0
+      self._value = [0.0, None]
       self._lock = Lock()
 
-    def inc(self, amount):
+    def inc(self, amount, timestamp=None):
       with self._lock:
-          self._value += amount
+          self._value[0] += amount
+          self._value[1] = timestamp
 
-    def set(self, value):
+    def set(self, value, timestamp=None):
       with self._lock:
-          self._value = value
+          self._value[0] = value
+          self._value[1] = timestamp
 
     def get(self):
       with self._lock:
-          return self._value
+          return tuple(self._value)
 
 
 class _MmapedDict(object):
@@ -317,7 +324,8 @@ class _MmapedDict(object):
     Then 4 bytes of padding.
     There's then a number of entries, consisting of a 4 byte int which is the
     size of the next field, a utf-8 encoded string key, padding to a 8 byte
-    alignment, and then a 8 byte float which is the value.
+    alignment, and then a 8 byte float which is the value, and an 8 byte
+    int which is the timestamp (in milliseconds).
 
     Not thread safe.
     """
@@ -342,7 +350,7 @@ class _MmapedDict(object):
         encoded = key.encode('utf-8')
         # Pad to be 8-byte aligned.
         padded = encoded + (b' ' * (8 - (len(encoded) + 4) % 8))
-        value = struct.pack('i{0}sd'.format(len(padded)).encode(), len(encoded), padded, 0.0)
+        value = struct.pack('i{0}sdq'.format(len(padded)).encode(), len(encoded), padded, 0.0, 0)
         while self._used + len(value) > self._capacity:
             self._capacity *= 2
             self._f.truncate(self._capacity)
@@ -352,10 +360,10 @@ class _MmapedDict(object):
         # Update how much space we've used.
         self._used += len(value)
         struct.pack_into(b'i', self._m, 0, self._used)
-        self._positions[key] = self._used - 8
+        self._positions[key] = self._used - 16      # d + q
 
     def _read_all_values(self):
-        """Yield (key, value, pos). No locking is performed."""
+        """Yield (key, (value, timestamp), pos). No locking is performed."""
         pos = 8
         while pos < self._used:
             encoded_len = struct.unpack_from(b'i', self._m, pos)[0]
@@ -363,12 +371,14 @@ class _MmapedDict(object):
             encoded = struct.unpack_from('{0}s'.format(encoded_len).encode(), self._m, pos)[0]
             padded_len = encoded_len + (8 - (encoded_len + 4) % 8)
             pos += padded_len
-            value = struct.unpack_from(b'd', self._m, pos)[0]
+            value = struct.unpack_from(b'dq', self._m, pos)
+            if value[1] == 0:
+                value = (value[0], None)
             yield encoded.decode('utf-8'), value, pos
-            pos += 8
+            pos += 16   # d + q
 
     def read_all_values(self):
-        """Yield (key, value, pos). No locking is performed."""
+        """Yield (key, value). No locking is performed."""
         for k, v, _ in self._read_all_values():
             yield k, v
 
@@ -376,15 +386,20 @@ class _MmapedDict(object):
         if key not in self._positions:
             self._init_value(key)
         pos = self._positions[key]
-        # We assume that reading from an 8 byte aligned value is atomic
-        return struct.unpack_from(b'd', self._m, pos)[0]
+        # XXX Does this need locking?
+        value = struct.unpack_from(b'dq', self._m, pos)
+        if value[1] == 0:
+            value = (value[0], None)
+        return value
 
     def write_value(self, key, value):
         if key not in self._positions:
             self._init_value(key)
         pos = self._positions[key]
-        # We assume that writing to an 8 byte aligned value is atomic
-        struct.pack_into(b'd', self._m, pos, value)
+        # XXX Locking?
+        if value[1] == None:
+            value = (value[0], 0)
+        struct.pack_into(b'dq', self._m, pos, *value)
 
     def close(self):
         if self._f:
@@ -401,7 +416,7 @@ def _MultiProcessValue(__pid=os.getpid()):
     lock = Lock()
 
     class _MmapedValue(object):
-        '''A float protected by a mutex backed by a per-process mmaped file.'''
+        '''A (float, longlong) tuple protected by a mutex backed by a per-process mmaped file.'''
 
         _multiprocess = True
 
@@ -417,21 +432,23 @@ def _MultiProcessValue(__pid=os.getpid()):
                     files[file_prefix] = _MmapedDict(filename)
             self._file = files[file_prefix]
             self._key = json.dumps((metric_name, name, labelnames, labelvalues))
-            self._value = self._file.read_value(self._key)
+            self._value = list(self._file.read_value(self._key))
 
-        def inc(self, amount):
+        def inc(self, amount, timestamp=None):
             with lock:
-                self._value += amount
+                self._value[0] += amount
+                self._value[1] = timestamp
                 self._file.write_value(self._key, self._value)
 
-        def set(self, value):
+        def set(self, value, timestamp=None):
             with lock:
-                self._value = value
+                self._value[0] = value
+                self._value[1] = timestamp
                 self._file.write_value(self._key, self._value)
 
         def get(self):
             with lock:
-                return self._value
+                return tuple(self._value)
 
     return _MmapedValue
 
@@ -601,11 +618,11 @@ class Counter(object):
     def __init__(self, name, labelnames, labelvalues):
         self._value = _ValueClass(self._type, name, name, labelnames, labelvalues)
 
-    def inc(self, amount=1):
+    def inc(self, amount=1, timestamp=None):
         '''Increment counter by the given amount.'''
         if amount < 0:
             raise ValueError('Counters can only be incremented by non-negative amounts.')
-        self._value.inc(amount)
+        self._value.inc(amount, timestamp)
 
     def count_exceptions(self, exception=Exception):
         '''Count exceptions in a block of code or function.
@@ -668,17 +685,17 @@ class Gauge(object):
         self._value = _ValueClass(self._type, name, name, labelnames,
                 labelvalues, multiprocess_mode=multiprocess_mode)
 
-    def inc(self, amount=1):
+    def inc(self, amount=1, timestamp=None):
         '''Increment gauge by the given amount.'''
-        self._value.inc(amount)
+        self._value.inc(amount, timestamp)
 
-    def dec(self, amount=1):
+    def dec(self, amount=1, timestamp=None):
         '''Decrement gauge by the given amount.'''
-        self._value.inc(-amount)
+        self._value.inc(-amount, timestamp)
 
-    def set(self, value):
+    def set(self, value, timestamp=None):
         '''Set gauge to the given value.'''
-        self._value.set(float(value))
+        self._value.set(float(value), timestamp)
 
     def set_to_current_time(self):
         '''Set gauge to the current unixtime.'''
@@ -703,11 +720,12 @@ class Gauge(object):
     def set_function(self, f):
         '''Call the provided function to return the Gauge value.
 
-        The function must return a float, and may be called from
+        The function must return a (float, longint) tuple, and may be called from
         multiple threads. All other methods of the Gauge become NOOPs.
         '''
         def samples(self):
-            return (('', {}, float(f())), )
+            val = f()
+            return (('', {}, (float(val[0]), val[1])), )
         self._samples = types.MethodType(samples, self)
 
     def _samples(self):
@@ -752,10 +770,10 @@ class Summary(object):
         self._count = _ValueClass(self._type, name, name + '_count', labelnames, labelvalues)
         self._sum = _ValueClass(self._type, name, name + '_sum', labelnames, labelvalues)
 
-    def observe(self, amount):
+    def observe(self, amount, timestamp=None):
         '''Observe the given amount.'''
-        self._count.inc(1)
-        self._sum.inc(amount)
+        self._count.inc(1, timestamp)
+        self._sum.inc(amount, timestamp)
 
     def time(self):
         '''Time a block of code or function, and observe the duration in seconds.
@@ -838,13 +856,15 @@ class Histogram(object):
         bucket_labelnames = labelnames + ('le',)
         for b in buckets:
           self._buckets.append(_ValueClass(self._type, name, name + '_bucket', bucket_labelnames, labelvalues + (_floatToGoString(b),)))
+        self._latest_timestamp = None
 
-    def observe(self, amount):
+    def observe(self, amount, timestamp=None):
         '''Observe the given amount.'''
-        self._sum.inc(amount)
+        self._sum.inc(amount, timestamp)
+        self._latest_timestamp = timestamp
         for i, bound in enumerate(self._upper_bounds):
             if amount <= bound:
-                self._buckets[i].inc(1)
+                self._buckets[i].inc(1, timestamp)
                 break
 
     def time(self):
@@ -857,10 +877,11 @@ class Histogram(object):
     def _samples(self):
         samples = []
         acc = 0
+        ts = self._latest_timestamp
         for i, bound in enumerate(self._upper_bounds):
-            acc += self._buckets[i].get()
-            samples.append(('_bucket', {'le': _floatToGoString(bound)}, acc))
-        samples.append(('_count', {}, acc))
+            acc += self._buckets[i].get()[0]
+            samples.append(('_bucket', {'le': _floatToGoString(bound)}, (acc, ts)))
+        samples.append(('_count', {}, (acc, ts)))
         samples.append(('_sum', {}, self._sum.get()))
         return tuple(samples)
 

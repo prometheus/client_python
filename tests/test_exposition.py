@@ -31,16 +31,23 @@ class TestGenerateText(unittest.TestCase):
         c = Counter('cc', 'A counter', registry=self.registry)
         c.inc()
         self.assertEqual(b'# HELP cc A counter\n# TYPE cc counter\ncc 1.0\n', generate_latest(self.registry))
+        c.inc(timestamp=100)
+        self.assertEqual(b'# HELP cc A counter\n# TYPE cc counter\ncc 2.0 100\n', generate_latest(self.registry))
 
     def test_gauge(self):
         g = Gauge('gg', 'A gauge', registry=self.registry)
         g.set(17)
         self.assertEqual(b'# HELP gg A gauge\n# TYPE gg gauge\ngg 17.0\n', generate_latest(self.registry))
+        g.inc(timestamp=200)
+        self.assertEqual(b'# HELP gg A gauge\n# TYPE gg gauge\ngg 18.0 200\n', generate_latest(self.registry))
+
 
     def test_summary(self):
         s = Summary('ss', 'A summary', ['a', 'b'], registry=self.registry)
         s.labels('c', 'd').observe(17)
         self.assertEqual(b'# HELP ss A summary\n# TYPE ss summary\nss_count{a="c",b="d"} 1.0\nss_sum{a="c",b="d"} 17.0\n', generate_latest(self.registry))
+        s.labels('c', 'd').observe(17, 100)
+        self.assertEqual(b'# HELP ss A summary\n# TYPE ss summary\nss_count{a="c",b="d"} 2.0 100\nss_sum{a="c",b="d"} 34.0 100\n', generate_latest(self.registry))
 
     @unittest.skipIf(sys.version_info < (2, 7), "Test requires Python 2.7+.")
     def test_histogram(self):
@@ -66,6 +73,28 @@ hh_bucket{le="+Inf"} 1.0
 hh_count 1.0
 hh_sum 0.05
 ''', generate_latest(self.registry))
+
+        s.observe(0.75, timestamp=100)
+        assert b'''# HELP hh A histogram
+# TYPE hh histogram
+hh_bucket{le="0.005"} 0.0 100
+hh_bucket{le="0.01"} 0.0 100
+hh_bucket{le="0.025"} 0.0 100
+hh_bucket{le="0.05"} 1.0 100
+hh_bucket{le="0.075"} 1.0 100
+hh_bucket{le="0.1"} 1.0 100
+hh_bucket{le="0.25"} 1.0 100
+hh_bucket{le="0.5"} 1.0 100
+hh_bucket{le="0.75"} 2.0 100
+hh_bucket{le="1.0"} 2.0 100
+hh_bucket{le="2.5"} 2.0 100
+hh_bucket{le="5.0"} 2.0 100
+hh_bucket{le="7.5"} 2.0 100
+hh_bucket{le="10.0"} 2.0 100
+hh_bucket{le="+Inf"} 2.0 100
+hh_count 2.0 100
+hh_sum 0.8 100
+''' == generate_latest(self.registry)
 
     def test_unicode(self):
         c = Counter('cc', '\u4500', ['l'], registry=self.registry)
@@ -125,6 +154,14 @@ class TestPushGateway(unittest.TestCase):
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job')
         self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
+
+    def test_push_with_timestamp(self):
+        self.counter.inc(1.0, 100)
+        push_to_gateway(self.address, "my_job", self.registry)
+        self.assertEqual(self.requests[0][0].command, 'PUT')
+        self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job')
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
+        self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 1.0 100\n')
 
     def test_push_with_groupingkey(self):
         push_to_gateway(self.address, "my_job", self.registry, {'a': 9})
