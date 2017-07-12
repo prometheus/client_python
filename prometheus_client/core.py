@@ -198,6 +198,11 @@ class CounterMetricFamily(Metric):
           labels: A list of label values
           value: The value of the metric.
         '''
+        try:
+            for label in labels:
+                assert isinstance(label,''.__class__) or isinstance(label,u''.__class__)
+        except AssertionError:
+            raise TypeError("label values must be 'str' or 'unicode' NOT %r"% type(label).__name__)
         self.samples.append((self.name, dict(zip(self._labelnames, labels)), value))
 
 
