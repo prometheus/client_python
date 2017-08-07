@@ -389,6 +389,16 @@ class TestMetricFamilies(unittest.TestCase):
         self.assertRaises(ValueError, HistogramMetricFamily, 'h', 'help', buckets={}, sum_value=1, labels=['a'])
         self.assertRaises(KeyError, HistogramMetricFamily, 'h', 'help', buckets={}, sum_value=1)
 
+    def test_labelnames(self):
+        cmf = CounterMetricFamily('c', 'help', labels=iter(['a']))
+        self.assertEqual(('a',), cmf._labelnames)
+        gmf = GaugeMetricFamily('g', 'help', labels=iter(['a']))
+        self.assertEqual(('a',), gmf._labelnames)
+        smf = SummaryMetricFamily('s', 'help', labels=iter(['a']))
+        self.assertEqual(('a',), smf._labelnames)
+        hmf = HistogramMetricFamily('h', 'help', labels=iter(['a']))
+        self.assertEqual(('a',), hmf._labelnames)
+
 
 class TestCollectorRegistry(unittest.TestCase):
     def test_duplicate_metrics_raises(self):

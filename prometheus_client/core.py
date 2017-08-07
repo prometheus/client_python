@@ -187,7 +187,7 @@ class CounterMetricFamily(Metric):
             raise ValueError('Can only specify at most one of value and labels.')
         if labels is None:
           labels = []
-        self._labelnames = labels
+        self._labelnames = tuple(labels)
         if value is not None:
           self.add_metric([], value)
 
@@ -212,7 +212,7 @@ class GaugeMetricFamily(Metric):
             raise ValueError('Can only specify at most one of value and labels.')
         if labels is None:
           labels = []
-        self._labelnames = labels
+        self._labelnames = tuple(labels)
         if value is not None:
           self.add_metric([], value)
 
@@ -239,7 +239,7 @@ class SummaryMetricFamily(Metric):
             raise ValueError('Can only specify at most one of value and labels.')
         if labels is None:
           labels = []
-        self._labelnames = labels
+        self._labelnames = tuple(labels)
         if count_value is not None:
           self.add_metric([], count_value, sum_value)
 
@@ -268,7 +268,7 @@ class HistogramMetricFamily(Metric):
             raise ValueError('Can only specify at most one of buckets and labels.')
         if labels is None:
           labels = []
-        self._labelnames = labels
+        self._labelnames = tuple(labels)
         if buckets is not None:
           self.add_metric([], buckets, sum_value)
 
