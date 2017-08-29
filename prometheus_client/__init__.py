@@ -20,6 +20,7 @@ generate_latest = exposition.generate_latest
 MetricsHandler = exposition.MetricsHandler
 make_wsgi_app = exposition.make_wsgi_app
 start_http_server = exposition.start_http_server
+start_http_server_async = exposition.start_http_server_async
 start_wsgi_server = exposition.start_wsgi_server
 write_to_textfile = exposition.write_to_textfile
 push_to_gateway = exposition.push_to_gateway

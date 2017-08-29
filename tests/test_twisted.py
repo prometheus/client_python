@@ -39,7 +39,7 @@ class MetricsResourceTest(TestCase):
 
         root = Resource()
         root.putChild(b'metrics', MetricsResource(registry=self.registry))
-        server = reactor.listenTCP(0, Site(root))
+        server = reactor.listenTCP(0, Site(root), interface='localhost')
         self.addCleanup(server.stopListening)
 
         agent = Agent(reactor)
