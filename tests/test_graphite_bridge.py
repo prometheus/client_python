@@ -19,7 +19,7 @@ class TestGraphiteBridge(unittest.TestCase):
         class TCPHandler(SocketServer.BaseRequestHandler):
             def handle(s):
                 self.data = s.request.recv(1024)
-        server = SocketServer.TCPServer(('', 0), TCPHandler)
+        server = SocketServer.TCPServer(('localhost', 0), TCPHandler)
         class ServingThread(threading.Thread):
             def run(self):
                 server.handle_request()
