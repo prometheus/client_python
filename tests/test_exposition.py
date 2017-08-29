@@ -13,7 +13,8 @@ from prometheus_client import Gauge, Counter, Summary, Histogram, Metric
 from prometheus_client import CollectorRegistry, generate_latest
 from prometheus_client import push_to_gateway, pushadd_to_gateway, delete_from_gateway
 from prometheus_client import CONTENT_TYPE_LATEST, instance_ip_grouping_key
-from prometheus_client.exposition import default_handler, basic_auth_handler
+from prometheus_client.exposition import default_handler, basic_auth_handler, \
+    start_http_server_async
 
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler
@@ -22,6 +23,12 @@ except ImportError:
     # Python 3
     from http.server import BaseHTTPRequestHandler
     from http.server import HTTPServer
+
+try:
+    from asyncio import iscoroutine, Future
+except ImportError:
+    pass
+
 
 class TestGenerateText(unittest.TestCase):
     def setUp(self):
@@ -194,6 +201,25 @@ class TestPushGateway(unittest.TestCase):
     )
     def test_instance_ip_grouping_key(self):
         self.assertTrue('' != instance_ip_grouping_key()['instance'])
+
+
+class TestHTTPServer(unittest.TestCase):
+    @unittest.skipIf(
+        sys.version_info > (3, 3),
+        "There must be no exception with asyncio."
+    )
+    def test_start_http_server_async_raise_exception(self):
+        with self.assertRaises(RuntimeError):
+            start_http_server_async(0)
+
+    @unittest.skipIf(
+        sys.version_info < (3, 4),
+        "There is no asyncio in Python before 3.4."
+    )
+    def test_start_http_server_async_returns_coroutine_object(self):
+        gen = start_http_server_async(0)
+        self.assertTrue(iscoroutine(gen))
+        self.assertTrue(isinstance(next(gen), Future))
 
 
 if __name__ == '__main__':
