@@ -3,6 +3,7 @@ dist
 *.egg-info
 *.pyc
 *.swp
+.cache
 .coverage.*
 .coverage
 .tox

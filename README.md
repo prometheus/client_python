@@ -236,9 +236,24 @@ To add Prometheus exposition to an existing HTTP server, see the `MetricsHandler
 which provides a `BaseHTTPRequestHandler`. It also serves as a simple example of how
 to write a custom endpoint.
 
+#### asyncio
+
+To use Prometheus with [asyncio](https://docs.python.org/3/library/asyncio.html)
+there is `start_http_server_async` which will run `start_http_server` in
+asyncio's loop in executor.
+
+```python
+import asyncio
+from prometheus_client import start_http_server_async
+
+loop = asyncio.get_event_loop()
+loop.create_task(start_http_server_async(8000))
+loop.run_forever()
+```
+
 #### Twisted
 
-To use prometheus with [twisted](https://twistedmatrix.com/), there is `MetricsResource` which exposes metrics as a twisted resource.
+To use Prometheus with [twisted](https://twistedmatrix.com/), there is `MetricsResource` which exposes metrics as a twisted resource.
 
 ```python
 from prometheus_client.twisted import MetricsResource

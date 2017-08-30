@@ -3,8 +3,10 @@
 from __future__ import unicode_literals
 
 import base64
+import functools
 import os
 import socket
+import sys
 import threading
 import time
 from contextlib import closing
@@ -24,6 +26,14 @@ except ImportError:
     from socketserver import ThreadingMixIn
     from urllib.request import build_opener, Request, HTTPHandler
     from urllib.parse import quote_plus, parse_qs, urlparse
+
+try:
+    _has_asyncio = True
+    from asyncio import coroutine, get_event_loop
+except ImportError:
+    # <= Python 3.3
+    _has_asyncio = False
+    coroutine = lambda f: f
 
 
 CONTENT_TYPE_LATEST = str('text/plain; version=0.0.4; charset=utf-8')
@@ -97,7 +107,7 @@ class MetricsHandler(BaseHTTPRequestHandler):
 
 
 def start_http_server(port, addr=''):
-    """Starts an HTTP server for prometheus metrics as a daemon thread"""
+    """Starts an HTTP server for prometheus metrics as a daemon thread."""
     class ThreadingSimpleServer(ThreadingMixIn, HTTPServer):
         pass
     class PrometheusMetricsServer(threading.Thread):
@@ -107,6 +117,21 @@ def start_http_server(port, addr=''):
     t = PrometheusMetricsServer()
     t.daemon = True
     t.start()
+
+
+@coroutine
+def start_http_server_async(port, addr='', loop=None, executor=None):
+    """Starts an HTTP server for prometheus metrics as a daemon thread in an
+    executor asynchronously. Returns a coroutine object."""
+    if not _has_asyncio:
+        raise RuntimeError('Python {0}.{1} does not support asyncio.'.format(
+            sys.version_info[0], sys.version_info[1]))
+
+    if not loop:
+        loop = get_event_loop()
+
+    start = functools.partial(start_http_server, port, addr=addr)
+    return loop.run_in_executor(executor, start)
 
 
 def write_to_textfile(path, registry):
