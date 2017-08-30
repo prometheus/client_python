@@ -125,7 +125,7 @@ def start_http_server_async(port, addr='', loop=None, executor=None):
     executor asynchronously. Returns a coroutine object."""
     if not _has_asyncio:
         raise RuntimeError('Python {}.{} does not support asyncio.'.format(
-            sys.version_info.major, sys.version_info.minor))
+            sys.version_info[0], sys.version_info[1]))
 
     if not loop:
         loop = get_event_loop()
