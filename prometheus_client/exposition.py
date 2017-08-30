@@ -124,7 +124,7 @@ def start_http_server_async(port, addr='', loop=None, executor=None):
     """Starts an HTTP server for prometheus metrics as a daemon thread in an
     executor asynchronously. Returns a coroutine object."""
     if not _has_asyncio:
-        raise RuntimeError('Python {}.{} does not support asyncio.'.format(
+        raise RuntimeError('Python {0}.{1} does not support asyncio.'.format(
             sys.version_info[0], sys.version_info[1]))
 
     if not loop:
