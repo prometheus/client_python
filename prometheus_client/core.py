@@ -459,7 +459,7 @@ def _MultiProcessValue(_pidFunc=os.getpid):
 # Should we enable multi-process mode?
 # This needs to be chosen before the first metric is constructed,
 # and as that may be in some arbitrary library the user/admin has
-# no control over we use an enviroment variable.
+# no control over we use an environment variable.
 if 'prometheus_multiproc_dir' in os.environ:
     _ValueClass = _MultiProcessValue()
 else:
