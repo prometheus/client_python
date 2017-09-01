@@ -396,8 +396,7 @@ def _MultiProcessValue(_pidFunc=os.getpid):
     files = {}
     values = []
 
-    # 1. use dict instead of nonlocal keyword to support python 2.7
-    # 2. pid needs to be evaluated here in a master process
+    # pid needs to be evaluated here in a master process
     # because some metrics can be initialized before fork and inhereted by childs
     # as a result childs don't have a way to detect that files were opened
     # by another process and will write to them.
@@ -436,7 +435,6 @@ def _MultiProcessValue(_pidFunc=os.getpid):
 
         def __check_for_pid_change(self):
             actual_pid = _pidFunc()
-
             if pid['value'] != actual_pid:
                 pid['value'] = actual_pid
                 # There has been a fork(), reset all the values.
