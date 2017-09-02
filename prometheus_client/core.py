@@ -395,13 +395,7 @@ class _MmapedDict(object):
 def _MultiProcessValue(_pidFunc=os.getpid):
     files = {}
     values = []
-
-    # pid needs to be evaluated here in a master process
-    # because some metrics can be initialized before fork and inhereted by childs
-    # as a result childs don't have a way to detect that files were opened
-    # by another process and will write to them.
     pid = {'value': _pidFunc()}
-
     # Use a single global lock when in multi-processing mode
     # as we presume this means there is no threading going on.
     # This avoids the need to also have mutexes in __MmapDict.
