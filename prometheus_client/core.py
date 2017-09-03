@@ -395,6 +395,7 @@ class _MmapedDict(object):
 def _MultiProcessValue(_pidFunc=os.getpid):
     files = {}
     values = []
+    pid = {'value': _pidFunc()}
     # Use a single global lock when in multi-processing mode
     # as we presume this means there is no threading going on.
     # This avoids the need to also have mutexes in __MmapDict.
@@ -413,7 +414,6 @@ def _MultiProcessValue(_pidFunc=os.getpid):
 
 
         def __reset(self):
-            self._pid = _pidFunc()
             typ, metric_name, name, labelnames, labelvalues, multiprocess_mode = self._params
             if typ == 'gauge':
                 file_prefix = typ + '_' +  multiprocess_mode
@@ -421,14 +421,16 @@ def _MultiProcessValue(_pidFunc=os.getpid):
                 file_prefix = typ
             if file_prefix not in files:
                 filename = os.path.join(
-                        os.environ['prometheus_multiproc_dir'], '{0}_{1}.db'.format(file_prefix, self._pid))
+                        os.environ['prometheus_multiproc_dir'], '{0}_{1}.db'.format(file_prefix, pid['value']))
                 files[file_prefix] = _MmapedDict(filename)
             self._file = files[file_prefix]
             self._key = json.dumps((metric_name, name, labelnames, labelvalues))
             self._value = self._file.read_value(self._key)
 
         def __check_for_pid_change(self):
-            if self._pid != _pidFunc():
+            actual_pid = _pidFunc()
+            if pid['value'] != actual_pid:
+                pid['value'] = actual_pid
                 # There has been a fork(), reset all the values.
                 for f in files.values():
                     f.close()
