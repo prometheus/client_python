@@ -6,7 +6,6 @@ import base64
 import os
 import socket
 import threading
-import time
 from contextlib import closing
 from wsgiref.simple_server import make_server
 
