@@ -237,12 +237,25 @@ class TestMetricWrapper(unittest.TestCase):
         self.registry = CollectorRegistry()
         self.counter = Counter('c', 'help', labelnames=['l'], registry=self.registry)
         self.two_labels = Counter('two', 'help', labelnames=['a', 'b'], registry=self.registry)
+        self.partially_bound = Counter(
+            'partial', 'help', labelnames=['a', 'b', 'c'], labelvalues=['x'], registry=self.registry
+        )
+        self.fully_bound = Counter(
+            'fully', 'help', labelnames=['a', 'b'], labelvalues=['x', 'y'], registry=self.registry
+        )
 
     def test_child(self):
         self.counter.labels('x').inc()
         self.assertEqual(1, self.registry.get_sample_value('c', {'l': 'x'}))
+
         self.two_labels.labels('x', 'y').inc(2)
         self.assertEqual(2, self.registry.get_sample_value('two', {'a': 'x', 'b': 'y'}))
+
+        self.partially_bound.labels('y', 'z').inc(2)
+        self.assertEqual(2, self.registry.get_sample_value('partial', {'a': 'x', 'b': 'y', 'c': 'z'}))
+
+        self.fully_bound.inc(2)
+        self.assertEqual(2, self.registry.get_sample_value('fully', {'a': 'x', 'b': 'y'}))
 
     def test_remove(self):
         self.counter.labels('x').inc()
@@ -253,11 +266,24 @@ class TestMetricWrapper(unittest.TestCase):
         self.assertEqual(None, self.registry.get_sample_value('c', {'l': 'x'}))
         self.assertEqual(2, self.registry.get_sample_value('c', {'l': 'y'}))
 
+        self.partially_bound.labels('y', 'z').inc()
+        self.partially_bound.labels('a', 'b').inc(2)
+        self.assertEqual(1, self.registry.get_sample_value('partial', {'a': 'x', 'b': 'y', 'c': 'z'}))
+        self.assertEqual(2, self.registry.get_sample_value('partial', {'a': 'x', 'b': 'a', 'c': 'b'}))
+        self.partially_bound.remove('y', 'z')
+        self.assertEqual(None, self.registry.get_sample_value('partial', {'a': 'x', 'b': 'y', 'c': 'z'}))
+        self.assertEqual(2, self.registry.get_sample_value('partial', {'a': 'x', 'b': 'a', 'c': 'b'}))
+
     def test_incorrect_label_count_raises(self):
         self.assertRaises(ValueError, self.counter.labels)
         self.assertRaises(ValueError, self.counter.labels, 'a', 'b')
         self.assertRaises(ValueError, self.counter.remove)
         self.assertRaises(ValueError, self.counter.remove, 'a', 'b')
+
+        self.assertRaises(ValueError, self.partially_bound.labels)
+        self.assertRaises(ValueError, self.partially_bound.labels, 'a', 'b', 'c')
+        self.assertRaises(ValueError, self.partially_bound.remove)
+        self.assertRaises(ValueError, self.partially_bound.remove, 'a', 'b', 'c')
 
     def test_labels_coerced_to_string(self):
         self.counter.labels(None).inc()
@@ -284,6 +310,7 @@ class TestMetricWrapper(unittest.TestCase):
         self.assertRaises(ValueError, self.counter.labels, l='x', m='y')
         self.assertRaises(ValueError, self.counter.labels, m='y')
         self.assertRaises(ValueError, self.counter.labels)
+
         self.two_labels.labels(a='x', b='y').inc()
         self.assertEqual(1, self.registry.get_sample_value('two', {'a': 'x', 'b': 'y'}))
         self.assertRaises(ValueError, self.two_labels.labels, a='x', b='y', c='z')
@@ -292,6 +319,14 @@ class TestMetricWrapper(unittest.TestCase):
         self.assertRaises(ValueError, self.two_labels.labels, c='z')
         self.assertRaises(ValueError, self.two_labels.labels)
         self.assertRaises(ValueError, self.two_labels.labels, {'a': 'x'}, b='y')
+
+        self.partially_bound.labels(b='y', c='z').inc()
+        self.assertEqual(1, self.registry.get_sample_value('partial', {'a': 'x', 'b': 'y', 'c': 'z'}))
+        self.assertRaises(ValueError, self.partially_bound.labels, a='x', b='y', c='z')
+        self.assertRaises(ValueError, self.partially_bound.labels, a='x', c='z')
+        self.assertRaises(ValueError, self.partially_bound.labels, c='z')
+        self.assertRaises(ValueError, self.partially_bound.labels)
+        self.assertRaises(ValueError, self.partially_bound.labels, {'b': 'y'}, c='z')
 
     def test_invalid_names_raise(self):
         self.assertRaises(ValueError, Counter, '', 'help')
@@ -302,6 +337,13 @@ class TestMetricWrapper(unittest.TestCase):
         self.assertRaises(ValueError, Counter, 'c', '', labelnames=['a:b'])
         self.assertRaises(ValueError, Counter, 'c', '', labelnames=['__reserved'])
         self.assertRaises(ValueError, Summary, 'c', '', labelnames=['quantile'])
+
+    def test_invalid_bindings_raise(self):
+        self.assertRaises(ValueError, Counter, 'c', 'help', labelnames=['x'], labelvalues=['y', 'z'])
+        self.assertRaises(ValueError, Counter, 'c', 'help', labelnames=[], labelvalues=['y'])
+
+    def test_remove_fully_bound_raise(self):
+        self.assertRaises(ValueError, self.fully_bound.remove)
 
     def test_empty_labels_list(self):
         h = Histogram('h', 'help', [], registry=self.registry)

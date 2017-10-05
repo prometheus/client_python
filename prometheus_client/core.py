@@ -11,6 +11,7 @@ import re
 import struct
 import time
 import types
+from itertools import chain
 
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler
@@ -470,11 +471,13 @@ else:
 
 class _LabelWrapper(object):
     '''Handles labels for the wrapped metric.'''
-    def __init__(self, wrappedClass, name, labelnames, **kwargs):
+    def __init__(self, wrappedClass, name, labelnames, labelvalues, **kwargs):
         self._wrappedClass = wrappedClass
         self._type = wrappedClass._type
         self._name = name
         self._labelnames = labelnames
+        self._unboundlabelnames = labelnames[len(labelvalues):]
+        self._labelvalues = labelvalues
         self._kwargs = kwargs
         self._lock = Lock()
         self._metrics = {}
@@ -482,6 +485,11 @@ class _LabelWrapper(object):
         for l in labelnames:
             if l.startswith('__'):
                 raise ValueError('Invalid label metric name: ' + l)
+
+        # We have bound all the labels, pre-populate the metrics cache!
+        if not self._unboundlabelnames:
+            with self._lock:
+                self._metrics[labelvalues] = self._wrappedClass(self._name, self._labelnames, labelvalues, **self._kwargs)
 
     def labels(self, *labelvalues, **labelkwargs):
         '''Return the child for the given labelset.
@@ -510,13 +518,13 @@ class _LabelWrapper(object):
             raise ValueError("Can't pass both *args and **kwargs")
 
         if labelkwargs:
-            if sorted(labelkwargs) != sorted(self._labelnames):
+            if sorted(labelkwargs) != sorted(self._unboundlabelnames):
                 raise ValueError('Incorrect label names')
-            labelvalues = tuple([unicode(labelkwargs[l]) for l in self._labelnames])
+            labelvalues = tuple(chain(self._labelvalues, [unicode(labelkwargs[l]) for l in self._unboundlabelnames]))
         else:
-            if len(labelvalues) != len(self._labelnames):
+            if len(labelvalues) != len(self._unboundlabelnames):
                 raise ValueError('Incorrect label count')
-            labelvalues = tuple([unicode(l) for l in labelvalues])
+            labelvalues = tuple(chain(self._labelvalues, [unicode(l) for l in labelvalues]))
         with self._lock:
             if labelvalues not in self._metrics:
                 self._metrics[labelvalues] = self._wrappedClass(self._name, self._labelnames, labelvalues, **self._kwargs)
@@ -524,9 +532,13 @@ class _LabelWrapper(object):
 
     def remove(self, *labelvalues):
         '''Remove the given labelset from the metric.'''
-        if len(labelvalues) != len(self._labelnames):
+        if len(labelvalues) != len(self._unboundlabelnames):
             raise ValueError('Incorrect label count')
-        labelvalues = tuple([unicode(l) for l in labelvalues])
+
+        if not self._unboundlabelnames:
+            raise ValueError('Cannot remove label from fully bound metric')
+
+        labelvalues = tuple(chain(self._labelvalues, [unicode(l) for l in labelvalues]))
         with self._lock:
             del self._metrics[labelvalues]
 
@@ -538,10 +550,17 @@ class _LabelWrapper(object):
             for suffix, sample_labels, value in metric._samples():
                 yield (suffix, dict(series_labels + list(sample_labels.items())), value)
 
+    def __getattr__(self, item):
+        if not self._unboundlabelnames:
+            with self._lock:
+                return getattr(self._metrics[self._labelvalues], item)
+        else:
+            raise object.__getattribute__(self, item)
+
 
 def _MetricWrapper(cls):
     '''Provides common functionality for metrics.'''
-    def init(name, documentation, labelnames=(), namespace='', subsystem='', registry=REGISTRY, **kwargs):
+    def init(name, documentation, labelnames=(), namespace='', subsystem='', registry=REGISTRY, labelvalues=(), **kwargs):
         full_name = ''
         if namespace:
             full_name += namespace + '_'
@@ -549,8 +568,12 @@ def _MetricWrapper(cls):
             full_name += subsystem + '_'
         full_name += name
 
+        if len(labelnames) < len(labelvalues):
+            raise ValueError('Trying to bind more label values than labels')
+
         if labelnames:
             labelnames = tuple(labelnames)
+            labelvalues = tuple(labelvalues)
             for l in labelnames:
                 if not _METRIC_LABEL_NAME_RE.match(l):
                     raise ValueError('Invalid label metric name: ' + l)
@@ -558,7 +581,7 @@ def _MetricWrapper(cls):
                     raise ValueError('Reserved label metric name: ' + l)
                 if l in cls._reserved_labelnames:
                     raise ValueError('Reserved label metric name: ' + l)
-            collector = _LabelWrapper(cls, full_name, labelnames, **kwargs)
+            collector = _LabelWrapper(cls, full_name, labelnames, labelvalues, **kwargs)
         else:
             collector = cls(full_name, (), (), **kwargs)
 
