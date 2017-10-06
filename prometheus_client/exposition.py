@@ -7,7 +7,7 @@ import os
 import socket
 import threading
 from contextlib import closing
-from wsgiref.simple_server import make_server
+from wsgiref.simple_server import make_server, WSGIRequestHandler
 
 from . import core
 try:
@@ -18,7 +18,6 @@ try:
     from urlparse import parse_qs, urlparse
 except ImportError:
     # Python 3
-    unicode = str
     from http.server import BaseHTTPRequestHandler, HTTPServer
     from socketserver import ThreadingMixIn
     from urllib.request import build_opener, Request, HTTPHandler
@@ -45,13 +44,18 @@ def make_wsgi_app(registry=core.REGISTRY):
     return prometheus_app
 
 
+class _SilentHandler(WSGIRequestHandler):
+    """WSGI handler that does not log requests."""
+
+    def log_message(self, format, *args):
+        """Log nothing."""
+
+
 def start_wsgi_server(port, addr='', registry=core.REGISTRY):
     """Starts a WSGI server for prometheus metrics as a daemon thread."""
-    class PrometheusMetricsServer(threading.Thread):
-        def run(self):
-            httpd = make_server(addr, port, make_wsgi_app(registry))
-            httpd.serve_forever()
-    t = PrometheusMetricsServer()
+    app = make_wsgi_app(registry)
+    httpd = make_server(addr, port, app, handler_class=_SilentHandler)
+    t = threading.Thread(target=httpd.serve_forever)
     t.daemon = True
     t.start()
 
@@ -76,6 +80,8 @@ def generate_latest(registry=core.REGISTRY):
 
 
 class MetricsHandler(BaseHTTPRequestHandler):
+    """HTTP handler that gives metrics from ``core.REGISTRY``."""
+
     def do_GET(self):
         registry = core.REGISTRY
         params = parse_qs(urlparse(self.path).query)
@@ -92,18 +98,17 @@ class MetricsHandler(BaseHTTPRequestHandler):
         self.wfile.write(output)
 
     def log_message(self, format, *args):
-        return
+        """Log nothing."""
+
+
+class _ThreadingSimpleServer(ThreadingMixIn, HTTPServer):
+    """Thread per request HTTP server."""
 
 
 def start_http_server(port, addr=''):
     """Starts an HTTP server for prometheus metrics as a daemon thread"""
-    class ThreadingSimpleServer(ThreadingMixIn, HTTPServer):
-        pass
-    class PrometheusMetricsServer(threading.Thread):
-        def run(self):
-            httpd = ThreadingSimpleServer((addr, port), MetricsHandler)
-            httpd.serve_forever()
-    t = PrometheusMetricsServer()
+    httpd = _ThreadingSimpleServer((addr, port), MetricsHandler)
+    t = threading.Thread(target=httpd.serve_forever)
     t.daemon = True
     t.start()
 
@@ -262,6 +267,7 @@ def _use_gateway(method, gateway, job, registry, grouping_key, timeout, handler)
     headers=[('Content-Type', CONTENT_TYPE_LATEST)]
     handler(url=url, method=method, timeout=timeout,
             headers=headers, data=data)()
+
 
 def instance_ip_grouping_key():
     '''Grouping key with instance set to the IP Address of this host.'''
