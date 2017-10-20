@@ -83,7 +83,7 @@ class ProcessCollector(object):
                                               'Number of open file descriptors.',
                                               len(os.listdir(os.path.join(pid, 'fd'))))
             result.extend([open_fds, max_fds])
-        except IOError:
+        except (IOError, OSError):
             pass
 
         return result
