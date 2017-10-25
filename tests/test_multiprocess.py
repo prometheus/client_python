@@ -158,3 +158,9 @@ class TestMmapedDict(unittest.TestCase):
 
     def tearDown(self):
         os.unlink(self.tempfile)
+
+class TestUnsetEnv(unittest.TestCase):
+    def test_unset_syncdir_env(self):
+        self.registry = CollectorRegistry()
+        with self.assertRaises(ValueError):
+            MultiProcessCollector(self.registry)
