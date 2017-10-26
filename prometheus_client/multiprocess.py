@@ -12,6 +12,8 @@ from . import core
 class MultiProcessCollector(object):
     """Collector for files for multi-process mode."""
     def __init__(self, registry, path=os.environ.get('prometheus_multiproc_dir')):
+        if not path or not os.path.isdir(path):
+            raise ValueError('env prometheus_multiproc_dir is not set or not a directory')
         self._path = path
         if registry:
           registry.register(self)
