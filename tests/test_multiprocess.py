@@ -162,5 +162,8 @@ class TestMmapedDict(unittest.TestCase):
 class TestUnsetEnv(unittest.TestCase):
     def test_unset_syncdir_env(self):
         self.registry = CollectorRegistry()
-        with self.assertRaises(ValueError):
-            MultiProcessCollector(self.registry)
+        self.assertRaises(
+            ValueError,
+            MultiProcessCollector,
+            self.registry
+        )
