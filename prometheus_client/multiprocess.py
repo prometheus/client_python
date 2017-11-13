@@ -11,7 +11,9 @@ from . import core
 
 class MultiProcessCollector(object):
     """Collector for files for multi-process mode."""
-    def __init__(self, registry, path=os.environ.get('prometheus_multiproc_dir')):
+    def __init__(self, registry, path=None):
+        if path is None:
+            path = os.environ.get('prometheus_multiproc_dir')
         if not path or not os.path.isdir(path):
             raise ValueError('env prometheus_multiproc_dir is not set or not a directory')
         self._path = path
@@ -88,8 +90,10 @@ class MultiProcessCollector(object):
         return metrics.values()
 
 
-def mark_process_dead(pid, path=os.environ.get('prometheus_multiproc_dir')):
+def mark_process_dead(pid, path=None):
     """Do bookkeeping for when one process dies in a multi-process setup."""
+    if path is None:
+        path = os.environ.get('prometheus_multiproc_dir')
     for f in glob.glob(os.path.join(path, 'gauge_livesum_{0}.db'.format(pid))):
         os.remove(f)
     for f in glob.glob(os.path.join(path, 'gauge_liveall_{0}.db'.format(pid))):
