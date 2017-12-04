@@ -11,6 +11,7 @@ from contextlib import closing
 from wsgiref.simple_server import make_server, WSGIRequestHandler
 
 from . import core
+from .multiprocess import MultiProcessCollector
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
     from SocketServer import ThreadingMixIn
@@ -82,10 +83,12 @@ def generate_latest(registry=core.REGISTRY):
 
 
 class MetricsHandler(BaseHTTPRequestHandler):
-    """HTTP handler that gives metrics from ``core.REGISTRY``."""
+    """HTTP handler that gives metrics from ``MetricsHandler.registry``."""
 
     def do_GET(self):
-        registry = core.REGISTRY
+        registry = MetricsHandler.registry
+        if 'prometheus_multiproc_dir' in os.environ:
+            MultiProcessCollector(registry)
         params = parse_qs(urlparse(self.path).query)
         if 'name[]' in params:
             registry = registry.restricted_registry(params['name[]'])
@@ -107,8 +110,9 @@ class _ThreadingSimpleServer(ThreadingMixIn, HTTPServer):
     """Thread per request HTTP server."""
 
 
-def start_http_server(port, addr=''):
+def start_http_server(port, addr='', registry=core.REGISTRY):
     """Starts an HTTP server for prometheus metrics as a daemon thread"""
+    MetricsHandler.registry = registry
     httpd = _ThreadingSimpleServer((addr, port), MetricsHandler)
     t = threading.Thread(target=httpd.serve_forever)
     t.daemon = True
