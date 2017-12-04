@@ -9,6 +9,7 @@ import shelve
 
 from . import core
 
+
 class MultiProcessCollector(object):
     """Collector for files for multi-process mode."""
     def __init__(self, registry, path=None):
