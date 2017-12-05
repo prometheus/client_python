@@ -342,7 +342,7 @@ class _MmapedDict(object):
         encoded = key.encode('utf-8')
         # Pad to be 8-byte aligned.
         padded = encoded + (b' ' * (8 - (len(encoded) + 4) % 8))
-        value = struct.pack('i{0}sd'.format(len(padded)).encode(), len(encoded), padded, 0.0)
+        value = struct.pack('i{}sd'.format(len(padded)).encode(), len(encoded), padded, 0.0)
         while self._used + len(value) > self._capacity:
             self._capacity *= 2
             self._f.truncate(self._capacity)
@@ -360,7 +360,7 @@ class _MmapedDict(object):
         while pos < self._used:
             encoded_len = struct.unpack_from(b'i', self._m, pos)[0]
             pos += 4
-            encoded = struct.unpack_from('{0}s'.format(encoded_len).encode(), self._m, pos)[0]
+            encoded = struct.unpack_from('{}s'.format(encoded_len).encode(), self._m, pos)[0]
             padded_len = encoded_len + (8 - (encoded_len + 4) % 8)
             pos += padded_len
             value = struct.unpack_from(b'd', self._m, pos)[0]
@@ -421,7 +421,7 @@ def _MultiProcessValue(_pidFunc=os.getpid):
                 file_prefix = typ
             if file_prefix not in files:
                 filename = os.path.join(
-                        os.environ['prometheus_multiproc_dir'], '{0}_{1}.db'.format(file_prefix, pid['value']))
+                        os.environ['prometheus_multiproc_dir'], '{}_{}.db'.format(file_prefix, pid['value']))
                 files[file_prefix] = _MmapedDict(filename)
             self._file = files[file_prefix]
             self._key = json.dumps((metric_name, name, labelnames, labelvalues))

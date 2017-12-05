@@ -64,18 +64,18 @@ def generate_latest(registry=core.REGISTRY):
     '''Returns the metrics from the registry in latest text format as a string.'''
     output = []
     for metric in registry.collect():
-        output.append('# HELP {0} {1}'.format(
+        output.append('# HELP {} {}'.format(
             metric.name, metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
-        output.append('\n# TYPE {0} {1}\n'.format(metric.name, metric.type))
+        output.append('\n# TYPE {} {}\n'.format(metric.name, metric.type))
         for name, labels, value in metric.samples:
             if labels:
-                labelstr = '{{{0}}}'.format(','.join(
-                    ['{0}="{1}"'.format(
+                labelstr = '{{{}}}'.format(','.join(
+                    ['{}="{}"'.format(
                      k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
                      for k, v in sorted(labels.items())]))
             else:
                 labelstr = ''
-            output.append('{0}{1} {2}\n'.format(name, labelstr, core._floatToGoString(value)))
+            output.append('{}{} {}\n'.format(name, labelstr, core._floatToGoString(value)))
     return ''.join(output).encode('utf-8')
 
 
@@ -136,7 +136,7 @@ def default_handler(url, method, timeout, headers, data):
             request.add_header(k, v)
         resp = build_opener(HTTPHandler).open(request, timeout=timeout)
         if resp.code >= 400:
-            raise IOError("error talking to pushgateway: {0} {1}".format(
+            raise IOError("error talking to pushgateway: {} {}".format(
                 resp.code, resp.msg))
 
     return handle
@@ -151,7 +151,7 @@ def basic_auth_handler(url, method, timeout, headers, data, username=None, passw
         '''Handler that implements HTTP Basic Auth.
         '''
         if username is not None and password is not None:
-            auth_value = '{0}:{1}'.format(username, password).encode('utf-8')
+            auth_value = '{}:{}'.format(username, password).encode('utf-8')
             auth_token = base64.b64encode(auth_value)
             auth_header = b'Basic ' + auth_token
             headers.append(['Authorization', auth_header])
@@ -252,8 +252,8 @@ def delete_from_gateway(gateway, job, grouping_key=None, timeout=None, handler=d
 def _use_gateway(method, gateway, job, registry, grouping_key, timeout, handler):
     gateway_url = urlparse(gateway)
     if not gateway_url.scheme:
-        gateway = 'http://{0}'.format(gateway)
-    url = '{0}/metrics/job/{1}'.format(gateway, quote_plus(job))
+        gateway = 'http://{}'.format(gateway)
+    url = '{}/metrics/job/{}'.format(gateway, quote_plus(job))
 
     data = b''
     if method != 'DELETE':
@@ -261,7 +261,7 @@ def _use_gateway(method, gateway, job, registry, grouping_key, timeout, handler)
 
     if grouping_key is None:
         grouping_key = {}
-    url = url + ''.join(['/{0}/{1}'.format(quote_plus(str(k)), quote_plus(str(v)))
+    url = url + ''.join(['/{}/{}'.format(quote_plus(str(k)), quote_plus(str(v)))
                              for k, v in sorted(grouping_key.items())])
 
     headers=[('Content-Type', CONTENT_TYPE_LATEST)]
