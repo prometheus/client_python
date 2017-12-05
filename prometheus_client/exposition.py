@@ -28,8 +28,6 @@ except ImportError:
 CONTENT_TYPE_LATEST = str('text/plain; version=0.0.4; charset=utf-8')
 '''Content type of the latest text format'''
 
-PYTHON26_OR_OLDER = tuple(int(val) for val in sys.version.split()[0].split('.')) < (2, 7, 0)
-
 def make_wsgi_app(registry=core.REGISTRY):
     '''Create a WSGI app which serves the metrics from a registry.'''
     def prometheus_app(environ, start_response):
@@ -253,7 +251,7 @@ def delete_from_gateway(gateway, job, grouping_key=None, timeout=None, handler=d
 
 def _use_gateway(method, gateway, job, registry, grouping_key, timeout, handler):
     gateway_url = urlparse(gateway)
-    if not gateway_url.scheme or (PYTHON26_OR_OLDER and gateway_url.scheme not in ['http', 'https']):
+    if not gateway_url.scheme:
         gateway = 'http://{0}'.format(gateway)
     url = '{0}/metrics/job/{1}'.format(gateway, quote_plus(job))
 
