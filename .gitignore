@@ -5,4 +5,5 @@ dist
 *.swp
 .coverage.*
 .coverage
+.idea
 .tox

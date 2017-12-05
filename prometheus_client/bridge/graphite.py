@@ -63,12 +63,12 @@ class GraphiteBridge(object):
             for name, labels, value in metric.samples:
                 if labels:
                     labelstr = '.' + '.'.join(
-                        ['{0}.{1}'.format(
+                        ['{}.{}'.format(
                             _sanitize(k), _sanitize(v))
                             for k, v in sorted(labels.items())])
                 else:
                     labelstr = ''
-                output.append('{0}{1}{2} {3} {4}\n'.format(
+                output.append('{}{}{} {} {}\n'.format(
                     prefixstr, _sanitize(name), labelstr, float(value), now))
 
         conn = socket.create_connection(self._address, self._timeout)

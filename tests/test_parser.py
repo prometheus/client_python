@@ -1,12 +1,6 @@
 from __future__ import unicode_literals
 
-import sys
-
-if sys.version_info < (2, 7):
-    # We need the skip decorators from unittest2 on Python 2.6.
-    import unittest2 as unittest
-else:
-    import unittest
+import unittest
 
 from prometheus_client.core import *
 from prometheus_client.exposition import *
@@ -185,7 +179,6 @@ b 2  1234567890
         b = CounterMetricFamily("b", "help", value=2)
         self.assertEqual([a, b], list(families))
 
-    @unittest.skipIf(sys.version_info < (2, 7), "Test requires Python 2.7+.")
     def test_roundtrip(self):
         text = """# HELP go_gc_duration_seconds A summary of the GC invocation durations.
 # TYPE go_gc_duration_seconds summary
