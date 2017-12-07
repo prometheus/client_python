@@ -83,21 +83,13 @@ def generate_latest(registry=core.REGISTRY):
 
 
 def factory_MetricsHandler(registry=core.REGISTRY):
-    '''Returns a MetricsHandler tied to a given registry.
+    '''Returns a MetricsHandler class tied to a given registry.
     '''
 
     class MetricsHandler(BaseHTTPRequestHandler):
-        """HTTP handler that gives metrics from ``MetricsHandler.registry``."""
+        """HTTP handler that gives metrics from the context ``registry``."""
         def do_GET(self):
-            # In the _multiprocess case, the CollectorRegistry
-            # should be instantiated at every call or we
-            # get duplicated metrics.
-            if core._ValueClass._multiprocess:
-                r = core.CollectorRegistry()
-                MultiProcessCollector(r)
-            else:
-                r = registry
-
+            r = registry
             params = parse_qs(urlparse(self.path).query)
             if 'name[]' in params:
                 r = r.restricted_registry(params['name[]'])
