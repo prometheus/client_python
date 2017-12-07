@@ -82,28 +82,38 @@ def generate_latest(registry=core.REGISTRY):
     return ''.join(output).encode('utf-8')
 
 
-class MetricsHandler(BaseHTTPRequestHandler):
-    """HTTP handler that gives metrics from ``MetricsHandler.registry``."""
+def factory_MetricsHandler(registry=core.REGISTRY):
+    '''Returns a MetricsHandler tied to a given registry.
+    '''
 
-    def do_GET(self):
-        registry = MetricsHandler.registry
-        if 'prometheus_multiproc_dir' in os.environ:
-            MultiProcessCollector(registry)
-        params = parse_qs(urlparse(self.path).query)
-        if 'name[]' in params:
-            registry = registry.restricted_registry(params['name[]'])
-        try:
-            output = generate_latest(registry)
-        except:
-            self.send_error(500, 'error generating metric output')
-            raise
-        self.send_response(200)
-        self.send_header('Content-Type', CONTENT_TYPE_LATEST)
-        self.end_headers()
-        self.wfile.write(output)
+    class MetricsHandler(BaseHTTPRequestHandler):
+        """HTTP handler that gives metrics from ``MetricsHandler.registry``."""
+        def do_GET(self):
+            # In the _multiprocess case, the CollectorRegistry
+            # should be instantiated at every call or we
+            # get duplicated metrics.
+            if core._ValueClass._multiprocess:
+                r = core.CollectorRegistry()
+                MultiProcessCollector(r)
+            else:
+                r = registry
 
-    def log_message(self, format, *args):
-        """Log nothing."""
+            params = parse_qs(urlparse(self.path).query)
+            if 'name[]' in params:
+                r = r.restricted_registry(params['name[]'])
+            try:
+                output = generate_latest(r)
+            except:
+                self.send_error(500, 'error generating metric output')
+                raise
+            self.send_response(200)
+            self.send_header('Content-Type', CONTENT_TYPE_LATEST)
+            self.end_headers()
+            self.wfile.write(output)
+
+        def log_message(self, format, *args):
+            """Log nothing."""
+    return MetricsHandler
 
 
 class _ThreadingSimpleServer(ThreadingMixIn, HTTPServer):
@@ -112,8 +122,8 @@ class _ThreadingSimpleServer(ThreadingMixIn, HTTPServer):
 
 def start_http_server(port, addr='', registry=core.REGISTRY):
     """Starts an HTTP server for prometheus metrics as a daemon thread"""
-    MetricsHandler.registry = registry
-    httpd = _ThreadingSimpleServer((addr, port), MetricsHandler)
+    CustomMetricsHandler = factory_MetricsHandler(registry)
+    httpd = _ThreadingSimpleServer((addr, port), CustomMetricsHandler)
     t = threading.Thread(target=httpd.serve_forever)
     t.daemon = True
     t.start()
