@@ -321,6 +321,16 @@ class TestMetricFamilies(unittest.TestCase):
                 return [metric_family]
         self.registry.register(CustomCollector())
 
+    def test_untyped(self):
+        self.custom_collector(UntypedMetricFamily('u', 'help', value=1))
+        self.assertEqual(1, self.registry.get_sample_value('u', {}))
+
+    def test_untyped_labels(self):
+        cmf = UntypedMetricFamily('u', 'help', labels=['a', 'c'])
+        cmf.add_metric(['b', 'd'], 2)
+        self.custom_collector(cmf)
+        self.assertEqual(2, self.registry.get_sample_value('u', {'a': 'b', 'c': 'd'}))
+
     def test_counter(self):
         self.custom_collector(CounterMetricFamily('c', 'help', value=1))
         self.assertEqual(1, self.registry.get_sample_value('c', {}))
@@ -370,6 +380,9 @@ class TestMetricFamilies(unittest.TestCase):
         self.assertEqual(3, self.registry.get_sample_value('h_sum', {'a': 'b'}))
 
     def test_bad_constructors(self):
+        self.assertRaises(ValueError, UntypedMetricFamily, 'u', 'help', value=1, labels=[])
+        self.assertRaises(ValueError, UntypedMetricFamily, 'u', 'help', value=1, labels=['a'])
+
         self.assertRaises(ValueError, CounterMetricFamily, 'c', 'help', value=1, labels=[])
         self.assertRaises(ValueError, CounterMetricFamily, 'c', 'help', value=1, labels=['a'])
 
@@ -390,6 +403,8 @@ class TestMetricFamilies(unittest.TestCase):
         self.assertRaises(KeyError, HistogramMetricFamily, 'h', 'help', buckets={}, sum_value=1)
 
     def test_labelnames(self):
+        cmf = UntypedMetricFamily('u', 'help', labels=iter(['a']))
+        self.assertEqual(('a',), cmf._labelnames)
         cmf = CounterMetricFamily('c', 'help', labels=iter(['a']))
         self.assertEqual(('a',), cmf._labelnames)
         gmf = GaugeMetricFamily('g', 'help', labels=iter(['a']))

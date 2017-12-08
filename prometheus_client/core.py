@@ -176,6 +176,29 @@ class Metric(object):
                 and self.samples == other.samples)
 
 
+class UntypedMetricFamily(Metric):
+    '''A single untyped metric and its samples.
+    For use by custom collectors.
+    '''
+    def __init__(self, name, documentation, value=None, labels=None):
+        Metric.__init__(self, name, documentation, 'untyped')
+        if labels is not None and value is not None:
+            raise ValueError('Can only specify at most one of value and labels.')
+        if labels is None:
+            labels = []
+        self._labelnames = tuple(labels)
+        if value is not None:
+            self.add_metric([], value)
+
+    def add_metric(self, labels, value):
+        '''Add a metric to the metric family.
+        Args:
+        labels: A list of label values
+        value: The value of the metric.
+        '''
+        self.samples.append((self.name, dict(zip(self._labelnames, labels)), value))
+
+
 class CounterMetricFamily(Metric):
     '''A single counter and its samples.
 
