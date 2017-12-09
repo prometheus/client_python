@@ -9,6 +9,37 @@ import shelve
 
 from . import core
 
+
+class MultiProcessRegistry(object):
+    """The one and only multiprocess registry."""
+    def __init__(self):
+        self.registry = None
+
+    def _refresh(self):
+        """Refresh registry entries from path.
+
+           Registry should be reset every time
+           or we get duplicated entries.
+        """
+        self.registry = core.CollectorRegistry()
+        MultiProcessCollector(self.registry)
+
+    def collect(self):
+        """Proxy to self.registry.collect.
+        """
+        # Always refresh the registry before collecting, or
+        #   we'll end with duplicate metrics.
+        self._refresh()
+        return self.registry.collect()
+
+    def restricted_registry(self, names):
+        """Proxy to self.registry.restricted_registry.
+        """
+        if not self.registry:
+            self._refresh()
+        return self.registry.restricted_registry(names)
+
+
 class MultiProcessCollector(object):
     """Collector for files for multi-process mode."""
     def __init__(self, registry, path=None):

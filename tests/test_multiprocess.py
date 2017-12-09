@@ -129,6 +129,15 @@ class TestMultiProcess(unittest.TestCase):
         self.assertEqual(3, self.registry.get_sample_value('c'))
         self.assertEqual(1, c1._value.get())
 
+    def test_multiprocess_registry(self):
+        prometheus_client.core._ValueClass = prometheus_client.core._MultiProcessValue(lambda: 456)
+        c1 = Counter('c', 'help')
+        mpr = MultiProcessRegistry()
+        metrics = mpr.collect()
+        self.assertTrue(len(list(metrics)))
+        # Just test that we don't get exceptions.
+        mpr.restricted_registry(["c"]).collect()
+
 
 class TestMmapedDict(unittest.TestCase):
     def setUp(self):
