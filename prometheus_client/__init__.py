@@ -17,6 +17,7 @@ Histogram = core.Histogram
 
 CONTENT_TYPE_LATEST = exposition.CONTENT_TYPE_LATEST
 generate_latest = exposition.generate_latest
+MetricsHandler = exposition.MetricsHandler
 make_wsgi_app = exposition.make_wsgi_app
 start_http_server = exposition.start_http_server
 start_wsgi_server = exposition.start_wsgi_server

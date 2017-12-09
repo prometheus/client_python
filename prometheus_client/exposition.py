@@ -11,7 +11,6 @@ from contextlib import closing
 from wsgiref.simple_server import make_server, WSGIRequestHandler
 
 from . import core
-from .multiprocess import MultiProcessCollector
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
     from SocketServer import ThreadingMixIn
@@ -82,30 +81,42 @@ def generate_latest(registry=core.REGISTRY):
     return ''.join(output).encode('utf-8')
 
 
-def factory_MetricsHandler(registry=core.REGISTRY):
-    '''Returns a MetricsHandler class tied to a given registry.
-    '''
+class MetricsHandler(BaseHTTPRequestHandler):
+    """HTTP handler that gives metrics from ``core.REGISTRY``."""
+    registry = core.REGISTRY
 
-    class MetricsHandler(BaseHTTPRequestHandler):
-        """HTTP handler that gives metrics from the context ``registry``."""
-        def do_GET(self):
-            r = registry
-            params = parse_qs(urlparse(self.path).query)
-            if 'name[]' in params:
-                r = r.restricted_registry(params['name[]'])
-            try:
-                output = generate_latest(r)
-            except:
-                self.send_error(500, 'error generating metric output')
-                raise
-            self.send_response(200)
-            self.send_header('Content-Type', CONTENT_TYPE_LATEST)
-            self.end_headers()
-            self.wfile.write(output)
+    def do_GET(self):
+        registry = self.registry
+        params = parse_qs(urlparse(self.path).query)
+        if 'name[]' in params:
+            registry = registry.restricted_registry(params['name[]'])
+        try:
+            output = generate_latest(registry)
+        except:
+            self.send_error(500, 'error generating metric output')
+            raise
+        self.send_response(200)
+        self.send_header('Content-Type', CONTENT_TYPE_LATEST)
+        self.end_headers()
+        self.wfile.write(output)
 
-        def log_message(self, format, *args):
-            """Log nothing."""
-    return MetricsHandler
+    def log_message(self, format, *args):
+        """Log nothing."""
+
+    @staticmethod
+    def factory(registry):
+        """Returns a dynamic MetricsHandler class tied
+           to the passed registry.
+        """
+        # This implementation relies on MetricsHandler.registry
+        #  (defined above and defaulted to core.REGISTRY).
+
+        # As we have unicode_literals, we need to create a str()
+        #  object for type().
+        cls_name = str('MetricsHandler')
+        MyMetricsHandler = type(cls_name, (MetricsHandler, object),
+                                {"registry": registry})
+        return MyMetricsHandler
 
 
 class _ThreadingSimpleServer(ThreadingMixIn, HTTPServer):
@@ -114,7 +125,7 @@ class _ThreadingSimpleServer(ThreadingMixIn, HTTPServer):
 
 def start_http_server(port, addr='', registry=core.REGISTRY):
     """Starts an HTTP server for prometheus metrics as a daemon thread"""
-    CustomMetricsHandler = factory_MetricsHandler(registry)
+    CustomMetricsHandler = MetricsHandler.factory(registry)
     httpd = _ThreadingSimpleServer((addr, port), CustomMetricsHandler)
     t = threading.Thread(target=httpd.serve_forever)
     t.daemon = True
