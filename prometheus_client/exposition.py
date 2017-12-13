@@ -83,9 +83,10 @@ def generate_latest(registry=core.REGISTRY):
 
 class MetricsHandler(BaseHTTPRequestHandler):
     """HTTP handler that gives metrics from ``core.REGISTRY``."""
+    registry = core.REGISTRY
 
     def do_GET(self):
-        registry = core.REGISTRY
+        registry = self.registry
         params = parse_qs(urlparse(self.path).query)
         if 'name[]' in params:
             registry = registry.restricted_registry(params['name[]'])
@@ -102,14 +103,30 @@ class MetricsHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         """Log nothing."""
 
+    @staticmethod
+    def factory(registry):
+        """Returns a dynamic MetricsHandler class tied
+           to the passed registry.
+        """
+        # This implementation relies on MetricsHandler.registry
+        #  (defined above and defaulted to core.REGISTRY).
+
+        # As we have unicode_literals, we need to create a str()
+        #  object for type().
+        cls_name = str('MetricsHandler')
+        MyMetricsHandler = type(cls_name, (MetricsHandler, object),
+                                {"registry": registry})
+        return MyMetricsHandler
+
 
 class _ThreadingSimpleServer(ThreadingMixIn, HTTPServer):
     """Thread per request HTTP server."""
 
 
-def start_http_server(port, addr=''):
+def start_http_server(port, addr='', registry=core.REGISTRY):
     """Starts an HTTP server for prometheus metrics as a daemon thread"""
-    httpd = _ThreadingSimpleServer((addr, port), MetricsHandler)
+    CustomMetricsHandler = MetricsHandler.factory(registry)
+    httpd = _ThreadingSimpleServer((addr, port), CustomMetricsHandler)
     t = threading.Thread(target=httpd.serve_forever)
     t.daemon = True
     t.start()
