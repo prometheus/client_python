@@ -403,7 +403,7 @@ implement a proper `describe`, or if that's not practical have `describe`
 return an empty list.
 
 
-## Multiprocess Mode (Gunicorn)
+## Multiprocess Mode
 
 Prometheus client libaries presume a threaded model, where metrics are shared
 across workers. This doesn't work so well for languages such as Python where
@@ -416,6 +416,28 @@ This comes with a number of limitations:
 - Custom collectors do not work (e.g. cpu and memory metrics)
 - The pushgateway cannot be used
 - Gauges cannot use the `pid` label
+
+Create a multiprocess registry and expose it via `start_http_server`.
+
+```python
+
+from prometheus_client import multiprocess, CollectorRegistry
+
+mpr = CollectorRegistry()
+multiprocess.MultiProcessCollector(mpr)
+
+...
+
+# Serve multiprocess metrics
+start_http_server(8001, registry=mpr)
+
+# Serve default registry.
+start_http_server(8000)
+
+```
+
+
+## Multiprocess Mode (Gunicorn)
 
 There's several steps to getting this working:
 
