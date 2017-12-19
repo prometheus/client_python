@@ -42,7 +42,7 @@ import collections
 
 __version__ = '4.0.10'
 
-if sys.version >= '3':
+if sys.version_info >= (3,):
     from inspect import getfullargspec
 
     def get_init(cls):
@@ -109,7 +109,7 @@ class FunctionMaker(object):
                     setattr(self, a, getattr(argspec, a))
                 for i, arg in enumerate(self.args):
                     setattr(self, 'arg%d' % i, arg)
-                if sys.version < '3':  # easy way
+                if sys.version_info < (3,):  # easy way
                     self.shortsignature = self.signature = (
                         inspect.formatargspec(
                             formatvalue=lambda val: "", *argspec)[1:-1])

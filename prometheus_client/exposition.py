@@ -28,7 +28,7 @@ except ImportError:
 CONTENT_TYPE_LATEST = str('text/plain; version=0.0.4; charset=utf-8')
 '''Content type of the latest text format'''
 
-PYTHON26_OR_OLDER = tuple(int(val) for val in sys.version.split()[0].split('.')) < (2, 7, 0)
+PYTHON26_OR_OLDER = sys.version_info < (2, 7)
 
 def make_wsgi_app(registry=core.REGISTRY):
     '''Create a WSGI app which serves the metrics from a registry.'''
