@@ -39,9 +39,9 @@ class ProcessCollector(object):
             registry.register(self)
 
     def _boot_time(self):
-        with open(os.path.join(self._proc, 'stat')) as stat:
+        with open(os.path.join(self._proc, 'stat'), 'rb') as stat:
             for line in stat:
-                if line.startswith('btime '):
+                if line.startswith(b'btime '):
                     return float(line.split()[1])
 
     def collect(self):
@@ -52,8 +52,9 @@ class ProcessCollector(object):
 
         result = []
         try:
-            with open(os.path.join(pid, 'stat')) as stat:
-                parts = (stat.read().split(')')[-1].split())
+            with open(os.path.join(pid, 'stat'), 'rb') as stat:
+                parts = (stat.read().split(b')')[-1].split())
+
             vmem = core.GaugeMetricFamily(self._prefix + 'virtual_memory_bytes',
                                           'Virtual memory size in bytes.', value=float(parts[20]))
             rss = core.GaugeMetricFamily(self._prefix + 'resident_memory_bytes', 'Resident memory size in bytes.',
@@ -72,9 +73,9 @@ class ProcessCollector(object):
             pass
 
         try:
-            with open(os.path.join(pid, 'limits')) as limits:
+            with open(os.path.join(pid, 'limits'), 'rb') as limits:
                 for line in limits:
-                    if line.startswith('Max open file'):
+                    if line.startswith(b'Max open file'):
                         max_fds = core.GaugeMetricFamily(self._prefix + 'max_fds',
                                                          'Maximum number of open file descriptors.',
                                                          value=float(line.split()[3]))
