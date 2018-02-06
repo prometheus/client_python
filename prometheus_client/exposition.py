@@ -30,10 +30,6 @@ CONTENT_TYPE_LATEST = str('text/plain; version=0.0.4; charset=utf-8')
 
 PYTHON26_OR_OLDER = sys.version_info < (2, 7)
 
-# Default socket timeout for http requests, such as to a pushgateway.
-# Note: Setting this after import time will not change the default used.
-_REQUEST_TIMEOUT = 30
-
 
 def make_wsgi_app(registry=core.REGISTRY):
     '''Create a WSGI app which serves the metrics from a registry.'''
@@ -185,7 +181,7 @@ def basic_auth_handler(url, method, timeout, headers, data, username=None, passw
 
 
 def push_to_gateway(
-        gateway, job, registry, grouping_key=None, timeout=_REQUEST_TIMEOUT,
+        gateway, job, registry, grouping_key=None, timeout=30,
         handler=default_handler):
     '''Push metrics to the given pushgateway.
 
@@ -229,7 +225,7 @@ def push_to_gateway(
 
 
 def pushadd_to_gateway(
-        gateway, job, registry, grouping_key=None, timeout=_REQUEST_TIMEOUT,
+        gateway, job, registry, grouping_key=None, timeout=30,
         handler=default_handler):
     '''PushAdd metrics to the given pushgateway.
 
@@ -255,8 +251,7 @@ def pushadd_to_gateway(
 
 
 def delete_from_gateway(
-        gateway, job, grouping_key=None, timeout=_REQUEST_TIMEOUT,
-        handler=default_handler):
+        gateway, job, grouping_key=None, timeout=30, handler=default_handler):
     '''Delete metrics from the given pushgateway.
 
     `gateway` the url for your push gateway. Either of the form
