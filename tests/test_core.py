@@ -74,7 +74,7 @@ class TestGauge(unittest.TestCase):
         self.gauge.set(9)
         self.assertEqual(9, self.registry.get_sample_value('g'))
 
-    def test_function_decorator(self):
+    def test_inprogress_function_decorator(self):
         self.assertEqual(0, self.registry.get_sample_value('g'))
 
         @self.gauge.track_inprogress()
@@ -86,7 +86,7 @@ class TestGauge(unittest.TestCase):
         f()
         self.assertEqual(0, self.registry.get_sample_value('g'))
 
-    def test_block_decorator(self):
+    def test_inprogress_block_decorator(self):
         self.assertEqual(0, self.registry.get_sample_value('g'))
         with self.gauge.track_inprogress():
             self.assertEqual(1, self.registry.get_sample_value('g'))
@@ -101,7 +101,7 @@ class TestGauge(unittest.TestCase):
         x['a'] = None
         self.assertEqual(1, self.registry.get_sample_value('g'))
 
-    def test_function_decorator(self):
+    def test_time_function_decorator(self):
         self.assertEqual(0, self.registry.get_sample_value('g'))
 
         @self.gauge.time()
@@ -113,7 +113,7 @@ class TestGauge(unittest.TestCase):
         f()
         self.assertNotEqual(0, self.registry.get_sample_value('g'))
 
-    def test_block_decorator(self):
+    def test_time_block_decorator(self):
         self.assertEqual(0, self.registry.get_sample_value('g'))
         with self.gauge.time():
             time.sleep(.001)
