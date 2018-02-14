@@ -153,8 +153,9 @@ class TestMmapedDict(unittest.TestCase):
         self.d.write_value('abc', 42.0)
         self.d.write_value(key, 123.0)
         self.d.write_value('def', 17.0)
-        self.assertEqual([('abc', 42.0), (key, 123.0), ('def', 17.0)],
-                list(self.d.read_all_values()))
+        self.assertEqual(
+            [('abc', 42.0), (key, 123.0), ('def', 17.0)],
+            list(self.d.read_all_values()))
 
     def tearDown(self):
         os.unlink(self.tempfile)

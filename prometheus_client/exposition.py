@@ -286,8 +286,9 @@ def _use_gateway(method, gateway, job, registry, grouping_key, timeout, handler)
 
     if grouping_key is None:
         grouping_key = {}
-    url = url + ''.join(['/{0}/{1}'.format(quote_plus(str(k)), quote_plus(str(v)))
-                             for k, v in sorted(grouping_key.items())])
+    url += ''.join(
+        '/{0}/{1}'.format(quote_plus(str(k)), quote_plus(str(v)))
+        for k, v in sorted(grouping_key.items()))
 
     headers=[('Content-Type', CONTENT_TYPE_LATEST)]
     handler(url=url, method=method, timeout=timeout,
