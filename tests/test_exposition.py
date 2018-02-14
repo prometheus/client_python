@@ -81,9 +81,9 @@ hh_sum 0.05
     def test_nonnumber(self):
         class MyNumber():
             def __repr__(self):
-              return "MyNumber(123)"
+                return "MyNumber(123)"
             def __float__(self):
-              return 123.0
+                return 123.0
         class MyCollector():
             def collect(self):
                 metric = Metric("nonnumber", "Non number", 'untyped')

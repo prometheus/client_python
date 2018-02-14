@@ -209,10 +209,10 @@ class CounterMetricFamily(Metric):
         if labels is not None and value is not None:
             raise ValueError('Can only specify at most one of value and labels.')
         if labels is None:
-          labels = []
+            labels = []
         self._labelnames = tuple(labels)
         if value is not None:
-          self.add_metric([], value)
+            self.add_metric([], value)
 
     def add_metric(self, labels, value):
         '''Add a metric to the metric family.
@@ -234,10 +234,10 @@ class GaugeMetricFamily(Metric):
         if labels is not None and value is not None:
             raise ValueError('Can only specify at most one of value and labels.')
         if labels is None:
-          labels = []
+            labels = []
         self._labelnames = tuple(labels)
         if value is not None:
-          self.add_metric([], value)
+            self.add_metric([], value)
 
     def add_metric(self, labels, value):
         '''Add a metric to the metric family.
@@ -261,10 +261,10 @@ class SummaryMetricFamily(Metric):
         if labels is not None and count_value is not None:
             raise ValueError('Can only specify at most one of value and labels.')
         if labels is None:
-          labels = []
+            labels = []
         self._labelnames = tuple(labels)
         if count_value is not None:
-          self.add_metric([], count_value, sum_value)
+            self.add_metric([], count_value, sum_value)
 
     def add_metric(self, labels, count_value, sum_value):
         '''Add a metric to the metric family.
@@ -290,10 +290,10 @@ class HistogramMetricFamily(Metric):
         if labels is not None and buckets is not None:
             raise ValueError('Can only specify at most one of buckets and labels.')
         if labels is None:
-          labels = []
+            labels = []
         self._labelnames = tuple(labels)
         if buckets is not None:
-          self.add_metric([], buckets, sum_value)
+            self.add_metric([], buckets, sum_value)
 
     def add_metric(self, labels, buckets, sum_value):
         '''Add a metric to the metric family.
@@ -305,7 +305,7 @@ class HistogramMetricFamily(Metric):
           sum_value: The sum value of the metric.
         '''
         for bucket, value in buckets:
-          self.samples.append((self.name + '_bucket', dict(list(zip(self._labelnames, labels)) + [('le', bucket)]), value))
+            self.samples.append((self.name + '_bucket', dict(list(zip(self._labelnames, labels)) + [('le', bucket)]), value))
         # +Inf is last and provides the count value.
         self.samples.append((self.name + '_count', dict(zip(self._labelnames, labels)), buckets[-1][1]))
         self.samples.append((self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value))
@@ -317,20 +317,20 @@ class _MutexValue(object):
     _multiprocess = False
 
     def __init__(self, typ, metric_name, name, labelnames, labelvalues, **kwargs):
-      self._value = 0.0
-      self._lock = Lock()
+        self._value = 0.0
+        self._lock = Lock()
 
     def inc(self, amount):
-      with self._lock:
-          self._value += amount
+        with self._lock:
+            self._value += amount
 
     def set(self, value):
-      with self._lock:
-          self._value = value
+        with self._lock:
+            self._value = value
 
     def get(self):
-      with self._lock:
-          return self._value
+        with self._lock:
+            return self._value
 
 
 class _MmapedDict(object):
@@ -882,7 +882,7 @@ class Histogram(object):
         self._buckets = []
         bucket_labelnames = labelnames + ('le',)
         for b in buckets:
-          self._buckets.append(_ValueClass(self._type, name, name + '_bucket', bucket_labelnames, labelvalues + (_floatToGoString(b),)))
+            self._buckets.append(_ValueClass(self._type, name, name + '_bucket', bucket_labelnames, labelvalues + (_floatToGoString(b),)))
 
     def observe(self, amount):
         '''Observe the given amount.'''

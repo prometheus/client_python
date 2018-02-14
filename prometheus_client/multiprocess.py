@@ -19,7 +19,7 @@ class MultiProcessCollector(object):
             raise ValueError('env prometheus_multiproc_dir is not set or not a directory')
         self._path = path
         if registry:
-          registry.register(self)
+            registry.register(self)
 
     def collect(self):
         metrics = {}
