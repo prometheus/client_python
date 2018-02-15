@@ -229,8 +229,8 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
         families = list(text_string_to_metric_families(text))
 
         class TextCollector(object):
-          def collect(self):
-            return families
+            def collect(self):
+                return families
 
 
         registry = CollectorRegistry()

@@ -50,4 +50,4 @@ if __name__ == '__main__':
     start_http_server(8000)
     import time
     while True:
-      time.sleep(1)
+        time.sleep(1)

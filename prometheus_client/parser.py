@@ -17,7 +17,7 @@ def text_string_to_metric_families(text):
     See text_fd_to_metric_families.
     """
     for metric_family in text_fd_to_metric_families(StringIO.StringIO(text)):
-      yield metric_family
+        yield metric_family
 
 
 def _unescape_help(text):
@@ -34,10 +34,10 @@ def _unescape_help(text):
                 result.append('\\' + char)
             slash = False
         else:
-          if char == '\\':
-              slash = True
-          else:
-              result.append(char)
+            if char == '\\':
+                slash = True
+            else:
+                result.append(char)
 
     if slash:
         result.append('\\')
@@ -180,9 +180,9 @@ def text_fd_to_metric_families(fd):
                     samples = []
                     allowed_names = [parts[2]]
                 if len(parts) == 4:
-                  documentation = _unescape_help(parts[3])
+                    documentation = _unescape_help(parts[3])
                 else:
-                  documentation = ''
+                    documentation = ''
             elif parts[1] == 'TYPE':
                 if parts[2] != name:
                     if name != '':
@@ -208,17 +208,17 @@ def text_fd_to_metric_families(fd):
         else:
             sample = _parse_sample(line)
             if sample[0] not in allowed_names:
-                  if name != '':
-                      yield build_metric(name, documentation, typ, samples)
-                  # New metric, yield immediately as untyped singleton
-                  name = ''
-                  documentation = ''
-                  typ = 'untyped'
-                  samples = []
-                  allowed_names = []
-                  yield build_metric(sample[0], documentation, typ, [sample])
+                if name != '':
+                    yield build_metric(name, documentation, typ, samples)
+                # New metric, yield immediately as untyped singleton
+                name = ''
+                documentation = ''
+                typ = 'untyped'
+                samples = []
+                allowed_names = []
+                yield build_metric(sample[0], documentation, typ, [sample])
             else:
-              samples.append(sample)
+                samples.append(sample)
 
     if name != '':
         yield build_metric(name, documentation, typ, samples)
