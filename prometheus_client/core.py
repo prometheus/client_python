@@ -48,10 +48,11 @@ class CollectorRegistry(object):
         '''Add a collector to the registry.'''
         with self._lock:
             names = self._get_names(collector)
-            for name in names:
-                if name in self._names_to_collectors:
-                    raise ValueError('Timeseries already present '
-                            'in CollectorRegistry: ' + name)
+            duplicates = set(self._names_to_collectors).intersection(names)
+            if duplicates:
+                raise ValueError(
+                    'Duplicated timeseries in CollectorRegistry: {}'.format(
+                        duplicates))
             for name in names:
                 self._names_to_collectors[name] = collector
             self._collector_to_names[collector] = names
@@ -444,7 +445,8 @@ def _MultiProcessValue(_pidFunc=os.getpid):
                 file_prefix = typ
             if file_prefix not in files:
                 filename = os.path.join(
-                        os.environ['prometheus_multiproc_dir'], '{0}_{1}.db'.format(file_prefix, pid['value']))
+                    os.environ['prometheus_multiproc_dir'],
+                    '{0}_{1}.db'.format(file_prefix, pid['value']))
                 files[file_prefix] = _MmapedDict(filename)
             self._file = files[file_prefix]
             self._key = json.dumps((metric_name, name, labelnames, labelvalues))
@@ -710,8 +712,9 @@ class Gauge(object):
         if (_ValueClass._multiprocess
                 and multiprocess_mode not in ['min', 'max', 'livesum', 'liveall', 'all']):
             raise ValueError('Invalid multiprocess mode: ' + multiprocess_mode)
-        self._value = _ValueClass(self._type, name, name, labelnames,
-                labelvalues, multiprocess_mode=multiprocess_mode)
+        self._value = _ValueClass(
+            self._type, name, name, labelnames, labelvalues,
+            multiprocess_mode=multiprocess_mode)
 
     def inc(self, amount=1):
         '''Increment gauge by the given amount.'''
