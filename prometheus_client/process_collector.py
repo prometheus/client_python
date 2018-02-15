@@ -73,6 +73,17 @@ class ProcessCollector(object):
             pass
 
         try:
+            with open(os.path.join(pid, 'status'), 'rb') as status:
+                for line in status:
+                    if line.startswith(b'VmSwap:'):
+                        swap = core.GaugeMetricFamily(self._prefix + 'swap_bytes',
+                                                      'Swap size in bytes.',
+                                                      value=float(line.split()[1]) * 1024)
+            result.append(swap)
+        except IOError:
+            pass
+
+        try:
             with open(os.path.join(pid, 'limits'), 'rb') as limits:
                 for line in limits:
                     if line.startswith(b'Max open file'):
