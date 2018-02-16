@@ -1,12 +1,23 @@
 from __future__ import unicode_literals
 
 import inspect
-import os
-import threading
 import time
 import unittest
 
-from prometheus_client.core import *
+from prometheus_client.core import (
+    CollectorRegistry,
+    Counter,
+    CounterMetricFamily,
+    Gauge,
+    GaugeMetricFamily,
+    Histogram,
+    HistogramMetricFamily,
+    Metric,
+    Summary,
+    SummaryMetricFamily,
+    UntypedMetricFamily,
+)
+
 
 class TestCounter(unittest.TestCase):
     def setUp(self):
