@@ -349,7 +349,7 @@ class TestMetricFamilies(unittest.TestCase):
         cmf = GaugeMetricFamily('g', 'help', labels=['a'])
         cmf.add_metric(['b'], 2)
         self.custom_collector(cmf)
-        self.assertEqual(2, self.registry.get_sample_value('g', {'a':'b'}))
+        self.assertEqual(2, self.registry.get_sample_value('g', {'a': 'b'}))
 
     def test_summary(self):
         self.custom_collector(SummaryMetricFamily('s', 'help', count_value=1, sum_value=2))

@@ -28,7 +28,7 @@ _METRIC_LABEL_NAME_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
 _RESERVED_METRIC_LABEL_NAME_RE = re.compile(r'^__.*$')
 _INF = float("inf")
 _MINUS_INF = float("-inf")
-_INITIAL_MMAP_SIZE = 1024*1024
+_INITIAL_MMAP_SIZE = 1 << 20
 
 
 class CollectorRegistry(object):
@@ -440,7 +440,7 @@ def _MultiProcessValue(_pidFunc=os.getpid):
         def __reset(self):
             typ, metric_name, name, labelnames, labelvalues, multiprocess_mode = self._params
             if typ == 'gauge':
-                file_prefix = typ + '_' +  multiprocess_mode
+                file_prefix = typ + '_' + multiprocess_mode
             else:
                 file_prefix = typ
             if file_prefix not in files:

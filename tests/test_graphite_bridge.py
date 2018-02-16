@@ -53,7 +53,7 @@ class TestGraphiteBridge(unittest.TestCase):
         labels = Counter('labels', 'help', ['a', 'b'], registry=self.registry)
         labels.labels('c', 'd').inc()
 
-        self.gb.push(prefix = 'pre.fix')
+        self.gb.push(prefix='pre.fix')
         self.t.join()
 
         self.assertEqual(b'pre.fix.labels.a.c.b.d 1.0 1434898897\n', self.data)
