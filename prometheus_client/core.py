@@ -9,19 +9,18 @@ import mmap
 import os
 import re
 import struct
+import sys
 import time
 import types
-
-try:
-    from BaseHTTPServer import BaseHTTPRequestHandler
-except ImportError:
-    # Python 3
-    unicode = str
 
 from threading import Lock
 from timeit import default_timer
 
 from .decorator import decorate
+
+
+if sys.version_info > (3,):
+    unicode = str
 
 _METRIC_NAME_RE = re.compile(r'^[a-zA-Z_:][a-zA-Z0-9_:]*$')
 _METRIC_LABEL_NAME_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')

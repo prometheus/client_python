@@ -5,7 +5,6 @@ from __future__ import unicode_literals
 import glob
 import json
 import os
-import shelve
 
 from . import core
 
