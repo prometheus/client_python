@@ -2,16 +2,22 @@ import os
 from setuptools import setup
 
 setup(
-    name = "prometheus_client",
-    version = "0.1.0",
-    author = "Brian Brazil",
-    author_email = "brian.brazil@robustperception.io",
-    description = ("Python client for the Prometheus monitoring system."),
-    long_description = ("See https://github.com/prometheus/client_python/blob/master/README.md for documentation."),
-    license = "Apache Software License 2.0",
-    keywords = "prometheus monitoring instrumentation client",
-    url = "https://github.com/prometheus/client_python",
-    packages=['prometheus_client', 'prometheus_client.bridge', 'prometheus_client.twisted'],
+    name="prometheus_client",
+    version="0.1.0",
+    author="Brian Brazil",
+    author_email="brian.brazil@robustperception.io",
+    description="Python client for the Prometheus monitoring system.",
+    long_description=(
+        "See https://github.com/prometheus/client_python/blob/master/README.md"
+        " for documentation."),
+    license="Apache Software License 2.0",
+    keywords="prometheus monitoring instrumentation client",
+    url="https://github.com/prometheus/client_python",
+    packages=[
+        'prometheus_client',
+        'prometheus_client.bridge',
+        'prometheus_client.twisted',
+    ],
     extras_require={
         'twisted': ['twisted'],
     },

@@ -290,9 +290,10 @@ def _use_gateway(method, gateway, job, registry, grouping_key, timeout, handler)
         '/{0}/{1}'.format(quote_plus(str(k)), quote_plus(str(v)))
         for k, v in sorted(grouping_key.items()))
 
-    headers=[('Content-Type', CONTENT_TYPE_LATEST)]
-    handler(url=url, method=method, timeout=timeout,
-            headers=headers, data=data)()
+    handler(
+        url=url, method=method, timeout=timeout,
+        headers=[('Content-Type', CONTENT_TYPE_LATEST)], data=data,
+    )()
 
 
 def instance_ip_grouping_key():
