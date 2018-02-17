@@ -8,22 +8,28 @@ except ImportError:
 from prometheus_client import Counter, CollectorRegistry
 from prometheus_client.bridge.graphite import GraphiteBridge
 
+
 def fake_timer():
     return 1434898897.5
+
 
 class TestGraphiteBridge(unittest.TestCase):
     def setUp(self):
         self.registry = CollectorRegistry()
 
         self.data = ''
+
         class TCPHandler(SocketServer.BaseRequestHandler):
             def handle(s):
                 self.data = s.request.recv(1024)
+
         server = SocketServer.TCPServer(('', 0), TCPHandler)
+
         class ServingThread(threading.Thread):
             def run(self):
                 server.handle_request()
                 server.socket.close()
+
         self.t = ServingThread()
         self.t.start()
 

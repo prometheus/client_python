@@ -127,9 +127,7 @@ class TestMultiProcess(unittest.TestCase):
 
     def test_counter_across_forks(self):
         pid = 0
-        def get_pid():
-            return pid
-        core._ValueClass = core._MultiProcessValue(get_pid)
+        core._ValueClass = core._MultiProcessValue(lambda: pid)
         c1 = Counter('c', 'help', registry=None)
         self.assertEqual(0, self.registry.get_sample_value('c'))
         c1.inc(1)
@@ -169,6 +167,7 @@ class TestMmapedDict(unittest.TestCase):
 
     def tearDown(self):
         os.unlink(self.tempfile)
+
 
 class TestUnsetEnv(unittest.TestCase):
     def setUp(self):

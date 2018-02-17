@@ -121,6 +121,7 @@ class CollectorRegistry(object):
                     m = Metric(metric.name, metric.documentation, metric.type)
                     m.samples = samples
                     metrics.append(m)
+
         class RestrictedRegistry(object):
             def collect(self):
                 return metrics
@@ -434,7 +435,6 @@ def _MultiProcessValue(_pidFunc=os.getpid):
             with lock:
                 self.__reset()
                 values.append(self)
-
 
         def __reset(self):
             typ, metric_name, name, labelnames, labelvalues, multiprocess_mode = self._params

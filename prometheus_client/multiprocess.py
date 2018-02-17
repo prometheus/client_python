@@ -75,7 +75,6 @@ class MultiProcessCollector(object):
                     samples.setdefault((name, labels), 0.0)
                     samples[(name, labels)] += value
 
-
             # Accumulate bucket values.
             if metric.type == 'histogram':
                 for labels, values in buckets.items():
