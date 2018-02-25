@@ -16,7 +16,8 @@ def text_string_to_metric_families(text):
 
     See text_fd_to_metric_families.
     """
-    for metric_family in text_fd_to_metric_families(StringIO.StringIO(text)):
+    data = StringIO.StringIO(text.decode('utf-8'))
+    for metric_family in text_fd_to_metric_families(data):
         yield metric_family
 
 
@@ -141,7 +142,7 @@ def _parse_sample(text):
             else:
                 value.append(char)
     return (''.join(name), labels, float(''.join(value)))
-    
+
 
 def text_fd_to_metric_families(fd):
     """Parse Prometheus text format from a file descriptor.
