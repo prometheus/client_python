@@ -34,7 +34,7 @@ PYTHON26_OR_OLDER = sys.version_info < (2, 7)
 def make_wsgi_app(registry=core.REGISTRY):
     '''Create a WSGI app which serves the metrics from a registry.'''
     def prometheus_app(environ, start_response):
-        params = parse_qs(environ['QUERY_STRING'])
+        params = parse_qs(environ.get('QUERY_STRING', ''))
         r = registry
         if 'name[]' in params:
             r = r.restricted_registry(params['name[]'])
