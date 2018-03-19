@@ -92,7 +92,6 @@ redis_connected_clients{instance="rough-snowflake-web",port="6381"} 12.0
         ]
         self.assertEqual([m], list(families))
 
-
     def test_type_help_switched(self):
         families = text_string_to_metric_families("""# HELP a help
 # TYPE a counter
@@ -244,11 +243,9 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
             def collect(self):
                 return families
 
-
         registry = CollectorRegistry()
         registry.register(TextCollector())
         self.assertEqual(text.encode('utf-8'), generate_latest(registry))
-
 
 
 if __name__ == '__main__':
