@@ -19,6 +19,7 @@ setup(
     ],
     extras_require={
         'twisted': ['twisted'],
+        'ujson': ['ujson'],
     },
     test_suite="tests",
     classifiers=[
