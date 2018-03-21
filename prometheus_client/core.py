@@ -3,7 +3,6 @@
 from __future__ import unicode_literals
 
 import copy
-import json
 import math
 import mmap
 import os
@@ -12,6 +11,11 @@ import struct
 import sys
 import time
 import types
+
+try:
+    import ujson as json
+except ImportError:
+    import json
 
 from threading import Lock
 from timeit import default_timer

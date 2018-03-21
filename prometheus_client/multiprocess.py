@@ -5,8 +5,12 @@ from __future__ import unicode_literals
 from collections import defaultdict
 
 import glob
-import json
 import os
+
+try:
+    import ujson as json
+except ImportError:
+    import json
 
 from . import core
 
