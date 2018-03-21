@@ -28,8 +28,12 @@ class MultiProcessCollector(object):
             d = core._MmapedDict(f)
             for key, value in d.read_all_values():
                 metric_name, name, labelnames, labelvalues = json.loads(key)
-                metrics.setdefault(metric_name, core.Metric(metric_name, 'Multiprocess metric', typ))
-                metric = metrics[metric_name]
+
+                metric = metrics.get(metric_name)
+                if metric is None:
+                    metric = core.Metric(metric_name, 'Multiprocess metric', typ)
+                    metrics[metric_name] = metric
+
                 if typ == 'gauge':
                     pid = parts[2][:-3]
                     metric._multiprocess_mode = parts[1]
