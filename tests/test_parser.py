@@ -15,6 +15,7 @@ from prometheus_client.core import (
     GaugeMetricFamily,
     HistogramMetricFamily,
     Metric,
+    MetricType,
     SummaryMetricFamily,
 )
 from prometheus_client.exposition import (
@@ -74,7 +75,7 @@ a_sum 2
     def test_no_metadata(self):
         families = text_string_to_metric_families("""a 1
 """)
-        metric_family = Metric("a", "", "untyped")
+        metric_family = Metric("a", "", MetricType.UNTYPED)
         metric_family.add_sample("a", {}, 1)
         self.assertEqual([metric_family], list(families))
 
@@ -85,7 +86,7 @@ a_sum 2
 redis_connected_clients{instance="rough-snowflake-web",port="6380"} 10.0
 redis_connected_clients{instance="rough-snowflake-web",port="6381"} 12.0
 """)
-        m = Metric("redis_connected_clients", "Redis connected clients", "untyped")
+        m = Metric("redis_connected_clients", "Redis connected clients", MetricType.UNTYPED)
         m.samples = [
             ("redis_connected_clients", {"instance": "rough-snowflake-web", "port": "6380"}, 10),
             ("redis_connected_clients", {"instance": "rough-snowflake-web", "port": "6381"}, 12),

@@ -30,6 +30,22 @@ _MINUS_INF = float("-inf")
 _INITIAL_MMAP_SIZE = 1 << 20
 
 
+class MetricType:
+    COUNTER = 'counter'
+    GAUGE = 'gauge'
+    HISTOGRAM = 'histogram'
+    SUMMARY = 'summary'
+    UNTYPED = 'untyped'
+
+    ALL = (
+        COUNTER,
+        GAUGE,
+        HISTOGRAM,
+        SUMMARY,
+        UNTYPED,
+    )
+
+
 class CollectorRegistry(object):
     '''Metric collector registry.
 
@@ -144,8 +160,6 @@ class CollectorRegistry(object):
 REGISTRY = CollectorRegistry(auto_describe=True)
 '''The default registry.'''
 
-_METRIC_TYPES = ('counter', 'gauge', 'summary', 'histogram', 'untyped')
-
 
 class Metric(object):
     '''A single metric family and its samples.
@@ -158,7 +172,7 @@ class Metric(object):
     def __init__(self, name, documentation, typ):
         self.name = name
         self.documentation = documentation
-        if typ not in _METRIC_TYPES:
+        if typ not in MetricType.ALL:
             raise ValueError('Invalid metric type: ' + typ)
         self.type = typ
         self.samples = []
@@ -182,7 +196,7 @@ class UntypedMetricFamily(Metric):
     For use by custom collectors.
     '''
     def __init__(self, name, documentation, value=None, labels=None):
-        Metric.__init__(self, name, documentation, 'untyped')
+        Metric.__init__(self, name, documentation, MetricType.UNTYPED)
         if labels is not None and value is not None:
             raise ValueError('Can only specify at most one of value and labels.')
         if labels is None:
@@ -206,7 +220,7 @@ class CounterMetricFamily(Metric):
     For use by custom collectors.
     '''
     def __init__(self, name, documentation, value=None, labels=None):
-        Metric.__init__(self, name, documentation, 'counter')
+        Metric.__init__(self, name, documentation, MetricType.COUNTER)
         if labels is not None and value is not None:
             raise ValueError('Can only specify at most one of value and labels.')
         if labels is None:
@@ -231,7 +245,7 @@ class GaugeMetricFamily(Metric):
     For use by custom collectors.
     '''
     def __init__(self, name, documentation, value=None, labels=None):
-        Metric.__init__(self, name, documentation, 'gauge')
+        Metric.__init__(self, name, documentation, MetricType.GAUGE)
         if labels is not None and value is not None:
             raise ValueError('Can only specify at most one of value and labels.')
         if labels is None:
@@ -256,7 +270,7 @@ class SummaryMetricFamily(Metric):
     For use by custom collectors.
     '''
     def __init__(self, name, documentation, count_value=None, sum_value=None, labels=None):
-        Metric.__init__(self, name, documentation, 'summary')
+        Metric.__init__(self, name, documentation, MetricType.SUMMARY)
         if (sum_value is None) != (count_value is None):
             raise ValueError('count_value and sum_value must be provided together.')
         if labels is not None and count_value is not None:
@@ -285,7 +299,7 @@ class HistogramMetricFamily(Metric):
     For use by custom collectors.
     '''
     def __init__(self, name, documentation, buckets=None, sum_value=None, labels=None):
-        Metric.__init__(self, name, documentation, 'histogram')
+        Metric.__init__(self, name, documentation, MetricType.HISTOGRAM)
         if (sum_value is None) != (buckets is None):
             raise ValueError('buckets and sum_value must be provided together.')
         if labels is not None and buckets is not None:
@@ -641,7 +655,7 @@ class Counter(object):
         with c.count_exceptions(ValueError):
             pass
     '''
-    _type = 'counter'
+    _type = MetricType.COUNTER
     _reserved_labelnames = []
 
     def __init__(self, name, labelnames, labelvalues):
@@ -704,7 +718,7 @@ class Gauge(object):
         my_dict = {}
         d.set_function(lambda: len(my_dict))
     '''
-    _type = 'gauge'
+    _type = MetricType.GAUGE
     _reserved_labelnames = []
 
     def __init__(self, name, labelnames, labelvalues, multiprocess_mode='all'):
@@ -792,7 +806,7 @@ class Summary(object):
         with REQUEST_TIME.time():
             pass  # Logic to be timed
     '''
-    _type = 'summary'
+    _type = MetricType.SUMMARY
     _reserved_labelnames = ['quantile']
 
     def __init__(self, name, labelnames, labelvalues):
@@ -866,7 +880,7 @@ class Histogram(object):
 
     **NB** The Python client doesn't store or expose quantile information at this time.
     '''
-    _type = 'histogram'
+    _type = MetricType.HISTOGRAM
     _reserved_labelnames = ['histogram']
 
     def __init__(self, name, labelnames, labelvalues, buckets=(.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, _INF)):

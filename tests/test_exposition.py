@@ -90,7 +90,7 @@ hh_sum 0.05
 
         class MyCollector(object):
             def collect(self):
-                metric = Metric("nonnumber", "Non number", 'untyped')
+                metric = Metric("nonnumber", "Non number", core.MetricType.UNTYPED)
                 metric.add_sample("nonnumber", {}, MyNumber())
                 yield metric
 
