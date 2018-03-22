@@ -36,7 +36,7 @@ class MultiProcessCollector(object):
                     metric = core.Metric(metric_name, 'Multiprocess metric', typ)
                     metrics[metric_name] = metric
 
-                if typ == 'gauge':
+                if typ == core.MetricType.GAUGE:
                     pid = parts[2][:-3]
                     metric._multiprocess_mode = parts[1]
                     metric.add_sample(name, tuple(zip(labelnames, labelvalues)) + (('pid', pid), ), value)
@@ -49,7 +49,7 @@ class MultiProcessCollector(object):
             samples = defaultdict(float)
             buckets = {}
             for name, labels, value in metric.samples:
-                if metric.type == 'gauge':
+                if metric.type == core.MetricType.GAUGE:
                     without_pid = tuple(l for l in labels if l[0] != 'pid')
                     if metric._multiprocess_mode == 'min':
                         current = samples.setdefault((name, without_pid), value)
@@ -64,7 +64,7 @@ class MultiProcessCollector(object):
                     else:  # all/liveall
                         samples[(name, labels)] = value
 
-                elif metric.type == 'histogram':
+                elif metric.type == core.MetricType.HISTOGRAM:
                     bucket = tuple(float(l[1]) for l in labels if l[0] == 'le')
                     if bucket:
                         # _bucket
@@ -81,7 +81,7 @@ class MultiProcessCollector(object):
                     samples[(name, labels)] += value
 
             # Accumulate bucket values.
-            if metric.type == 'histogram':
+            if metric.type == core.MetricType.HISTOGRAM:
                 for labels, values in buckets.items():
                     acc = 0.0
                     for bucket, value in sorted(values.items()):

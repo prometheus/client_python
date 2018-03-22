@@ -13,6 +13,7 @@ from prometheus_client.core import (
     Histogram,
     HistogramMetricFamily,
     Metric,
+    MetricType,
     Summary,
     SummaryMetricFamily,
     UntypedMetricFamily,
@@ -480,7 +481,7 @@ class TestCollectorRegistry(unittest.TestCase):
         Counter('c', 'help', registry=registry)
         Summary('s', 'help', registry=registry).observe(7)
 
-        m = Metric('s', 'help', 'summary')
+        m = Metric('s', 'help', MetricType.SUMMARY)
         m.samples = [('s_sum', {}, 7)]
         self.assertEquals([m], registry.restricted_registry(['s_sum']).collect())
 
