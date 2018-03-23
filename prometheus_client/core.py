@@ -345,7 +345,7 @@ class _MmapedDict(object):
 
     Not thread safe.
     """
-    def __init__(self, filename):
+    def __init__(self, filename, read_mode=False):
         self._f = open(filename, 'a+b')
         if os.fstat(self._f.fileno()).st_size == 0:
             self._f.truncate(_INITIAL_MMAP_SIZE)
@@ -358,8 +358,9 @@ class _MmapedDict(object):
             self._used = 8
             struct.pack_into(b'i', self._m, 0, self._used)
         else:
-            for key, _, pos in self._read_all_values():
-                self._positions[key] = pos
+            if not read_mode:
+                for key, _, pos in self._read_all_values():
+                    self._positions[key] = pos
 
     def _init_value(self, key):
         """Initialize a value. Lock must be held by caller."""
