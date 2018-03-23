@@ -27,7 +27,7 @@ class MultiProcessCollector(object):
         for f in glob.glob(os.path.join(self._path, '*.db')):
             parts = os.path.basename(f).split('_')
             typ = parts[0]
-            d = core._MmapedDict(f)
+            d = core._MmapedDict(f, read_mode=True)
             for key, value in d.read_all_values():
                 metric_name, name, labelnames, labelvalues = json.loads(key)
 
