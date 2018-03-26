@@ -207,6 +207,7 @@ go_gc_duration_seconds{quantile="0.75"} 0.013962066
 go_gc_duration_seconds{quantile="1"} 0.021383540000000003
 go_gc_duration_seconds_sum 56.12904785
 go_gc_duration_seconds_count 7476.0
+go_gc_duration_seconds_max 0.0
 # HELP go_goroutines Number of goroutines that currently exist.
 # TYPE go_goroutines gauge
 go_goroutines 166.0
