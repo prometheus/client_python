@@ -195,7 +195,7 @@ def text_fd_to_metric_families(fd):
                 allowed_names = {
                     'counter': [''],
                     'gauge': [''],
-                    'summary': ['_count', '_sum', ''],
+                    'summary': ['_count', '_sum', '_max', ''],
                     'histogram': ['_count', '_sum', '_bucket'],
                 }.get(typ, [''])
                 allowed_names = [name + n for n in allowed_names]
