@@ -537,11 +537,11 @@ class _LabelWrapper(object):
         if labelkwargs:
             if sorted(labelkwargs) != sorted(self._labelnames):
                 raise ValueError('Incorrect label names')
-            labelvalues = tuple([unicode(labelkwargs[l]) for l in self._labelnames])
+            labelvalues = tuple(unicode(labelkwargs[l]) for l in self._labelnames)
         else:
             if len(labelvalues) != len(self._labelnames):
                 raise ValueError('Incorrect label count')
-            labelvalues = tuple([unicode(l) for l in labelvalues])
+            labelvalues = tuple(unicode(l) for l in labelvalues)
         with self._lock:
             if labelvalues not in self._metrics:
                 self._metrics[labelvalues] = self._wrappedClass(self._name, self._labelnames, labelvalues, **self._kwargs)
@@ -551,7 +551,7 @@ class _LabelWrapper(object):
         '''Remove the given labelset from the metric.'''
         if len(labelvalues) != len(self._labelnames):
             raise ValueError('Incorrect label count')
-        labelvalues = tuple([unicode(l) for l in labelvalues])
+        labelvalues = tuple(unicode(l) for l in labelvalues)
         with self._lock:
             del self._metrics[labelvalues]
 
@@ -559,7 +559,7 @@ class _LabelWrapper(object):
         with self._lock:
             metrics = self._metrics.copy()
         for labels, metric in metrics.items():
-            series_labels = list(dict(zip(self._labelnames, labels)).items())
+            series_labels = list(zip(self._labelnames, labels))
             for suffix, sample_labels, value in metric._samples():
                 yield (suffix, dict(series_labels + list(sample_labels.items())), value)
 
