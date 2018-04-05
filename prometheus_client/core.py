@@ -29,6 +29,11 @@ _INF = float("inf")
 _MINUS_INF = float("-inf")
 _INITIAL_MMAP_SIZE = 1 << 20
 
+_pack_integer = struct.Struct(b'i').pack_into
+_pack_double = struct.Struct(b'd').pack_into
+_unpack_integer = struct.Struct(b'i').unpack_from
+_unpack_double = struct.Struct(b'd').unpack_from
+
 
 class CollectorRegistry(object):
     '''Metric collector registry.
@@ -353,10 +358,10 @@ class _MmapedDict(object):
         self._m = mmap.mmap(self._f.fileno(), self._capacity)
 
         self._positions = {}
-        self._used = struct.unpack_from(b'i', self._m, 0)[0]
+        self._used = _unpack_integer(self._m, 0)[0]
         if self._used == 0:
             self._used = 8
-            struct.pack_into(b'i', self._m, 0, self._used)
+            _pack_integer(self._m, 0, self._used)
         else:
             if not read_mode:
                 for key, _, pos in self._read_all_values():
@@ -376,19 +381,27 @@ class _MmapedDict(object):
 
         # Update how much space we've used.
         self._used += len(value)
-        struct.pack_into(b'i', self._m, 0, self._used)
+        _pack_integer(self._m, 0, self._used)
         self._positions[key] = self._used - 8
 
     def _read_all_values(self):
         """Yield (key, value, pos). No locking is performed."""
+
         pos = 8
-        while pos < self._used:
-            encoded_len = struct.unpack_from(b'i', self._m, pos)[0]
+
+        # cache variables to local ones and prevent attributes lookup
+        # on every loop iteration
+        used = self._used
+        data = self._m
+        unpack_from = struct.unpack_from
+
+        while pos < used:
+            encoded_len = _unpack_integer(data, pos)[0]
             pos += 4
-            encoded = struct.unpack_from('{0}s'.format(encoded_len).encode(), self._m, pos)[0]
+            encoded = unpack_from(('%ss' % encoded_len).encode(), data, pos)[0]
             padded_len = encoded_len + (8 - (encoded_len + 4) % 8)
             pos += padded_len
-            value = struct.unpack_from(b'd', self._m, pos)[0]
+            value = _unpack_double(data, pos)[0]
             yield encoded.decode('utf-8'), value, pos
             pos += 8
 
@@ -402,14 +415,14 @@ class _MmapedDict(object):
             self._init_value(key)
         pos = self._positions[key]
         # We assume that reading from an 8 byte aligned value is atomic
-        return struct.unpack_from(b'd', self._m, pos)[0]
+        return _unpack_double(self._m, pos)[0]
 
     def write_value(self, key, value):
         if key not in self._positions:
             self._init_value(key)
         pos = self._positions[key]
         # We assume that writing to an 8 byte aligned value is atomic
-        struct.pack_into(b'd', self._m, pos, value)
+        _pack_double(self._m, pos, value)
 
     def close(self):
         if self._f:
