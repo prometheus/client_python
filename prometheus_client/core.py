@@ -426,6 +426,8 @@ class _MmapedDict(object):
 
     def close(self):
         if self._f:
+            self._m.close()
+            self._m = None
             self._f.close()
             self._f = None
 
