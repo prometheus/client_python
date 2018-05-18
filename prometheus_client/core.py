@@ -175,11 +175,11 @@ class Metric(object):
         self.samples.append((name, labels, value))
 
     def __eq__(self, other):
-        return (isinstance(other, Metric)
-                and self.name == other.name
-                and self.documentation == other.documentation
-                and self.type == other.type
-                and self.samples == other.samples)
+        return (isinstance(other, Metric) and
+                self.name == other.name and
+                self.documentation == other.documentation and
+                self.type == other.type and
+                self.samples == other.samples)
 
 
 class UntypedMetricFamily(Metric):
@@ -722,10 +722,11 @@ class Gauge(object):
     '''
     _type = 'gauge'
     _reserved_labelnames = []
+    _MULTIPROC_MODES = frozenset(('min', 'max', 'livesum', 'liveall', 'all'))
 
     def __init__(self, name, labelnames, labelvalues, multiprocess_mode='all'):
-        if (_ValueClass._multiprocess
-                and multiprocess_mode not in ['min', 'max', 'livesum', 'liveall', 'all']):
+        if (_ValueClass._multiprocess and
+                multiprocess_mode not in self._MULTIPROC_MODES):
             raise ValueError('Invalid multiprocess mode: ' + multiprocess_mode)
         self._value = _ValueClass(
             self._type, name, name, labelnames, labelvalues,
