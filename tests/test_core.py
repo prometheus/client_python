@@ -53,7 +53,7 @@ class TestCounter(unittest.TestCase):
         try:
             f(True)
         except ValueError:
-            raised = True
+            pass
         self.assertEqual(1, self.registry.get_sample_value('c'))
 
     def test_block_decorator(self):
@@ -315,7 +315,7 @@ class TestMetricWrapper(unittest.TestCase):
         self.assertRaises(ValueError, Summary, 'c', '', labelnames=['quantile'])
 
     def test_empty_labels_list(self):
-        h = Histogram('h', 'help', [], registry=self.registry)
+        Histogram('h', 'help', [], registry=self.registry)
         self.assertEqual(0, self.registry.get_sample_value('h_sum'))
 
     def test_wrapped_original_class(self):

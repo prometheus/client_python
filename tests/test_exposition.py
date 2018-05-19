@@ -13,7 +13,6 @@ from prometheus_client import Gauge, Counter, Summary, Histogram, Metric
 from prometheus_client import CollectorRegistry, generate_latest
 from prometheus_client import push_to_gateway, pushadd_to_gateway, delete_from_gateway
 from prometheus_client import CONTENT_TYPE_LATEST, instance_ip_grouping_key
-from prometheus_client import core
 from prometheus_client.exposition import default_handler, basic_auth_handler, MetricsHandler
 
 try:
@@ -207,7 +206,8 @@ class TestPushGateway(unittest.TestCase):
         self.assertTrue('' != instance_ip_grouping_key()['instance'])
 
     def test_metrics_handler(self):
-        MyHandler = MetricsHandler.factory(core.REGISTRY)
+        handler = MetricsHandler.factory(self.registry)
+        self.assertEqual(handler.registry, self.registry)
 
 
 if __name__ == '__main__':
