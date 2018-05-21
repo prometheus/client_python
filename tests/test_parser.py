@@ -47,6 +47,8 @@ a 1
 a_count 1
 a_sum 2
 """)
+        summary = SummaryMetricFamily("a", "help", count_value=1, sum_value=2)
+        self.assertEqual([summary], list(families))
 
     def test_summary_quantiles(self):
         families = text_string_to_metric_families("""# TYPE a summary
