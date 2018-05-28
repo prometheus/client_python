@@ -94,7 +94,7 @@ class MultiProcessCollector(object):
         return metrics.values()
 
 
-def mark_process_dead(pid, path=None):
+def mark_process_dead(pid, path=None, delete_counter=False, delete_histogram=False):
     """Do bookkeeping for when one process dies in a multi-process setup."""
     if path is None:
         path = os.environ.get('prometheus_multiproc_dir')
@@ -102,3 +102,9 @@ def mark_process_dead(pid, path=None):
         os.remove(f)
     for f in glob.glob(os.path.join(path, 'gauge_liveall_{0}.db'.format(pid))):
         os.remove(f)
+    if delete_counter:
+        for f in glob.glob(os.path.join(path, 'histogram_{0}.db'.format(pid))):
+            os.remove(f)
+    if delete_histogram:
+        for f in glob.glob(os.path.join(path, 'counter_{0}.db'.format(pid))):
+            os.remove(f)
