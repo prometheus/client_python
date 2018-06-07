@@ -181,6 +181,13 @@ class Metric(object):
                 self.type == other.type and
                 self.samples == other.samples)
 
+    def __repr__(self):
+        return str(self)
+
+    def __str__(self):
+        return "<Metric name: %s, documentation: %s, type: %s, samples: %s>" % (
+            self.name, self.documentation, self.type, self.samples)
+
 
 class UntypedMetricFamily(Metric):
     '''A single untyped metric and its samples.

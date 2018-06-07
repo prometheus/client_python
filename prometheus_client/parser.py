@@ -19,129 +19,99 @@ def text_string_to_metric_families(text):
     for metric_family in text_fd_to_metric_families(StringIO.StringIO(text)):
         yield metric_family
 
+def _replace_help_escaping(s):
+    return s.replace("\\n", "\n").replace('\\\\', '\\')
 
-def _unescape_help(text):
-    result = []
-    slash = False
+def _replace_escaping(s):
+    return s.replace("\\n", "\n").replace('\\\\', '\\').replace('\\"', '"')
 
-    for char in text:
-        if slash:
-            if char == '\\':
-                result.append('\\')
-            elif char == 'n':
-                result.append('\n')
-            else:
-                result.append('\\' + char)
-            slash = False
-        else:
-            if char == '\\':
-                slash = True
-            else:
-                result.append(char)
 
-    if slash:
-        result.append('\\')
+def _parse_labels(labels_string):
+    labels = {}
+    # Return if we don't have valid labels
+    if "=" not in labels_string:
+        return labels
 
-    return ''.join(result)
+    escaping = False
+    if "\\" in labels_string:
+        escaping = True
+
+    # Copy original labels
+    sub_labels = labels_string
+    try:
+        # Process one label at a time
+        while sub_labels:
+            # The label name is before the equal
+            value_start = sub_labels.index("=")
+            label_name = sub_labels[:value_start]
+            sub_labels = sub_labels[value_start + 1:].lstrip()
+            # Find the first quote after the equal
+            quote_start = sub_labels.index('"') + 1
+            value_substr = sub_labels[quote_start:]
+
+            # Find the last unescaped quote
+            i = 0
+            while i < len(value_substr):
+                i = value_substr.index('"', i)
+                if value_substr[i - 1] != "\\":
+                    break
+                i += 1
+
+            # The label value is inbetween the first and last quote
+            quote_end = i + 1
+            label_value = sub_labels[quote_start:quote_end]
+            # Replace escaping if needed
+            if escaping:
+                label_value = _replace_escaping(label_value)
+            labels[label_name.strip()] = label_value.strip()
+
+            # Remove the processed label from the sub-slice for next iteration
+            sub_labels = sub_labels[quote_end + 1:]
+            next_comma = sub_labels.find(",") + 1
+            sub_labels = sub_labels[next_comma:].lstrip()
+
+        return labels
+
+    except ValueError:
+        raise ValueError("Invalid labels: %s" % labels_string)
+
+
+# If we have multiple values only consider the first
+def _parse_value(s):
+    s = s.lstrip()
+    separator = " "
+    if separator not in s:
+        separator = "\t"
+    i = s.find(separator)
+    if i == -1:
+        return s
+    return s[:i]
 
 
 def _parse_sample(text):
-    name = []
-    labelname = []
-    labelvalue = []
-    value = []
-    labels = {}
+    # Detect the labels in the text
+    try:
+        label_start, label_end = text.index("{"), text.rindex("}")
+        # The name is before the labels
+        name = text[:label_start].strip()
+        # We ignore the starting curly brace
+        label = text[label_start + 1:label_end]
+        # The value is after the label end (ignoring curly brace and space)
+        value = float(_parse_value(text[label_end + 2:]))
+        return name, _parse_labels(label), value
 
-    state = 'name'
+    # We don't have labels
+    except ValueError:
+        # Detect what separator is used
+        separator = " "
+        if separator not in text:
+            separator = "\t"
+        name_end = text.index(separator)
+        name = text[:name_end]
+        # The value is after the name
+        value = float(_parse_value(text[name_end:]))
+        return name, {}, value
 
-    for char in text:
-        if state == 'name':
-            if char == '{':
-                state = 'startoflabelname'
-            elif char == ' ' or char == '\t':
-                state = 'endofname'
-            else:
-                name.append(char)
-        elif state == 'endofname':
-            if char == ' ' or char == '\t':
-                pass
-            elif char == '{':
-                state = 'startoflabelname'
-            else:
-                value.append(char)
-                state = 'value'
-        elif state == 'startoflabelname':
-            if char == ' ' or char == '\t' or char == ',':
-                pass
-            elif char == '}':
-                state = 'endoflabels'
-            else:
-                state = 'labelname'
-                labelname.append(char)
-        elif state == 'labelname':
-            if char == '=':
-                state = 'labelvaluequote'
-            elif char == ' ' or char == '\t':
-                state = 'labelvalueequals'
-            else:
-                labelname.append(char)
-        elif state == 'labelvalueequals':
-            if char == '=':
-                state = 'labelvaluequote'
-            elif char == ' ' or char == '\t':
-                pass
-            else:
-                raise ValueError("Invalid line: " + text)
-        elif state == 'labelvaluequote':
-            if char == '"':
-                state = 'labelvalue'
-            elif char == ' ' or char == '\t':
-                pass
-            else:
-                raise ValueError("Invalid line: " + text)
-        elif state == 'labelvalue':
-            if char == '\\':
-                state = 'labelvalueslash'
-            elif char == '"':
-                labels[''.join(labelname)] = ''.join(labelvalue)
-                labelname = []
-                labelvalue = []
-                state = 'nextlabel'
-            else:
-                labelvalue.append(char)
-        elif state == 'labelvalueslash':
-            state = 'labelvalue'
-            if char == '\\':
-                labelvalue.append('\\')
-            elif char == 'n':
-                labelvalue.append('\n')
-            elif char == '"':
-                labelvalue.append('"')
-            else:
-                labelvalue.append('\\' + char)
-        elif state == 'nextlabel':
-            if char == ',':
-                state = 'startoflabelname'
-            elif char == '}':
-                state = 'endoflabels'
-            elif char == ' ' or char == '\t':
-                pass
-            else:
-                raise ValueError("Invalid line: " + text)
-        elif state == 'endoflabels':
-            if char == ' ' or char == '\t':
-                pass
-            else:
-                value.append(char)
-                state = 'value'
-        elif state == 'value':
-            if char == ' ' or char == '\t':
-                # Timestamps are not supported, halt
-                break
-            else:
-                value.append(char)
-    return (''.join(name), labels, float(''.join(value)))
-    
 
 def text_fd_to_metric_families(fd):
     """Parse Prometheus text format from a file descriptor.
@@ -180,7 +150,7 @@ def text_fd_to_metric_families(fd):
                     samples = []
                     allowed_names = [parts[2]]
                 if len(parts) == 4:
-                    documentation = _unescape_help(parts[3])
+                    documentation = _replace_help_escaping(parts[3])
                 else:
                     documentation = ''
             elif parts[1] == 'TYPE':
