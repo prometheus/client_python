@@ -25,7 +25,6 @@ def _replace_help_escaping(s):
 def _replace_escaping(s):
     return s.replace("\\n", "\n").replace('\\\\', '\\').replace('\\"', '"')
 
-
 def _parse_labels(labels_string):
     labels = {}
     # Return if we don't have valid labels

@@ -189,6 +189,17 @@ a{} 1
         # Can't use a simple comparison as nan != nan.
         self.assertTrue(math.isnan(list(families)[0].samples[0][2]))
 
+    def test_empty_label(self):
+        families = text_string_to_metric_families("""# TYPE a counter
+# HELP a help
+a{foo="bar"} 1
+a{foo=""} 2
+""")
+        metric_family = CounterMetricFamily("a", "help", labels=["foo"])
+        metric_family.add_metric(["bar"], 1)
+        metric_family.add_metric([""], 2)
+        self.assertEqual([metric_family], list(families))
+
     def test_escaping(self):
         families = text_string_to_metric_families("""# TYPE a counter
 # HELP a he\\n\\\\l\\tp
