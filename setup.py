@@ -1,5 +1,10 @@
 from setuptools import setup
 
+a=1
+b=2
+print(a)
+if a==b :
+    print(b)
 setup(
     name="prometheus_client",
     version="0.2.0",
