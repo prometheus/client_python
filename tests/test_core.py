@@ -484,6 +484,22 @@ class TestCollectorRegistry(unittest.TestCase):
         m.samples = [('s_sum', {}, 7)]
         self.assertEquals([m], registry.restricted_registry(['s_sum']).collect())
 
+    def test_custom_async_collector(self):
+        metric_family = CounterMetricFamily('c', 'help', value=1)
+        class CustomAsyncCollector(object):
+            async_refresh_was_invoked = False
+            def async_refresh(self):
+                self.async_refresh_was_invoked = True
+            def collect(self):
+                return [metric_family]
+        registry = CollectorRegistry()
+        collector = CustomAsyncCollector()
+        registry.register(collector)
+
+        for m in registry.collect():
+            self.assertEquals([('c', {}, 1)], m.samples)
+        self.assertTrue(collector.async_refresh_was_invoked)
+
 
 if __name__ == '__main__':
     unittest.main()

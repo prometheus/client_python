@@ -98,6 +98,12 @@ class CollectorRegistry(object):
         collectors = None
         with self._lock:
             collectors = copy.copy(self._collector_to_names)
+        # call async_refresh to kick off async refresh tasks
+        for collector in collectors:
+            async_refresh = getattr(collector, "async_refresh", None)
+            if callable(async_refresh):
+                collector.async_refresh()
+        # collect fresh metrics
         for collector in collectors:
             for metric in collector.collect():
                 yield metric
