@@ -402,6 +402,40 @@ registration time instead of `describe`. If this could cause problems, either
 implement a proper `describe`, or if that's not practical have `describe`
 return an empty list.
 
+## Async Collectors
+
+Custom collectors might need to sample from an URL, which is typically a blocking
+operation in python. With only one custom collector, this blocking operation
+can be done implicitly in the `collect` method. However, with multiple collectors,
+sampling in `collect` will block each collector sequentially.
+We can add an `async_refresh` method to a custom collector, to work with the
+standard `asyncio` package, which well be called **before** `collect` is called
+in any of the custom collectors. This facilitates means to kick-off **all**
+async tasks in parallell, and thus introducing minimal delay.
+
+Here is the anatomy of a custom async collector:
+
+```python
+import asyncio
+
+from prometheus_client.core import GaugeMetricFamily, CounterMetricFamily, REGISTRY
+
+class CustomAsyncCollector(object):
+    def __init__(self):
+        self._async_task = None
+
+    def async_refresh(self):
+        self._async_task = asyncio.get_event_loop().create_task( ... )
+
+    def collect(self):
+        asyncio.get_event_loop().run_until_complete(self._async_task)
+        if self._async_task.exception() is not None:
+          result = self._async_task.result()
+          yield ...
+
+REGISTRY.register(CustomAsyncCollector())
+```
+
 
 ## Multiprocess Mode (Gunicorn)
 
