@@ -2,8 +2,12 @@ from __future__ import unicode_literals
 
 import inspect
 import time
-import unittest
 from concurrent.futures import ThreadPoolExecutor
+
+try:
+    import unittest2 as unittest
+except ImportError:
+    import unittest
 
 
 from prometheus_client.core import (
