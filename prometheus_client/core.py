@@ -972,7 +972,7 @@ class _Timer(object):
     def __init__(self, callback):
         self._callback = callback
         self._storage = local()
-        self.key = "k_{}".format(id(self))
+        self.key = "k_{1}".format(id(self))
 
     def __enter__(self):
         setattr(self._storage, self.key, default_timer())
