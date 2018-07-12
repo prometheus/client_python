@@ -2,7 +2,13 @@ from __future__ import unicode_literals
 
 import inspect
 import time
-import unittest
+from concurrent.futures import ThreadPoolExecutor
+
+try:
+    import unittest2 as unittest
+except ImportError:
+    import unittest
+
 
 from prometheus_client.core import (
     CollectorRegistry,
@@ -124,6 +130,26 @@ class TestGauge(unittest.TestCase):
         f()
         self.assertNotEqual(0, self.registry.get_sample_value('g'))
 
+    def test_function_decorator_multithread(self):
+        self.assertEqual(0, self.registry.get_sample_value('g'))
+        workers = 2
+        pool = ThreadPoolExecutor(max_workers=workers)
+
+        @self.gauge.time()
+        def f(duration):
+            time.sleep(duration)
+
+        expected_duration = 1
+        pool.submit(f, expected_duration)
+        time.sleep(0.7 * expected_duration)
+        pool.submit(f, expected_duration * 2)
+        time.sleep(expected_duration)
+
+        rounding_coefficient = 0.9
+        adjusted_expected_duration = expected_duration * rounding_coefficient
+        self.assertLess(adjusted_expected_duration, self.registry.get_sample_value('g'))
+        pool.shutdown(wait=True)
+
     def test_time_block_decorator(self):
         self.assertEqual(0, self.registry.get_sample_value('g'))
         with self.gauge.time():
@@ -154,6 +180,32 @@ class TestSummary(unittest.TestCase):
 
         f()
         self.assertEqual(1, self.registry.get_sample_value('s_count'))
+
+    def test_function_decorator_multithread(self):
+        self.assertEqual(0, self.registry.get_sample_value('s_count'))
+        summary2 = Summary('s2', 'help', registry=self.registry)
+
+        workers = 3
+        duration = 0.1
+        pool = ThreadPoolExecutor(max_workers=workers)
+
+        @self.summary.time()
+        def f():
+            time.sleep(duration / 2)
+            # Testing that different instances of timer do not interfere
+            summary2.time()(lambda : time.sleep(duration / 2))()
+
+        jobs = workers * 3
+        for i in range(jobs):
+            pool.submit(f)
+        pool.shutdown(wait=True)
+
+        self.assertEqual(jobs, self.registry.get_sample_value('s_count'))
+
+        rounding_coefficient = 0.9
+        total_expected_duration = jobs * duration * rounding_coefficient
+        self.assertLess(total_expected_duration, self.registry.get_sample_value('s_sum'))
+        self.assertLess(total_expected_duration / 2 , self.registry.get_sample_value('s2_sum'))
 
     def test_block_decorator(self):
         self.assertEqual(0, self.registry.get_sample_value('s_count'))
@@ -233,6 +285,27 @@ class TestHistogram(unittest.TestCase):
         f()
         self.assertEqual(1, self.registry.get_sample_value('h_count'))
         self.assertEqual(1, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
+
+    def test_function_decorator_multithread(self):
+        self.assertEqual(0, self.registry.get_sample_value('h_count'))
+        workers = 3
+        duration = 0.1
+        pool = ThreadPoolExecutor(max_workers=workers)
+
+        @self.histogram.time()
+        def f():
+            time.sleep(duration)
+
+        jobs = workers * 3
+        for i in range(jobs):
+            pool.submit(f)
+        pool.shutdown(wait=True)
+
+        self.assertEqual(jobs, self.registry.get_sample_value('h_count'))
+
+        rounding_coefficient = 0.9
+        total_expected_duration = jobs * duration * rounding_coefficient
+        self.assertLess(total_expected_duration, self.registry.get_sample_value('h_sum'))
 
     def test_block_decorator(self):
         self.assertEqual(0, self.registry.get_sample_value('h_count'))
