@@ -183,13 +183,17 @@ class TestSummary(unittest.TestCase):
 
     def test_function_decorator_multithread(self):
         self.assertEqual(0, self.registry.get_sample_value('s_count'))
+        summary2 = Summary('s2', 'help', registry=self.registry)
+
         workers = 3
         duration = 0.1
         pool = ThreadPoolExecutor(max_workers=workers)
 
         @self.summary.time()
         def f():
-            time.sleep(duration)
+            time.sleep(duration / 2)
+            # Testing that different instances of timer do not interfere
+            summary2.time()(lambda : time.sleep(duration / 2))()
 
         jobs = workers * 3
         for i in range(jobs):
@@ -201,6 +205,7 @@ class TestSummary(unittest.TestCase):
         rounding_coefficient = 0.9
         total_expected_duration = jobs * duration * rounding_coefficient
         self.assertLess(total_expected_duration, self.registry.get_sample_value('s_sum'))
+        self.assertLess(total_expected_duration / 2 , self.registry.get_sample_value('s2_sum'))
 
     def test_block_decorator(self):
         self.assertEqual(0, self.registry.get_sample_value('s_count'))
