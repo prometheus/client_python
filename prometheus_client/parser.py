@@ -156,6 +156,16 @@ def text_fd_to_metric_families(fd):
     allowed_names = []
 
     def build_metric(name, documentation, typ, samples):
+        # Munge counters into OpenMetrics representation
+        # used internally.
+        if typ == 'counter': 
+            if name.endswith('_total'):
+                name = name[:-6]
+            else:
+                new_samples = []
+                for s in samples:
+                    new_samples.append(tuple((s[0] + '_total', ) + s[1:]))
+                    samples = new_samples
         metric = core.Metric(name, documentation, typ)
         metric.samples = samples
         return metric

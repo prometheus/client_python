@@ -31,8 +31,12 @@ class TestGenerateText(unittest.TestCase):
     def test_counter(self):
         c = Counter('cc', 'A counter', registry=self.registry)
         c.inc()
-        self.assertEqual(b'# HELP cc A counter\n# TYPE cc counter\ncc 1.0\n', generate_latest(self.registry))
+        self.assertEqual(b'# HELP cc_total A counter\n# TYPE cc_total counter\ncc_total 1.0\n', generate_latest(self.registry))
 
+    def test_counter_total(self):
+        c = Counter('cc_total', 'A counter', registry=self.registry)
+        c.inc()
+        self.assertEqual(b'# HELP cc_total A counter\n# TYPE cc_total counter\ncc_total 1.0\n', generate_latest(self.registry))
     def test_gauge(self):
         g = Gauge('gg', 'A gauge', registry=self.registry)
         g.set(17)
@@ -71,12 +75,12 @@ hh_sum 0.05
     def test_unicode(self):
         c = Counter('cc', '\u4500', ['l'], registry=self.registry)
         c.labels('\u4500').inc()
-        self.assertEqual(b'# HELP cc \xe4\x94\x80\n# TYPE cc counter\ncc{l="\xe4\x94\x80"} 1.0\n', generate_latest(self.registry))
+        self.assertEqual(b'# HELP cc_total \xe4\x94\x80\n# TYPE cc_total counter\ncc_total{l="\xe4\x94\x80"} 1.0\n', generate_latest(self.registry))
 
     def test_escaping(self):
         c = Counter('cc', 'A\ncount\\er', ['a'], registry=self.registry)
         c.labels('\\x\n"').inc(1)
-        self.assertEqual(b'# HELP cc A\\ncount\\\\er\n# TYPE cc counter\ncc{a="\\\\x\\n\\""} 1.0\n', generate_latest(self.registry))
+        self.assertEqual(b'# HELP cc_total A\\ncount\\\\er\n# TYPE cc_total counter\ncc_total{a="\\\\x\\n\\""} 1.0\n', generate_latest(self.registry))
 
     def test_nonnumber(self):
 

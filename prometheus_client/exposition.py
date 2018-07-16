@@ -67,10 +67,15 @@ def generate_latest(registry=core.REGISTRY):
     '''Returns the metrics from the registry in latest text format as a string.'''
     output = []
     for metric in registry.collect():
+        mname = metric.name
+        if metric.type == 'counter':
+            mname = mname + '_total'
         output.append('# HELP {0} {1}'.format(
-            metric.name, metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
-        output.append('\n# TYPE {0} {1}\n'.format(metric.name, metric.type))
+            mname, metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
+        output.append('\n# TYPE {0} {1}\n'.format(mname, metric.type))
         for name, labels, value in metric.samples:
+            if name == metric.name + '_created':
+                continue  # Ignore OpenMetrics specific sample.
             if labels:
                 labelstr = '{{{0}}}'.format(','.join(
                     ['{0}="{1}"'.format(

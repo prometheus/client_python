@@ -44,7 +44,7 @@ class TestGraphiteBridge(unittest.TestCase):
         self.gb.push()
         self.t.join()
 
-        self.assertEqual(b'c 1.0 1434898897\n', self.data)
+        self.assertEqual(b'c_total 1.0 1434898897\n', self.data)
 
     def test_labels(self):
         labels = Counter('labels', 'help', ['a', 'b'], registry=self.registry)
@@ -53,7 +53,7 @@ class TestGraphiteBridge(unittest.TestCase):
         self.gb.push()
         self.t.join()
 
-        self.assertEqual(b'labels.a.c.b.d 1.0 1434898897\n', self.data)
+        self.assertEqual(b'labels_total.a.c.b.d 1.0 1434898897\n', self.data)
 
     def test_prefix(self):
         labels = Counter('labels', 'help', ['a', 'b'], registry=self.registry)
@@ -62,7 +62,7 @@ class TestGraphiteBridge(unittest.TestCase):
         self.gb.push(prefix='pre.fix')
         self.t.join()
 
-        self.assertEqual(b'pre.fix.labels.a.c.b.d 1.0 1434898897\n', self.data)
+        self.assertEqual(b'pre.fix.labels_total.a.c.b.d 1.0 1434898897\n', self.data)
 
     def test_sanitizing(self):
         labels = Counter('labels', 'help', ['a'], registry=self.registry)
@@ -71,4 +71,4 @@ class TestGraphiteBridge(unittest.TestCase):
         self.gb.push()
         self.t.join()
 
-        self.assertEqual(b'labels.a.c__8 1.0 1434898897\n', self.data)
+        self.assertEqual(b'labels_total.a.c__8 1.0 1434898897\n', self.data)

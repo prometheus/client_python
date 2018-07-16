@@ -85,8 +85,9 @@ class CollectorRegistry(object):
 
         result = []
         type_suffixes = {
-            'summary': ['', '_sum', '_count'],
-            'histogram': ['_bucket', '_sum', '_count']
+            'counter': ['_total', '_created'],
+            'summary': ['', '_sum', '_count', '_created'],
+            'histogram': ['_bucket', '_sum', '_count', '_created']
         }
         for metric in desc_func():
             for suffix in type_suffixes.get(metric.type, ['']):
@@ -213,7 +214,10 @@ class CounterMetricFamily(Metric):
 
     For use by custom collectors.
     '''
-    def __init__(self, name, documentation, value=None, labels=None):
+    def __init__(self, name, documentation, value=None, labels=None, created=None):
+        # Glue code for pre-OpenMetrics metrics.
+        if name.endswith('_total'):
+           name = name[:-6]
         Metric.__init__(self, name, documentation, 'counter')
         if labels is not None and value is not None:
             raise ValueError('Can only specify at most one of value and labels.')
@@ -221,16 +225,19 @@ class CounterMetricFamily(Metric):
             labels = []
         self._labelnames = tuple(labels)
         if value is not None:
-            self.add_metric([], value)
+            self.add_metric([], value, created)
 
-    def add_metric(self, labels, value):
+    def add_metric(self, labels, value, created=None):
         '''Add a metric to the metric family.
 
         Args:
           labels: A list of label values
-          value: The value of the metric.
+          value: The value of the metric
+          created: Optional unix timestamp the child was created at.
         '''
-        self.samples.append((self.name, dict(zip(self._labelnames, labels)), value))
+        self.samples.append((self.name + '_total', dict(zip(self._labelnames, labels)), value))
+        if created is not None:
+            self.samples.append((self.name + '_created', dict(zip(self._labelnames, labels)), created))
 
 
 class GaugeMetricFamily(Metric):
@@ -592,6 +599,9 @@ def _MetricWrapper(cls):
             full_name += subsystem + '_'
         full_name += name
 
+        if cls._type == 'counter' and full_name.endswith('_total'):
+            full_name = full_name[:-6]  # Munge to OpenMetrics.
+
         if labelnames:
             labelnames = tuple(labelnames)
             for l in labelnames:
@@ -664,7 +674,9 @@ class Counter(object):
     _reserved_labelnames = []
 
     def __init__(self, name, labelnames, labelvalues):
-        self._value = _ValueClass(self._type, name, name, labelnames, labelvalues)
+        if name.endswith('_total'):
+           name = name[:-6]
+        self._value = _ValueClass(self._type, name, name + '_total', labelnames, labelvalues)
 
     def inc(self, amount=1):
         '''Increment counter by the given amount.'''
@@ -682,7 +694,7 @@ class Counter(object):
         return _ExceptionCounter(self, exception)
 
     def _samples(self):
-        return (('', {}, self._value.get()), )
+        return (('_total', {}, self._value.get()), )
 
 
 @_MetricWrapper
