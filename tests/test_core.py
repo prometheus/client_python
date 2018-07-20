@@ -207,6 +207,29 @@ class TestSummary(unittest.TestCase):
         self.assertLess(total_expected_duration, self.registry.get_sample_value('s_sum'))
         self.assertLess(total_expected_duration / 2 , self.registry.get_sample_value('s2_sum'))
 
+    def test_function_decorator_reentrancy(self):
+        self.assertEqual(0, self.registry.get_sample_value('s_count'))
+
+        iterations = 2
+        sleep = 0.1
+
+        @self.summary.time()
+        def f(i=1):
+            time.sleep(sleep)
+            if i == iterations:
+                return
+            f(i+1)
+
+        f()
+
+        self.assertEqual(iterations, self.registry.get_sample_value('s_count'))
+
+        # Arithmetic series with d == a_1
+        total_expected_duration = sleep * (iterations**2 + iterations) / 2
+        rounding_coefficient = 0.9
+        total_expected_duration *= rounding_coefficient
+        self.assertLess(total_expected_duration, self.registry.get_sample_value('s_sum'))
+
     def test_block_decorator(self):
         self.assertEqual(0, self.registry.get_sample_value('s_count'))
         with self.summary.time():

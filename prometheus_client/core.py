@@ -13,7 +13,7 @@ import sys
 import time
 import types
 
-from threading import local, Lock
+from threading import Lock
 from timeit import default_timer
 
 from .decorator import decorate
@@ -971,20 +971,22 @@ class _InprogressTracker(object):
 class _Timer(object):
     def __init__(self, callback):
         self._callback = callback
-        self._storage = local()
-        self.key = "k_{0}".format(id(self))
+
+    def _new_timer(self):
+        return self.__class__(self._callback)
 
     def __enter__(self):
-        setattr(self._storage, self.key, default_timer())
+        self._start = default_timer()
 
     def __exit__(self, typ, value, traceback):
-        start = getattr(self._storage, self.key)
         # Time can go backwards.
-        duration = max(default_timer() - start, 0)
+        duration = max(default_timer() - self._start, 0)
         self._callback(duration)
 
     def __call__(self, f):
         def wrapped(func, *args, **kwargs):
-            with self:
+            # Obtaining new instance of timer every time
+            # ensures thread safety and reentrancy.
+            with self._new_timer():
                 return func(*args, **kwargs)
         return decorate(f, wrapped)
