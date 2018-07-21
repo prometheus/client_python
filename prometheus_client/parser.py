@@ -2,6 +2,8 @@
 
 from __future__ import unicode_literals
 
+import re
+
 try:
     import StringIO
 except ImportError:
@@ -19,11 +21,37 @@ def text_string_to_metric_families(text):
     for metric_family in text_fd_to_metric_families(StringIO.StringIO(text)):
         yield metric_family
 
+
+ESCAPE_SEQUENCES = {
+    '\\\\': '\\',
+    '\\n': '\n',
+    '\\"': '"',
+}
+
+
+def replace_escape_sequence(match):
+    return ESCAPE_SEQUENCES[match.group(0)]
+
+
+HELP_ESCAPING_RE = re.compile(r'\\[\\n]')
+ESCAPING_RE = re.compile(r'\\[\\n"]')
+
+
 def _replace_help_escaping(s):
-    return s.replace("\\n", "\n").replace('\\\\', '\\')
+    return HELP_ESCAPING_RE.sub(replace_escape_sequence, s)
+
 
 def _replace_escaping(s):
-    return s.replace("\\n", "\n").replace('\\\\', '\\').replace('\\"', '"')
+    return ESCAPING_RE.sub(replace_escape_sequence, s)
+
+
+def _is_character_escaped(s, charpos):
+    num_bslashes = 0
+    while (charpos > num_bslashes and
+           s[charpos - 1 - num_bslashes] == '\\'):
+        num_bslashes += 1
+    return num_bslashes % 2 == 1
+
 
 def _parse_labels(labels_string):
     labels = {}
@@ -52,7 +80,7 @@ def _parse_labels(labels_string):
             i = 0
             while i < len(value_substr):
                 i = value_substr.index('"', i)
-                if value_substr[i - 1] != "\\":
+                if not _is_character_escaped(value_substr, i):
                     break
                 i += 1
 
@@ -62,7 +90,7 @@ def _parse_labels(labels_string):
             # Replace escaping if needed
             if escaping:
                 label_value = _replace_escaping(label_value)
-            labels[label_name.strip()] = label_value.strip()
+            labels[label_name.strip()] = label_value
 
             # Remove the processed label from the sub-slice for next iteration
             sub_labels = sub_labels[quote_end + 1:]
