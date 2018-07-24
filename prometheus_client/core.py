@@ -765,7 +765,7 @@ class Gauge(object):
 
         Can be used as a function decorator or context manager.
         '''
-        return _GaugeTimer(self)
+        return _Timer(self.set)
 
     def set_function(self, f):
         '''Call the provided function to return the Gauge value.
@@ -829,7 +829,7 @@ class Summary(object):
 
         Can be used as a function decorator or context manager.
         '''
-        return _SummaryTimer(self)
+        return _Timer(self.observe)
 
     def _samples(self):
         return (
@@ -919,7 +919,7 @@ class Histogram(object):
 
         Can be used as a function decorator or context manager.
         '''
-        return _HistogramTimer(self)
+        return _Timer(self.observe)
 
     def _samples(self):
         samples = []
@@ -930,24 +930,6 @@ class Histogram(object):
         samples.append(('_count', {}, acc))
         samples.append(('_sum', {}, self._sum.get()))
         return tuple(samples)
-
-
-class _HistogramTimer(object):
-    def __init__(self, histogram):
-        self._histogram = histogram
-
-    def __enter__(self):
-        self._start = default_timer()
-
-    def __exit__(self, typ, value, traceback):
-        # Time can go backwards.
-        self._histogram.observe(max(default_timer() - self._start, 0))
-
-    def __call__(self, f):
-        def wrapped(func, *args, **kwargs):
-            with self:
-                return func(*args, **kwargs)
-        return decorate(f, wrapped)
 
 
 class _ExceptionCounter(object):
@@ -986,37 +968,25 @@ class _InprogressTracker(object):
         return decorate(f, wrapped)
 
 
-class _SummaryTimer(object):
-    def __init__(self, summary):
-        self._summary = summary
+class _Timer(object):
+    def __init__(self, callback):
+        self._callback = callback
+
+    def _new_timer(self):
+        return self.__class__(self._callback)
 
     def __enter__(self):
         self._start = default_timer()
 
     def __exit__(self, typ, value, traceback):
         # Time can go backwards.
-        self._summary.observe(max(default_timer() - self._start, 0))
+        duration = max(default_timer() - self._start, 0)
+        self._callback(duration)
 
     def __call__(self, f):
         def wrapped(func, *args, **kwargs):
-            with self:
-                return func(*args, **kwargs)
-        return decorate(f, wrapped)
-
-
-class _GaugeTimer(object):
-    def __init__(self, gauge):
-        self._gauge = gauge
-
-    def __enter__(self):
-        self._start = default_timer()
-
-    def __exit__(self, typ, value, traceback):
-        # Time can go backwards.
-        self._gauge.set(max(default_timer() - self._start, 0))
-
-    def __call__(self, f):
-        def wrapped(func, *args, **kwargs):
-            with self:
+            # Obtaining new instance of timer every time
+            # ensures thread safety and reentrancy.
+            with self._new_timer():
                 return func(*args, **kwargs)
         return decorate(f, wrapped)
