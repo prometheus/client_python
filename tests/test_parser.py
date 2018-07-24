@@ -167,14 +167,32 @@ a \t{\t foo   = "boz"\t}\t 5
         families = text_string_to_metric_families("""# TYPE a counter
 # HELP a help
 a{foo="bar",} 1
+a{foo="baz",  } 1
 # TYPE b counter
 # HELP b help
 b{,} 2
+# TYPE c counter
+# HELP c help
+c{  ,} 3
+# TYPE d counter
+# HELP d help
+d{,  } 4
 """)
         a = CounterMetricFamily("a", "help", labels=["foo"])
         a.add_metric(["bar"], 1)
+        a.add_metric(["baz"], 1)
         b = CounterMetricFamily("b", "help", value=2)
-        self.assertEqual([a, b], list(families))
+        c = CounterMetricFamily("c", "help", value=3)
+        d = CounterMetricFamily("d", "help", value=4)
+        self.assertEqual([a, b, c, d], list(families))
+
+    def test_multiple_trailing_commas(self):
+        text = """# TYPE a counter
+# HELP a help
+a{foo="bar",, } 1
+"""
+        self.assertRaises(ValueError,
+                          lambda: list(text_string_to_metric_families(text)))
 
     def test_empty_brackets(self):
         families = text_string_to_metric_families("""# TYPE a counter
@@ -199,6 +217,50 @@ a{foo=""} 2
         metric_family.add_metric(["bar"], 1)
         metric_family.add_metric([""], 2)
         self.assertEqual([metric_family], list(families))
+
+    def test_label_escaping(self):
+        for escaped_val, unescaped_val in [
+                ('foo', 'foo'),
+                ('\\foo', '\\foo'),
+                ('\\\\foo', '\\foo'),
+                ('foo\\\\', 'foo\\'),
+                ('\\\\', '\\'),
+                ('\\n', '\n'),
+                ('\\\\n', '\\n'),
+                ('\\\\\\n', '\\\n'),
+                ('\\"', '"'),
+                ('\\\\\\"', '\\"')]:
+            families = list(text_string_to_metric_families("""
+# TYPE a counter
+# HELP a help
+a{foo="%s",bar="baz"} 1
+""" % escaped_val))
+            metric_family = CounterMetricFamily(
+                "a", "help", labels=["foo", "bar"])
+            metric_family.add_metric([unescaped_val, "baz"], 1)
+            self.assertEqual([metric_family], list(families))
+
+    def test_help_escaping(self):
+        for escaped_val, unescaped_val in [
+                ('foo', 'foo'),
+                ('\\foo', '\\foo'),
+                ('\\\\foo', '\\foo'),
+                ('foo\\', 'foo\\'),
+                ('foo\\\\', 'foo\\'),
+                ('\\n', '\n'),
+                ('\\\\n', '\\n'),
+                ('\\\\\\n', '\\\n'),
+                ('\\"', '\\"'),
+                ('\\\\"', '\\"'),
+                ('\\\\\\"', '\\\\"')]:
+            families = list(text_string_to_metric_families("""
+# TYPE a counter
+# HELP a %s
+a{foo="bar"} 1
+""" % escaped_val))
+            metric_family = CounterMetricFamily("a", unescaped_val, labels=["foo"])
+            metric_family.add_metric(["bar"], 1)
+            self.assertEqual([metric_family], list(families))
 
     def test_escaping(self):
         families = text_string_to_metric_families("""# TYPE a counter
