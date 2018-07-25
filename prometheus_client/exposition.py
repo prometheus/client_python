@@ -124,10 +124,12 @@ class _ThreadingSimpleServer(ThreadingMixIn, HTTPServer):
     """Thread per request HTTP server."""
 
 
-def start_http_server(port, addr='', registry=core.REGISTRY):
+def start_http_server(port, addr='', ssl_ctx=None, registry=core.REGISTRY):
     """Starts an HTTP server for prometheus metrics as a daemon thread"""
     CustomMetricsHandler = MetricsHandler.factory(registry)
     httpd = _ThreadingSimpleServer((addr, port), CustomMetricsHandler)
+    if ssl_ctx:
+        httpd.socket = ssl_ctx.wrap_socket(httpd.socket, server_side=True)
     t = threading.Thread(target=httpd.serve_forever)
     t.daemon = True
     t.start()
