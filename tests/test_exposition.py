@@ -9,7 +9,7 @@ if sys.version_info < (2, 7):
 else:
     import unittest
 
-from prometheus_client import Gauge, Counter, Summary, Histogram, Metric
+from prometheus_client import Gauge, Counter, Summary, Histogram, Info, Metric
 from prometheus_client import CollectorRegistry, generate_latest
 from prometheus_client import push_to_gateway, pushadd_to_gateway, delete_from_gateway
 from prometheus_client import CONTENT_TYPE_LATEST, instance_ip_grouping_key
@@ -71,6 +71,11 @@ hh_bucket{le="+Inf"} 1.0
 hh_count 1.0
 hh_sum 0.05
 ''', generate_latest(self.registry))
+
+    def test_info(self):
+        i = Info('ii', 'A info', ['a', 'b'], registry=self.registry)
+        i.labels('c', 'd').info({'foo': 'bar'})
+        self.assertEqual(b'# HELP ii_info A info\n# TYPE ii_info gauge\nii_info{a="c",b="d",foo="bar"} 1.0\n', generate_latest(self.registry))
 
     def test_unicode(self):
         c = Counter('cc', '\u4500', ['l'], registry=self.registry)

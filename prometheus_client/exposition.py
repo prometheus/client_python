@@ -10,8 +10,8 @@ import threading
 from contextlib import closing
 from wsgiref.simple_server import make_server, WSGIRequestHandler
 
-from . import core
-import openmetrics.exposition
+from prometheus_client import core
+from prometheus_client import openmetrics
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
     from SocketServer import ThreadingMixIn
@@ -70,11 +70,15 @@ def generate_latest(registry=core.REGISTRY):
     output = []
     for metric in registry.collect():
         mname = metric.name
-        if metric.type == 'counter':
+        mtype = metric.type
+        if mtype == 'counter':
             mname = mname + '_total'
+        elif mtype == 'info':
+            mname = mname + '_info'
+            mtype = 'gauge'
         output.append('# HELP {0} {1}'.format(
             mname, metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
-        output.append('\n# TYPE {0} {1}\n'.format(mname, metric.type))
+        output.append('\n# TYPE {0} {1}\n'.format(mname, mtype))
         for name, labels, value in metric.samples:
             if name == metric.name + '_created':
                 continue  # Ignore OpenMetrics specific sample.

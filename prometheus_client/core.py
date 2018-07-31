@@ -87,7 +87,8 @@ class CollectorRegistry(object):
         type_suffixes = {
             'counter': ['_total', '_created'],
             'summary': ['', '_sum', '_count', '_created'],
-            'histogram': ['_bucket', '_sum', '_count', '_created']
+            'histogram': ['_bucket', '_sum', '_count', '_created'],
+            'info': ['_info'],
         }
         for metric in desc_func():
             for suffix in type_suffixes.get(metric.type, ['']):
@@ -150,7 +151,7 @@ class CollectorRegistry(object):
 REGISTRY = CollectorRegistry(auto_describe=True)
 '''The default registry.'''
 
-_METRIC_TYPES = ('counter', 'gauge', 'summary', 'histogram', 'untyped')
+_METRIC_TYPES = ('counter', 'gauge', 'summary', 'histogram', 'untyped', 'info')
 
 
 class Metric(object):
@@ -325,6 +326,32 @@ class HistogramMetricFamily(Metric):
         # +Inf is last and provides the count value.
         self.samples.append((self.name + '_count', dict(zip(self._labelnames, labels)), buckets[-1][1]))
         self.samples.append((self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value))
+
+
+class InfoMetricFamily(Metric):
+    '''A single info and its samples.
+
+    For use by custom collectors.
+    '''
+    def __init__(self, name, documentation, value=None, labels=None):
+        Metric.__init__(self, name, documentation, 'info')
+        if labels is not None and value is not None:
+            raise ValueError('Can only specify at most one of value and labels.')
+        if labels is None:
+            labels = []
+        self._labelnames = tuple(labels)
+        if value is not None:
+            self.add_metric([], value)
+
+    def add_metric(self, labels, value):
+        '''Add a metric to the metric family.
+
+        Args:
+          labels: A list of label values
+          value: A dict of labels
+        '''
+        self.samples.append((self.name + '_info', 
+            dict(dict(zip(self._labelnames, labels)), **value), 1))
 
 
 class _MutexValue(object):
@@ -899,7 +926,7 @@ class Histogram(object):
     **NB** The Python client doesn't store or expose quantile information at this time.
     '''
     _type = 'histogram'
-    _reserved_labelnames = ['histogram']
+    _reserved_labelnames = ['le']
 
     def __init__(self, name, labelnames, labelvalues, buckets=(.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, _INF)):
         self._sum = _ValueClass(self._type, name, name + '_sum', labelnames, labelvalues)
@@ -942,6 +969,46 @@ class Histogram(object):
         samples.append(('_count', {}, acc))
         samples.append(('_sum', {}, self._sum.get()))
         return tuple(samples)
+
+
+@_MetricWrapper
+class Info(object):
+    '''Info metric, key-value pairs.
+
+     Examples of Info include:
+        - Build information
+        - Version information
+        - Potential target metadata
+
+     Example usage:
+        from prometheus_client import Info
+
+        g = Info('my_build_info', 'Description of info')
+        g.info({'version': '1.2.3', 'buildhost': 'foo@bar'})
+
+     Info metrics do not work in multiprocess mode.
+    '''
+    _type = 'info'
+    _reserved_labelnames = []
+    _labelnames = []
+    _value = {}
+
+    def __init__(self, name, labelnames, labelvalues):
+        self._labelnames = set(labelnames)
+        self._lock = Lock()
+
+    def info(self, val):
+        '''Set info metric.'''
+        if self._labelnames.intersection(val.keys()):
+            raise ValueError('Overlapping labels for Info metric, metric: %s child: %s' % (
+                self._labelnames, val))
+        with self._lock:
+            self._value = dict(val)
+
+
+    def _samples(self):
+        with self._lock:
+            return (('_info', self._value, 1.0,), )
 
 
 class _ExceptionCounter(object):

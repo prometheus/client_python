@@ -67,7 +67,7 @@ Counters go up, and reset when the process restarts.
 
 ```python
 from prometheus_client import Counter
-c = Counter('my_failures_total', 'Description of counter')
+c = Counter('my_failures', 'Description of counter')
 c.inc()     # Increment by 1
 c.inc(1.6)  # Increment by given value
 ```
@@ -167,6 +167,17 @@ def f():
 
 with h.time():
   pass
+```
+
+
+### Info
+
+Info tracks key-value information, usually about a whole target.
+
+```python
+from prometheus_client import Info
+i = Info('my_build_version', 'Description of info')
+i.info({'version': '1.2.3', 'buildhost': 'foo@bar'})
 ```
 
 ### Labels
@@ -414,6 +425,7 @@ This comes with a number of limitations:
 
 - Registries can not be used as normal, all instantiated metrics are exported
 - Custom collectors do not work (e.g. cpu and memory metrics)
+- Info metrics do not work
 - The pushgateway cannot be used
 - Gauges cannot use the `pid` label
 

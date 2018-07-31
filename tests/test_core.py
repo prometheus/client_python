@@ -18,6 +18,8 @@ from prometheus_client.core import (
     GaugeMetricFamily,
     Histogram,
     HistogramMetricFamily,
+    Info,
+    InfoMetricFamily,
     Metric,
     Summary,
     SummaryMetricFamily,
@@ -287,6 +289,8 @@ class TestHistogram(unittest.TestCase):
         self.assertRaises(ValueError, Histogram, 'h', 'help', registry=None, buckets=[3, 1])
 
     def test_labels(self):
+        self.assertRaises(ValueError, Histogram, 'h2', 'help', registry=None, labelnames=['le'])
+
         self.labels.labels('a').observe(2)
         self.assertEqual(0, self.registry.get_sample_value('hl_bucket', {'le': '1.0', 'l': 'a'}))
         self.assertEqual(1, self.registry.get_sample_value('hl_bucket', {'le': '2.5', 'l': 'a'}))
@@ -294,6 +298,7 @@ class TestHistogram(unittest.TestCase):
         self.assertEqual(1, self.registry.get_sample_value('hl_bucket', {'le': '+Inf', 'l': 'a'}))
         self.assertEqual(1, self.registry.get_sample_value('hl_count', {'l': 'a'}))
         self.assertEqual(2, self.registry.get_sample_value('hl_sum', {'l': 'a'}))
+
 
     def test_function_decorator(self):
         self.assertEqual(0, self.registry.get_sample_value('h_count'))
@@ -337,6 +342,25 @@ class TestHistogram(unittest.TestCase):
             pass
         self.assertEqual(1, self.registry.get_sample_value('h_count'))
         self.assertEqual(1, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
+
+
+class TestInfo(unittest.TestCase):
+    def setUp(self):
+        self.registry = CollectorRegistry()
+        self.info = Info('i', 'help', registry=self.registry)
+        self.labels = Info('il', 'help', ['l'], registry=self.registry)
+
+    def test_info(self):
+        self.assertEqual(1, self.registry.get_sample_value('i_info', {}))
+        self.info.info({'a': 'b', 'c': 'd'})
+        self.assertEqual(None, self.registry.get_sample_value('i_info', {}))
+        self.assertEqual(1, self.registry.get_sample_value('i_info', {'a': 'b', 'c': 'd'}))
+
+    def test_labels(self):
+        self.assertRaises(ValueError, self.labels.labels('a').info, {'l': ''})
+
+        self.labels.labels('a').info({'foo': 'bar'})
+        self.assertEqual(1, self.registry.get_sample_value('il_info', {'l': 'a', 'foo': 'bar'}))
 
 
 class TestMetricWrapper(unittest.TestCase):
@@ -490,6 +514,16 @@ class TestMetricFamilies(unittest.TestCase):
         self.assertEqual(2, self.registry.get_sample_value('h_count', {'a': 'b'}))
         self.assertEqual(3, self.registry.get_sample_value('h_sum', {'a': 'b'}))
 
+    def test_info(self):
+        self.custom_collector(InfoMetricFamily('i', 'help', value={'a': 'b'}))
+        self.assertEqual(1, self.registry.get_sample_value('i_info', {'a': 'b'}))
+
+    def test_info_labels(self):
+        cmf = InfoMetricFamily('i', 'help', labels=['a'])
+        cmf.add_metric(['b'], {'c': 'd'})
+        self.custom_collector(cmf)
+        self.assertEqual(1, self.registry.get_sample_value('i_info', {'a': 'b', 'c': 'd'}))
+
     def test_bad_constructors(self):
         self.assertRaises(ValueError, UntypedMetricFamily, 'u', 'help', value=1, labels=[])
         self.assertRaises(ValueError, UntypedMetricFamily, 'u', 'help', value=1, labels=['a'])
@@ -512,6 +546,9 @@ class TestMetricFamilies(unittest.TestCase):
         self.assertRaises(ValueError, HistogramMetricFamily, 'h', 'help', buckets={}, labels=['a'])
         self.assertRaises(ValueError, HistogramMetricFamily, 'h', 'help', buckets={}, sum_value=1, labels=['a'])
         self.assertRaises(KeyError, HistogramMetricFamily, 'h', 'help', buckets={}, sum_value=1)
+
+        self.assertRaises(ValueError, InfoMetricFamily, 'i', 'help', value={}, labels=[])
+        self.assertRaises(ValueError, InfoMetricFamily, 'i', 'help', value={}, labels=['a'])
 
     def test_labelnames(self):
         cmf = UntypedMetricFamily('u', 'help', labels=iter(['a']))
