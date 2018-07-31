@@ -11,6 +11,7 @@ from contextlib import closing
 from wsgiref.simple_server import make_server, WSGIRequestHandler
 
 from . import core
+import openmetrics.exposition
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
     from SocketServer import ThreadingMixIn
@@ -36,12 +37,13 @@ def make_wsgi_app(registry=core.REGISTRY):
     def prometheus_app(environ, start_response):
         params = parse_qs(environ.get('QUERY_STRING', ''))
         r = registry
+        encoder, content_type = choose_encoder(environ.get['HTTP_ACCEPT'])
         if 'name[]' in params:
             r = r.restricted_registry(params['name[]'])
-        output = generate_latest(r)
+        output = encoder(r)
 
         status = str('200 OK')
-        headers = [(str('Content-type'), CONTENT_TYPE_LATEST)]
+        headers = [(str('Content-type'), content_type)]
         start_response(status, headers)
         return [output]
     return prometheus_app
@@ -87,6 +89,15 @@ def generate_latest(registry=core.REGISTRY):
     return ''.join(output).encode('utf-8')
 
 
+def choose_encoder(accept_header):
+    accept_header = accept_header or ''
+    for accepted in accept_header.split(','):
+        if accepted == 'text/openmetrics; version=0.0.1':
+            return (openmetrics.exposition.generate_latest, 
+                    openmetrics.exposition.CONTENT_TYPE_LATEST)
+    return (generate_latest, CONTENT_TYPE_LATEST)
+
+
 class MetricsHandler(BaseHTTPRequestHandler):
     """HTTP handler that gives metrics from ``core.REGISTRY``."""
     registry = core.REGISTRY
@@ -94,15 +105,16 @@ class MetricsHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         registry = self.registry
         params = parse_qs(urlparse(self.path).query)
+        encoder, content_type = choose_encoder(self.headers.get('Accept'))
         if 'name[]' in params:
             registry = registry.restricted_registry(params['name[]'])
         try:
-            output = generate_latest(registry)
+            output = encoder(registry)
         except:
             self.send_error(500, 'error generating metric output')
             raise
         self.send_response(200)
-        self.send_header('Content-Type', CONTENT_TYPE_LATEST)
+        self.send_header('Content-Type', content_type)
         self.end_headers()
         self.wfile.write(output)
 
