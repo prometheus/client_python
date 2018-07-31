@@ -13,6 +13,7 @@ from prometheus_client import Gauge, Counter, Summary, Histogram, Info, Enum, Me
 from prometheus_client import CollectorRegistry, generate_latest
 from prometheus_client import push_to_gateway, pushadd_to_gateway, delete_from_gateway
 from prometheus_client import CONTENT_TYPE_LATEST, instance_ip_grouping_key
+from prometheus_client.core import GaugeHistogramMetricFamily
 from prometheus_client.exposition import default_handler, basic_auth_handler, MetricsHandler
 
 try:
@@ -27,6 +28,12 @@ except ImportError:
 class TestGenerateText(unittest.TestCase):
     def setUp(self):
         self.registry = CollectorRegistry()
+
+    def custom_collector(self, metric_family):
+        class CustomCollector(object):
+            def collect(self):
+                return [metric_family]
+        self.registry.register(CustomCollector())
 
     def test_counter(self):
         c = Counter('cc', 'A counter', registry=self.registry)
@@ -71,6 +78,10 @@ hh_bucket{le="+Inf"} 1.0
 hh_count 1.0
 hh_sum 0.05
 ''', generate_latest(self.registry))
+
+    def test_gaugehistogram(self):
+        self.custom_collector(GaugeHistogramMetricFamily('gh', 'help', buckets=[('1.0', 4), ('+Inf', (5))]))
+        self.assertEqual(b'''# HELP gh help\n# TYPE gh histogram\ngh_bucket{le="1.0"} 4.0\ngh_bucket{le="+Inf"} 5.0\n''', generate_latest(self.registry))
 
     def test_info(self):
         i = Info('ii', 'A info', ['a', 'b'], registry=self.registry)

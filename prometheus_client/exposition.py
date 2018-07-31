@@ -78,6 +78,10 @@ def generate_latest(registry=core.REGISTRY):
             mtype = 'gauge'
         elif mtype == 'stateset':
             mtype = 'gauge'
+        elif mtype == 'gaugehistogram':
+            # A gauge histogram is really a gauge,
+            # but this captures the strucutre better.
+            mtype = 'histogram'
         output.append('# HELP {0} {1}'.format(
             mname, metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
         output.append('\n# TYPE {0} {1}\n'.format(mname, mtype))

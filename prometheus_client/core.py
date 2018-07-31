@@ -152,7 +152,7 @@ REGISTRY = CollectorRegistry(auto_describe=True)
 '''The default registry.'''
 
 _METRIC_TYPES = ('counter', 'gauge', 'summary', 'histogram', 
-        'untyped', 'info', 'stateset')
+        'gaugehistogram', 'untyped', 'info', 'stateset')
 
 
 class Metric(object):
@@ -327,6 +327,33 @@ class HistogramMetricFamily(Metric):
         # +Inf is last and provides the count value.
         self.samples.append((self.name + '_count', dict(zip(self._labelnames, labels)), buckets[-1][1]))
         self.samples.append((self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value))
+
+
+class GaugeHistogramMetricFamily(Metric):
+    '''A single gauge histogram and its samples.
+
+    For use by custom collectors.
+    '''
+    def __init__(self, name, documentation, buckets=None, labels=None):
+        Metric.__init__(self, name, documentation, 'gaugehistogram')
+        if labels is not None and buckets is not None:
+            raise ValueError('Can only specify at most one of buckets and labels.')
+        if labels is None:
+            labels = []
+        self._labelnames = tuple(labels)
+        if buckets is not None:
+            self.add_metric([], buckets)
+
+    def add_metric(self, labels, buckets):
+        '''Add a metric to the metric family.
+
+        Args:
+          labels: A list of label values
+          buckets: A list of pairs of bucket names and values.
+              The buckets must be sorted, and +Inf present.
+        '''
+        for bucket, value in buckets:
+            self.samples.append((self.name + '_bucket', dict(list(zip(self._labelnames, labels)) + [('le', bucket)]), value))
 
 
 class InfoMetricFamily(Metric):
