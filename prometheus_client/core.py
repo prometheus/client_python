@@ -646,6 +646,7 @@ class Counter(object):
         c = Counter('my_failures_total', 'Description of counter')
         c.inc()     # Increment by 1
         c.inc(1.6)  # Increment by given value
+        c.set(1.6)  # Sets counter by given value
 
     There are utilities to count exceptions raised:
 
@@ -671,6 +672,10 @@ class Counter(object):
         if amount < 0:
             raise ValueError('Counters can only be incremented by non-negative amounts.')
         self._value.inc(amount)
+
+    def set(self, value):
+        '''Set counter to the given value.'''
+        self._value.set(float(value))
 
     def count_exceptions(self, exception=Exception):
         '''Count exceptions in a block of code or function.
