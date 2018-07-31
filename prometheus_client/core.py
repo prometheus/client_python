@@ -995,3 +995,4 @@ class _Timer(object):
             with self._new_timer():
                 return func(*args, **kwargs)
         return decorate(f, wrapped)
+
