@@ -5,7 +5,7 @@ from . import exposition
 from . import process_collector
 from . import platform_collector
 
-__all__ = ['Counter', 'Gauge', 'Summary', 'Histogram', 'Info']
+__all__ = ['Counter', 'Gauge', 'Summary', 'Histogram', 'Info', 'Enum']
 
 CollectorRegistry = core.CollectorRegistry
 REGISTRY = core.REGISTRY
@@ -15,6 +15,7 @@ Gauge = core.Gauge
 Summary = core.Summary
 Histogram = core.Histogram
 Info = core.Info
+Enum = core.Enum
 
 CONTENT_TYPE_LATEST = exposition.CONTENT_TYPE_LATEST
 generate_latest = exposition.generate_latest

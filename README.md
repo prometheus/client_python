@@ -169,7 +169,6 @@ with h.time():
   pass
 ```
 
-
 ### Info
 
 Info tracks key-value information, usually about a whole target.
@@ -178,6 +177,17 @@ Info tracks key-value information, usually about a whole target.
 from prometheus_client import Info
 i = Info('my_build_version', 'Description of info')
 i.info({'version': '1.2.3', 'buildhost': 'foo@bar'})
+```
+
+### Enum
+
+Enum tracks which of a set of states something is currently in.
+
+```python
+from prometheus_client import Enum
+e = Enum('my_task_state', 'Description of enum',
+        states=['starting', 'running', 'stopped'])
+e.state('running')
 ```
 
 ### Labels
@@ -425,7 +435,7 @@ This comes with a number of limitations:
 
 - Registries can not be used as normal, all instantiated metrics are exported
 - Custom collectors do not work (e.g. cpu and memory metrics)
-- Info metrics do not work
+- Info and Enum metrics do not work
 - The pushgateway cannot be used
 - Gauges cannot use the `pid` label
 

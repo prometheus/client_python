@@ -20,6 +20,8 @@ from prometheus_client.core import (
     HistogramMetricFamily,
     Info,
     InfoMetricFamily,
+    Enum,
+    StateSetMetricFamily,
     Metric,
     Summary,
     SummaryMetricFamily,
@@ -289,7 +291,7 @@ class TestHistogram(unittest.TestCase):
         self.assertRaises(ValueError, Histogram, 'h', 'help', registry=None, buckets=[3, 1])
 
     def test_labels(self):
-        self.assertRaises(ValueError, Histogram, 'h2', 'help', registry=None, labelnames=['le'])
+        self.assertRaises(ValueError, Histogram, 'h', 'help', registry=None, labelnames=['le'])
 
         self.labels.labels('a').observe(2)
         self.assertEqual(0, self.registry.get_sample_value('hl_bucket', {'le': '1.0', 'l': 'a'}))
@@ -361,6 +363,35 @@ class TestInfo(unittest.TestCase):
 
         self.labels.labels('a').info({'foo': 'bar'})
         self.assertEqual(1, self.registry.get_sample_value('il_info', {'l': 'a', 'foo': 'bar'}))
+
+
+class TestEnum(unittest.TestCase):
+    def setUp(self):
+        self.registry = CollectorRegistry()
+        self.enum = Enum('e', 'help', states=['a', 'b', 'c'], registry=self.registry)
+        self.labels = Enum('el', 'help', ['l'], states=['a', 'b', 'c'], registry=self.registry)
+
+    def test_enum(self):
+        self.assertEqual(1, self.registry.get_sample_value('e', {'e': 'a'}))
+        self.assertEqual(0, self.registry.get_sample_value('e', {'e': 'b'}))
+        self.assertEqual(0, self.registry.get_sample_value('e', {'e': 'c'}))
+
+        self.enum.state('b')
+        self.assertEqual(0, self.registry.get_sample_value('e', {'e': 'a'}))
+        self.assertEqual(1, self.registry.get_sample_value('e', {'e': 'b'}))
+        self.assertEqual(0, self.registry.get_sample_value('e', {'e': 'c'}))
+
+        self.assertRaises(ValueError, self.enum.state, 'd')
+        self.assertRaises(ValueError, Enum, 'e', 'help', registry=None)
+
+    def test_labels(self):
+        self.labels.labels('a').state('c')
+        self.assertEqual(0, self.registry.get_sample_value('el', {'l': 'a', 'el': 'a'}))
+        self.assertEqual(0, self.registry.get_sample_value('el', {'l': 'a', 'el': 'b'}))
+        self.assertEqual(1, self.registry.get_sample_value('el', {'l': 'a', 'el': 'c'}))
+
+        e = Enum('e', 'help', registry=None, labelnames=['e'])
+        self.assertRaises(ValueError, e.labels, '')
 
 
 class TestMetricWrapper(unittest.TestCase):
@@ -524,6 +555,18 @@ class TestMetricFamilies(unittest.TestCase):
         self.custom_collector(cmf)
         self.assertEqual(1, self.registry.get_sample_value('i_info', {'a': 'b', 'c': 'd'}))
 
+    def test_stateset(self):
+        self.custom_collector(StateSetMetricFamily('s', 'help', value={'a': True, 'b': True,}))
+        self.assertEqual(1, self.registry.get_sample_value('s', {'s': 'a'}))
+        self.assertEqual(1, self.registry.get_sample_value('s', {'s': 'b'}))
+
+    def test_stateset_labels(self):
+        cmf = StateSetMetricFamily('s', 'help', labels=['foo'])
+        cmf.add_metric(['bar'], {'a': False, 'b': False,})
+        self.custom_collector(cmf)
+        self.assertEqual(0, self.registry.get_sample_value('s', {'foo': 'bar', 's': 'a'}))
+        self.assertEqual(0, self.registry.get_sample_value('s', {'foo': 'bar', 's': 'b'}))
+
     def test_bad_constructors(self):
         self.assertRaises(ValueError, UntypedMetricFamily, 'u', 'help', value=1, labels=[])
         self.assertRaises(ValueError, UntypedMetricFamily, 'u', 'help', value=1, labels=['a'])
@@ -549,6 +592,9 @@ class TestMetricFamilies(unittest.TestCase):
 
         self.assertRaises(ValueError, InfoMetricFamily, 'i', 'help', value={}, labels=[])
         self.assertRaises(ValueError, InfoMetricFamily, 'i', 'help', value={}, labels=['a'])
+
+        self.assertRaises(ValueError, StateSetMetricFamily, 's', 'help', value={'a': True}, labels=[])
+        self.assertRaises(ValueError, StateSetMetricFamily, 's', 'help', value={'a': True}, labels=['a'])
 
     def test_labelnames(self):
         cmf = UntypedMetricFamily('u', 'help', labels=iter(['a']))

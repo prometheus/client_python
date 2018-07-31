@@ -76,6 +76,8 @@ def generate_latest(registry=core.REGISTRY):
         elif mtype == 'info':
             mname = mname + '_info'
             mtype = 'gauge'
+        elif mtype == 'stateset':
+            mtype = 'gauge'
         output.append('# HELP {0} {1}'.format(
             mname, metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
         output.append('\n# TYPE {0} {1}\n'.format(mname, mtype))

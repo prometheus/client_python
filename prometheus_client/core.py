@@ -151,7 +151,8 @@ class CollectorRegistry(object):
 REGISTRY = CollectorRegistry(auto_describe=True)
 '''The default registry.'''
 
-_METRIC_TYPES = ('counter', 'gauge', 'summary', 'histogram', 'untyped', 'info')
+_METRIC_TYPES = ('counter', 'gauge', 'summary', 'histogram', 
+        'untyped', 'info', 'stateset')
 
 
 class Metric(object):
@@ -352,6 +353,35 @@ class InfoMetricFamily(Metric):
         '''
         self.samples.append((self.name + '_info', 
             dict(dict(zip(self._labelnames, labels)), **value), 1))
+
+
+class StateSetMetricFamily(Metric):
+    '''A single stateset and its samples.
+
+    For use by custom collectors.
+    '''
+    def __init__(self, name, documentation, value=None, labels=None):
+        Metric.__init__(self, name, documentation, 'stateset')
+        if labels is not None and value is not None:
+            raise ValueError('Can only specify at most one of value and labels.')
+        if labels is None:
+            labels = []
+        self._labelnames = tuple(labels)
+        if value is not None:
+            self.add_metric([], value)
+
+    def add_metric(self, labels, value):
+        '''Add a metric to the metric family.
+
+        Args:
+          labels: A list of label values
+          value: A dict of string state names to booleans
+        '''
+        labels = tuple(labels)
+        for state, enabled in value.items():
+            v = (1 if enabled else 0)
+            self.samples.append((self.name,
+                dict(zip(self._labelnames + (self.name,), labels + (state,))), v))
 
 
 class _MutexValue(object):
@@ -983,19 +1013,18 @@ class Info(object):
      Example usage:
         from prometheus_client import Info
 
-        g = Info('my_build_info', 'Description of info')
-        g.info({'version': '1.2.3', 'buildhost': 'foo@bar'})
+        i = Info('my_build', 'Description of info')
+        i.info({'version': '1.2.3', 'buildhost': 'foo@bar'})
 
      Info metrics do not work in multiprocess mode.
     '''
     _type = 'info'
     _reserved_labelnames = []
-    _labelnames = []
-    _value = {}
 
     def __init__(self, name, labelnames, labelvalues):
         self._labelnames = set(labelnames)
         self._lock = Lock()
+        self._value = {}
 
     def info(self, val):
         '''Set info metric.'''
@@ -1009,6 +1038,44 @@ class Info(object):
     def _samples(self):
         with self._lock:
             return (('_info', self._value, 1.0,), )
+
+
+@_MetricWrapper
+class Enum(object):
+    '''Enum metric, which of a set of states is true.
+
+     Example usage:
+        from prometheus_client import Enum
+
+        e = Enum('task_state', 'Description of enum', 
+          states=['starting', 'running', 'stopped'])
+        e.state('running')
+
+     The first listed state will be the default.
+     Enum metrics do not work in multiprocess mode.
+    '''
+    _type = 'stateset'
+    _reserved_labelnames = []
+
+    def __init__(self, name, labelnames, labelvalues, states=None):
+        if name in labelnames:
+            raise ValueError('Overlapping labels for Enum metric: %s' % (name,))
+        if not states:
+            raise ValueError('No states provided for Enum metric: %s' % (name,))
+        self._name = name
+        self._states = states
+        self._value = 0
+        self._lock = Lock()
+
+    def state(self, state):
+        '''Set enum metric state.'''
+        with self._lock:
+            self._value = self._states.index(state)
+
+    def _samples(self):
+        with self._lock:
+            return [('', {self._name: s}, 1 if i == self._value else 0,)
+                       for i, s in enumerate(self._states)]
 
 
 class _ExceptionCounter(object):
