@@ -761,6 +761,7 @@ class Counter(object):
         if name.endswith('_total'):
            name = name[:-6]
         self._value = _ValueClass(self._type, name, name + '_total', labelnames, labelvalues)
+        self._created = time.time()
 
     def inc(self, amount=1):
         '''Increment counter by the given amount.'''
@@ -778,7 +779,8 @@ class Counter(object):
         return _ExceptionCounter(self, exception)
 
     def _samples(self):
-        return (('_total', {}, self._value.get()), )
+        return (('_total', {}, self._value.get()),
+                ('_created', {}, self._created))
 
 
 @_MetricWrapper
@@ -914,6 +916,7 @@ class Summary(object):
     def __init__(self, name, labelnames, labelvalues):
         self._count = _ValueClass(self._type, name, name + '_count', labelnames, labelvalues)
         self._sum = _ValueClass(self._type, name, name + '_sum', labelnames, labelvalues)
+        self._created = time.time()
 
     def observe(self, amount):
         '''Observe the given amount.'''
@@ -930,7 +933,8 @@ class Summary(object):
     def _samples(self):
         return (
             ('_count', {}, self._count.get()),
-            ('_sum', {}, self._sum.get()))
+            ('_sum', {}, self._sum.get()),
+            ('_created', {}, self._created))
 
 
 def _floatToGoString(d):
@@ -986,6 +990,7 @@ class Histogram(object):
     _reserved_labelnames = ['le']
 
     def __init__(self, name, labelnames, labelvalues, buckets=(.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, _INF)):
+        self._created = time.time()
         self._sum = _ValueClass(self._type, name, name + '_sum', labelnames, labelvalues)
         buckets = [float(b) for b in buckets]
         if buckets != sorted(buckets):
@@ -1025,6 +1030,7 @@ class Histogram(object):
             samples.append(('_bucket', {'le': _floatToGoString(bound)}, acc))
         samples.append(('_count', {}, acc))
         samples.append(('_sum', {}, self._sum.get()))
+        samples.append(('_created', {}, self._created))
         return tuple(samples)
 
 
