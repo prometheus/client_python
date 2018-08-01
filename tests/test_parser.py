@@ -15,6 +15,7 @@ from prometheus_client.core import (
     GaugeMetricFamily,
     HistogramMetricFamily,
     Metric,
+    Sample,
     SummaryMetricFamily,
 )
 from prometheus_client.exposition import (
@@ -89,8 +90,8 @@ redis_connected_clients{instance="rough-snowflake-web",port="6381"} 12.0
 """)
         m = Metric("redis_connected_clients", "Redis connected clients", "untyped")
         m.samples = [
-            ("redis_connected_clients", {"instance": "rough-snowflake-web", "port": "6380"}, 10),
-            ("redis_connected_clients", {"instance": "rough-snowflake-web", "port": "6381"}, 12),
+            Sample("redis_connected_clients", {"instance": "rough-snowflake-web", "port": "6380"}, 10),
+            Sample("redis_connected_clients", {"instance": "rough-snowflake-web", "port": "6381"}, 12),
         ]
         self.assertEqual([m], list(families))
 

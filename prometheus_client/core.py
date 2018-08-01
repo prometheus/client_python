@@ -15,6 +15,7 @@ import types
 
 from threading import Lock
 from timeit import default_timer
+from collections import namedtuple
 
 from .decorator import decorate
 
@@ -34,6 +35,9 @@ _pack_double = struct.Struct(b'd').pack_into
 _unpack_integer = struct.Struct(b'i').unpack_from
 _unpack_double = struct.Struct(b'd').unpack_from
 
+Sample = namedtuple('Sample', ['name', 'labels', 'value', 'timestamp', 'exemplar'])
+# Timestamp and exemplar are optional.
+Sample.__new__.__defaults__ = (None, None)
 
 class CollectorRegistry(object):
     '''Metric collector registry.
@@ -142,9 +146,9 @@ class CollectorRegistry(object):
         if labels is None:
             labels = {}
         for metric in self.collect():
-            for n, l, value in metric.samples:
-                if n == name and l == labels:
-                    return value
+            for s in metric.samples:
+                if s.name == name and s.labels == labels:
+                    return s.value
         return None
 
 
@@ -175,7 +179,7 @@ class Metric(object):
         '''Add a sample to the metric.
 
         Internal-only, do not use.'''
-        self.samples.append((name, labels, value))
+        self.samples.append(Sample(name, labels, value))
 
     def __eq__(self, other):
         return (isinstance(other, Metric) and
@@ -208,7 +212,7 @@ class UntypedMetricFamily(Metric):
         labels: A list of label values
         value: The value of the metric.
         '''
-        self.samples.append((self.name, dict(zip(self._labelnames, labels)), value))
+        self.samples.append(Sample(self.name, dict(zip(self._labelnames, labels)), value))
 
 
 class CounterMetricFamily(Metric):
@@ -237,9 +241,9 @@ class CounterMetricFamily(Metric):
           value: The value of the metric
           created: Optional unix timestamp the child was created at.
         '''
-        self.samples.append((self.name + '_total', dict(zip(self._labelnames, labels)), value))
+        self.samples.append(Sample(self.name + '_total', dict(zip(self._labelnames, labels)), value))
         if created is not None:
-            self.samples.append((self.name + '_created', dict(zip(self._labelnames, labels)), created))
+            self.samples.append(Sample(self.name + '_created', dict(zip(self._labelnames, labels)), created))
 
 
 class GaugeMetricFamily(Metric):
@@ -264,7 +268,7 @@ class GaugeMetricFamily(Metric):
           labels: A list of label values
           value: A float
         '''
-        self.samples.append((self.name, dict(zip(self._labelnames, labels)), value))
+        self.samples.append(Sample(self.name, dict(zip(self._labelnames, labels)), value))
 
 
 class SummaryMetricFamily(Metric):
@@ -292,8 +296,8 @@ class SummaryMetricFamily(Metric):
           count_value: The count value of the metric.
           sum_value: The sum value of the metric.
         '''
-        self.samples.append((self.name + '_count', dict(zip(self._labelnames, labels)), count_value))
-        self.samples.append((self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value))
+        self.samples.append(Sample(self.name + '_count', dict(zip(self._labelnames, labels)), count_value))
+        self.samples.append(Sample(self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value))
 
 
 class HistogramMetricFamily(Metric):
@@ -323,10 +327,10 @@ class HistogramMetricFamily(Metric):
           sum_value: The sum value of the metric.
         '''
         for bucket, value in buckets:
-            self.samples.append((self.name + '_bucket', dict(list(zip(self._labelnames, labels)) + [('le', bucket)]), value))
+            self.samples.append(Sample(self.name + '_bucket', dict(list(zip(self._labelnames, labels)) + [('le', bucket)]), value))
         # +Inf is last and provides the count value.
-        self.samples.append((self.name + '_count', dict(zip(self._labelnames, labels)), buckets[-1][1]))
-        self.samples.append((self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value))
+        self.samples.append(Sample(self.name + '_count', dict(zip(self._labelnames, labels)), buckets[-1][1]))
+        self.samples.append(Sample(self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value))
 
 
 class GaugeHistogramMetricFamily(Metric):
@@ -353,7 +357,10 @@ class GaugeHistogramMetricFamily(Metric):
               The buckets must be sorted, and +Inf present.
         '''
         for bucket, value in buckets:
-            self.samples.append((self.name + '_bucket', dict(list(zip(self._labelnames, labels)) + [('le', bucket)]), value))
+            self.samples.append(Sample(
+                self.name + '_bucket', 
+                dict(list(zip(self._labelnames, labels)) + [('le', bucket)]),
+                value))
 
 
 class InfoMetricFamily(Metric):
@@ -378,7 +385,7 @@ class InfoMetricFamily(Metric):
           labels: A list of label values
           value: A dict of labels
         '''
-        self.samples.append((self.name + '_info', 
+        self.samples.append(Sample(self.name + '_info', 
             dict(dict(zip(self._labelnames, labels)), **value), 1))
 
 
@@ -407,7 +414,7 @@ class StateSetMetricFamily(Metric):
         labels = tuple(labels)
         for state, enabled in value.items():
             v = (1 if enabled else 0)
-            self.samples.append((self.name,
+            self.samples.append(Sample(self.name,
                 dict(zip(self._labelnames + (self.name,), labels + (state,))), v))
 
 
