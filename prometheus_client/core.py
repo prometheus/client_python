@@ -36,6 +36,7 @@ _unpack_integer = struct.Struct(b'i').unpack_from
 _unpack_double = struct.Struct(b'd').unpack_from
 
 Sample = namedtuple('Sample', ['name', 'labels', 'value', 'timestamp', 'exemplar'])
+# Value can be an int or a float.
 # Timestamp and exemplar are optional.
 Sample.__new__.__defaults__ = (None, None)
 
@@ -168,8 +169,12 @@ class Metric(object):
     and SummaryMetricFamily instead.
     '''
     def __init__(self, name, documentation, typ, unit=''):
+        if not _METRIC_NAME_RE.match(name):
+            raise ValueError('Invalid metric name: ' + name)
         self.name = name
         self.documentation = documentation
+        if unit and not name.endswith("_" + unit):
+            raise ValueError("Metric name not suffixed by unit: " + name)
         self.unit = unit
         if typ not in _METRIC_TYPES:
             raise ValueError('Invalid metric type: ' + typ)
@@ -190,8 +195,8 @@ class Metric(object):
                 self.samples == other.samples)
 
     def __repr__(self):
-        return "Metric(%s, %s, %s, %s)" % (self.name, self.documentation,
-            self.type, self.samples)
+        return "Metric(%s, %s, %s, %s, %s)" % (self.name, self.documentation,
+            self.type, self.unit, self.samples)
 
 class UntypedMetricFamily(Metric):
     '''A single untyped metric and its samples.
@@ -252,8 +257,8 @@ class GaugeMetricFamily(Metric):
 
     For use by custom collectors.
     '''
-    def __init__(self, name, documentation, value=None, labels=None):
-        Metric.__init__(self, name, documentation, 'gauge')
+    def __init__(self, name, documentation, value=None, labels=None, unit=''):
+        Metric.__init__(self, name, documentation, 'gauge', unit)
         if labels is not None and value is not None:
             raise ValueError('Can only specify at most one of value and labels.')
         if labels is None:
@@ -277,8 +282,8 @@ class SummaryMetricFamily(Metric):
 
     For use by custom collectors.
     '''
-    def __init__(self, name, documentation, count_value=None, sum_value=None, labels=None):
-        Metric.__init__(self, name, documentation, 'summary')
+    def __init__(self, name, documentation, count_value=None, sum_value=None, labels=None, unit=''):
+        Metric.__init__(self, name, documentation, 'summary', unit)
         if (sum_value is None) != (count_value is None):
             raise ValueError('count_value and sum_value must be provided together.')
         if labels is not None and count_value is not None:
@@ -306,8 +311,8 @@ class HistogramMetricFamily(Metric):
 
     For use by custom collectors.
     '''
-    def __init__(self, name, documentation, buckets=None, sum_value=None, labels=None):
-        Metric.__init__(self, name, documentation, 'histogram')
+    def __init__(self, name, documentation, buckets=None, sum_value=None, labels=None, unit=''):
+        Metric.__init__(self, name, documentation, 'histogram', unit)
         if (sum_value is None) != (buckets is None):
             raise ValueError('buckets and sum_value must be provided together.')
         if labels is not None and buckets is not None:
@@ -339,8 +344,8 @@ class GaugeHistogramMetricFamily(Metric):
 
     For use by custom collectors.
     '''
-    def __init__(self, name, documentation, buckets=None, labels=None):
-        Metric.__init__(self, name, documentation, 'gaugehistogram')
+    def __init__(self, name, documentation, buckets=None, labels=None, unit=''):
+        Metric.__init__(self, name, documentation, 'gaugehistogram', unit)
         if labels is not None and buckets is not None:
             raise ValueError('Can only specify at most one of buckets and labels.')
         if labels is None:

@@ -36,6 +36,14 @@ a_total 1
 """)
         self.assertEqual([CounterMetricFamily("a", "help", value=1)], list(families))
 
+    def test_uint64_counter(self):
+        families = text_string_to_metric_families("""# TYPE a counter
+# HELP a help
+a_total 9223372036854775808
+# EOF
+""")
+        self.assertEqual([CounterMetricFamily("a", "help", value=9223372036854775808)], list(families))
+
     def test_simple_gauge(self):
         families = text_string_to_metric_families("""# TYPE a gauge
 # HELP a help
@@ -43,6 +51,23 @@ a 1
 # EOF
 """)
         self.assertEqual([GaugeMetricFamily("a", "help", value=1)], list(families))
+
+    def test_float_gauge(self):
+        families = text_string_to_metric_families("""# TYPE a gauge
+# HELP a help
+a 1.2
+# EOF
+""")
+        self.assertEqual([GaugeMetricFamily("a", "help", value=1.2)], list(families))
+
+    def test_unit_gauge(self):
+        families = text_string_to_metric_families("""# TYPE a_seconds gauge
+# UNIT a_seconds seconds
+# HELP a_seconds help
+a_seconds 1
+# EOF
+""")
+        self.assertEqual([GaugeMetricFamily("a_seconds", "help", value=1)], list(families))
 
     def test_simple_summary(self):
         families = text_string_to_metric_families("""# TYPE a summary
@@ -152,8 +177,14 @@ a_total{} 1
         families = text_string_to_metric_families("""a NaN
 # EOF
 """)
-        # Can't use a simple comparison as nan != nan.
         self.assertTrue(math.isnan(list(families)[0].samples[0][2]))
+
+    def test_no_newline_after_eof(self):
+        families = text_string_to_metric_families("""# TYPE a gauge
+# HELP a help
+a 1
+# EOF""")
+        self.assertEqual([GaugeMetricFamily("a", "help", value=1)], list(families))
 
     def test_empty_label(self):
         families = text_string_to_metric_families("""# TYPE a counter
@@ -288,6 +319,53 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
         registry = CollectorRegistry()
         registry.register(TextCollector())
         self.assertEqual(text.encode('utf-8'), generate_latest(registry))
+
+    def test_invalid_input(self):
+        for case in [
+                # No EOF.
+                (''),
+                # Text after EOF.
+                ('a 1\n# EOF\nblah'),
+                ('a 1\n# EOFblah'),
+                # Missing or wrong quotes on label value.
+                ('a{a=1} 1\n# EOF\n'),
+                ('a{a="1} 1\n# EOF\n'),
+                ('a{a=\'1\'} 1\n# EOF\n'),
+                # Missing or extra commas.
+                ('a{a="1"b="2"} 1\n# EOF\n'),
+                ('a{a="1",,b="2"} 1\n# EOF\n'),
+                ('a{a="1",b="2",} 1\n# EOF\n'),
+                # Missing value.
+                ('a\n# EOF\n'),
+                ('a \n# EOF\n'),
+                # Bad HELP.
+                ('# HELP\n# EOF\n'),
+                ('# HELP \n# EOF\n'),
+                ('# HELP a\n# EOF\n'),
+                ('# HELP a\t\n# EOF\n'),
+                (' # HELP a meh\n# EOF\n'),
+                # Bad TYPE.
+                ('# TYPE\n# EOF\n'),
+                ('# TYPE \n# EOF\n'),
+                ('# TYPE a\n# EOF\n'),
+                ('# TYPE a\t\n# EOF\n'),
+                ('# TYPE a meh\n# EOF\n'),
+                ('# TYPE a meh \n# EOF\n'),
+                ('# TYPE a gauge \n# EOF\n'),
+                # Bad UNIT.
+                ('# UNIT\n# EOF\n'),
+                ('# UNIT \n# EOF\n'),
+                ('# UNIT a\n# EOF\n'),
+                ('# UNIT a\t\n# EOF\n'),
+                ('# UNIT a seconds\n# EOF\n'),
+                ('# UNIT a_seconds seconds \n# EOF\n'),
+                # Bad metric names.
+                ('0a 1\n# EOF\n'),
+                ('a.b 1\n# EOF\n'),
+                ('a-b 1\n# EOF\n'),
+                ]:
+            with self.assertRaises(ValueError):
+                list(text_string_to_metric_families(case))
 
 
 if __name__ == '__main__':

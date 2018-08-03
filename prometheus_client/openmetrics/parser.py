@@ -84,6 +84,8 @@ def _parse_sample(text):
             if char == '\\':
                 state = 'labelvalueslash'
             elif char == '"':
+                if not core._METRIC_LABEL_NAME_RE.match(''.join(labelname)):
+                    raise ValueError("Invalid line: " + text)
                 labels[''.join(labelname)] = ''.join(labelvalue)
                 labelname = []
                 labelvalue = []
@@ -120,8 +122,13 @@ def _parse_sample(text):
                 value.append(char)
     if not value:
         raise ValueError("Invalid line: " + text)
+    val = None
+    try:
+        val = int(''.join(value))
+    except ValueError:
+        val = float(''.join(value))
 
-    return core.Sample(''.join(name), labels, float(''.join(value)))
+    return core.Sample(''.join(name), labels, val)
     
 
 def text_fd_to_metric_families(fd):
@@ -141,11 +148,17 @@ def text_fd_to_metric_families(fd):
     allowed_names = []
     eof = False
 
+    seen_metrics = set()
     def build_metric(name, documentation, typ, unit, samples):
+        if name in seen_metrics:
+            raise ValueError("Duplicate metric: " + name)
+        seen_metrics.add(name)
         metric = core.Metric(name, documentation, typ, unit)
-        # TODO: chheck only hitogram buckets have exemplars.
+        # TODO: check labelvalues are valid utf8
+        # TODO: check only histogram buckets have exemplars.
+        # TODO: Info and stateset can't have units
         # TODO: check samples are appropriately grouped and ordered
-        # TODO: check metrics appear only once
+        # TODO: check for metadata in middle of samples
         metric.samples = samples
         return metric
 
@@ -160,7 +173,7 @@ def text_fd_to_metric_families(fd):
             eof = True
         elif line.startswith('#'):
             parts = line.split(' ', 3)
-            if len(parts) < 2:
+            if len(parts) < 4:
                 raise ValueError("Invalid line: " + line)
             if parts[1] == 'HELP':
                 if parts[2] != name:
@@ -193,6 +206,16 @@ def text_fd_to_metric_families(fd):
                     'gaugehistogram': ['_bucket'],
                 }.get(typ, [''])
                 allowed_names = [name + n for n in allowed_names]
+            elif parts[1] == 'UNIT':
+                if parts[2] != name:
+                    if name != '':
+                        yield build_metric(name, documentation, typ, unit, samples)
+                    # New metric
+                    name = parts[2]
+                    typ = 'untyped'
+                    samples = []
+                    allowed_names = [parts[2]]
+                unit = parts[3]
             else:
                 raise ValueError("Invalid line: " + line)
         else:

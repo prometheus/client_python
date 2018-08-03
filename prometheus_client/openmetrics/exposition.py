@@ -12,9 +12,11 @@ def generate_latest(registry):
     output = []
     for metric in registry.collect():
         mname = metric.name
-        output.append('# HELP {0} {1}'.format(
+        output.append('# HELP {0} {1}\n'.format(
             mname, metric.documentation.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"')))
-        output.append('\n# TYPE {0} {1}\n'.format(mname, metric.type))
+        output.append('# TYPE {0} {1}\n'.format(mname, metric.type))
+        if metric.unit:
+            output.append('# UNIT {0} {1}\n'.format(mname, metric.unit))
         for s in metric.samples:
             if s.labels:
                 labelstr = '{{{0}}}'.format(','.join(
