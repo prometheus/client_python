@@ -167,9 +167,10 @@ class Metric(object):
     Custom collectors should use GaugeMetricFamily, CounterMetricFamily
     and SummaryMetricFamily instead.
     '''
-    def __init__(self, name, documentation, typ):
+    def __init__(self, name, documentation, typ, unit=''):
         self.name = name
         self.documentation = documentation
+        self.unit = unit
         if typ not in _METRIC_TYPES:
             raise ValueError('Invalid metric type: ' + typ)
         self.type = typ
