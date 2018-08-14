@@ -35,10 +35,28 @@ _pack_double = struct.Struct(b'd').pack_into
 _unpack_integer = struct.Struct(b'i').unpack_from
 _unpack_double = struct.Struct(b'd').unpack_from
 
-Sample = namedtuple('Sample', ['name', 'labels', 'value', 'timestamp', 'exemplar'])
-# Value can be an int or a float.
 # Timestamp and exemplar are optional.
+# Value can be an int or a float.
+# Timestamp can be a float containing a unixtime in seconds,
+# or a Timestamp object.
+Sample = namedtuple('Sample', ['name', 'labels', 'value', 'timestamp', 'exemplar'])
 Sample.__new__.__defaults__ = (None, None)
+
+
+class Timestamp(object):
+    '''A nanosecond-resolution timestamp.'''
+    def __init__(self, sec, nsec):
+        if nsec < 0 or nsec >= 1e9:
+            raise ValueError("Invalid value for nanoseconds in Timestamp: {}".format(nsec))
+        self.sec = int(sec)
+        self.nsec = int(nsec)
+
+    def __str__(self):
+        return "{0}.{1:09d}".format(self.sec, self.nsec)
+
+    def __float__(self):
+        return float(self.sec) + float(self.nsec) / 1e9
+
 
 class CollectorRegistry(object):
     '''Metric collector registry.
@@ -60,7 +78,7 @@ class CollectorRegistry(object):
             duplicates = set(self._names_to_collectors).intersection(names)
             if duplicates:
                 raise ValueError(
-                    'Duplicated timeseries in CollectorRegistry: {}'.format(
+                    'Duplicated timeseries in CollectorRegistry: {0}'.format(
                         duplicates))
             for name in names:
                 self._names_to_collectors[name] = collector
@@ -179,19 +197,24 @@ class Metric(object):
         if typ not in _METRIC_TYPES:
             raise ValueError('Invalid metric type: ' + typ)
         self.type = typ
+        if unit:
+            if not name.endswith('_' + unit):
+                raise ValueError('Metric name does not end with unit: ' + name)
+        self.unit = unit
         self.samples = []
 
-    def add_sample(self, name, labels, value):
+    def add_sample(self, name, labels, value, timestamp=None):
         '''Add a sample to the metric.
 
         Internal-only, do not use.'''
-        self.samples.append(Sample(name, labels, value))
+        self.samples.append(Sample(name, labels, value, timestamp))
 
     def __eq__(self, other):
         return (isinstance(other, Metric) and
                 self.name == other.name and
                 self.documentation == other.documentation and
                 self.type == other.type and
+                self.unit == other.unit and
                 self.samples == other.samples)
 
     def __repr__(self):

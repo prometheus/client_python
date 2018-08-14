@@ -13,7 +13,7 @@ from prometheus_client import Gauge, Counter, Summary, Histogram, Info, Enum, Me
 from prometheus_client import CollectorRegistry, generate_latest
 from prometheus_client import push_to_gateway, pushadd_to_gateway, delete_from_gateway
 from prometheus_client import CONTENT_TYPE_LATEST, instance_ip_grouping_key
-from prometheus_client.core import GaugeHistogramMetricFamily
+from prometheus_client.core import GaugeHistogramMetricFamily, Timestamp
 from prometheus_client.exposition import default_handler, basic_auth_handler, MetricsHandler
 
 try:
@@ -120,6 +120,29 @@ hh_sum 0.05
 
         self.registry.register(MyCollector())
         self.assertEqual(b'# HELP nonnumber Non number\n# TYPE nonnumber untyped\nnonnumber 123.0\n', generate_latest(self.registry))
+
+    def test_timestamp(self):
+        class MyCollector(object):
+            def collect(self):
+                metric = Metric("ts", "help", 'untyped')
+                metric.add_sample("ts", {"foo": "a"}, 0, 123.456)
+                metric.add_sample("ts", {"foo": "b"}, 0, -123.456)
+                metric.add_sample("ts", {"foo": "c"}, 0, 123)
+                metric.add_sample("ts", {"foo": "d"}, 0, Timestamp(123, 456000000))
+                metric.add_sample("ts", {"foo": "e"}, 0, Timestamp(123, 456000))
+                metric.add_sample("ts", {"foo": "f"}, 0, Timestamp(123, 456))
+                yield metric
+
+        self.registry.register(MyCollector())
+        self.assertEqual(b'''# HELP ts help
+# TYPE ts untyped
+ts{foo="a"} 0.0 123456
+ts{foo="b"} 0.0 -123456
+ts{foo="c"} 0.0 123000
+ts{foo="d"} 0.0 123456
+ts{foo="e"} 0.0 123000
+ts{foo="f"} 0.0 123000
+''', generate_latest(self.registry))
 
 
 class TestPushGateway(unittest.TestCase):

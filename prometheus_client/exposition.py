@@ -95,7 +95,12 @@ def generate_latest(registry=core.REGISTRY):
                      for k, v in sorted(s.labels.items())]))
             else:
                 labelstr = ''
-            output.append('{0}{1} {2}\n'.format(s.name, labelstr, core._floatToGoString(s.value)))
+            timestamp = ''
+            if s.timestamp is not None:
+                # Convert to milliseconds.
+                timestamp = ' {0:d}'.format(int(float(s.timestamp) * 1000))
+            output.append('{0}{1} {2}{3}\n'.format(
+                s.name, labelstr, core._floatToGoString(s.value), timestamp))
     return ''.join(output).encode('utf-8')
 
 
