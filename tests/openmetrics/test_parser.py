@@ -17,6 +17,7 @@ from prometheus_client.core import (
     Metric,
     Sample,
     SummaryMetricFamily,
+    Timestamp,
 )
 from prometheus_client.openmetrics.exposition import (
     generate_latest,
@@ -67,7 +68,7 @@ a 1.2
 a_seconds 1
 # EOF
 """)
-        self.assertEqual([GaugeMetricFamily("a_seconds", "help", value=1)], list(families))
+        self.assertEqual([GaugeMetricFamily("a_seconds", "help", value=1, unit='seconds')], list(families))
 
     def test_simple_summary(self):
         families = text_string_to_metric_families("""# TYPE a summary
@@ -254,18 +255,27 @@ a_total{foo="b\\\\a\\z"} 2
         metric_family.add_metric(["b\\a\\z"], 2)
         self.assertEqual([metric_family], list(families))
 
-    def test_timestamps_discarded(self):
+    def test_timestamps(self):
         families = text_string_to_metric_families("""# TYPE a counter
 # HELP a help
-a_total{foo="bar"} 1 000
+a_total{foo="1"} 1 000
+a_total{foo="2"} 1 0.0
+a_total{foo="3"} 1 1.1
+a_total{foo="4"} 1 12345678901234567890.1234567890
+a_total{foo="5"} 1 1.5e3
 # TYPE b counter
 # HELP b help
-b_total 2  1234567890
+b_total 2 1234567890
 # EOF
 """)
         a = CounterMetricFamily("a", "help", labels=["foo"])
-        a.add_metric(["bar"], 1)
-        b = CounterMetricFamily("b", "help", value=2)
+        a.add_metric(["1"], 1, timestamp=Timestamp(0, 0))
+        a.add_metric(["2"], 1, timestamp=Timestamp(0, 0))
+        a.add_metric(["3"], 1, timestamp=Timestamp(1, 100000000))
+        a.add_metric(["4"], 1, timestamp=Timestamp(12345678901234567890, 123456789))
+        a.add_metric(["5"], 1, timestamp=1500.0)
+        b = CounterMetricFamily("b", "help")
+        b.add_metric([], 2, timestamp=Timestamp(1234567890, 0))
         self.assertEqual([a, b], list(families))
 
     @unittest.skipIf(sys.version_info < (2, 7), "Test requires Python 2.7+.")
@@ -363,6 +373,11 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
                 ('0a 1\n# EOF\n'),
                 ('a.b 1\n# EOF\n'),
                 ('a-b 1\n# EOF\n'),
+                # Bad timestamp.
+                ('a 1 1 \n# EOF\n'),
+                ('a 1 z\n# EOF\n'),
+                ('a 1 1z\n# EOF\n'),
+                ('a 1 1.1.1\n# EOF\n'),
                 ]:
             with self.assertRaises(ValueError):
                 list(text_string_to_metric_families(case))

@@ -52,6 +52,7 @@ def _parse_sample(text):
     labelname = []
     labelvalue = []
     value = []
+    timestamp = []
     labels = {}
 
     state = 'name'
@@ -115,20 +116,42 @@ def _parse_sample(text):
             else:
                 raise ValueError("Invalid line: " + text)
         elif state == 'value':
-            if char == ' ' or char == '#':
-                # Timestamps and examplars are not supported, halt
-                break
+            if char == ' ':
+                state = 'timestamp'
             else:
                 value.append(char)
+        elif state == 'timestamp':
+            if char == ' ':
+                # examplars are not supported, halt
+                break
+            else:
+                timestamp.append(char)
+
     if not value:
         raise ValueError("Invalid line: " + text)
+    value = ''.join(value)
     val = None
     try:
-        val = int(''.join(value))
+        val = int(value)
     except ValueError:
-        val = float(''.join(value))
+        val = float(value)
 
-    return core.Sample(''.join(name), labels, val)
+    ts = None
+    timestamp = ''.join(timestamp)
+    if timestamp:
+        try:
+            # Simple int.
+            ts = core.Timestamp(int(timestamp), 0)
+        except ValueError:
+            try:
+                # aaaa.bbbb. Nanosecond resolution supported.
+                parts = timestamp.split('.', 1)
+                ts = core.Timestamp(int(parts[0]), int(parts[1][:9].ljust(9, "0")))
+            except ValueError:
+                # Float.
+                ts = float(timestamp)
+
+    return core.Sample(''.join(name), labels, val, ts)
     
 
 def text_fd_to_metric_families(fd):
