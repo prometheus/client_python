@@ -25,7 +25,11 @@ def generate_latest(registry):
                      for k, v in sorted(s.labels.items())]))
             else:
                 labelstr = ''
-            output.append('{0}{1} {2}\n'.format(s.name, labelstr, core._floatToGoString(s.value)))
+            timestamp = ''
+            if s.timestamp is not None:
+                # Convert to milliseconds.
+                timestamp = ' {0}'.format(s.timestamp)
+            output.append('{0}{1} {2}{3}\n'.format(s.name, labelstr, core._floatToGoString(s.value), timestamp))
     output.append('# EOF\n')
     return ''.join(output).encode('utf-8')
 
