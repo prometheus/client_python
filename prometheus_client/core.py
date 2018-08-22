@@ -181,7 +181,7 @@ REGISTRY = CollectorRegistry(auto_describe=True)
 '''The default registry.'''
 
 _METRIC_TYPES = ('counter', 'gauge', 'summary', 'histogram', 
-        'gaugehistogram', 'untyped', 'info', 'stateset')
+        'gaugehistogram', 'unknown', 'info', 'stateset')
 
 
 class Metric(object):
@@ -200,6 +200,8 @@ class Metric(object):
         if unit and not name.endswith("_" + unit):
             raise ValueError("Metric name not suffixed by unit: " + name)
         self.unit = unit
+        if typ == 'untyped':
+            typ = 'unknown'
         if typ not in _METRIC_TYPES:
             raise ValueError('Invalid metric type: ' + typ)
         self.type = typ
@@ -228,12 +230,12 @@ class Metric(object):
             self.type, self.unit, self.samples)
 
 
-class UntypedMetricFamily(Metric):
-    '''A single untyped metric and its samples.
+class UnknownMetricFamily(Metric):
+    '''A single unknwon metric and its samples.
     For use by custom collectors.
     '''
     def __init__(self, name, documentation, value=None, labels=None):
-        Metric.__init__(self, name, documentation, 'untyped')
+        Metric.__init__(self, name, documentation, 'unknown')
         if labels is not None and value is not None:
             raise ValueError('Can only specify at most one of value and labels.')
         if labels is None:
@@ -250,6 +252,8 @@ class UntypedMetricFamily(Metric):
         '''
         self.samples.append(Sample(self.name, dict(zip(self._labelnames, labels)), value, timestamp))
 
+# For backward compatibility.
+UntypedMetricFamily = UnknownMetricFamily
 
 class CounterMetricFamily(Metric):
     '''A single counter and its samples.

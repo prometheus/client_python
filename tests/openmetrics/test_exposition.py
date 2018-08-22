@@ -150,12 +150,12 @@ cc_created{a="\\\\x\\n\\""} 123.456
                 yield metric
 
         self.registry.register(MyCollector())
-        self.assertEqual(b'# HELP nonnumber Non number\n# TYPE nonnumber untyped\nnonnumber 123.0\n# EOF\n', generate_latest(self.registry))
+        self.assertEqual(b'# HELP nonnumber Non number\n# TYPE nonnumber unknown\nnonnumber 123.0\n# EOF\n', generate_latest(self.registry))
 
     def test_timestamp(self):
         class MyCollector(object):
             def collect(self):
-                metric = Metric("ts", "help", 'untyped')
+                metric = Metric("ts", "help", 'unknown')
                 metric.add_sample("ts", {"foo": "a"}, 0, 123.456)
                 metric.add_sample("ts", {"foo": "b"}, 0, -123.456)
                 metric.add_sample("ts", {"foo": "c"}, 0, 123)
@@ -166,7 +166,7 @@ cc_created{a="\\\\x\\n\\""} 123.456
 
         self.registry.register(MyCollector())
         self.assertEqual(b'''# HELP ts help
-# TYPE ts untyped
+# TYPE ts unknown
 ts{foo="a"} 0.0 123.456
 ts{foo="b"} 0.0 -123.456
 ts{foo="c"} 0.0 123
