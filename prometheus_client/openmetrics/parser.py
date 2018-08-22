@@ -127,6 +127,10 @@ def _parse_sample(text):
             else:
                 timestamp.append(char)
 
+    # Trailing space after value.
+    if state == 'timestamp' and not timestamp:
+        raise ValueError("Invalid line: " + text)
+
     if not value:
         raise ValueError("Invalid line: " + text)
     value = ''.join(value)

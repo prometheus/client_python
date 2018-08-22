@@ -373,8 +373,11 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
                 ('0a 1\n# EOF\n'),
                 ('a.b 1\n# EOF\n'),
                 ('a-b 1\n# EOF\n'),
+                # Bad value.
+                ('a a\n# EOF\n'),
+                ('a  1\n# EOF\n'),
+                ('a 1 \n# EOF\n'),
                 # Bad timestamp.
-                ('a 1 1 \n# EOF\n'),
                 ('a 1 z\n# EOF\n'),
                 ('a 1 1z\n# EOF\n'),
                 ('a 1 1.1.1\n# EOF\n'),
