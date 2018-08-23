@@ -11,7 +11,7 @@ else:
 
 from prometheus_client import Gauge, Counter, Summary, Histogram, Info, Enum, Metric
 from prometheus_client import CollectorRegistry
-from prometheus_client.core import GaugeHistogramMetricFamily, Timestamp
+from prometheus_client.core import GaugeHistogramMetricFamily, Timestamp, Exemplar
 from prometheus_client.openmetrics.exposition import (
         generate_latest,
 )
@@ -85,6 +85,53 @@ hh_sum 0.05
 hh_created 123.456
 # EOF
 ''', generate_latest(self.registry))
+
+    def test_histogram_exemplar(self):
+        class MyCollector(object):
+            def collect(self):
+                metric = Metric("hh", "help", 'histogram')
+                # This is not sane, but it covers all the cases.
+                metric.add_sample("hh_bucket", {"le": "1"}, 0, None, Exemplar({'a': 'b'}, 0.5))
+                metric.add_sample("hh_bucket", {"le": "2"}, 0, None, Exemplar({'le': '7'}, 0.5, 12))
+                metric.add_sample("hh_bucket", {"le": "3"}, 0, 123, Exemplar({'a': 'b'}, 2.5, 12))
+                metric.add_sample("hh_bucket", {"le": "4"}, 0, None, Exemplar({'a': '\n"\\'}, 3.5))
+                metric.add_sample("hh_bucket", {"le": "+Inf"}, 0, None, None)
+                yield metric
+
+        self.registry.register(MyCollector())
+        self.assertEqual(b'''# HELP hh help
+# TYPE hh histogram
+hh_bucket{le="1"} 0.0 # {a="b"} 0.5
+hh_bucket{le="2"} 0.0 # {le="7"} 0.5 12
+hh_bucket{le="3"} 0.0 123 # {a="b"} 2.5 12
+hh_bucket{le="4"} 0.0 # {a="\\n\\"\\\\"} 3.5
+hh_bucket{le="+Inf"} 0.0
+# EOF
+''', generate_latest(self.registry))
+
+    def test_nonhistogram_exemplar(self):
+        class MyCollector(object):
+            def collect(self):
+                metric = Metric("hh", "help", 'untyped')
+                # This is not sane, but it covers all the cases.
+                metric.add_sample("hh_bucket", {}, 0, None, Exemplar({'a': 'b'}, 0.5))
+                yield metric
+
+        self.registry.register(MyCollector())
+        with self.assertRaises(ValueError):
+            generate_latest(self.registry)
+
+    def test_nonhistogram_bucket_exemplar(self):
+        class MyCollector(object):
+            def collect(self):
+                metric = Metric("hh", "help", 'histogram')
+                # This is not sane, but it covers all the cases.
+                metric.add_sample("hh_count", {}, 0, None, Exemplar({'a': 'b'}, 0.5))
+                yield metric
+
+        self.registry.register(MyCollector())
+        with self.assertRaises(ValueError):
+            generate_latest(self.registry)
 
     def test_gaugehistogram(self):
         self.custom_collector(GaugeHistogramMetricFamily('gh', 'help', buckets=[('1.0', 4), ('+Inf', (5))]))

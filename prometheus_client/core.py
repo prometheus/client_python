@@ -38,7 +38,8 @@ _unpack_double = struct.Struct(b'd').unpack_from
 # Timestamp and exemplar are optional.
 # Value can be an int or a float.
 # Timestamp can be a float containing a unixtime in seconds,
-# or a Timestamp object.
+# a Timestamp object, or None.
+# Exemplar can be an Exemplar object, or None.
 Sample = namedtuple('Sample', ['name', 'labels', 'value', 'timestamp', 'exemplar'])
 Sample.__new__.__defaults__ = (None, None)
 
@@ -62,6 +63,10 @@ class Timestamp(object):
 
     def __eq__(self, other):
         return self.sec == other.sec and self.nsec == other.nsec
+
+
+Exemplar = namedtuple('Exemplar', ['labels', 'value', 'timestamp'])
+Exemplar.__new__.__defaults__ = (None, )
 
 
 class CollectorRegistry(object):
@@ -211,11 +216,11 @@ class Metric(object):
         self.unit = unit
         self.samples = []
 
-    def add_sample(self, name, labels, value, timestamp=None):
+    def add_sample(self, name, labels, value, timestamp=None, exemplar=None):
         '''Add a sample to the metric.
 
         Internal-only, do not use.'''
-        self.samples.append(Sample(name, labels, value, timestamp))
+        self.samples.append(Sample(name, labels, value, timestamp, exemplar))
 
     def __eq__(self, other):
         return (isinstance(other, Metric) and
@@ -362,12 +367,20 @@ class HistogramMetricFamily(Metric):
 
         Args:
           labels: A list of label values
-          buckets: A list of pairs of bucket names and values.
+          buckets: A list of lists.
+              Each inner list can be a pair of bucket name and value,
+              or a triple of bucket name, value, and exemplar.
               The buckets must be sorted, and +Inf present.
           sum_value: The sum value of the metric.
         '''
-        for bucket, value in buckets:
-            self.samples.append(Sample(self.name + '_bucket', dict(list(zip(self._labelnames, labels)) + [('le', bucket)]), value, timestamp))
+        for b in buckets:
+            bucket, value = b[:2]
+            exemplar = None
+            if len(b) == 3:
+                exemplar = b[2]
+            self.samples.append(Sample(self.name + '_bucket', 
+                dict(list(zip(self._labelnames, labels)) + [('le', bucket)]), 
+                value, timestamp, exemplar))
         # +Inf is last and provides the count value.
         self.samples.append(Sample(self.name + '_count', dict(zip(self._labelnames, labels)), buckets[-1][1], timestamp))
         self.samples.append(Sample(self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value, timestamp))
@@ -1030,8 +1043,6 @@ class Histogram(object):
 
     The default buckets are intended to cover a typical web/rpc request from milliseconds to seconds.
     They can be overridden by passing `buckets` keyword argument to `Histogram`.
-
-    **NB** The Python client doesn't store or expose quantile information at this time.
     '''
     _type = 'histogram'
     _reserved_labelnames = ['le']

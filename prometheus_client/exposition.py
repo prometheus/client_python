@@ -71,6 +71,7 @@ def generate_latest(registry=core.REGISTRY):
     for metric in registry.collect():
         mname = metric.name
         mtype = metric.type
+        # Munging from OpenMetrics into Prometheus format.
         if mtype == 'counter':
             mname = mname + '_total'
         elif mtype == 'info':
@@ -84,12 +85,13 @@ def generate_latest(registry=core.REGISTRY):
             mtype = 'histogram'
         elif mtype == 'unknown':
             mtype = 'untyped'
+
         output.append('# HELP {0} {1}'.format(
             mname, metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
         output.append('\n# TYPE {0} {1}\n'.format(mname, mtype))
         for s in metric.samples:
             if s.name == metric.name + '_created':
-                continue  # Ignore OpenMetrics specific sample.
+                continue  # Ignore OpenMetrics specific sample. TODO: Make these into a gauge.
             if s.labels:
                 labelstr = '{{{0}}}'.format(','.join(
                     ['{0}="{1}"'.format(
