@@ -62,7 +62,7 @@ class Timestamp(object):
         return float(self.sec) + float(self.nsec) / 1e9
 
     def __eq__(self, other):
-        return self.sec == other.sec and self.nsec == other.nsec
+        return type(self) == type(other) and self.sec == other.sec and self.nsec == other.nsec
 
 
 Exemplar = namedtuple('Exemplar', ['labels', 'value', 'timestamp'])

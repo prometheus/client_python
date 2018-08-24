@@ -49,6 +49,8 @@ def _unescape_help(text):
 
 def _parse_value(value):
     value = ''.join(value)
+    if value != value.strip():
+        raise ValueError("Invalid value: {0!r}".format(value))
     try:
         return int(value)
     except ValueError:
@@ -59,6 +61,8 @@ def _parse_timestamp(timestamp):
     timestamp = ''.join(timestamp)
     if not timestamp:
         return None
+    if timestamp != timestamp.strip():
+        raise ValueError("Invalid timestamp: {0!r}".format(timestamp))
     try:
         # Simple int.
         return core.Timestamp(int(timestamp), 0)
@@ -138,11 +142,13 @@ def _parse_sample(text):
     value = []
     timestamp = []
     labels = {}
+    exemplar_value = []
+    exemplar_timestamp = []
+    exemplar_labels = None
 
     state = 'name'
 
     it = iter(text)
-
     for char in it:
         if state == 'name':
             if char == '{':
@@ -159,14 +165,47 @@ def _parse_sample(text):
             else:
                 value.append(char)
         elif state == 'timestamp':
-            if char == ' ':
-                # examplars are not supported, halt
-                break
+            if char == '#' and not timestamp:
+                state = 'exemplarspace'
+            elif char == ' ':
+                state = 'exemplarhash'
             else:
                 timestamp.append(char)
+        elif state == 'exemplarhash':
+            if char == '#':
+                state = 'exemplarspace'
+            else:
+                raise ValueError("Invalid line: " + text)
+        elif state == 'exemplarspace':
+            if char == ' ':
+                state = 'exemplarstartoflabels'
+            else:
+                raise ValueError("Invalid line: " + text)
+        elif state == 'exemplarstartoflabels':
+            if char == '{':
+                exemplar_labels = _parse_labels(it, text)
+                # Space has already been parsed.
+                state = 'exemplarvalue'
+            else:
+                raise ValueError("Invalid line: " + text)
+        elif state == 'exemplarvalue':
+            if char == ' ':
+                state = 'exemplartimestamp'
+            else:
+                exemplar_value.append(char)
+        elif state == 'exemplartimestamp':
+            exemplar_timestamp.append(char)
 
     # Trailing space after value.
     if state == 'timestamp' and not timestamp:
+        raise ValueError("Invalid line: " + text)
+
+    # Trailing space after value.
+    if state == 'exemplartimestamp' and not exemplar_timestamp:
+        raise ValueError("Invalid line: " + text)
+
+    # Incomplete exemplar.
+    if state in ['exemplarhash', 'exemplarspace', 'exemplarstartoflabels']:
         raise ValueError("Invalid line: " + text)
 
     if not value:
@@ -174,8 +213,13 @@ def _parse_sample(text):
     value = ''.join(value)
     val = _parse_value(value)
     ts = _parse_timestamp(timestamp)
+    exemplar = None
+    if exemplar_labels is not None:
+        exemplar = core.Exemplar(exemplar_labels,
+                _parse_value(exemplar_value),
+                _parse_timestamp(exemplar_timestamp))
 
-    return core.Sample(''.join(name), labels, val, ts)
+    return core.Sample(''.join(name), labels, val, ts, exemplar)
     
 
 def text_fd_to_metric_families(fd):
@@ -206,6 +250,7 @@ def text_fd_to_metric_families(fd):
         # TODO: Info and stateset can't have units
         # TODO: check samples are appropriately grouped and ordered
         # TODO: check for metadata in middle of samples
+        # TODO: Check histogram bucket rules being followed
         metric.samples = samples
         return metric
 

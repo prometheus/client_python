@@ -12,6 +12,7 @@ else:
 from prometheus_client.core import (
     CollectorRegistry,
     CounterMetricFamily,
+    Exemplar,
     GaugeMetricFamily,
     HistogramMetricFamily,
     Metric,
@@ -104,6 +105,20 @@ a_sum 2
 # EOF
 """)
         self.assertEqual([HistogramMetricFamily("a", "help", sum_value=2, buckets=[("1", 0.0), ("+Inf", 3.0)])], list(families))
+
+    def test_histogram_exemplars(self):
+        families = text_string_to_metric_families("""# TYPE a histogram
+# HELP a help
+a_bucket{le="1"} 0 # {a="b"} 0.5
+a_bucket{le="2"} 2 123 # {a="c"} 0.5
+a_bucket{le="+Inf"} 3 # {a="d"} 4 123
+# EOF
+""")
+        hfm = HistogramMetricFamily("a", "help")
+        hfm.add_sample("a_bucket", {"le": "1"}, 0.0, None, Exemplar({"a": "b"}, 0.5))
+        hfm.add_sample("a_bucket", {"le": "2"}, 2.0, Timestamp(123, 0), Exemplar({"a": "c"}, 0.5)), 
+        hfm.add_sample("a_bucket", {"le": "+Inf"}, 3.0, None, Exemplar({"a": "d"}, 4, Timestamp(123, 0)))
+        self.assertEqual([hfm], list(families))
 
     def test_no_metadata(self):
         families = text_string_to_metric_families("""a 1
@@ -376,11 +391,19 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
                 # Bad value.
                 ('a a\n# EOF\n'),
                 ('a  1\n# EOF\n'),
+                ('a 1\t\n# EOF\n'),
                 ('a 1 \n# EOF\n'),
                 # Bad timestamp.
                 ('a 1 z\n# EOF\n'),
                 ('a 1 1z\n# EOF\n'),
                 ('a 1 1.1.1\n# EOF\n'),
+                # Bad exemplars.
+                ('# TYPE a histogram\na_bucket{le="+Inf"} 1 #\n# EOF\n'),
+                ('# TYPE a histogram\na_bucket{le="+Inf"} 1# {} 1\n# EOF\n'),
+                ('# TYPE a histogram\na_bucket{le="+Inf"} 1 #{} 1\n# EOF\n'),
+                ('# TYPE a histogram\na_bucket{le="+Inf"} 1 # {}1\n# EOF\n'),
+                ('# TYPE a histogram\na_bucket{le="+Inf"} 1 # {} 1 \n# EOF\n'),
+                ('# TYPE a histogram\na_bucket{le="+Inf"} 1 # {} 1 1 \n# EOF\n'),
                 ]:
             with self.assertRaises(ValueError):
                 list(text_string_to_metric_families(case))
