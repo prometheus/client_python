@@ -47,25 +47,40 @@ def _unescape_help(text):
     return ''.join(result)
 
 
-def _parse_sample(text):
-    name = []
+def _parse_value(value):
+    value = ''.join(value)
+    try:
+        return int(value)
+    except ValueError:
+        return float(value)
+
+
+def _parse_timestamp(timestamp):
+    timestamp = ''.join(timestamp)
+    if not timestamp:
+        return None
+    try:
+        # Simple int.
+        return core.Timestamp(int(timestamp), 0)
+    except ValueError:
+        try:
+            # aaaa.bbbb. Nanosecond resolution supported.
+            parts = timestamp.split('.', 1)
+            return core.Timestamp(int(parts[0]), int(parts[1][:9].ljust(9, "0")))
+        except ValueError:
+            # Float.
+            return float(timestamp)
+
+
+def _parse_labels(it, text):
+    # The { has already been parsed.
+    state  = 'startoflabelname'
     labelname = []
     labelvalue = []
-    value = []
-    timestamp = []
     labels = {}
 
-    state = 'name'
-
-    for char in text:
-        if state == 'name':
-            if char == '{':
-                state = 'startoflabelname'
-            elif char == ' ':
-                state = 'value'
-            else:
-                name.append(char)
-        elif state == 'startoflabelname':
+    for char in it:
+        if state == 'startoflabelname':
             if char == '}':
                 state = 'endoflabels'
             else:
@@ -112,9 +127,32 @@ def _parse_sample(text):
                 labelvalue.append('\\' + char)
         elif state == 'endoflabels':
             if char == ' ':
-                state = 'value'
+                break
             else:
                 raise ValueError("Invalid line: " + text)
+    return labels
+
+
+def _parse_sample(text):
+    name = []
+    value = []
+    timestamp = []
+    labels = {}
+
+    state = 'name'
+
+    it = iter(text)
+
+    for char in it:
+        if state == 'name':
+            if char == '{':
+                labels = _parse_labels(it, text)
+                # Space has already been parsed.
+                state = 'value'
+            elif char == ' ':
+                state = 'value'
+            else:
+                name.append(char)
         elif state == 'value':
             if char == ' ':
                 state = 'timestamp'
@@ -134,26 +172,8 @@ def _parse_sample(text):
     if not value:
         raise ValueError("Invalid line: " + text)
     value = ''.join(value)
-    val = None
-    try:
-        val = int(value)
-    except ValueError:
-        val = float(value)
-
-    ts = None
-    timestamp = ''.join(timestamp)
-    if timestamp:
-        try:
-            # Simple int.
-            ts = core.Timestamp(int(timestamp), 0)
-        except ValueError:
-            try:
-                # aaaa.bbbb. Nanosecond resolution supported.
-                parts = timestamp.split('.', 1)
-                ts = core.Timestamp(int(parts[0]), int(parts[1][:9].ljust(9, "0")))
-            except ValueError:
-                # Float.
-                ts = float(timestamp)
+    val = _parse_value(value)
+    ts = _parse_timestamp(timestamp)
 
     return core.Sample(''.join(name), labels, val, ts)
     
