@@ -255,6 +255,9 @@ def text_fd_to_metric_families(fd):
         # TODO: check info/stateset values are 1/0
         # TODO: check for metadata in middle of samples
         # TODO: Check histogram bucket rules being followed
+        # TODO: Check for duplicate metrics
+        # TODO: Check for dupliate samples
+        # TODO: Check for decresing timestamps
         metric.samples = samples
         return metric
 
