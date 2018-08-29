@@ -244,11 +244,15 @@ def text_fd_to_metric_families(fd):
         if name in seen_metrics:
             raise ValueError("Duplicate metric: " + name)
         seen_metrics.add(name)
+        if unit and not name.endswith("_" + unit):
+            raise ValueError("Unit does not match metric name: " + name)
+        if unit and typ in ['info', 'stateset']:
+            raise ValueError("Units not allowed for this metric type: " + name)
         metric = core.Metric(name, documentation, typ, unit)
         # TODO: check labelvalues are valid utf8
         # TODO: check only histogram buckets have exemplars.
-        # TODO: Info and stateset can't have units
         # TODO: check samples are appropriately grouped and ordered
+        # TODO: check info/stateset values are 1/0
         # TODO: check for metadata in middle of samples
         # TODO: Check histogram bucket rules being followed
         metric.samples = samples

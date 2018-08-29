@@ -466,10 +466,21 @@ class TestMetricWrapper(unittest.TestCase):
         self.assertRaises(ValueError, Counter, 'c_total', '', labelnames=['a:b'])
         self.assertRaises(ValueError, Counter, 'c_total', '', labelnames=['__reserved'])
         self.assertRaises(ValueError, Summary, 'c_total', '', labelnames=['quantile'])
-
     def test_empty_labels_list(self):
         Histogram('h', 'help', [], registry=self.registry)
         self.assertEqual(0, self.registry.get_sample_value('h_sum'))
+
+    def test_unit_appended(self):
+        Histogram('h', 'help', [], registry=self.registry, unit="seconds")
+        self.assertEqual(0, self.registry.get_sample_value('h_seconds_sum'))
+
+    def test_unit_notappended(self):
+        Histogram('h_seconds', 'help', [], registry=self.registry, unit="seconds")
+        self.assertEqual(0, self.registry.get_sample_value('h_seconds_sum'))
+
+    def test_no_units_for_info_enum(self):
+        self.assertRaises(ValueError, Info, 'foo', 'help', unit="x")
+        self.assertRaises(ValueError, Enum, 'foo', 'help', unit="x")
 
     def test_wrapped_original_class(self):
         self.assertEqual(Counter.__wrapped__, Counter('foo', 'bar').__class__)
@@ -494,6 +505,10 @@ class TestMetricFamilies(unittest.TestCase):
         cmf.add_metric(['b', 'd'], 2)
         self.custom_collector(cmf)
         self.assertEqual(2, self.registry.get_sample_value('u', {'a': 'b', 'c': 'd'}))
+
+    def test_untyped_unit(self):
+        self.custom_collector(UntypedMetricFamily('u', 'help', value=1, unit='unit'))
+        self.assertEqual(1, self.registry.get_sample_value('u_unit', {}))
 
     def test_counter(self):
         self.custom_collector(CounterMetricFamily('c_total', 'help', value=1))

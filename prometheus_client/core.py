@@ -198,12 +198,12 @@ class Metric(object):
     and SummaryMetricFamily instead.
     '''
     def __init__(self, name, documentation, typ, unit=''):
+        if unit and not name.endswith("_" + unit):
+            name += "_" + unit
         if not _METRIC_NAME_RE.match(name):
             raise ValueError('Invalid metric name: ' + name)
         self.name = name
         self.documentation = documentation
-        if unit and not name.endswith("_" + unit):
-            raise ValueError("Metric name not suffixed by unit: " + name)
         self.unit = unit
         if typ == 'untyped':
             typ = 'unknown'
@@ -239,8 +239,8 @@ class UnknownMetricFamily(Metric):
     '''A single unknwon metric and its samples.
     For use by custom collectors.
     '''
-    def __init__(self, name, documentation, value=None, labels=None):
-        Metric.__init__(self, name, documentation, 'unknown')
+    def __init__(self, name, documentation, value=None, labels=None, unit=''):
+        Metric.__init__(self, name, documentation, 'unknown', unit)
         if labels is not None and value is not None:
             raise ValueError('Can only specify at most one of value and labels.')
         if labels is None:
@@ -265,11 +265,11 @@ class CounterMetricFamily(Metric):
 
     For use by custom collectors.
     '''
-    def __init__(self, name, documentation, value=None, labels=None, created=None):
+    def __init__(self, name, documentation, value=None, labels=None, created=None, unit=''):
         # Glue code for pre-OpenMetrics metrics.
         if name.endswith('_total'):
            name = name[:-6]
-        Metric.__init__(self, name, documentation, 'counter')
+        Metric.__init__(self, name, documentation, 'counter', unit)
         if labels is not None and value is not None:
             raise ValueError('Can only specify at most one of value and labels.')
         if labels is None:
@@ -735,13 +735,18 @@ class _LabelWrapper(object):
 
 def _MetricWrapper(cls):
     '''Provides common functionality for metrics.'''
-    def init(name, documentation, labelnames=(), namespace='', subsystem='', registry=REGISTRY, **kwargs):
+    def init(name, documentation, labelnames=(), namespace='', subsystem='', unit='', registry=REGISTRY, **kwargs):
         full_name = ''
         if namespace:
             full_name += namespace + '_'
         if subsystem:
             full_name += subsystem + '_'
         full_name += name
+
+        if unit and not full_name.endswith("_" + unit):
+            full_name += "_" + unit
+        if unit and cls._type in ('info', 'stateset'):
+            raise ValueError('Metric name is of a type that cannot have a unit: ' + full_name)
 
         if cls._type == 'counter' and full_name.endswith('_total'):
             full_name = full_name[:-6]  # Munge to OpenMetrics.
@@ -767,7 +772,7 @@ def _MetricWrapper(cls):
         collector.describe = describe
 
         def collect():
-            metric = Metric(full_name, documentation, cls._type)
+            metric = Metric(full_name, documentation, cls._type, unit)
             for suffix, labels, value in collector._samples():
                 metric.add_sample(full_name + suffix, labels, value)
             return [metric]

@@ -384,6 +384,8 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
                 ('# UNIT a\t\n# EOF\n'),
                 ('# UNIT a seconds\n# EOF\n'),
                 ('# UNIT a_seconds seconds \n# EOF\n'),
+                ('# TYPE x_u info\n# UNIT x_u u\n# EOF\n'),
+                ('# TYPE x_u stateset\n# UNIT x_u u\n# EOF\n'),
                 # Bad metric names.
                 ('0a 1\n# EOF\n'),
                 ('a.b 1\n# EOF\n'),
