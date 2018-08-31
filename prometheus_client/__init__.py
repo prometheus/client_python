@@ -4,6 +4,7 @@ from . import core
 from . import exposition
 from . import process_collector
 from . import platform_collector
+from . import gc_collector
 
 __all__ = ['Counter', 'Gauge', 'Summary', 'Histogram', 'Info', 'Enum']
 
@@ -35,6 +36,8 @@ PROCESS_COLLECTOR = process_collector.PROCESS_COLLECTOR
 PlatformCollector = platform_collector.PlatformCollector
 PLATFORM_COLLECTOR = platform_collector.PLATFORM_COLLECTOR
 
+GCCollector = gc_collector.GCCollector
+GC_COLLECTOR = gc_collector.GC_COLLECTOR
 
 if __name__ == '__main__':
     c = Counter('cc', 'A counter')
