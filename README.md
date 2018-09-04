@@ -72,6 +72,11 @@ c.inc()     # Increment by 1
 c.inc(1.6)  # Increment by given value
 ```
 
+If there is a suffix of `_total` on the metric name, it will be removed. When
+exposing the time series for counter, a `_total` suffix will be added. This is
+for compatibility between OpenMetrics and the Prometheus text format, as OpenMetrics
+requires the `_total` suffix.
+
 There are utilities to count exceptions raised:
 
 ```python
