@@ -1,6 +1,9 @@
 from __future__ import unicode_literals
 
-from collections import OrderedDict
+try:
+    from collections import OrderedDict
+except ImportError:
+    OrderedDict = dict
 import glob
 import os
 import shutil

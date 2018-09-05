@@ -2,7 +2,12 @@
 
 from __future__ import unicode_literals
 
-from collections import OrderedDict, defaultdict
+from collections import defaultdict
+
+try:
+    from collections import OrderedDict
+except ImportError:
+    OrderedDict = dict
 
 import glob
 import json
