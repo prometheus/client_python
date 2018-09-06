@@ -60,7 +60,7 @@ a{quantile="0.5"} 0.7
         # The Python client doesn't support quantiles, but we
         # still need to be able to parse them.
         metric_family = SummaryMetricFamily("a", "help", count_value=1, sum_value=2)
-        metric_family.add_sample("a", {"quantile": "0.5"}, 0.7)
+        metric_family.add_sample("a", (("quantile", "0.5"),), 0.7)
         self.assertEqual([metric_family], list(families))
 
     def test_simple_histogram(self):
@@ -77,7 +77,7 @@ a_sum 2
         families = text_string_to_metric_families("""a 1
 """)
         metric_family = Metric("a", "", "untyped")
-        metric_family.add_sample("a", {}, 1)
+        metric_family.add_sample("a", (), 1)
         self.assertEqual([metric_family], list(families))
 
     def test_untyped(self):
@@ -89,8 +89,8 @@ redis_connected_clients{instance="rough-snowflake-web",port="6381"} 12.0
 """)
         m = Metric("redis_connected_clients", "Redis connected clients", "untyped")
         m.samples = [
-            ("redis_connected_clients", {"instance": "rough-snowflake-web", "port": "6380"}, 10),
-            ("redis_connected_clients", {"instance": "rough-snowflake-web", "port": "6381"}, 12),
+            ("redis_connected_clients", (("instance", "rough-snowflake-web"), ("port", "6380")), 10),
+            ("redis_connected_clients", (("instance", "rough-snowflake-web"), ("port", "6381")), 12),
         ]
         self.assertEqual([m], list(families))
 

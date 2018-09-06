@@ -39,7 +39,7 @@ class TestPlatformCollector(unittest.TestCase):
         for metric in self.registry.collect():
             for n, l, value in metric.samples:
                 if n == name:
-                    assert l == labels
+                    assert dict(l) == labels
                     return
         assert False
 

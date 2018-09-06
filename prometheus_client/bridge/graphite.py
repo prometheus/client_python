@@ -65,7 +65,7 @@ class GraphiteBridge(object):
                     labelstr = '.' + '.'.join(
                         ['{0}.{1}'.format(
                             _sanitize(k), _sanitize(v))
-                            for k, v in sorted(labels.items())])
+                            for k, v in sorted(labels)])
                 else:
                     labelstr = ''
                 output.append('{0}{1}{2} {3} {4}\n'.format(

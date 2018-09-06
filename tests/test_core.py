@@ -577,7 +577,7 @@ class TestCollectorRegistry(unittest.TestCase):
         Summary('s', 'help', registry=registry).observe(7)
 
         m = Metric('s', 'help', 'summary')
-        m.samples = [('s_sum', {}, 7)]
+        m.samples = [('s_sum', (), 7)]
         self.assertEquals([m], registry.restricted_registry(['s_sum']).collect())
 
 
