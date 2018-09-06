@@ -75,7 +75,7 @@ def generate_latest(registry=core.REGISTRY):
                 labelstr = '{{{0}}}'.format(','.join(
                     ['{0}="{1}"'.format(
                      k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
-                     for k, v in sorted(labels.items())]))
+                     for k, v in sorted(labels)]))
             else:
                 labelstr = ''
             output.append('{0}{1} {2}\n'.format(name, labelstr, core._floatToGoString(value)))

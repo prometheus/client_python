@@ -141,7 +141,7 @@ class CollectorRegistry(object):
             labels = {}
         for metric in self.collect():
             for n, l, value in metric.samples:
-                if n == name and l == labels:
+                if n == name and dict(l) == labels:
                     return value
         return None
 
@@ -205,7 +205,7 @@ class UntypedMetricFamily(Metric):
         labels: A list of label values
         value: The value of the metric.
         '''
-        self.samples.append((self.name, dict(zip(self._labelnames, labels)), value))
+        self.samples.append((self.name, tuple(zip(self._labelnames, labels)), value))
 
 
 class CounterMetricFamily(Metric):
@@ -230,7 +230,7 @@ class CounterMetricFamily(Metric):
           labels: A list of label values
           value: The value of the metric.
         '''
-        self.samples.append((self.name, dict(zip(self._labelnames, labels)), value))
+        self.samples.append((self.name, tuple(zip(self._labelnames, labels)), value))
 
 
 class GaugeMetricFamily(Metric):
@@ -255,7 +255,7 @@ class GaugeMetricFamily(Metric):
           labels: A list of label values
           value: A float
         '''
-        self.samples.append((self.name, dict(zip(self._labelnames, labels)), value))
+        self.samples.append((self.name, tuple(zip(self._labelnames, labels)), value))
 
 
 class SummaryMetricFamily(Metric):
@@ -283,8 +283,8 @@ class SummaryMetricFamily(Metric):
           count_value: The count value of the metric.
           sum_value: The sum value of the metric.
         '''
-        self.samples.append((self.name + '_count', dict(zip(self._labelnames, labels)), count_value))
-        self.samples.append((self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value))
+        self.samples.append((self.name + '_count', tuple(zip(self._labelnames, labels)), count_value))
+        self.samples.append((self.name + '_sum', tuple(zip(self._labelnames, labels)), sum_value))
 
 
 class HistogramMetricFamily(Metric):
@@ -314,10 +314,10 @@ class HistogramMetricFamily(Metric):
           sum_value: The sum value of the metric.
         '''
         for bucket, value in buckets:
-            self.samples.append((self.name + '_bucket', dict(list(zip(self._labelnames, labels)) + [('le', bucket)]), value))
+            self.samples.append((self.name + '_bucket', tuple(zip(self._labelnames, labels)) + (('le', bucket),), value))
         # +Inf is last and provides the count value.
-        self.samples.append((self.name + '_count', dict(zip(self._labelnames, labels)), buckets[-1][1]))
-        self.samples.append((self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value))
+        self.samples.append((self.name + '_count', tuple(zip(self._labelnames, labels)), buckets[-1][1]))
+        self.samples.append((self.name + '_sum', tuple(zip(self._labelnames, labels)), sum_value))
 
 
 class _MutexValue(object):
@@ -577,9 +577,9 @@ class _LabelWrapper(object):
         with self._lock:
             metrics = self._metrics.copy()
         for labels, metric in metrics.items():
-            series_labels = list(zip(self._labelnames, labels))
+            series_labels = tuple(zip(self._labelnames, labels))
             for suffix, sample_labels, value in metric._samples():
-                yield (suffix, dict(series_labels + list(sample_labels.items())), value)
+                yield (suffix, series_labels + sample_labels, value)
 
 
 def _MetricWrapper(cls):
@@ -682,7 +682,7 @@ class Counter(object):
         return _ExceptionCounter(self, exception)
 
     def _samples(self):
-        return (('', {}, self._value.get()), )
+        return (('', (), self._value.get()), )
 
 
 @_MetricWrapper
@@ -774,11 +774,11 @@ class Gauge(object):
         multiple threads. All other methods of the Gauge become NOOPs.
         '''
         def samples(self):
-            return (('', {}, float(f())), )
+            return (('', (), float(f())), )
         self._samples = types.MethodType(samples, self)
 
     def _samples(self):
-        return (('', {}, self._value.get()), )
+        return (('', (), self._value.get()), )
 
 
 @_MetricWrapper
@@ -833,8 +833,8 @@ class Summary(object):
 
     def _samples(self):
         return (
-            ('_count', {}, self._count.get()),
-            ('_sum', {}, self._sum.get()))
+            ('_count', (), self._count.get()),
+            ('_sum', (), self._sum.get()))
 
 
 def _floatToGoString(d):
@@ -926,9 +926,11 @@ class Histogram(object):
         acc = 0
         for i, bound in enumerate(self._upper_bounds):
             acc += self._buckets[i].get()
-            samples.append(('_bucket', {'le': _floatToGoString(bound)}, acc))
-        samples.append(('_count', {}, acc))
-        samples.append(('_sum', {}, self._sum.get()))
+            samples.append(
+                ('_bucket', (('le', _floatToGoString(bound)),), acc)
+            )
+        samples.append(('_count', (), acc))
+        samples.append(('_sum', (), self._sum.get()))
         return tuple(samples)
 
 

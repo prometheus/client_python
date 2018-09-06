@@ -47,6 +47,7 @@ class TestGenerateText(unittest.TestCase):
     def test_histogram(self):
         s = Histogram('hh', 'A histogram', registry=self.registry)
         s.observe(0.05)
+        list(generate_latest(self.registry))
         self.assertEqual(b'''# HELP hh A histogram
 # TYPE hh histogram
 hh_bucket{le="0.005"} 0.0
@@ -90,7 +91,7 @@ hh_sum 0.05
         class MyCollector(object):
             def collect(self):
                 metric = Metric("nonnumber", "Non number", 'untyped')
-                metric.add_sample("nonnumber", {}, MyNumber())
+                metric.add_sample("nonnumber", (), MyNumber())
                 yield metric
 
         self.registry.register(MyCollector())

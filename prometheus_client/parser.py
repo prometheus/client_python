@@ -54,10 +54,11 @@ def _is_character_escaped(s, charpos):
 
 
 def _parse_labels(labels_string):
-    labels = {}
     # Return if we don't have valid labels
     if "=" not in labels_string:
-        return labels
+        return ()
+
+    labels = []
 
     escaping = False
     if "\\" in labels_string:
@@ -90,14 +91,14 @@ def _parse_labels(labels_string):
             # Replace escaping if needed
             if escaping:
                 label_value = _replace_escaping(label_value)
-            labels[label_name.strip()] = label_value
+            labels.append((label_name.strip(), label_value))
 
             # Remove the processed label from the sub-slice for next iteration
             sub_labels = sub_labels[quote_end + 1:]
             next_comma = sub_labels.find(",") + 1
             sub_labels = sub_labels[next_comma:].lstrip()
 
-        return labels
+        return tuple(labels)
 
     except ValueError:
         raise ValueError("Invalid labels: %s" % labels_string)
@@ -137,7 +138,7 @@ def _parse_sample(text):
         name = text[:name_end]
         # The value is after the name
         value = float(_parse_value(text[name_end:]))
-        return name, {}, value
+        return name, (), value
 
 
 def text_fd_to_metric_families(fd):
