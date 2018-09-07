@@ -1,9 +1,17 @@
 from __future__ import unicode_literals
 
+import glob
 import os
 import shutil
+import sys
 import tempfile
-import unittest
+
+if sys.version_info < (2, 7):
+    # We need the skip decorators from unittest2 on Python 2.6.
+    import unittest2 as unittest
+else:
+    import unittest
+
 
 from prometheus_client import core
 from prometheus_client.core import (
@@ -11,6 +19,7 @@ from prometheus_client.core import (
     Counter,
     Gauge,
     Histogram,
+    Sample,
     Summary,
 )
 from prometheus_client.multiprocess import (
@@ -25,7 +34,7 @@ class TestMultiProcess(unittest.TestCase):
         os.environ['prometheus_multiproc_dir'] = self.tempdir
         core._ValueClass = core._MultiProcessValue(lambda: 123)
         self.registry = CollectorRegistry()
-        MultiProcessCollector(self.registry, self.tempdir)
+        self.collector = MultiProcessCollector(self.registry, self.tempdir)
 
     def tearDown(self):
         del os.environ['prometheus_multiproc_dir']
@@ -136,6 +145,113 @@ class TestMultiProcess(unittest.TestCase):
         c1.inc(1)
         self.assertEqual(3, self.registry.get_sample_value('c_total'))
         self.assertEqual(1, c1._value.get())
+
+    @unittest.skipIf(sys.version_info < (2, 7), "Test requires Python 2.7+.")
+    def test_collect(self):
+        pid = 0
+        core._ValueClass = core._MultiProcessValue(lambda: pid)
+        labels = dict((i, i) for i in 'abcd')
+
+        def add_label(key, value):
+            l = labels.copy()
+            l[key] = value
+            return l
+
+        c = Counter('c', 'help', labelnames=labels.keys(), registry=None)
+        g = Gauge('g', 'help', labelnames=labels.keys(), registry=None)
+        h = Histogram('h', 'help', labelnames=labels.keys(), registry=None)
+
+        c.labels(**labels).inc(1)
+        g.labels(**labels).set(1)
+        h.labels(**labels).observe(1)
+
+        pid = 1
+
+        c.labels(**labels).inc(1)
+        g.labels(**labels).set(1)
+        h.labels(**labels).observe(5)
+
+        metrics = dict((m.name, m) for m in self.collector.collect())
+
+        self.assertEqual(
+            metrics['c'].samples, [Sample('c_total', labels, 2.0)]
+        )
+        metrics['g'].samples.sort(key=lambda x: x[1]['pid'])
+        self.assertEqual(metrics['g'].samples, [
+            Sample('g', add_label('pid', '0'), 1.0),
+            Sample('g', add_label('pid', '1'), 1.0),
+        ])
+
+        metrics['h'].samples.sort(
+            key=lambda x: (x[0], float(x[1].get('le', 0)))
+        )
+        expected_histogram = [
+            Sample('h_bucket', add_label('le', '0.005'), 0.0),
+            Sample('h_bucket', add_label('le', '0.01'), 0.0),
+            Sample('h_bucket', add_label('le', '0.025'), 0.0),
+            Sample('h_bucket', add_label('le', '0.05'), 0.0),
+            Sample('h_bucket', add_label('le', '0.075'), 0.0),
+            Sample('h_bucket', add_label('le', '0.1'), 0.0),
+            Sample('h_bucket', add_label('le', '0.25'), 0.0),
+            Sample('h_bucket', add_label('le', '0.5'), 0.0),
+            Sample('h_bucket', add_label('le', '0.75'), 0.0),
+            Sample('h_bucket', add_label('le', '1.0'), 1.0),
+            Sample('h_bucket', add_label('le', '2.5'), 1.0),
+            Sample('h_bucket', add_label('le', '5.0'), 2.0),
+            Sample('h_bucket', add_label('le', '7.5'), 2.0),
+            Sample('h_bucket', add_label('le', '10.0'), 2.0),
+            Sample('h_bucket', add_label('le', '+Inf'), 2.0),
+            Sample('h_count', labels, 2.0),
+            Sample('h_sum', labels, 6.0),
+        ]
+
+        self.assertEqual(metrics['h'].samples, expected_histogram)
+
+    @unittest.skipIf(sys.version_info < (2, 7), "Test requires Python 2.7+.")
+    def test_merge_no_accumulate(self):
+        pid = 0
+        core._ValueClass = core._MultiProcessValue(lambda: pid)
+        labels = dict((i, i) for i in 'abcd')
+
+        def add_label(key, value):
+            l = labels.copy()
+            l[key] = value
+            return l
+
+        h = Histogram('h', 'help', labelnames=labels.keys(), registry=None)
+        h.labels(**labels).observe(1)
+        pid = 1
+        h.labels(**labels).observe(5)
+
+        path = os.path.join(os.environ['prometheus_multiproc_dir'], '*.db')
+        files = glob.glob(path)
+        metrics = dict(
+            (m.name, m) for m in self.collector.merge(files, accumulate=False)
+        )
+
+        metrics['h'].samples.sort(
+            key=lambda x: (x[0], float(x[1].get('le', 0)))
+        )
+        expected_histogram = [
+            Sample('h_bucket', add_label('le', '0.005'), 0.0),
+            Sample('h_bucket', add_label('le', '0.01'), 0.0),
+            Sample('h_bucket', add_label('le', '0.025'), 0.0),
+            Sample('h_bucket', add_label('le', '0.05'), 0.0),
+            Sample('h_bucket', add_label('le', '0.075'), 0.0),
+            Sample('h_bucket', add_label('le', '0.1'), 0.0),
+            Sample('h_bucket', add_label('le', '0.25'), 0.0),
+            Sample('h_bucket', add_label('le', '0.5'), 0.0),
+            Sample('h_bucket', add_label('le', '0.75'), 0.0),
+            Sample('h_bucket', add_label('le', '1.0'), 1.0),
+            Sample('h_bucket', add_label('le', '2.5'), 0.0),
+            Sample('h_bucket', add_label('le', '5.0'), 1.0),
+            Sample('h_bucket', add_label('le', '7.5'), 0.0),
+            Sample('h_bucket', add_label('le', '10.0'), 0.0),
+            Sample('h_bucket', add_label('le', '+Inf'), 0.0),
+            Sample('h_sum', labels, 6.0),
+        ]
+
+        self.assertEqual(metrics['h'].samples, expected_histogram)
 
 
 class TestMmapedDict(unittest.TestCase):

@@ -185,7 +185,7 @@ class CollectorRegistry(object):
 REGISTRY = CollectorRegistry(auto_describe=True)
 '''The default registry.'''
 
-_METRIC_TYPES = ('counter', 'gauge', 'summary', 'histogram', 
+_METRIC_TYPES = ('counter', 'gauge', 'summary', 'histogram',
         'gaugehistogram', 'unknown', 'info', 'stateset')
 
 
@@ -378,8 +378,8 @@ class HistogramMetricFamily(Metric):
             exemplar = None
             if len(b) == 3:
                 exemplar = b[2]
-            self.samples.append(Sample(self.name + '_bucket', 
-                dict(list(zip(self._labelnames, labels)) + [('le', bucket)]), 
+            self.samples.append(Sample(self.name + '_bucket',
+                dict(list(zip(self._labelnames, labels)) + [('le', bucket)]),
                 value, timestamp, exemplar))
         # +Inf is last and provides the count value.
         self.samples.append(Sample(self.name + '_count', dict(zip(self._labelnames, labels)), buckets[-1][1], timestamp))
@@ -411,7 +411,7 @@ class GaugeHistogramMetricFamily(Metric):
         '''
         for bucket, value in buckets:
             self.samples.append(Sample(
-                self.name + '_bucket', 
+                self.name + '_bucket',
                 dict(list(zip(self._labelnames, labels)) + [('le', bucket)]),
                 value, timestamp))
 
@@ -438,7 +438,7 @@ class InfoMetricFamily(Metric):
           labels: A list of label values
           value: A dict of labels
         '''
-        self.samples.append(Sample(self.name + '_info', 
+        self.samples.append(Sample(self.name + '_info',
             dict(dict(zip(self._labelnames, labels)), **value), 1, timestamp))
 
 
@@ -586,6 +586,13 @@ class _MmapedDict(object):
             self._f = None
 
 
+def _mmap_key(metric_name, name, labelnames, labelvalues):
+    """Format a key for use in the mmap file."""
+    # ensure labels are in consistent order for identity
+    labels = dict(zip(labelnames, labelvalues))
+    return json.dumps([metric_name, name, labels], sort_keys=True)
+
+
 def _MultiProcessValue(_pidFunc=os.getpid):
     files = {}
     values = []
@@ -618,7 +625,7 @@ def _MultiProcessValue(_pidFunc=os.getpid):
                     '{0}_{1}.db'.format(file_prefix, pid['value']))
                 files[file_prefix] = _MmapedDict(filename)
             self._file = files[file_prefix]
-            self._key = json.dumps((metric_name, name, labelnames, labelvalues))
+            self._key = _mmap_key(metric_name, name, labelnames, labelvalues)
             self._value = self._file.read_value(self._key)
 
         def __check_for_pid_change(self):
@@ -1143,7 +1150,7 @@ class Enum(object):
      Example usage:
         from prometheus_client import Enum
 
-        e = Enum('task_state', 'Description of enum', 
+        e = Enum('task_state', 'Description of enum',
           states=['starting', 'running', 'stopped'])
         e.state('running')
 

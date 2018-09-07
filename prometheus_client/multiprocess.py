@@ -23,13 +23,24 @@ class MultiProcessCollector(object):
             registry.register(self)
 
     def collect(self):
+        files = glob.glob(os.path.join(self._path, '*.db'))
+        return self.merge(files, accumulate=True)
+
+    def merge(self, files, accumulate=True):
+        """Merge metrics from given mmap files.
+
+        By default, histograms are accumulated, as per prometheus wire format.
+        But if writing the merged data back to mmap files, use
+        accumulate=False to avoid compound accumulation.
+        """
         metrics = {}
-        for f in glob.glob(os.path.join(self._path, '*.db')):
+        for f in files:
             parts = os.path.basename(f).split('_')
             typ = parts[0]
             d = core._MmapedDict(f, read_mode=True)
             for key, value in d.read_all_values():
-                metric_name, name, labelnames, labelvalues = json.loads(key)
+                metric_name, name, labels = json.loads(key)
+                labels_key = tuple(sorted(labels.items()))
 
                 metric = metrics.get(metric_name)
                 if metric is None:
@@ -39,10 +50,10 @@ class MultiProcessCollector(object):
                 if typ == 'gauge':
                     pid = parts[2][:-3]
                     metric._multiprocess_mode = parts[1]
-                    metric.add_sample(name, tuple(zip(labelnames, labelvalues)) + (('pid', pid), ), value)
+                    metric.add_sample(name, labels_key + (('pid', pid), ), value)
                 else:
                     # The duplicates and labels are fixed in the next for.
-                    metric.add_sample(name, tuple(zip(labelnames, labelvalues)), value)
+                    metric.add_sample(name, labels_key, value)
             d.close()
 
         for metric in metrics.values():
@@ -86,9 +97,17 @@ class MultiProcessCollector(object):
                 for labels, values in buckets.items():
                     acc = 0.0
                     for bucket, value in sorted(values.items()):
-                        acc += value
-                        samples[(metric.name + '_bucket', labels + (('le', core._floatToGoString(bucket)), ))] = acc
-                    samples[(metric.name + '_count', labels)] = acc
+                        sample_key = (
+                            metric.name + '_bucket',
+                            labels + (('le', core._floatToGoString(bucket)), ),
+                        )
+                        if accumulate:
+                            acc += value
+                            samples[sample_key] = acc
+                        else:
+                            samples[sample_key] = value
+                    if accumulate:
+                        samples[(metric.name + '_count', labels)] = acc
 
             # Convert to correct sample format.
             metric.samples = [core.Sample(name, dict(labels), value) for (name, labels), value in samples.items()]
