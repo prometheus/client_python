@@ -40,6 +40,7 @@ class MultiProcessCollector(object):
             d = core._MmapedDict(f, read_mode=True)
             for key, value in d.read_all_values():
                 metric_name, name, labels = json.loads(key)
+                labels_key = tuple(sorted(labels.items()))
 
                 metric = metrics.get(metric_name)
                 if metric is None:
@@ -49,10 +50,10 @@ class MultiProcessCollector(object):
                 if typ == 'gauge':
                     pid = parts[2][:-3]
                     metric._multiprocess_mode = parts[1]
-                    metric.add_sample(name, tuple(labels.items()) + (('pid', pid), ), value)
+                    metric.add_sample(name, labels_key + (('pid', pid), ), value)
                 else:
                     # The duplicates and labels are fixed in the next for.
-                    metric.add_sample(name, tuple(labels.items()), value)
+                    metric.add_sample(name, labels_key, value)
             d.close()
 
         for metric in metrics.values():
