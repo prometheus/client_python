@@ -48,17 +48,18 @@ class MultiProcessCollector(object):
         for metric in metrics.values():
             samples = defaultdict(float)
             buckets = {}
-            for name, labels, value in metric.samples:
+            for s in metric.samples:
+                name, labels, value = s.name, s.labels, s.value
                 if metric.type == 'gauge':
                     without_pid = tuple(l for l in labels if l[0] != 'pid')
                     if metric._multiprocess_mode == 'min':
                         current = samples.setdefault((name, without_pid), value)
                         if value < current:
-                            samples[(name, without_pid)] = value
+                            samples[(s.name, without_pid)] = value
                     elif metric._multiprocess_mode == 'max':
                         current = samples.setdefault((name, without_pid), value)
                         if value > current:
-                            samples[(name, without_pid)] = value
+                            samples[(s.name, without_pid)] = value
                     elif metric._multiprocess_mode == 'livesum':
                         samples[(name, without_pid)] += value
                     else:  # all/liveall
@@ -74,11 +75,11 @@ class MultiProcessCollector(object):
                         buckets[without_le][bucket[0]] += value
                     else:
                         # _sum/_count
-                        samples[(name, labels)] += value
+                        samples[(s.name, labels)] += value
 
                 else:
                     # Counter and Summary.
-                    samples[(name, labels)] += value
+                    samples[(s.name, labels)] += value
 
             # Accumulate bucket values.
             if metric.type == 'histogram':
@@ -90,7 +91,7 @@ class MultiProcessCollector(object):
                     samples[(metric.name + '_count', labels)] = acc
 
             # Convert to correct sample format.
-            metric.samples = [(name, dict(labels), value) for (name, labels), value in samples.items()]
+            metric.samples = [core.Sample(name, dict(labels), value) for (name, labels), value in samples.items()]
         return metrics.values()
 
 

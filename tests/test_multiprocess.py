@@ -36,10 +36,10 @@ class TestMultiProcess(unittest.TestCase):
         c1 = Counter('c', 'help', registry=None)
         core._ValueClass = core._MultiProcessValue(lambda: 456)
         c2 = Counter('c', 'help', registry=None)
-        self.assertEqual(0, self.registry.get_sample_value('c'))
+        self.assertEqual(0, self.registry.get_sample_value('c_total'))
         c1.inc(1)
         c2.inc(2)
-        self.assertEqual(3, self.registry.get_sample_value('c'))
+        self.assertEqual(3, self.registry.get_sample_value('c_total'))
 
     def test_summary_adds(self):
         s1 = Summary('s', 'help', registry=None)
@@ -121,20 +121,20 @@ class TestMultiProcess(unittest.TestCase):
         self.assertEqual(2, self.registry.get_sample_value('g'))
 
     def test_namespace_subsystem(self):
-        c1 = Counter('c', 'help', registry=None, namespace='ns', subsystem='ss')
-        c1.inc(1)
-        self.assertEqual(1, self.registry.get_sample_value('ns_ss_c'))
+         c1 = Counter('c', 'help', registry=None, namespace='ns', subsystem='ss')
+         c1.inc(1)
+         self.assertEqual(1, self.registry.get_sample_value('ns_ss_c_total'))
 
     def test_counter_across_forks(self):
         pid = 0
         core._ValueClass = core._MultiProcessValue(lambda: pid)
         c1 = Counter('c', 'help', registry=None)
-        self.assertEqual(0, self.registry.get_sample_value('c'))
+        self.assertEqual(0, self.registry.get_sample_value('c_total'))
         c1.inc(1)
         c1.inc(1)
         pid = 1
         c1.inc(1)
-        self.assertEqual(3, self.registry.get_sample_value('c'))
+        self.assertEqual(3, self.registry.get_sample_value('c_total'))
         self.assertEqual(1, c1._value.get())
 
 

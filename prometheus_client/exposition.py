@@ -10,7 +10,8 @@ import threading
 from contextlib import closing
 from wsgiref.simple_server import make_server, WSGIRequestHandler
 
-from . import core
+from prometheus_client import core
+from prometheus_client import openmetrics
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
     from SocketServer import ThreadingMixIn
@@ -36,12 +37,13 @@ def make_wsgi_app(registry=core.REGISTRY):
     def prometheus_app(environ, start_response):
         params = parse_qs(environ.get('QUERY_STRING', ''))
         r = registry
+        encoder, content_type = choose_encoder(environ.get['HTTP_ACCEPT'])
         if 'name[]' in params:
             r = r.restricted_registry(params['name[]'])
-        output = generate_latest(r)
+        output = encoder(r)
 
         status = str('200 OK')
-        headers = [(str('Content-type'), CONTENT_TYPE_LATEST)]
+        headers = [(str('Content-type'), content_type)]
         start_response(status, headers)
         return [output]
     return prometheus_app
@@ -67,19 +69,52 @@ def generate_latest(registry=core.REGISTRY):
     '''Returns the metrics from the registry in latest text format as a string.'''
     output = []
     for metric in registry.collect():
+        mname = metric.name
+        mtype = metric.type
+        # Munging from OpenMetrics into Prometheus format.
+        if mtype == 'counter':
+            mname = mname + '_total'
+        elif mtype == 'info':
+            mname = mname + '_info'
+            mtype = 'gauge'
+        elif mtype == 'stateset':
+            mtype = 'gauge'
+        elif mtype == 'gaugehistogram':
+            # A gauge histogram is really a gauge,
+            # but this captures the strucutre better.
+            mtype = 'histogram'
+        elif mtype == 'unknown':
+            mtype = 'untyped'
+
         output.append('# HELP {0} {1}'.format(
-            metric.name, metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
-        output.append('\n# TYPE {0} {1}\n'.format(metric.name, metric.type))
-        for name, labels, value in metric.samples:
-            if labels:
+            mname, metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
+        output.append('\n# TYPE {0} {1}\n'.format(mname, mtype))
+        for s in metric.samples:
+            if s.name == metric.name + '_created':
+                continue  # Ignore OpenMetrics specific sample. TODO: Make these into a gauge.
+            if s.labels:
                 labelstr = '{{{0}}}'.format(','.join(
                     ['{0}="{1}"'.format(
                      k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
-                     for k, v in sorted(labels.items())]))
+                     for k, v in sorted(s.labels.items())]))
             else:
                 labelstr = ''
-            output.append('{0}{1} {2}\n'.format(name, labelstr, core._floatToGoString(value)))
+            timestamp = ''
+            if s.timestamp is not None:
+                # Convert to milliseconds.
+                timestamp = ' {0:d}'.format(int(float(s.timestamp) * 1000))
+            output.append('{0}{1} {2}{3}\n'.format(
+                s.name, labelstr, core._floatToGoString(s.value), timestamp))
     return ''.join(output).encode('utf-8')
+
+
+def choose_encoder(accept_header):
+    accept_header = accept_header or ''
+    for accepted in accept_header.split(','):
+        if accepted == 'text/openmetrics; version=0.0.1':
+            return (openmetrics.exposition.generate_latest, 
+                    openmetrics.exposition.CONTENT_TYPE_LATEST)
+    return (generate_latest, CONTENT_TYPE_LATEST)
 
 
 class MetricsHandler(BaseHTTPRequestHandler):
@@ -89,15 +124,16 @@ class MetricsHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         registry = self.registry
         params = parse_qs(urlparse(self.path).query)
+        encoder, content_type = choose_encoder(self.headers.get('Accept'))
         if 'name[]' in params:
             registry = registry.restricted_registry(params['name[]'])
         try:
-            output = generate_latest(registry)
+            output = encoder(registry)
         except:
             self.send_error(500, 'error generating metric output')
             raise
         self.send_response(200)
-        self.send_header('Content-Type', CONTENT_TYPE_LATEST)
+        self.send_header('Content-Type', content_type)
         self.end_headers()
         self.wfile.write(output)
 

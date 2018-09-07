@@ -37,9 +37,9 @@ class TestPlatformCollector(unittest.TestCase):
 
     def assertLabels(self, name, labels):
         for metric in self.registry.collect():
-            for n, l, value in metric.samples:
-                if n == name:
-                    assert l == labels
+            for s in metric.samples:
+                if s.name == name:
+                    assert s.labels == labels
                     return
         assert False
 

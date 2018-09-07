@@ -125,7 +125,7 @@ def _parse_sample(text):
         label = text[label_start + 1:label_end]
         # The value is after the label end (ignoring curly brace and space)
         value = float(_parse_value(text[label_end + 2:]))
-        return name, _parse_labels(label), value
+        return core.Sample(name, _parse_labels(label), value)
 
     # We don't have labels
     except ValueError:
@@ -137,7 +137,7 @@ def _parse_sample(text):
         name = text[:name_end]
         # The value is after the name
         value = float(_parse_value(text[name_end:]))
-        return name, {}, value
+        return core.Sample(name, {}, value)
 
 
 def text_fd_to_metric_families(fd):
@@ -156,6 +156,16 @@ def text_fd_to_metric_families(fd):
     allowed_names = []
 
     def build_metric(name, documentation, typ, samples):
+        # Munge counters into OpenMetrics representation
+        # used internally.
+        if typ == 'counter': 
+            if name.endswith('_total'):
+                name = name[:-6]
+            else:
+                new_samples = []
+                for s in samples:
+                    new_samples.append(tuple((s[0] + '_total', ) + s[1:]))
+                    samples = new_samples
         metric = core.Metric(name, documentation, typ)
         metric.samples = samples
         return metric
@@ -204,7 +214,7 @@ def text_fd_to_metric_families(fd):
             pass
         else:
             sample = _parse_sample(line)
-            if sample[0] not in allowed_names:
+            if sample.name not in allowed_names:
                 if name != '':
                     yield build_metric(name, documentation, typ, samples)
                 # New metric, yield immediately as untyped singleton

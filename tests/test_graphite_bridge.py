@@ -5,7 +5,7 @@ try:
 except ImportError:
     import socketserver as SocketServer
 
-from prometheus_client import Counter, CollectorRegistry
+from prometheus_client import Gauge, CollectorRegistry
 from prometheus_client.bridge.graphite import GraphiteBridge
 
 
@@ -38,16 +38,16 @@ class TestGraphiteBridge(unittest.TestCase):
         self.gb = GraphiteBridge(address, self.registry, _timer=fake_timer)
 
     def test_nolabels(self):
-        counter = Counter('c', 'help', registry=self.registry)
-        counter.inc()
+        gauge = Gauge('g', 'help', registry=self.registry)
+        gauge.inc()
 
         self.gb.push()
         self.t.join()
 
-        self.assertEqual(b'c 1.0 1434898897\n', self.data)
+        self.assertEqual(b'g 1.0 1434898897\n', self.data)
 
     def test_labels(self):
-        labels = Counter('labels', 'help', ['a', 'b'], registry=self.registry)
+        labels = Gauge('labels', 'help', ['a', 'b'], registry=self.registry)
         labels.labels('c', 'd').inc()
 
         self.gb.push()
@@ -56,7 +56,7 @@ class TestGraphiteBridge(unittest.TestCase):
         self.assertEqual(b'labels.a.c.b.d 1.0 1434898897\n', self.data)
 
     def test_prefix(self):
-        labels = Counter('labels', 'help', ['a', 'b'], registry=self.registry)
+        labels = Gauge('labels', 'help', ['a', 'b'], registry=self.registry)
         labels.labels('c', 'd').inc()
 
         self.gb.push(prefix='pre.fix')
@@ -65,7 +65,7 @@ class TestGraphiteBridge(unittest.TestCase):
         self.assertEqual(b'pre.fix.labels.a.c.b.d 1.0 1434898897\n', self.data)
 
     def test_sanitizing(self):
-        labels = Counter('labels', 'help', ['a'], registry=self.registry)
+        labels = Gauge('labels', 'help', ['a'], registry=self.registry)
         labels.labels('c.:8').inc()
 
         self.gb.push()

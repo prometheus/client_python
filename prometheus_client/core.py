@@ -15,6 +15,7 @@ import types
 
 from threading import Lock
 from timeit import default_timer
+from collections import namedtuple
 
 from .decorator import decorate
 
@@ -33,6 +34,39 @@ _pack_integer = struct.Struct(b'i').pack_into
 _pack_double = struct.Struct(b'd').pack_into
 _unpack_integer = struct.Struct(b'i').unpack_from
 _unpack_double = struct.Struct(b'd').unpack_from
+
+# Timestamp and exemplar are optional.
+# Value can be an int or a float.
+# Timestamp can be a float containing a unixtime in seconds,
+# a Timestamp object, or None.
+# Exemplar can be an Exemplar object, or None.
+Sample = namedtuple('Sample', ['name', 'labels', 'value', 'timestamp', 'exemplar'])
+Sample.__new__.__defaults__ = (None, None)
+
+
+class Timestamp(object):
+    '''A nanosecond-resolution timestamp.'''
+    def __init__(self, sec, nsec):
+        if nsec < 0 or nsec >= 1e9:
+            raise ValueError("Invalid value for nanoseconds in Timestamp: {}".format(nsec))
+        self.sec = int(sec)
+        self.nsec = int(nsec)
+
+    def __str__(self):
+        return "{0}.{1:09d}".format(self.sec, self.nsec)
+
+    def __repr__(self):
+        return "Timestamp({0}, {1})".format(self.sec, self.nsec)
+
+    def __float__(self):
+        return float(self.sec) + float(self.nsec) / 1e9
+
+    def __eq__(self, other):
+        return type(self) == type(other) and self.sec == other.sec and self.nsec == other.nsec
+
+
+Exemplar = namedtuple('Exemplar', ['labels', 'value', 'timestamp'])
+Exemplar.__new__.__defaults__ = (None, )
 
 
 class CollectorRegistry(object):
@@ -55,7 +89,7 @@ class CollectorRegistry(object):
             duplicates = set(self._names_to_collectors).intersection(names)
             if duplicates:
                 raise ValueError(
-                    'Duplicated timeseries in CollectorRegistry: {}'.format(
+                    'Duplicated timeseries in CollectorRegistry: {0}'.format(
                         duplicates))
             for name in names:
                 self._names_to_collectors[name] = collector
@@ -85,8 +119,10 @@ class CollectorRegistry(object):
 
         result = []
         type_suffixes = {
-            'summary': ['', '_sum', '_count'],
-            'histogram': ['_bucket', '_sum', '_count']
+            'counter': ['_total', '_created'],
+            'summary': ['', '_sum', '_count', '_created'],
+            'histogram': ['_bucket', '_sum', '_count', '_created'],
+            'info': ['_info'],
         }
         for metric in desc_func():
             for suffix in type_suffixes.get(metric.type, ['']):
@@ -140,16 +176,17 @@ class CollectorRegistry(object):
         if labels is None:
             labels = {}
         for metric in self.collect():
-            for n, l, value in metric.samples:
-                if n == name and l == labels:
-                    return value
+            for s in metric.samples:
+                if s.name == name and s.labels == labels:
+                    return s.value
         return None
 
 
 REGISTRY = CollectorRegistry(auto_describe=True)
 '''The default registry.'''
 
-_METRIC_TYPES = ('counter', 'gauge', 'summary', 'histogram', 'untyped')
+_METRIC_TYPES = ('counter', 'gauge', 'summary', 'histogram', 
+        'gaugehistogram', 'unknown', 'info', 'stateset')
 
 
 class Metric(object):
@@ -160,37 +197,50 @@ class Metric(object):
     Custom collectors should use GaugeMetricFamily, CounterMetricFamily
     and SummaryMetricFamily instead.
     '''
-    def __init__(self, name, documentation, typ):
+    def __init__(self, name, documentation, typ, unit=''):
+        if unit and not name.endswith("_" + unit):
+            name += "_" + unit
+        if not _METRIC_NAME_RE.match(name):
+            raise ValueError('Invalid metric name: ' + name)
         self.name = name
         self.documentation = documentation
+        self.unit = unit
+        if typ == 'untyped':
+            typ = 'unknown'
         if typ not in _METRIC_TYPES:
             raise ValueError('Invalid metric type: ' + typ)
         self.type = typ
+        if unit:
+            if not name.endswith('_' + unit):
+                raise ValueError('Metric name does not end with unit: ' + name)
+        self.unit = unit
         self.samples = []
 
-    def add_sample(self, name, labels, value):
+    def add_sample(self, name, labels, value, timestamp=None, exemplar=None):
         '''Add a sample to the metric.
 
         Internal-only, do not use.'''
-        self.samples.append((name, labels, value))
+        self.samples.append(Sample(name, labels, value, timestamp, exemplar))
 
     def __eq__(self, other):
         return (isinstance(other, Metric) and
                 self.name == other.name and
                 self.documentation == other.documentation and
                 self.type == other.type and
+                self.unit == other.unit and
                 self.samples == other.samples)
 
     def __repr__(self):
-        return "Metric(%s, %s, %s, %s)" % (self.name, self.documentation,
-            self.type, self.samples)
+        return "Metric(%s, %s, %s, %s, %s)" % (self.name, self.documentation,
+            self.type, self.unit, self.samples)
 
-class UntypedMetricFamily(Metric):
-    '''A single untyped metric and its samples.
+
+class UnknownMetricFamily(Metric):
+    '''A single unknwon metric and its samples.
     For use by custom collectors.
     '''
-    def __init__(self, name, documentation, value=None, labels=None):
-        Metric.__init__(self, name, documentation, 'untyped')
+    def __init__(self, name, documentation, value=None, labels=None, unit=''):
+        Metric.__init__(self, name, documentation, 'unknown', unit)
         if labels is not None and value is not None:
             raise ValueError('Can only specify at most one of value and labels.')
         if labels is None:
@@ -199,38 +249,46 @@ class UntypedMetricFamily(Metric):
         if value is not None:
             self.add_metric([], value)
 
-    def add_metric(self, labels, value):
+    def add_metric(self, labels, value, timestamp=None):
         '''Add a metric to the metric family.
         Args:
         labels: A list of label values
         value: The value of the metric.
         '''
-        self.samples.append((self.name, dict(zip(self._labelnames, labels)), value))
+        self.samples.append(Sample(self.name, dict(zip(self._labelnames, labels)), value, timestamp))
 
+# For backward compatibility.
+UntypedMetricFamily = UnknownMetricFamily
 
 class CounterMetricFamily(Metric):
     '''A single counter and its samples.
 
     For use by custom collectors.
     '''
-    def __init__(self, name, documentation, value=None, labels=None):
-        Metric.__init__(self, name, documentation, 'counter')
+    def __init__(self, name, documentation, value=None, labels=None, created=None, unit=''):
+        # Glue code for pre-OpenMetrics metrics.
+        if name.endswith('_total'):
+           name = name[:-6]
+        Metric.__init__(self, name, documentation, 'counter', unit)
         if labels is not None and value is not None:
             raise ValueError('Can only specify at most one of value and labels.')
         if labels is None:
             labels = []
         self._labelnames = tuple(labels)
         if value is not None:
-            self.add_metric([], value)
+            self.add_metric([], value, created)
 
-    def add_metric(self, labels, value):
+    def add_metric(self, labels, value, created=None, timestamp=None):
         '''Add a metric to the metric family.
 
         Args:
           labels: A list of label values
-          value: The value of the metric.
+          value: The value of the metric
+          created: Optional unix timestamp the child was created at.
         '''
-        self.samples.append((self.name, dict(zip(self._labelnames, labels)), value))
+        self.samples.append(Sample(self.name + '_total', dict(zip(self._labelnames, labels)), value, timestamp))
+        if created is not None:
+            self.samples.append(Sample(self.name + '_created', dict(zip(self._labelnames, labels)), created, timestamp))
 
 
 class GaugeMetricFamily(Metric):
@@ -238,8 +296,8 @@ class GaugeMetricFamily(Metric):
 
     For use by custom collectors.
     '''
-    def __init__(self, name, documentation, value=None, labels=None):
-        Metric.__init__(self, name, documentation, 'gauge')
+    def __init__(self, name, documentation, value=None, labels=None, unit=''):
+        Metric.__init__(self, name, documentation, 'gauge', unit)
         if labels is not None and value is not None:
             raise ValueError('Can only specify at most one of value and labels.')
         if labels is None:
@@ -248,14 +306,14 @@ class GaugeMetricFamily(Metric):
         if value is not None:
             self.add_metric([], value)
 
-    def add_metric(self, labels, value):
+    def add_metric(self, labels, value, timestamp=None):
         '''Add a metric to the metric family.
 
         Args:
           labels: A list of label values
           value: A float
         '''
-        self.samples.append((self.name, dict(zip(self._labelnames, labels)), value))
+        self.samples.append(Sample(self.name, dict(zip(self._labelnames, labels)), value, timestamp))
 
 
 class SummaryMetricFamily(Metric):
@@ -263,8 +321,8 @@ class SummaryMetricFamily(Metric):
 
     For use by custom collectors.
     '''
-    def __init__(self, name, documentation, count_value=None, sum_value=None, labels=None):
-        Metric.__init__(self, name, documentation, 'summary')
+    def __init__(self, name, documentation, count_value=None, sum_value=None, labels=None, unit=''):
+        Metric.__init__(self, name, documentation, 'summary', unit)
         if (sum_value is None) != (count_value is None):
             raise ValueError('count_value and sum_value must be provided together.')
         if labels is not None and count_value is not None:
@@ -275,7 +333,7 @@ class SummaryMetricFamily(Metric):
         if count_value is not None:
             self.add_metric([], count_value, sum_value)
 
-    def add_metric(self, labels, count_value, sum_value):
+    def add_metric(self, labels, count_value, sum_value, timestamp=None):
         '''Add a metric to the metric family.
 
         Args:
@@ -283,8 +341,8 @@ class SummaryMetricFamily(Metric):
           count_value: The count value of the metric.
           sum_value: The sum value of the metric.
         '''
-        self.samples.append((self.name + '_count', dict(zip(self._labelnames, labels)), count_value))
-        self.samples.append((self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value))
+        self.samples.append(Sample(self.name + '_count', dict(zip(self._labelnames, labels)), count_value, timestamp))
+        self.samples.append(Sample(self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value, timestamp))
 
 
 class HistogramMetricFamily(Metric):
@@ -292,8 +350,8 @@ class HistogramMetricFamily(Metric):
 
     For use by custom collectors.
     '''
-    def __init__(self, name, documentation, buckets=None, sum_value=None, labels=None):
-        Metric.__init__(self, name, documentation, 'histogram')
+    def __init__(self, name, documentation, buckets=None, sum_value=None, labels=None, unit=''):
+        Metric.__init__(self, name, documentation, 'histogram', unit)
         if (sum_value is None) != (buckets is None):
             raise ValueError('buckets and sum_value must be provided together.')
         if labels is not None and buckets is not None:
@@ -304,20 +362,113 @@ class HistogramMetricFamily(Metric):
         if buckets is not None:
             self.add_metric([], buckets, sum_value)
 
-    def add_metric(self, labels, buckets, sum_value):
+    def add_metric(self, labels, buckets, sum_value, timestamp=None):
+        '''Add a metric to the metric family.
+
+        Args:
+          labels: A list of label values
+          buckets: A list of lists.
+              Each inner list can be a pair of bucket name and value,
+              or a triple of bucket name, value, and exemplar.
+              The buckets must be sorted, and +Inf present.
+          sum_value: The sum value of the metric.
+        '''
+        for b in buckets:
+            bucket, value = b[:2]
+            exemplar = None
+            if len(b) == 3:
+                exemplar = b[2]
+            self.samples.append(Sample(self.name + '_bucket', 
+                dict(list(zip(self._labelnames, labels)) + [('le', bucket)]), 
+                value, timestamp, exemplar))
+        # +Inf is last and provides the count value.
+        self.samples.append(Sample(self.name + '_count', dict(zip(self._labelnames, labels)), buckets[-1][1], timestamp))
+        self.samples.append(Sample(self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value, timestamp))
+
+
+class GaugeHistogramMetricFamily(Metric):
+    '''A single gauge histogram and its samples.
+
+    For use by custom collectors.
+    '''
+    def __init__(self, name, documentation, buckets=None, labels=None, unit=''):
+        Metric.__init__(self, name, documentation, 'gaugehistogram', unit)
+        if labels is not None and buckets is not None:
+            raise ValueError('Can only specify at most one of buckets and labels.')
+        if labels is None:
+            labels = []
+        self._labelnames = tuple(labels)
+        if buckets is not None:
+            self.add_metric([], buckets)
+
+    def add_metric(self, labels, buckets, timestamp=None):
         '''Add a metric to the metric family.
 
         Args:
           labels: A list of label values
           buckets: A list of pairs of bucket names and values.
               The buckets must be sorted, and +Inf present.
-          sum_value: The sum value of the metric.
         '''
         for bucket, value in buckets:
-            self.samples.append((self.name + '_bucket', dict(list(zip(self._labelnames, labels)) + [('le', bucket)]), value))
-        # +Inf is last and provides the count value.
-        self.samples.append((self.name + '_count', dict(zip(self._labelnames, labels)), buckets[-1][1]))
-        self.samples.append((self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value))
+            self.samples.append(Sample(
+                self.name + '_bucket', 
+                dict(list(zip(self._labelnames, labels)) + [('le', bucket)]),
+                value, timestamp))
+
+
+class InfoMetricFamily(Metric):
+    '''A single info and its samples.
+
+    For use by custom collectors.
+    '''
+    def __init__(self, name, documentation, value=None, labels=None):
+        Metric.__init__(self, name, documentation, 'info')
+        if labels is not None and value is not None:
+            raise ValueError('Can only specify at most one of value and labels.')
+        if labels is None:
+            labels = []
+        self._labelnames = tuple(labels)
+        if value is not None:
+            self.add_metric([], value)
+
+    def add_metric(self, labels, value, timestamp=None):
+        '''Add a metric to the metric family.
+
+        Args:
+          labels: A list of label values
+          value: A dict of labels
+        '''
+        self.samples.append(Sample(self.name + '_info', 
+            dict(dict(zip(self._labelnames, labels)), **value), 1, timestamp))
+
+
+class StateSetMetricFamily(Metric):
+    '''A single stateset and its samples.
+
+    For use by custom collectors.
+    '''
+    def __init__(self, name, documentation, value=None, labels=None):
+        Metric.__init__(self, name, documentation, 'stateset')
+        if labels is not None and value is not None:
+            raise ValueError('Can only specify at most one of value and labels.')
+        if labels is None:
+            labels = []
+        self._labelnames = tuple(labels)
+        if value is not None:
+            self.add_metric([], value)
+
+    def add_metric(self, labels, value, timestamp=None):
+        '''Add a metric to the metric family.
+
+        Args:
+          labels: A list of label values
+          value: A dict of string state names to booleans
+        '''
+        labels = tuple(labels)
+        for state, enabled in value.items():
+            v = (1 if enabled else 0)
+            self.samples.append(Sample(self.name,
+                dict(zip(self._labelnames + (self.name,), labels + (state,))), v, timestamp))
 
 
 class _MutexValue(object):
@@ -584,13 +735,21 @@ class _LabelWrapper(object):
 
 def _MetricWrapper(cls):
     '''Provides common functionality for metrics.'''
-    def init(name, documentation, labelnames=(), namespace='', subsystem='', registry=REGISTRY, **kwargs):
+    def init(name, documentation, labelnames=(), namespace='', subsystem='', unit='', registry=REGISTRY, **kwargs):
         full_name = ''
         if namespace:
             full_name += namespace + '_'
         if subsystem:
             full_name += subsystem + '_'
         full_name += name
+
+        if unit and not full_name.endswith("_" + unit):
+            full_name += "_" + unit
+        if unit and cls._type in ('info', 'stateset'):
+            raise ValueError('Metric name is of a type that cannot have a unit: ' + full_name)
+
+        if cls._type == 'counter' and full_name.endswith('_total'):
+            full_name = full_name[:-6]  # Munge to OpenMetrics.
 
         if labelnames:
             labelnames = tuple(labelnames)
@@ -613,7 +772,7 @@ def _MetricWrapper(cls):
         collector.describe = describe
 
         def collect():
-            metric = Metric(full_name, documentation, cls._type)
+            metric = Metric(full_name, documentation, cls._type, unit)
             for suffix, labels, value in collector._samples():
                 metric.add_sample(full_name + suffix, labels, value)
             return [metric]
@@ -664,7 +823,10 @@ class Counter(object):
     _reserved_labelnames = []
 
     def __init__(self, name, labelnames, labelvalues):
-        self._value = _ValueClass(self._type, name, name, labelnames, labelvalues)
+        if name.endswith('_total'):
+           name = name[:-6]
+        self._value = _ValueClass(self._type, name, name + '_total', labelnames, labelvalues)
+        self._created = time.time()
 
     def inc(self, amount=1):
         '''Increment counter by the given amount.'''
@@ -682,7 +844,8 @@ class Counter(object):
         return _ExceptionCounter(self, exception)
 
     def _samples(self):
-        return (('', {}, self._value.get()), )
+        return (('_total', {}, self._value.get()),
+                ('_created', {}, self._created))
 
 
 @_MetricWrapper
@@ -818,6 +981,7 @@ class Summary(object):
     def __init__(self, name, labelnames, labelvalues):
         self._count = _ValueClass(self._type, name, name + '_count', labelnames, labelvalues)
         self._sum = _ValueClass(self._type, name, name + '_sum', labelnames, labelvalues)
+        self._created = time.time()
 
     def observe(self, amount):
         '''Observe the given amount.'''
@@ -834,7 +998,8 @@ class Summary(object):
     def _samples(self):
         return (
             ('_count', {}, self._count.get()),
-            ('_sum', {}, self._sum.get()))
+            ('_sum', {}, self._sum.get()),
+            ('_created', {}, self._created))
 
 
 def _floatToGoString(d):
@@ -883,13 +1048,12 @@ class Histogram(object):
 
     The default buckets are intended to cover a typical web/rpc request from milliseconds to seconds.
     They can be overridden by passing `buckets` keyword argument to `Histogram`.
-
-    **NB** The Python client doesn't store or expose quantile information at this time.
     '''
     _type = 'histogram'
-    _reserved_labelnames = ['histogram']
+    _reserved_labelnames = ['le']
 
     def __init__(self, name, labelnames, labelvalues, buckets=(.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, _INF)):
+        self._created = time.time()
         self._sum = _ValueClass(self._type, name, name + '_sum', labelnames, labelvalues)
         buckets = [float(b) for b in buckets]
         if buckets != sorted(buckets):
@@ -929,7 +1093,85 @@ class Histogram(object):
             samples.append(('_bucket', {'le': _floatToGoString(bound)}, acc))
         samples.append(('_count', {}, acc))
         samples.append(('_sum', {}, self._sum.get()))
+        samples.append(('_created', {}, self._created))
         return tuple(samples)
+
+
+@_MetricWrapper
+class Info(object):
+    '''Info metric, key-value pairs.
+
+     Examples of Info include:
+        - Build information
+        - Version information
+        - Potential target metadata
+
+     Example usage:
+        from prometheus_client import Info
+
+        i = Info('my_build', 'Description of info')
+        i.info({'version': '1.2.3', 'buildhost': 'foo@bar'})
+
+     Info metrics do not work in multiprocess mode.
+    '''
+    _type = 'info'
+    _reserved_labelnames = []
+
+    def __init__(self, name, labelnames, labelvalues):
+        self._labelnames = set(labelnames)
+        self._lock = Lock()
+        self._value = {}
+
+    def info(self, val):
+        '''Set info metric.'''
+        if self._labelnames.intersection(val.keys()):
+            raise ValueError('Overlapping labels for Info metric, metric: %s child: %s' % (
+                self._labelnames, val))
+        with self._lock:
+            self._value = dict(val)
+
+
+    def _samples(self):
+        with self._lock:
+            return (('_info', self._value, 1.0,), )
+
+
+@_MetricWrapper
+class Enum(object):
+    '''Enum metric, which of a set of states is true.
+
+     Example usage:
+        from prometheus_client import Enum
+
+        e = Enum('task_state', 'Description of enum', 
+          states=['starting', 'running', 'stopped'])
+        e.state('running')
+
+     The first listed state will be the default.
+     Enum metrics do not work in multiprocess mode.
+    '''
+    _type = 'stateset'
+    _reserved_labelnames = []
+
+    def __init__(self, name, labelnames, labelvalues, states=None):
+        if name in labelnames:
+            raise ValueError('Overlapping labels for Enum metric: %s' % (name,))
+        if not states:
+            raise ValueError('No states provided for Enum metric: %s' % (name,))
+        self._name = name
+        self._states = states
+        self._value = 0
+        self._lock = Lock()
+
+    def state(self, state):
+        '''Set enum metric state.'''
+        with self._lock:
+            self._value = self._states.index(state)
+
+    def _samples(self):
+        with self._lock:
+            return [('', {self._name: s}, 1 if i == self._value else 0,)
+                       for i, s in enumerate(self._states)]
 
 
 class _ExceptionCounter(object):
