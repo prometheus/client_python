@@ -4,11 +4,6 @@ from __future__ import unicode_literals
 
 from collections import defaultdict
 
-try:
-    from collections import OrderedDict
-except ImportError:
-    OrderedDict = dict
-
 import glob
 import json
 import os
@@ -44,7 +39,7 @@ class MultiProcessCollector(object):
             typ = parts[0]
             d = core._MmapedDict(f, read_mode=True)
             for key, value in d.read_all_values():
-                metric_name, name, labelnames, labelvalues = json.loads(key)
+                metric_name, name, labels = json.loads(key)
 
                 metric = metrics.get(metric_name)
                 if metric is None:
@@ -54,10 +49,10 @@ class MultiProcessCollector(object):
                 if typ == 'gauge':
                     pid = parts[2][:-3]
                     metric._multiprocess_mode = parts[1]
-                    metric.add_sample(name, tuple(zip(labelnames, labelvalues)) + (('pid', pid), ), value)
+                    metric.add_sample(name, tuple(labels.items()) + (('pid', pid), ), value)
                 else:
                     # The duplicates and labels are fixed in the next for.
-                    metric.add_sample(name, tuple(zip(labelnames, labelvalues)), value)
+                    metric.add_sample(name, tuple(labels.items()), value)
             d.close()
 
         for metric in metrics.values():

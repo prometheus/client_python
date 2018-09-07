@@ -586,6 +586,13 @@ class _MmapedDict(object):
             self._f = None
 
 
+def _mmap_key(metric_name, name, labelnames, labelvalues):
+    """Format a key for use in the mmap file."""
+    # ensure labels are in consistent order for identity
+    labels = dict(zip(labelnames, labelvalues))
+    return json.dumps([metric_name, name, labels], sort_keys=True)
+
+
 def _MultiProcessValue(_pidFunc=os.getpid):
     files = {}
     values = []
@@ -618,7 +625,7 @@ def _MultiProcessValue(_pidFunc=os.getpid):
                     '{0}_{1}.db'.format(file_prefix, pid['value']))
                 files[file_prefix] = _MmapedDict(filename)
             self._file = files[file_prefix]
-            self._key = json.dumps((metric_name, name, labelnames, labelvalues))
+            self._key = _mmap_key(metric_name, name, labelnames, labelvalues)
             self._value = self._file.read_value(self._key)
 
         def __check_for_pid_change(self):

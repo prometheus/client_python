@@ -1,9 +1,5 @@
 from __future__ import unicode_literals
 
-try:
-    from collections import OrderedDict
-except ImportError:
-    OrderedDict = dict
 import glob
 import os
 import shutil
@@ -145,7 +141,7 @@ class TestMultiProcess(unittest.TestCase):
     def test_collect(self):
         pid = 0
         core._ValueClass = core._MultiProcessValue(lambda: pid)
-        labels = OrderedDict((i, i) for i in 'abcd')
+        labels = dict((i, i) for i in 'abcd')
 
         def add_label(key, value):
             l = labels.copy()
@@ -203,7 +199,7 @@ class TestMultiProcess(unittest.TestCase):
     def test_merge_no_accumulate(self):
         pid = 0
         core._ValueClass = core._MultiProcessValue(lambda: pid)
-        labels = OrderedDict((i, i) for i in 'abcd')
+        labels = dict((i, i) for i in 'abcd')
 
         def add_label(key, value):
             l = labels.copy()
