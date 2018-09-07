@@ -19,6 +19,7 @@ from prometheus_client.core import (
     Counter,
     Gauge,
     Histogram,
+    Sample,
     Summary,
 )
 from prometheus_client.multiprocess import (
@@ -172,34 +173,36 @@ class TestMultiProcess(unittest.TestCase):
 
         metrics = dict((m.name, m) for m in self.collector.collect())
 
-        self.assertEqual(metrics['c'].samples, [('c', labels, 2.0)])
+        self.assertEqual(
+            metrics['c'].samples, [Sample('c_total', labels, 2.0)]
+        )
         metrics['g'].samples.sort(key=lambda x: x[1]['pid'])
         self.assertEqual(metrics['g'].samples, [
-            ('g', add_label('pid', '0'), 1.0),
-            ('g', add_label('pid', '1'), 1.0),
+            Sample('g', add_label('pid', '0'), 1.0),
+            Sample('g', add_label('pid', '1'), 1.0),
         ])
 
         metrics['h'].samples.sort(
             key=lambda x: (x[0], float(x[1].get('le', 0)))
         )
         expected_histogram = [
-            ('h_bucket', add_label('le', '0.005'), 0.0),
-            ('h_bucket', add_label('le', '0.01'), 0.0),
-            ('h_bucket', add_label('le', '0.025'), 0.0),
-            ('h_bucket', add_label('le', '0.05'), 0.0),
-            ('h_bucket', add_label('le', '0.075'), 0.0),
-            ('h_bucket', add_label('le', '0.1'), 0.0),
-            ('h_bucket', add_label('le', '0.25'), 0.0),
-            ('h_bucket', add_label('le', '0.5'), 0.0),
-            ('h_bucket', add_label('le', '0.75'), 0.0),
-            ('h_bucket', add_label('le', '1.0'), 1.0),
-            ('h_bucket', add_label('le', '2.5'), 1.0),
-            ('h_bucket', add_label('le', '5.0'), 2.0),
-            ('h_bucket', add_label('le', '7.5'), 2.0),
-            ('h_bucket', add_label('le', '10.0'), 2.0),
-            ('h_bucket', add_label('le', '+Inf'), 2.0),
-            ('h_count', labels, 2.0),
-            ('h_sum', labels, 6.0),
+            Sample('h_bucket', add_label('le', '0.005'), 0.0),
+            Sample('h_bucket', add_label('le', '0.01'), 0.0),
+            Sample('h_bucket', add_label('le', '0.025'), 0.0),
+            Sample('h_bucket', add_label('le', '0.05'), 0.0),
+            Sample('h_bucket', add_label('le', '0.075'), 0.0),
+            Sample('h_bucket', add_label('le', '0.1'), 0.0),
+            Sample('h_bucket', add_label('le', '0.25'), 0.0),
+            Sample('h_bucket', add_label('le', '0.5'), 0.0),
+            Sample('h_bucket', add_label('le', '0.75'), 0.0),
+            Sample('h_bucket', add_label('le', '1.0'), 1.0),
+            Sample('h_bucket', add_label('le', '2.5'), 1.0),
+            Sample('h_bucket', add_label('le', '5.0'), 2.0),
+            Sample('h_bucket', add_label('le', '7.5'), 2.0),
+            Sample('h_bucket', add_label('le', '10.0'), 2.0),
+            Sample('h_bucket', add_label('le', '+Inf'), 2.0),
+            Sample('h_count', labels, 2.0),
+            Sample('h_sum', labels, 6.0),
         ]
 
         self.assertEqual(metrics['h'].samples, expected_histogram)
@@ -230,22 +233,22 @@ class TestMultiProcess(unittest.TestCase):
             key=lambda x: (x[0], float(x[1].get('le', 0)))
         )
         expected_histogram = [
-            ('h_bucket', add_label('le', '0.005'), 0.0),
-            ('h_bucket', add_label('le', '0.01'), 0.0),
-            ('h_bucket', add_label('le', '0.025'), 0.0),
-            ('h_bucket', add_label('le', '0.05'), 0.0),
-            ('h_bucket', add_label('le', '0.075'), 0.0),
-            ('h_bucket', add_label('le', '0.1'), 0.0),
-            ('h_bucket', add_label('le', '0.25'), 0.0),
-            ('h_bucket', add_label('le', '0.5'), 0.0),
-            ('h_bucket', add_label('le', '0.75'), 0.0),
-            ('h_bucket', add_label('le', '1.0'), 1.0),
-            ('h_bucket', add_label('le', '2.5'), 0.0),
-            ('h_bucket', add_label('le', '5.0'), 1.0),
-            ('h_bucket', add_label('le', '7.5'), 0.0),
-            ('h_bucket', add_label('le', '10.0'), 0.0),
-            ('h_bucket', add_label('le', '+Inf'), 0.0),
-            ('h_sum', labels, 6.0),
+            Sample('h_bucket', add_label('le', '0.005'), 0.0),
+            Sample('h_bucket', add_label('le', '0.01'), 0.0),
+            Sample('h_bucket', add_label('le', '0.025'), 0.0),
+            Sample('h_bucket', add_label('le', '0.05'), 0.0),
+            Sample('h_bucket', add_label('le', '0.075'), 0.0),
+            Sample('h_bucket', add_label('le', '0.1'), 0.0),
+            Sample('h_bucket', add_label('le', '0.25'), 0.0),
+            Sample('h_bucket', add_label('le', '0.5'), 0.0),
+            Sample('h_bucket', add_label('le', '0.75'), 0.0),
+            Sample('h_bucket', add_label('le', '1.0'), 1.0),
+            Sample('h_bucket', add_label('le', '2.5'), 0.0),
+            Sample('h_bucket', add_label('le', '5.0'), 1.0),
+            Sample('h_bucket', add_label('le', '7.5'), 0.0),
+            Sample('h_bucket', add_label('le', '10.0'), 0.0),
+            Sample('h_bucket', add_label('le', '+Inf'), 0.0),
+            Sample('h_sum', labels, 6.0),
         ]
 
         self.assertEqual(metrics['h'].samples, expected_histogram)
