@@ -1016,6 +1016,11 @@ def _floatToGoString(d):
         return '-Inf'
     elif math.isnan(d):
         return 'NaN'
+    elif sys.version_info[:2] == (2, 6):
+        format = '%g' % float(d)
+        if isinstance(d, float) and '.' not in format:
+            format += '.0'
+        return format
     else:
         return repr(float(d))
 
