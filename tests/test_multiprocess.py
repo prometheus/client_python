@@ -3,6 +3,7 @@ from __future__ import unicode_literals
 import glob
 import os
 import shutil
+import sys
 import tempfile
 import unittest
 
@@ -138,6 +139,7 @@ class TestMultiProcess(unittest.TestCase):
         self.assertEqual(3, self.registry.get_sample_value('c_total'))
         self.assertEqual(1, c1._value.get())
 
+    @unittest.skipIf(sys.version_info < (2, 7), "Test requires Python 2.7+.")
     def test_collect(self):
         pid = 0
         core._ValueClass = core._MultiProcessValue(lambda: pid)
@@ -196,6 +198,7 @@ class TestMultiProcess(unittest.TestCase):
 
         self.assertEqual(metrics['h'].samples, expected_histogram)
 
+    @unittest.skipIf(sys.version_info < (2, 7), "Test requires Python 2.7+.")
     def test_merge_no_accumulate(self):
         pid = 0
         core._ValueClass = core._MultiProcessValue(lambda: pid)

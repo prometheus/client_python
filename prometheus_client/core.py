@@ -185,7 +185,7 @@ class CollectorRegistry(object):
 REGISTRY = CollectorRegistry(auto_describe=True)
 '''The default registry.'''
 
-_METRIC_TYPES = ('counter', 'gauge', 'summary', 'histogram', 
+_METRIC_TYPES = ('counter', 'gauge', 'summary', 'histogram',
         'gaugehistogram', 'unknown', 'info', 'stateset')
 
 
@@ -378,8 +378,8 @@ class HistogramMetricFamily(Metric):
             exemplar = None
             if len(b) == 3:
                 exemplar = b[2]
-            self.samples.append(Sample(self.name + '_bucket', 
-                dict(list(zip(self._labelnames, labels)) + [('le', bucket)]), 
+            self.samples.append(Sample(self.name + '_bucket',
+                dict(list(zip(self._labelnames, labels)) + [('le', bucket)]),
                 value, timestamp, exemplar))
         # +Inf is last and provides the count value.
         self.samples.append(Sample(self.name + '_count', dict(zip(self._labelnames, labels)), buckets[-1][1], timestamp))
@@ -411,7 +411,7 @@ class GaugeHistogramMetricFamily(Metric):
         '''
         for bucket, value in buckets:
             self.samples.append(Sample(
-                self.name + '_bucket', 
+                self.name + '_bucket',
                 dict(list(zip(self._labelnames, labels)) + [('le', bucket)]),
                 value, timestamp))
 
@@ -438,7 +438,7 @@ class InfoMetricFamily(Metric):
           labels: A list of label values
           value: A dict of labels
         '''
-        self.samples.append(Sample(self.name + '_info', 
+        self.samples.append(Sample(self.name + '_info',
             dict(dict(zip(self._labelnames, labels)), **value), 1, timestamp))
 
 
@@ -1016,11 +1016,6 @@ def _floatToGoString(d):
         return '-Inf'
     elif math.isnan(d):
         return 'NaN'
-    elif sys.version_info[:2] == (2, 6):
-        format = '%g' % float(d)
-        if isinstance(d, float) and '.' not in format:
-            format += '.0'
-        return format
     else:
         return repr(float(d))
 
@@ -1155,7 +1150,7 @@ class Enum(object):
      Example usage:
         from prometheus_client import Enum
 
-        e = Enum('task_state', 'Description of enum', 
+        e = Enum('task_state', 'Description of enum',
           states=['starting', 'running', 'stopped'])
         e.state('running')
 
