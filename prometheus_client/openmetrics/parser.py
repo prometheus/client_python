@@ -12,7 +12,7 @@ from .. import core
 
 
 def text_string_to_metric_families(text):
-    """Parse Openmetrics text format from a unicode string.
+    """Parse OpenMetrics text format from a unicode string.
 
     See text_fd_to_metric_families.
     """
@@ -105,6 +105,10 @@ def _parse_labels(it, text):
                 state = 'labelvalueslash'
             elif char == '"':
                 if not core._METRIC_LABEL_NAME_RE.match(''.join(labelname)):
+                    raise ValueError("Invalid line: " + text)
+                try:
+                    ''.join(labelvalue).encode('utf-8')
+                except UnicodeError:
                     raise ValueError("Invalid line: " + text)
                 labels[''.join(labelname)] = ''.join(labelvalue)
                 labelname = []
