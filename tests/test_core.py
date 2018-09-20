@@ -569,10 +569,12 @@ class TestMetricFamilies(unittest.TestCase):
 
     def test_gaugehistogram_labels(self):
         cmf = GaugeHistogramMetricFamily('h', 'help', labels=['a'])
-        cmf.add_metric(['b'], buckets=[('0', 1), ('+Inf', 2)])
+        cmf.add_metric(['b'], buckets=[('0', 1), ('+Inf', 2)], gsum_value=3)
         self.custom_collector(cmf)
         self.assertEqual(1, self.registry.get_sample_value('h_bucket', {'a': 'b', 'le': '0'}))
         self.assertEqual(2, self.registry.get_sample_value('h_bucket', {'a': 'b', 'le': '+Inf'}))
+        self.assertEqual(2, self.registry.get_sample_value('h_gcount', {'a': 'b'}))
+        self.assertEqual(3, self.registry.get_sample_value('h_gsum', {'a': 'b'}))
 
     def test_info(self):
         self.custom_collector(InfoMetricFamily('i', 'help', value={'a': 'b'}))
