@@ -7,7 +7,7 @@ try:
 except ImportError:
     # Python 3
     import io as StringIO
-
+import sys
 from .. import core
 
 
@@ -106,11 +106,17 @@ def _parse_labels(it, text):
             elif char == '"':
                 if not core._METRIC_LABEL_NAME_RE.match(''.join(labelname)):
                     raise ValueError("Invalid line: " + text)
+
+                labelvaluestr = ''.join(labelvalue)
                 try:
-                    ''.join(labelvalue).encode('utf-8')
-                except UnicodeError:
+                    if sys.version_info >= (3,):
+                        labelvaluestr.encode('utf-8')
+                    else:
+                        labelvaluestr.decode('utf-8')
+                except (UnicodeError, UnicodeDecodeError):
                     raise ValueError("Invalid line: " + text)
-                labels[''.join(labelname)] = ''.join(labelvalue)
+
+                labels[''.join(labelname)] = labelvaluestr
                 labelname = []
                 labelvalue = []
                 state = 'endoflabelvalue'
