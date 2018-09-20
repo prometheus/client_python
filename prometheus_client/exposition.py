@@ -67,6 +67,22 @@ def start_wsgi_server(port, addr='', registry=core.REGISTRY):
 
 def generate_latest(registry=core.REGISTRY):
     '''Returns the metrics from the registry in latest text format as a string.'''
+
+    def sample_line(s):
+        if s.labels:
+            labelstr = '{{{0}}}'.format(','.join(
+                ['{0}="{1}"'.format(
+                 k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
+                 for k, v in sorted(s.labels.items())]))
+        else:
+            labelstr = ''
+        timestamp = ''
+        if s.timestamp is not None:
+            # Convert to milliseconds.
+            timestamp = ' {0:d}'.format(int(float(s.timestamp) * 1000))
+        return '{0}{1} {2}{3}\n'.format(
+            s.name, labelstr, core._floatToGoString(s.value), timestamp)
+
     output = []
     for metric in registry.collect():
         mname = metric.name
@@ -86,25 +102,22 @@ def generate_latest(registry=core.REGISTRY):
         elif mtype == 'unknown':
             mtype = 'untyped'
 
-        output.append('# HELP {0} {1}'.format(
+        output.append('# HELP {0} {1}\n'.format(
             mname, metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
-        output.append('\n# TYPE {0} {1}\n'.format(mname, mtype))
+        output.append('# TYPE {0} {1}\n'.format(mname, mtype))
+
+        om_samples = {}
         for s in metric.samples:
-            if s.name == metric.name + '_created':
-                continue  # Ignore OpenMetrics specific sample. TODO: Make these into a gauge.
-            if s.labels:
-                labelstr = '{{{0}}}'.format(','.join(
-                    ['{0}="{1}"'.format(
-                     k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
-                     for k, v in sorted(s.labels.items())]))
+            for suffix in ['_created', '_gsum', '_gcount']:
+                if s.name == metric.name + suffix:
+                    # OpenMetrics specific sample, put in a gauge at the end.
+                    om_samples.setdefault(suffix, []).append(sample_line(s))
+                    break
             else:
-                labelstr = ''
-            timestamp = ''
-            if s.timestamp is not None:
-                # Convert to milliseconds.
-                timestamp = ' {0:d}'.format(int(float(s.timestamp) * 1000))
-            output.append('{0}{1} {2}{3}\n'.format(
-                s.name, labelstr, core._floatToGoString(s.value), timestamp))
+                output.append(sample_line(s))
+        for suffix, lines in sorted(om_samples.items()):
+            output.append('# TYPE {0}{1} gauge\n'.format(metric.name, suffix))
+            output.extend(lines)
     return ''.join(output).encode('utf-8')
 
 

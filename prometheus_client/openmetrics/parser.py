@@ -302,7 +302,8 @@ def text_fd_to_metric_families(fd):
                     'counter': ['_total', '_created'],
                     'summary': ['_count', '_sum', '', '_created'],
                     'histogram': ['_count', '_sum', '_bucket', 'created'],
-                    'gaugehistogram': ['_bucket'],
+                    'gaugehistogram': ['_gcount', '_gsum', '_bucket'],
+                    'info': ['_info'],
                 }.get(typ, [''])
                 allowed_names = [name + n for n in allowed_names]
             elif parts[1] == 'UNIT':

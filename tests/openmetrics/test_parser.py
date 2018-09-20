@@ -13,10 +13,13 @@ from prometheus_client.core import (
     CollectorRegistry,
     CounterMetricFamily,
     Exemplar,
+    GaugeHistogramMetricFamily,
     GaugeMetricFamily,
     HistogramMetricFamily,
+    InfoMetricFamily,
     Metric,
     Sample,
+    StateSetMetricFamily,
     SummaryMetricFamily,
     Timestamp,
 )
@@ -119,6 +122,48 @@ a_bucket{le="+Inf"} 3 # {a="d"} 4 123
         hfm.add_sample("a_bucket", {"le": "2"}, 2.0, Timestamp(123, 0), Exemplar({"a": "c"}, 0.5)), 
         hfm.add_sample("a_bucket", {"le": "+Inf"}, 3.0, None, Exemplar({"a": "d"}, 4, Timestamp(123, 0)))
         self.assertEqual([hfm], list(families))
+
+    def test_simple_gaugehistogram(self):
+        families = text_string_to_metric_families("""# TYPE a gaugehistogram
+# HELP a help
+a_bucket{le="1"} 0
+a_bucket{le="+Inf"} 3
+a_gcount 3
+a_gsum 2
+# EOF
+""")
+        self.assertEqual([GaugeHistogramMetricFamily("a", "help", gsum_value=2, buckets=[("1", 0.0), ("+Inf", 3.0)])], list(families))
+
+    def test_histogram_exemplars(self):
+        families = text_string_to_metric_families("""# TYPE a gaugehistogram
+# HELP a help
+a_bucket{le="1"} 0 # {a="b"} 0.5
+a_bucket{le="2"} 2 123 # {a="c"} 0.5
+a_bucket{le="+Inf"} 3 # {a="d"} 4 123
+# EOF
+""")
+        hfm = GaugeHistogramMetricFamily("a", "help")
+        hfm.add_sample("a_bucket", {"le": "1"}, 0.0, None, Exemplar({"a": "b"}, 0.5))
+        hfm.add_sample("a_bucket", {"le": "2"}, 2.0, Timestamp(123, 0), Exemplar({"a": "c"}, 0.5)), 
+        hfm.add_sample("a_bucket", {"le": "+Inf"}, 3.0, None, Exemplar({"a": "d"}, 4, Timestamp(123, 0)))
+        self.assertEqual([hfm], list(families))
+
+    def test_simple_info(self):
+        families = text_string_to_metric_families("""# TYPE a info
+# HELP a help
+a_info{foo="bar"} 1
+# EOF
+""")
+        self.assertEqual([InfoMetricFamily("a", "help", {'foo': 'bar'})], list(families))
+
+    def test_simple_stateset(self):
+        families = text_string_to_metric_families("""# TYPE a stateset
+# HELP a help
+a{a="bar"} 0
+a{a="foo"} 1
+# EOF
+""")
+        self.assertEqual([StateSetMetricFamily("a", "help", {'foo': True, 'bar': False})], list(families))
 
     def test_no_metadata(self):
         families = text_string_to_metric_families("""a 1
