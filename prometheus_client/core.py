@@ -509,7 +509,7 @@ class _MmapedDict(object):
         if os.fstat(self._f.fileno()).st_size == 0:
             self._f.truncate(_INITIAL_MMAP_SIZE)
         self._capacity = os.fstat(self._f.fileno()).st_size
-        self._m = mmap.mmap(self._f.fileno(), self._capacity)
+        self._m = mmap.mmap(self._f.fileno(), self._capacity, access=mmap.ACCESS_READ if read_mode else mmap.ACCESS_WRITE)
 
         self._positions = {}
         self._used = _unpack_integer(self._m, 0)[0]
