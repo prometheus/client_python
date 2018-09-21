@@ -37,7 +37,7 @@ def make_wsgi_app(registry=core.REGISTRY):
     def prometheus_app(environ, start_response):
         params = parse_qs(environ.get('QUERY_STRING', ''))
         r = registry
-        encoder, content_type = choose_encoder(environ.get['HTTP_ACCEPT'])
+        encoder, content_type = choose_encoder(environ.get('HTTP_ACCEPT'))
         if 'name[]' in params:
             r = r.restricted_registry(params['name[]'])
         output = encoder(r)
