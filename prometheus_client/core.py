@@ -505,7 +505,7 @@ class _MmapedDict(object):
     Not thread safe.
     """
     def __init__(self, filename, read_mode=False):
-        self._f = open(filename, 'a+b')
+        self._f = open(filename, 'rb' if read_mode else 'a+b')
         if os.fstat(self._f.fileno()).st_size == 0:
             self._f.truncate(_INITIAL_MMAP_SIZE)
         self._capacity = os.fstat(self._f.fileno()).st_size
