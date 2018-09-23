@@ -280,6 +280,29 @@ reactor.listenTCP(8000, factory)
 reactor.run()
 ```
 
+#### Tornado
+
+To use prometheus with [tornado](https://www.tornadoweb.org/), there is `MetricsHandler` which exposes metrics as a tornado handler.
+
+```python
+from prometheus_client.tornado import MetricsHandler
+
+import tornado.ioloop
+import tornado.web
+
+def make_app():
+    return tornado.web.Application([
+        (r"/", MainHandler),
+    ])
+
+if __name__ == "__main__":
+    app = tornado.web.Application([
+        (r'/metrics', MetricsHandler)
+    ])
+    app.listen(8888)
+    tornado.ioloop.IOLoop.current().start()
+```
+
 #### WSGI
 
 To use Prometheus with [WSGI](http://wsgi.readthedocs.org/en/latest/), there is

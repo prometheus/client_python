@@ -17,9 +17,11 @@ setup(
         'prometheus_client.bridge',
         'prometheus_client.openmetrics',
         'prometheus_client.twisted',
+        'prometheus_client.tornado',
     ],
     extras_require={
         'twisted': ['twisted'],
+        'tornado': ['tornado'],
     },
     test_suite="tests",
     classifiers=[
