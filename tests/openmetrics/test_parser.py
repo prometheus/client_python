@@ -206,6 +206,18 @@ a_total{foo="bar",bar="b{a}z"} 1
         metric_family.add_metric(["bar", "b{a}z"], 1)
         self.assertEqual([metric_family], list(families))
 
+    def test_labels_with_invalid_utf8_values(self):
+        try:
+            families = text_string_to_metric_families('''# TYPE a counter
+# HELP a help
+a_total{foo="'''+u'\U00010000'+'''",bar="baz"} 1
+# EOF
+''')
+            for f in families: pass
+            assert False
+        except ValueError:
+            assert True
+
     def test_empty_help(self):
         families = text_string_to_metric_families("""# TYPE a counter
 # HELP a 
