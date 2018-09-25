@@ -30,15 +30,6 @@ from prometheus_client.openmetrics.parser import (
 
 class TestParse(unittest.TestCase):
 
-    def test_utf8(self):
-        families = text_string_to_metric_families("""# TYPE a counter
-# HELP a help
-a_total{胀="bar"} 1
-a_total{foo="胀"} 2
-# EOF
-""")
-        #self.assertEqual([CounterMetricFamily("a", "help", value=1)], list(families))
-
     def test_simple_counter(self):
         families = text_string_to_metric_families("""# TYPE a counter
 # HELP a help
