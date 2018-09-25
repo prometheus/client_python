@@ -111,6 +111,8 @@ def _parse_labels(it, text):
                 labelvalue = []
                 state = 'endoflabelvalue'
             else:
+                if not _validate_utf8(char):
+                    raise ValueError("Invalid line: " + text)                
                 labelvalue.append(char)
         elif state == 'endoflabelvalue':
             if char == ',':
@@ -128,6 +130,8 @@ def _parse_labels(it, text):
             elif char == '"':
                 labelvalue.append('"')
             else:
+                if not _validate_utf8(char):
+                    raise ValueError("Invalid line: " + text)                
                 labelvalue.append('\\' + char)
         elif state == 'endoflabels':
             if char == ' ':
@@ -136,6 +140,8 @@ def _parse_labels(it, text):
                 raise ValueError("Invalid line: " + text)
     return labels
 
+def _validate_utf8(char):
+    return ord(char) < 65536
 
 def _parse_sample(text):
     name = []
