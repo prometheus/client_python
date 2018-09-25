@@ -7,12 +7,12 @@ try:
 except ImportError:
     # Python 3
     import io as StringIO
-import sys
+
 from .. import core
 
 
 def text_string_to_metric_families(text):
-    """Parse OpenMetrics text format from a unicode string.
+    """Parse Openmetrics text format from a unicode string.
 
     See text_fd_to_metric_families.
     """
@@ -111,8 +111,6 @@ def _parse_labels(it, text):
                 labelvalue = []
                 state = 'endoflabelvalue'
             else:
-                if not _validate_utf8(char):
-                    raise ValueError("Invalid line: " + text)
                 labelvalue.append(char)
         elif state == 'endoflabelvalue':
             if char == ',':
@@ -130,8 +128,6 @@ def _parse_labels(it, text):
             elif char == '"':
                 labelvalue.append('"')
             else:
-                if not _validate_utf8(char):
-                    raise ValueError("Invalid line: " + text)
                 labelvalue.append('\\' + char)
         elif state == 'endoflabels':
             if char == ' ':
@@ -140,8 +136,6 @@ def _parse_labels(it, text):
                 raise ValueError("Invalid line: " + text)
     return labels
 
-def _validate_utf8(char):
-    return ord(char) < 65536
 
 def _parse_sample(text):
     name = []
@@ -308,7 +302,8 @@ def text_fd_to_metric_families(fd):
                     'counter': ['_total', '_created'],
                     'summary': ['_count', '_sum', '', '_created'],
                     'histogram': ['_count', '_sum', '_bucket', 'created'],
-                    'gaugehistogram': ['_bucket'],
+                    'gaugehistogram': ['_gcount', '_gsum', '_bucket'],
+                    'info': ['_info'],
                 }.get(typ, [''])
                 allowed_names = [name + n for n in allowed_names]
             elif parts[1] == 'UNIT':
