@@ -17,10 +17,10 @@ __all__ = (
     'UntypedMetricFamily',
 )
 
-_METRIC_NAME_RE = re.compile(r'^[a-zA-Z_:][a-zA-Z0-9_:]*$')
-_METRIC_LABEL_NAME_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
-_RESERVED_METRIC_LABEL_NAME_RE = re.compile(r'^__.*$')
-_METRIC_TYPES = (
+METRIC_NAME_RE = re.compile(r'^[a-zA-Z_:][a-zA-Z0-9_:]*$')
+METRIC_LABEL_NAME_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+RESERVED_METRIC_LABEL_NAME_RE = re.compile(r'^__.*$')
+METRIC_TYPES = (
     'counter', 'gauge', 'summary', 'histogram',
     'gaugehistogram', 'unknown', 'info', 'stateset',
 )
@@ -71,14 +71,14 @@ class Metric(object):
     def __init__(self, name, documentation, typ, unit=''):
         if unit and not name.endswith("_" + unit):
             name += "_" + unit
-        if not _METRIC_NAME_RE.match(name):
+        if not METRIC_NAME_RE.match(name):
             raise ValueError('Invalid metric name: ' + name)
         self.name = name
         self.documentation = documentation
         self.unit = unit
         if typ == 'untyped':
             typ = 'unknown'
-        if typ not in _METRIC_TYPES:
+        if typ not in METRIC_TYPES:
             raise ValueError('Invalid metric type: ' + typ)
         self.type = typ
         if unit:

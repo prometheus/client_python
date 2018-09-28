@@ -2,13 +2,15 @@
 
 from __future__ import unicode_literals
 
+from .. import core
+from ..metrics import METRIC_LABEL_NAME_RE
+
 try:
     import StringIO
 except ImportError:
     # Python 3
     import io as StringIO
 
-from .. import core
 
 
 def text_string_to_metric_families(text):
@@ -104,7 +106,7 @@ def _parse_labels(it, text):
             if char == '\\':
                 state = 'labelvalueslash'
             elif char == '"':
-                if not core._METRIC_LABEL_NAME_RE.match(''.join(labelname)):
+                if not METRIC_LABEL_NAME_RE.match(''.join(labelname)):
                     raise ValueError("Invalid line: " + text)
                 labels[''.join(labelname)] = ''.join(labelvalue)
                 labelname = []
@@ -220,7 +222,7 @@ def _parse_sample(text):
                 _parse_timestamp(exemplar_timestamp))
 
     return core.Sample(''.join(name), labels, val, ts, exemplar)
-    
+
 
 def text_fd_to_metric_families(fd):
     """Parse Prometheus text format from a file descriptor.
