@@ -1,8 +1,10 @@
-build
-dist
 *.egg-info
 *.pyc
 *.swp
-.coverage.*
+.*cache
 .coverage
+.coverage.*
 .tox
+build
+dist
+htmlcov
