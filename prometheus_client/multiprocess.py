@@ -7,7 +7,9 @@ from collections import defaultdict
 import glob
 import json
 import os
+from threading import Lock
 
+from .mmap_dict import _MmapedDict, _mmap_key
 from . import core
 
 
@@ -37,7 +39,7 @@ class MultiProcessCollector(object):
         for f in files:
             parts = os.path.basename(f).split('_')
             typ = parts[0]
-            d = core._MmapedDict(f, read_mode=True)
+            d = _MmapedDict(f, read_mode=True)
             for key, value in d.read_all_values():
                 metric_name, name, labels = json.loads(key)
                 labels_key = tuple(sorted(labels.items()))
@@ -122,3 +124,69 @@ def mark_process_dead(pid, path=None):
         os.remove(f)
     for f in glob.glob(os.path.join(path, 'gauge_liveall_{0}.db'.format(pid))):
         os.remove(f)
+
+
+def _MultiProcessValue(_pidFunc=os.getpid):
+    files = {}
+    values = []
+    pid = {'value': _pidFunc()}
+    # Use a single global lock when in multi-processing mode
+    # as we presume this means there is no threading going on.
+    # This avoids the need to also have mutexes in __MmapDict.
+    lock = Lock()
+
+    class _MmapedValue(object):
+        '''A float protected by a mutex backed by a per-process mmaped file.'''
+
+        _multiprocess = True
+
+        def __init__(self, typ, metric_name, name, labelnames, labelvalues, multiprocess_mode='', **kwargs):
+            self._params = typ, metric_name, name, labelnames, labelvalues, multiprocess_mode
+            with lock:
+                self.__reset()
+                values.append(self)
+
+        def __reset(self):
+            typ, metric_name, name, labelnames, labelvalues, multiprocess_mode = self._params
+            if typ == 'gauge':
+                file_prefix = typ + '_' + multiprocess_mode
+            else:
+                file_prefix = typ
+            if file_prefix not in files:
+                filename = os.path.join(
+                    os.environ['prometheus_multiproc_dir'],
+                    '{0}_{1}.db'.format(file_prefix, pid['value']))
+                files[file_prefix] = _MmapedDict(filename)
+            self._file = files[file_prefix]
+            self._key = _mmap_key(metric_name, name, labelnames, labelvalues)
+            self._value = self._file.read_value(self._key)
+
+        def __check_for_pid_change(self):
+            actual_pid = _pidFunc()
+            if pid['value'] != actual_pid:
+                pid['value'] = actual_pid
+                # There has been a fork(), reset all the values.
+                for f in files.values():
+                    f.close()
+                files.clear()
+                for value in values:
+                    value.__reset()
+
+        def inc(self, amount):
+            with lock:
+                self.__check_for_pid_change()
+                self._value += amount
+                self._file.write_value(self._key, self._value)
+
+        def set(self, value):
+            with lock:
+                self.__check_for_pid_change()
+                self._value = value
+                self._file.write_value(self._key, self._value)
+
+        def get(self):
+            with lock:
+                self.__check_for_pid_change()
+                return self._value
+
+    return _MmapedValue
