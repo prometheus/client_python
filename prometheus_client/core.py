@@ -2,7 +2,6 @@
 
 from __future__ import unicode_literals
 
-import math
 import sys
 import time
 import types
@@ -10,6 +9,7 @@ import types
 from threading import Lock
 
 from .registry import REGISTRY
+from .utils import INF, floatToGoString
 from .metrics import *  # noqa
 from .metrics import _METRIC_LABEL_NAME_RE, _METRIC_NAME_RE, _RESERVED_METRIC_LABEL_NAME_RE
 from .context_managers import _ExceptionCounter, _InprogressTracker, _Timer
@@ -370,17 +370,6 @@ class Summary(object):
             ('_created', {}, self._created))
 
 
-def _floatToGoString(d):
-    if d == _INF:
-        return '+Inf'
-    elif d == _MINUS_INF:
-        return '-Inf'
-    elif math.isnan(d):
-        return 'NaN'
-    else:
-        return repr(float(d))
-
-
 @_MetricWrapper
 class Histogram(object):
     '''A Histogram tracks the size and number of events in buckets.
@@ -421,7 +410,7 @@ class Histogram(object):
     _reserved_labelnames = ['le']
 
     def __init__(self, name, labelnames, labelvalues,
-        buckets=(.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, _INF)):
+        buckets=(.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, INF)):
         self._created = time.time()
         self._sum = _ValueClass(self._type, name, name + '_sum', labelnames, labelvalues)
         buckets = [float(b) for b in buckets]
@@ -429,8 +418,8 @@ class Histogram(object):
             # This is probably an error on the part of the user,
             # so raise rather than sorting for them.
             raise ValueError('Buckets not in sorted order')
-        if buckets and buckets[-1] != _INF:
-            buckets.append(_INF)
+        if buckets and buckets[-1] != INF:
+            buckets.append(INF)
         if len(buckets) < 2:
             raise ValueError('Must have at least two buckets')
         self._upper_bounds = buckets
@@ -438,7 +427,7 @@ class Histogram(object):
         bucket_labelnames = labelnames + ('le',)
         for b in buckets:
             self._buckets.append(_ValueClass(self._type, name, name + '_bucket', bucket_labelnames,
-                labelvalues + (_floatToGoString(b),)))
+                labelvalues + (floatToGoString(b),)))
 
     def observe(self, amount):
         '''Observe the given amount.'''
@@ -460,7 +449,7 @@ class Histogram(object):
         acc = 0
         for i, bound in enumerate(self._upper_bounds):
             acc += self._buckets[i].get()
-            samples.append(('_bucket', {'le': _floatToGoString(bound)}, acc))
+            samples.append(('_bucket', {'le': floatToGoString(bound)}, acc))
         samples.append(('_count', {}, acc))
         samples.append(('_sum', {}, self._sum.get()))
         samples.append(('_created', {}, self._created))

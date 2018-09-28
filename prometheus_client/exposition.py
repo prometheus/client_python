@@ -10,6 +10,7 @@ import threading
 from contextlib import closing
 from wsgiref.simple_server import make_server, WSGIRequestHandler
 
+from prometheus_client import utils
 from prometheus_client import core
 from prometheus_client import openmetrics
 try:
@@ -104,7 +105,7 @@ def generate_latest(registry=core.REGISTRY):
                 # Convert to milliseconds.
                 timestamp = ' {0:d}'.format(int(float(s.timestamp) * 1000))
             output.append('{0}{1} {2}{3}\n'.format(
-                s.name, labelstr, core._floatToGoString(s.value), timestamp))
+                s.name, labelstr, utils.floatToGoString(s.value), timestamp))
     return ''.join(output).encode('utf-8')
 
 
@@ -112,7 +113,7 @@ def choose_encoder(accept_header):
     accept_header = accept_header or ''
     for accepted in accept_header.split(','):
         if accepted == 'text/openmetrics; version=0.0.1':
-            return (openmetrics.exposition.generate_latest, 
+            return (openmetrics.exposition.generate_latest,
                     openmetrics.exposition.CONTENT_TYPE_LATEST)
     return (generate_latest, CONTENT_TYPE_LATEST)
 

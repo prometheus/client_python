@@ -10,6 +10,7 @@ import os
 from threading import Lock
 
 from .mmap_dict import _MmapedDict, _mmap_key
+from . import utils
 from . import core
 
 
@@ -101,7 +102,7 @@ class MultiProcessCollector(object):
                     for bucket, value in sorted(values.items()):
                         sample_key = (
                             metric.name + '_bucket',
-                            labels + (('le', core._floatToGoString(bucket)), ),
+                            labels + (('le', utils.floatToGoString(bucket)),),
                         )
                         if accumulate:
                             acc += value
