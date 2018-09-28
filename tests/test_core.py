@@ -4,6 +4,8 @@ from concurrent.futures import ThreadPoolExecutor
 import inspect
 import time
 
+import pytest
+
 from prometheus_client.core import (
     CollectorRegistry, Counter, CounterMetricFamily, Enum, Gauge,
     GaugeHistogramMetricFamily, GaugeMetricFamily, Histogram,
@@ -379,8 +381,9 @@ class TestEnum(unittest.TestCase):
         self.assertEqual(0, self.registry.get_sample_value('el', {'l': 'a', 'el': 'b'}))
         self.assertEqual(1, self.registry.get_sample_value('el', {'l': 'a', 'el': 'c'}))
 
-        e = Enum('e', 'help', registry=None, labelnames=['e'])
-        self.assertRaises(ValueError, e.labels, '')
+    def test_overlapping_labels(self):
+        with pytest.raises(ValueError):
+            Enum('e', 'help', registry=None, labelnames=['e'])
 
 
 class TestMetricWrapper(unittest.TestCase):
@@ -409,6 +412,10 @@ class TestMetricWrapper(unittest.TestCase):
         self.assertRaises(ValueError, self.counter.labels, 'a', 'b')
         self.assertRaises(ValueError, self.counter.remove)
         self.assertRaises(ValueError, self.counter.remove, 'a', 'b')
+
+    def test_labels_on_labels(self):
+        with pytest.raises(ValueError):
+            self.counter.labels('a').labels('b')
 
     def test_labels_coerced_to_string(self):
         self.counter.labels(None).inc()
@@ -469,9 +476,6 @@ class TestMetricWrapper(unittest.TestCase):
     def test_no_units_for_info_enum(self):
         self.assertRaises(ValueError, Info, 'foo', 'help', unit="x")
         self.assertRaises(ValueError, Enum, 'foo', 'help', unit="x")
-
-    def test_wrapped_original_class(self):
-        self.assertEqual(Counter.__wrapped__, Counter('foo', 'bar').__class__)
 
 
 class TestMetricFamilies(unittest.TestCase):
