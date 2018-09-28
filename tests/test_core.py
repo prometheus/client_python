@@ -4,6 +4,8 @@ import inspect
 import time
 from concurrent.futures import ThreadPoolExecutor
 
+import pytest
+
 try:
     import unittest2 as unittest
 except ImportError:
@@ -392,8 +394,9 @@ class TestEnum(unittest.TestCase):
         self.assertEqual(0, self.registry.get_sample_value('el', {'l': 'a', 'el': 'b'}))
         self.assertEqual(1, self.registry.get_sample_value('el', {'l': 'a', 'el': 'c'}))
 
-        e = Enum('e', 'help', registry=None, labelnames=['e'])
-        self.assertRaises(ValueError, e.labels, '')
+    def test_overlapping_labels(self):
+        with pytest.raises(ValueError):
+            Enum('e', 'help', registry=None, labelnames=['e'])
 
 
 class TestMetricWrapper(unittest.TestCase):
@@ -481,9 +484,6 @@ class TestMetricWrapper(unittest.TestCase):
     def test_no_units_for_info_enum(self):
         self.assertRaises(ValueError, Info, 'foo', 'help', unit="x")
         self.assertRaises(ValueError, Enum, 'foo', 'help', unit="x")
-
-    def test_wrapped_original_class(self):
-        self.assertEqual(Counter.__wrapped__, Counter('foo', 'bar').__class__)
 
 
 class TestMetricFamilies(unittest.TestCase):

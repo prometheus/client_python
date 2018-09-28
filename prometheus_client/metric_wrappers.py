@@ -27,21 +27,105 @@ __all__ = (
 _ValueClass = get_value_class()
 
 
-class _LabelWrapper(object):
-    '''Handles labels for the wrapped metric.'''
+class MetricWrapperBase(object):
+    _type = None
+    _reserved_labelnames = ()
+    _name = ''
+    _documentation = ''
+    _unit = ''
 
-    def __init__(self, wrappedClass, name, labelnames, **kwargs):
-        self._wrappedClass = wrappedClass
-        self._type = wrappedClass._type
+    def __init__(self, name, labelnames, labelvalues, **kwargs):
         self._name = name
-        self._labelnames = labelnames
+        self._labelnames = tuple(labelnames)
+        self._labelvalues = tuple(labelvalues)
         self._kwargs = kwargs
-        self._lock = Lock()
-        self._metrics = {}
 
-        for l in labelnames:
-            if l.startswith('__'):
-                raise ValueError('Invalid label metric name: ' + l)
+    @property
+    def _is_multi_wrapper(self):
+        return (self._labelnames and not self._labelvalues)
+
+    def describe(self):
+        return [Metric(self._name, self._documentation, self._type)]
+
+    def collect(self):
+        metric = Metric(self._name, self._documentation, self._type, self._unit)
+        for suffix, labels, value in self._samples():
+            metric.add_sample(self._name + suffix, labels, value)
+        return [metric]
+
+    def _metric_init(self):  # pragma: no cover
+        """
+        Initialize the metric object as a "leaf", i.e. when it has labels (if any) set.
+
+        This is factored as a separate function to allow for deferred initialization.
+        """
+        raise NotImplementedError('_metric_init() must be implemented by %r' % self)
+
+    def _samples(self):  # pragma: no cover
+        raise NotImplementedError('_samples() must be implemented by %r' % self)
+
+
+def build_full_name(metric_type, name, namespace, subsystem, unit):
+    full_name = ''
+    if namespace:
+        full_name += namespace + '_'
+    if subsystem:
+        full_name += subsystem + '_'
+    full_name += name
+    if unit and not full_name.endswith("_" + unit):
+        full_name += "_" + unit
+    if unit and metric_type in ('info', 'stateset'):
+        raise ValueError('Metric name is of a type that cannot have a unit: ' + full_name)
+    if metric_type == 'counter' and full_name.endswith('_total'):
+        full_name = full_name[:-6]  # Munge to OpenMetrics.
+    return full_name
+
+
+def validate_labelnames(cls, labelnames):
+    labelnames = tuple(labelnames)
+    for l in labelnames:
+        if not METRIC_LABEL_NAME_RE.match(l):
+            raise ValueError('Invalid label metric name: ' + l)
+        if RESERVED_METRIC_LABEL_NAME_RE.match(l):
+            raise ValueError('Reserved label metric name: ' + l)
+        if l in cls._reserved_labelnames:
+            raise ValueError('Reserved label metric name: ' + l)
+    return labelnames
+
+
+class MetricWrapper(MetricWrapperBase):
+    metric_class = None
+
+    def __init__(self,
+        name,
+        documentation,
+        labelnames=(),
+        namespace='',
+        subsystem='',
+        unit='',
+        registry=REGISTRY,
+        **kwargs
+    ):
+        full_name = build_full_name(self._type, name, namespace, subsystem, unit)
+        super(MetricWrapper, self).__init__(full_name, validate_labelnames(self, labelnames), (), **kwargs)
+        self._kwargs = kwargs
+        self._documentation = documentation
+        self._unit = unit
+
+        if not METRIC_NAME_RE.match(self._name):
+            raise ValueError('Invalid metric name: ' + self._name)
+
+        if registry:
+            registry.register(self)
+
+        if self._is_multi_wrapper:  # This is a multi-wrapper, so it needs additional initialization
+            self._lock = Lock()
+            self._metrics = {}
+            for l in self._labelnames:
+                if l.startswith('__'):
+                    raise ValueError('Invalid label metric name: ' + l)
+        else:  # Otherwise just initialize as a child metric
+            self._metric_init()
 
     def labels(self, *labelvalues, **labelkwargs):
         '''Return the child for the given labelset.
@@ -66,6 +150,9 @@ class _LabelWrapper(object):
         See the best practices on [naming](http://prometheus.io/docs/practices/naming/)
         and [labels](http://prometheus.io/docs/practices/instrumentation/#use-labels).
         '''
+        if not self._is_multi_wrapper:
+            raise NotImplementedError('No label names were set when constructing %s' % self)
+
         if labelvalues and labelkwargs:
             raise ValueError("Can't pass both *args and **kwargs")
 
@@ -79,19 +166,30 @@ class _LabelWrapper(object):
             labelvalues = tuple(unicode(l) for l in labelvalues)
         with self._lock:
             if labelvalues not in self._metrics:
-                self._metrics[labelvalues] = self._wrappedClass(self._name, self._labelnames, labelvalues,
-                    **self._kwargs)
+                wrapped = self.metric_class(
+                    self._name,
+                    self._labelnames,
+                    labelvalues,
+                    **self._kwargs
+                )
+                wrapped._metric_init()  # Initialize the wrapped metric as a child metric
+                wrapped._documentation = self._documentation
+                wrapped._unit = self._unit
+                self._metrics[labelvalues] = wrapped
             return self._metrics[labelvalues]
 
     def remove(self, *labelvalues):
+        if not self._is_multi_wrapper:
+            raise NotImplementedError('No label names were set when constructing %s' % self)
+
         '''Remove the given labelset from the metric.'''
         if len(labelvalues) != len(self._labelnames):
-            raise ValueError('Incorrect label count')
+            raise ValueError('Incorrect label count (expected %d, got %s)' % (len(self._labelnames), labelvalues))
         labelvalues = tuple(unicode(l) for l in labelvalues)
         with self._lock:
             del self._metrics[labelvalues]
 
-    def _samples(self):
+    def _multi_samples(self):
         with self._lock:
             metrics = self._metrics.copy()
         for labels, metric in metrics.items():
@@ -99,65 +197,13 @@ class _LabelWrapper(object):
             for suffix, sample_labels, value in metric._samples():
                 yield (suffix, dict(series_labels + list(sample_labels.items())), value)
 
-
-def _MetricWrapper(cls):
-    '''Provides common functionality for metrics.'''
-
-    def init(name, documentation, labelnames=(), namespace='', subsystem='', unit='', registry=REGISTRY, **kwargs):
-        full_name = ''
-        if namespace:
-            full_name += namespace + '_'
-        if subsystem:
-            full_name += subsystem + '_'
-        full_name += name
-
-        if unit and not full_name.endswith("_" + unit):
-            full_name += "_" + unit
-        if unit and cls._type in ('info', 'stateset'):
-            raise ValueError('Metric name is of a type that cannot have a unit: ' + full_name)
-
-        if cls._type == 'counter' and full_name.endswith('_total'):
-            full_name = full_name[:-6]  # Munge to OpenMetrics.
-
-        if labelnames:
-            labelnames = tuple(labelnames)
-            for l in labelnames:
-                if not METRIC_LABEL_NAME_RE.match(l):
-                    raise ValueError('Invalid label metric name: ' + l)
-                if RESERVED_METRIC_LABEL_NAME_RE.match(l):
-                    raise ValueError('Reserved label metric name: ' + l)
-                if l in cls._reserved_labelnames:
-                    raise ValueError('Reserved label metric name: ' + l)
-            collector = _LabelWrapper(cls, full_name, labelnames, **kwargs)
-        else:
-            collector = cls(full_name, (), (), **kwargs)
-
-        if not METRIC_NAME_RE.match(full_name):
-            raise ValueError('Invalid metric name: ' + full_name)
-
-        def describe():
-            return [Metric(full_name, documentation, cls._type)]
-
-        collector.describe = describe
-
-        def collect():
-            metric = Metric(full_name, documentation, cls._type, unit)
-            for suffix, labels, value in collector._samples():
-                metric.add_sample(full_name + suffix, labels, value)
-            return [metric]
-
-        collector.collect = collect
-
-        if registry:
-            registry.register(collector)
-        return collector
-
-    init.__wrapped__ = cls
-    return init
+    def _samples(self):
+        if self._is_multi_wrapper:
+            return self._multi_samples()
+        return super(MetricWrapper, self)._samples()
 
 
-@_MetricWrapper
-class Counter(object):
+class _Counter(MetricWrapperBase):
     '''A Counter tracks counts of events or running totals.
 
     Example use cases for Counters:
@@ -190,12 +236,14 @@ class Counter(object):
             pass
     '''
     _type = 'counter'
-    _reserved_labelnames = []
 
     def __init__(self, name, labelnames, labelvalues):
         if name.endswith('_total'):
             name = name[:-6]
-        self._value = _ValueClass(self._type, name, name + '_total', labelnames, labelvalues)
+        super(_Counter, self).__init__(name, labelnames, labelvalues)
+
+    def _metric_init(self):
+        self._value = _ValueClass(self._type, self._name, self._name + '_total', self._labelnames, self._labelvalues)
         self._created = time.time()
 
     def inc(self, amount=1):
@@ -218,8 +266,7 @@ class Counter(object):
         ('_created', {}, self._created))
 
 
-@_MetricWrapper
-class Gauge(object):
+class _Gauge(MetricWrapperBase):
     '''Gauge metric, to report instantaneous values.
 
      Examples of Gauges include:
@@ -257,16 +304,19 @@ class Gauge(object):
         d.set_function(lambda: len(my_dict))
     '''
     _type = 'gauge'
-    _reserved_labelnames = []
     _MULTIPROC_MODES = frozenset(('min', 'max', 'livesum', 'liveall', 'all'))
 
     def __init__(self, name, labelnames, labelvalues, multiprocess_mode='all'):
         if (_ValueClass._multiprocess and
             multiprocess_mode not in self._MULTIPROC_MODES):
             raise ValueError('Invalid multiprocess mode: ' + multiprocess_mode)
+        super(_Gauge, self).__init__(name, labelnames, labelvalues)
+        self._multiprocess_mode = multiprocess_mode
+
+    def _metric_init(self):
         self._value = _ValueClass(
-            self._type, name, name, labelnames, labelvalues,
-            multiprocess_mode=multiprocess_mode)
+            self._type, self._name, self._name, self._labelnames, self._labelvalues,
+            multiprocess_mode=self._multiprocess_mode)
 
     def inc(self, amount=1):
         '''Increment gauge by the given amount.'''
@@ -316,8 +366,7 @@ class Gauge(object):
         return (('', {}, self._value.get()),)
 
 
-@_MetricWrapper
-class Summary(object):
+class _Summary(MetricWrapperBase):
     '''A Summary tracks the size and number of events.
 
     Example use cases for Summaries:
@@ -350,9 +399,9 @@ class Summary(object):
     _type = 'summary'
     _reserved_labelnames = ['quantile']
 
-    def __init__(self, name, labelnames, labelvalues):
-        self._count = _ValueClass(self._type, name, name + '_count', labelnames, labelvalues)
-        self._sum = _ValueClass(self._type, name, name + '_sum', labelnames, labelvalues)
+    def _metric_init(self):
+        self._count = _ValueClass(self._type, self._name, self._name + '_count', self._labelnames, self._labelvalues)
+        self._sum = _ValueClass(self._type, self._name, self._name + '_sum', self._labelnames, self._labelvalues)
         self._created = time.time()
 
     def observe(self, amount):
@@ -374,8 +423,7 @@ class Summary(object):
             ('_created', {}, self._created))
 
 
-@_MetricWrapper
-class Histogram(object):
+class _Histogram(MetricWrapperBase):
     '''A Histogram tracks the size and number of events in buckets.
 
     You can use Histograms for aggregatable calculation of quantiles.
@@ -412,11 +460,11 @@ class Histogram(object):
     '''
     _type = 'histogram'
     _reserved_labelnames = ['le']
+    DEFAULT_BUCKETS = (.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, INF)
 
-    def __init__(self, name, labelnames, labelvalues,
-        buckets=(.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, INF)):
-        self._created = time.time()
-        self._sum = _ValueClass(self._type, name, name + '_sum', labelnames, labelvalues)
+    def __init__(self, name, labelnames, labelvalues, buckets=DEFAULT_BUCKETS):
+        MetricWrapperBase.__init__(self, name, labelnames, labelvalues)
+
         buckets = [float(b) for b in buckets]
         if buckets != sorted(buckets):
             # This is probably an error on the part of the user,
@@ -427,11 +475,15 @@ class Histogram(object):
         if len(buckets) < 2:
             raise ValueError('Must have at least two buckets')
         self._upper_bounds = buckets
+
+    def _metric_init(self):
         self._buckets = []
-        bucket_labelnames = labelnames + ('le',)
-        for b in buckets:
-            self._buckets.append(_ValueClass(self._type, name, name + '_bucket', bucket_labelnames,
-                labelvalues + (floatToGoString(b),)))
+        self._created = time.time()
+        bucket_labelnames = self._labelnames + ('le',)
+        self._sum = _ValueClass(self._type, self._name, self._name + '_sum', self._labelnames, self._labelvalues)
+        for b in self._upper_bounds:
+            self._buckets.append(_ValueClass(self._type, self._name, self._name + '_bucket', bucket_labelnames,
+                self._labelvalues + (floatToGoString(b),)))
 
     def observe(self, amount):
         '''Observe the given amount.'''
@@ -460,8 +512,7 @@ class Histogram(object):
         return tuple(samples)
 
 
-@_MetricWrapper
-class Info(object):
+class _Info(MetricWrapperBase):
     '''Info metric, key-value pairs.
 
      Examples of Info include:
@@ -478,16 +529,18 @@ class Info(object):
      Info metrics do not work in multiprocess mode.
     '''
     _type = 'info'
-    _reserved_labelnames = []
 
     def __init__(self, name, labelnames, labelvalues):
-        self._labelnames = set(labelnames)
+        super(_Info, self).__init__(name, labelnames, labelvalues)
+        self._labelname_set = set(labelnames)
+
+    def _metric_init(self):
         self._lock = Lock()
         self._value = {}
 
     def info(self, val):
         '''Set info metric.'''
-        if self._labelnames.intersection(val.keys()):
+        if self._labelname_set.intersection(val.keys()):
             raise ValueError('Overlapping labels for Info metric, metric: %s child: %s' % (
                 self._labelnames, val))
         with self._lock:
@@ -498,8 +551,7 @@ class Info(object):
             return (('_info', self._value, 1.0,),)
 
 
-@_MetricWrapper
-class Enum(object):
+class _Enum(MetricWrapperBase):
     '''Enum metric, which of a set of states is true.
 
      Example usage:
@@ -513,15 +565,16 @@ class Enum(object):
      Enum metrics do not work in multiprocess mode.
     '''
     _type = 'stateset'
-    _reserved_labelnames = []
 
     def __init__(self, name, labelnames, labelvalues, states=None):
         if name in labelnames:
             raise ValueError('Overlapping labels for Enum metric: %s' % (name,))
         if not states:
             raise ValueError('No states provided for Enum metric: %s' % (name,))
-        self._name = name
+        super(_Enum, self).__init__(name, labelnames, labelvalues)
         self._states = states
+
+    def _metric_init(self):
         self._value = 0
         self._lock = Lock()
 
@@ -534,3 +587,27 @@ class Enum(object):
         with self._lock:
             return [('', {self._name: s}, 1 if i == self._value else 0,)
                 for i, s in enumerate(self._states)]
+
+
+class Counter(MetricWrapper, _Counter):
+    metric_class = _Counter
+
+
+class Enum(MetricWrapper, _Enum):
+    metric_class = _Enum
+
+
+class Gauge(MetricWrapper, _Gauge):
+    metric_class = _Gauge
+
+
+class Histogram(MetricWrapper, _Histogram):
+    metric_class = _Histogram
+
+
+class Info(MetricWrapper, _Info):
+    metric_class = _Info
+
+
+class Summary(MetricWrapper, _Summary):
+    metric_class = _Summary
