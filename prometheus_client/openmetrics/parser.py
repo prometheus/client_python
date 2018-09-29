@@ -106,13 +106,16 @@ def _parse_labels(it, text):
             elif char == '"':
                 if not core._METRIC_LABEL_NAME_RE.match(''.join(labelname)):
                     raise ValueError("Invalid line: " + text)
-                labels[''.join(labelname)] = ''.join(labelvalue)
+                utf8_str = ''.join(labelvalue)
+                try:
+                    utf8_str.encode('utf')
+                except:
+                    raise ValueError("Invalid line: " + text)
+                labels[''.join(labelname)] = utf8_str
                 labelname = []
                 labelvalue = []
                 state = 'endoflabelvalue'
-            else:
-                if not _validate_utf8(char):
-                    raise ValueError("Invalid line: " + text)                
+            else:               
                 labelvalue.append(char)
         elif state == 'endoflabelvalue':
             if char == ',':
@@ -129,9 +132,7 @@ def _parse_labels(it, text):
                 labelvalue.append('\n')
             elif char == '"':
                 labelvalue.append('"')
-            else:
-                if not _validate_utf8(char):
-                    raise ValueError("Invalid line: " + text)                
+            else:              
                 labelvalue.append('\\' + char)
         elif state == 'endoflabels':
             if char == ' ':
@@ -139,9 +140,6 @@ def _parse_labels(it, text):
             else:
                 raise ValueError("Invalid line: " + text)
     return labels
-
-def _validate_utf8(char):
-    return ord(char) < 65536
 
 def _parse_sample(text):
     name = []
