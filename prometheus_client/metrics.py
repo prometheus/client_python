@@ -102,8 +102,13 @@ class Metric(object):
                 self.samples == other.samples)
 
     def __repr__(self):
-        return "Metric(%s, %s, %s, %s, %s)" % (self.name, self.documentation,
-        self.type, self.unit, self.samples)
+        return "Metric(%s, %s, %s, %s, %s)" % (
+            self.name,
+            self.documentation,
+            self.type,
+            self.unit,
+            self.samples,
+        )
 
 
 class UnknownMetricFamily(Metric):
@@ -128,6 +133,7 @@ class UnknownMetricFamily(Metric):
         value: The value of the metric.
         '''
         self.samples.append(Sample(self.name, dict(zip(self._labelnames, labels)), value, timestamp))
+
 
 # For backward compatibility.
 UntypedMetricFamily = UnknownMetricFamily
@@ -255,9 +261,13 @@ class HistogramMetricFamily(Metric):
             exemplar = None
             if len(b) == 3:
                 exemplar = b[2]
-            self.samples.append(Sample(self.name + '_bucket',
+            self.samples.append(Sample(
+                self.name + '_bucket',
                 dict(list(zip(self._labelnames, labels)) + [('le', bucket)]),
-                value, timestamp, exemplar))
+                value,
+                timestamp,
+                exemplar
+            ))
         # +Inf is last and provides the count value.
         self.samples.append(Sample(self.name + '_count', dict(zip(self._labelnames, labels)), buckets[-1][1], timestamp))
         self.samples.append(Sample(self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value, timestamp))
@@ -317,8 +327,12 @@ class InfoMetricFamily(Metric):
           labels: A list of label values
           value: A dict of labels
         '''
-        self.samples.append(Sample(self.name + '_info',
-            dict(dict(zip(self._labelnames, labels)), **value), 1, timestamp))
+        self.samples.append(Sample(
+            self.name + '_info',
+            dict(dict(zip(self._labelnames, labels)), **value),
+            1,
+            timestamp
+        ))
 
 
 class StateSetMetricFamily(Metric):
@@ -347,5 +361,9 @@ class StateSetMetricFamily(Metric):
         labels = tuple(labels)
         for state, enabled in value.items():
             v = (1 if enabled else 0)
-            self.samples.append(Sample(self.name,
-                dict(zip(self._labelnames + (self.name,), labels + (state,))), v, timestamp))
+            self.samples.append(Sample(
+                self.name,
+                dict(zip(self._labelnames + (self.name,), labels + (state,))),
+                v,
+                timestamp
+            ))

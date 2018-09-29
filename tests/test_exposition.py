@@ -44,6 +44,7 @@ class TestGenerateText(unittest.TestCase):
         c = Counter('cc_total', 'A counter', registry=self.registry)
         c.inc()
         self.assertEqual(b'# HELP cc_total A counter\n# TYPE cc_total counter\ncc_total 1.0\n', generate_latest(self.registry))
+
     def test_gauge(self):
         g = Gauge('gg', 'A gauge', registry=self.registry)
         g.set(17)

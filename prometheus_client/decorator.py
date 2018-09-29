@@ -50,6 +50,7 @@ if sys.version_info >= (3,):
 else:
     class getfullargspec(object):
         "A quick and dirty replacement for getfullargspec for Python 2.X"
+
         def __init__(self, f):
             self.args, self.varargs, self.varkw, self.defaults = \
                 inspect.getargspec(f)

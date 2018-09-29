@@ -116,7 +116,7 @@ a_bucket{le="+Inf"} 3 # {a="d"} 4 123
 """)
         hfm = HistogramMetricFamily("a", "help")
         hfm.add_sample("a_bucket", {"le": "1"}, 0.0, None, Exemplar({"a": "b"}, 0.5))
-        hfm.add_sample("a_bucket", {"le": "2"}, 2.0, Timestamp(123, 0), Exemplar({"a": "c"}, 0.5)), 
+        hfm.add_sample("a_bucket", {"le": "2"}, 2.0, Timestamp(123, 0), Exemplar({"a": "c"}, 0.5)),
         hfm.add_sample("a_bucket", {"le": "+Inf"}, 3.0, None, Exemplar({"a": "d"}, 4, Timestamp(123, 0)))
         self.assertEqual([hfm], list(families))
 
@@ -182,7 +182,8 @@ a_total{foo="baz"} -Inf
         self.assertEqual([metric_family], list(families))
 
     def test_empty_brackets(self):
-        families = text_string_to_metric_families("""# TYPE a counter
+        families = text_string_to_metric_families(  # noqa: W291
+"""# TYPE a counter
 # HELP a help
 a_total{} 1
 # EOF
@@ -406,7 +407,7 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
                 ('# TYPE a histogram\na_bucket{le="+Inf"} 1 # {}1\n# EOF\n'),
                 ('# TYPE a histogram\na_bucket{le="+Inf"} 1 # {} 1 \n# EOF\n'),
                 ('# TYPE a histogram\na_bucket{le="+Inf"} 1 # {} 1 1 \n# EOF\n'),
-                ]:
+        ]:
             with self.assertRaises(ValueError):
                 list(text_string_to_metric_families(case))
 

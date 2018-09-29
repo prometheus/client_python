@@ -12,7 +12,6 @@ except ImportError:
     import io as StringIO
 
 
-
 def text_string_to_metric_families(text):
     """Parse Openmetrics text format from a unicode string.
 
@@ -80,7 +79,7 @@ def _parse_timestamp(timestamp):
 
 def _parse_labels(it, text):
     # The { has already been parsed.
-    state  = 'startoflabelname'
+    state = 'startoflabelname'
     labelname = []
     labelvalue = []
     labels = {}
@@ -217,9 +216,11 @@ def _parse_sample(text):
     ts = _parse_timestamp(timestamp)
     exemplar = None
     if exemplar_labels is not None:
-        exemplar = core.Exemplar(exemplar_labels,
-                _parse_value(exemplar_value),
-                _parse_timestamp(exemplar_timestamp))
+        exemplar = core.Exemplar(
+            exemplar_labels,
+            _parse_value(exemplar_value),
+            _parse_timestamp(exemplar_timestamp)
+        )
 
     return core.Sample(''.join(name), labels, val, ts, exemplar)
 
@@ -242,6 +243,7 @@ def text_fd_to_metric_families(fd):
     eof = False
 
     seen_metrics = set()
+
     def build_metric(name, documentation, typ, unit, samples):
         if name in seen_metrics:
             raise ValueError("Duplicate metric: " + name)
@@ -265,7 +267,7 @@ def text_fd_to_metric_families(fd):
 
     for line in fd:
         if line[-1] == '\n':
-          line = line[:-1]
+            line = line[:-1]
 
         if eof:
             raise ValueError("Received line after # EOF: " + line)

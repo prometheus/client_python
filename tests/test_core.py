@@ -201,7 +201,7 @@ class TestSummary(unittest.TestCase):
         def f():
             time.sleep(duration / 2)
             # Testing that different instances of timer do not interfere
-            summary2.time()(lambda : time.sleep(duration / 2))()
+            summary2.time()(lambda: time.sleep(duration / 2))()
 
         jobs = workers * 3
         for i in range(jobs):
@@ -213,7 +213,7 @@ class TestSummary(unittest.TestCase):
         rounding_coefficient = 0.9
         total_expected_duration = jobs * duration * rounding_coefficient
         self.assertLess(total_expected_duration, self.registry.get_sample_value('s_sum'))
-        self.assertLess(total_expected_duration / 2 , self.registry.get_sample_value('s2_sum'))
+        self.assertLess(total_expected_duration / 2, self.registry.get_sample_value('s2_sum'))
 
     def test_function_decorator_reentrancy(self):
         self.assertEqual(0, self.registry.get_sample_value('s_count'))
@@ -226,7 +226,7 @@ class TestSummary(unittest.TestCase):
             time.sleep(sleep)
             if i == iterations:
                 return
-            f(i+1)
+            f(i + 1)
 
         f()
 
@@ -304,7 +304,6 @@ class TestHistogram(unittest.TestCase):
         self.assertEqual(1, self.registry.get_sample_value('hl_bucket', {'le': '+Inf', 'l': 'a'}))
         self.assertEqual(1, self.registry.get_sample_value('hl_count', {'l': 'a'}))
         self.assertEqual(2, self.registry.get_sample_value('hl_sum', {'l': 'a'}))
-
 
     def test_function_decorator(self):
         self.assertEqual(0, self.registry.get_sample_value('h_count'))
@@ -469,6 +468,7 @@ class TestMetricWrapper(unittest.TestCase):
         self.assertRaises(ValueError, Counter, 'c_total', '', labelnames=['a:b'])
         self.assertRaises(ValueError, Counter, 'c_total', '', labelnames=['__reserved'])
         self.assertRaises(ValueError, Summary, 'c_total', '', labelnames=['quantile'])
+
     def test_empty_labels_list(self):
         Histogram('h', 'help', [], registry=self.registry)
         self.assertEqual(0, self.registry.get_sample_value('h_sum'))
@@ -585,13 +585,13 @@ class TestMetricFamilies(unittest.TestCase):
         self.assertEqual(1, self.registry.get_sample_value('i_info', {'a': 'b', 'c': 'd'}))
 
     def test_stateset(self):
-        self.custom_collector(StateSetMetricFamily('s', 'help', value={'a': True, 'b': True,}))
+        self.custom_collector(StateSetMetricFamily('s', 'help', value={'a': True, 'b': True, }))
         self.assertEqual(1, self.registry.get_sample_value('s', {'s': 'a'}))
         self.assertEqual(1, self.registry.get_sample_value('s', {'s': 'b'}))
 
     def test_stateset_labels(self):
         cmf = StateSetMetricFamily('s', 'help', labels=['foo'])
-        cmf.add_metric(['bar'], {'a': False, 'b': False,})
+        cmf.add_metric(['bar'], {'a': False, 'b': False, })
         self.custom_collector(cmf)
         self.assertEqual(0, self.registry.get_sample_value('s', {'foo': 'bar', 's': 'a'}))
         self.assertEqual(0, self.registry.get_sample_value('s', {'foo': 'bar', 's': 'b'}))

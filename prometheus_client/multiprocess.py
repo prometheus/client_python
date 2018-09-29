@@ -16,6 +16,7 @@ from . import core
 
 class MultiProcessCollector(object):
     """Collector for files for multi-process mode."""
+
     def __init__(self, registry, path=None):
         if path is None:
             path = os.environ.get('prometheus_multiproc_dir')

@@ -12,9 +12,8 @@ else:
 from prometheus_client import Gauge, Counter, Summary, Histogram, Info, Enum, Metric
 from prometheus_client import CollectorRegistry
 from prometheus_client.core import GaugeHistogramMetricFamily, Timestamp, Exemplar
-from prometheus_client.openmetrics.exposition import (
-        generate_latest,
-)
+from prometheus_client.openmetrics.exposition import generate_latest
+
 
 class TestGenerateText(unittest.TestCase):
     def setUp(self):

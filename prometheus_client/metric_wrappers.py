@@ -96,7 +96,8 @@ def validate_labelnames(cls, labelnames):
 class MetricWrapper(MetricWrapperBase):
     metric_class = None
 
-    def __init__(self,
+    def __init__(
+        self,
         name,
         documentation,
         labelnames=(),
@@ -262,8 +263,10 @@ class _Counter(MetricWrapperBase):
         return _ExceptionCounter(self, exception)
 
     def _samples(self):
-        return (('_total', {}, self._value.get()),
-        ('_created', {}, self._created))
+        return (
+            ('_total', {}, self._value.get()),
+            ('_created', {}, self._created),
+        )
 
 
 class _Gauge(MetricWrapperBase):
@@ -307,8 +310,10 @@ class _Gauge(MetricWrapperBase):
     _MULTIPROC_MODES = frozenset(('min', 'max', 'livesum', 'liveall', 'all'))
 
     def __init__(self, name, labelnames, labelvalues, multiprocess_mode='all'):
-        if (_ValueClass._multiprocess and
-            multiprocess_mode not in self._MULTIPROC_MODES):
+        if (
+            _ValueClass._multiprocess and
+                multiprocess_mode not in self._MULTIPROC_MODES
+        ):
             raise ValueError('Invalid multiprocess mode: ' + multiprocess_mode)
         super(_Gauge, self).__init__(name, labelnames, labelvalues)
         self._multiprocess_mode = multiprocess_mode
@@ -482,8 +487,13 @@ class _Histogram(MetricWrapperBase):
         bucket_labelnames = self._labelnames + ('le',)
         self._sum = _ValueClass(self._type, self._name, self._name + '_sum', self._labelnames, self._labelvalues)
         for b in self._upper_bounds:
-            self._buckets.append(_ValueClass(self._type, self._name, self._name + '_bucket', bucket_labelnames,
-                self._labelvalues + (floatToGoString(b),)))
+            self._buckets.append(_ValueClass(
+                self._type,
+                self._name,
+                self._name + '_bucket',
+                bucket_labelnames,
+                self._labelvalues + (floatToGoString(b),)
+            ))
 
     def observe(self, amount):
         '''Observe the given amount.'''
@@ -585,8 +595,10 @@ class _Enum(MetricWrapperBase):
 
     def _samples(self):
         with self._lock:
-            return [('', {self._name: s}, 1 if i == self._value else 0,)
-                for i, s in enumerate(self._states)]
+            return [
+                ('', {self._name: s}, 1 if i == self._value else 0,)
+                for i, s in enumerate(self._states)
+            ]
 
 
 class Counter(MetricWrapper, _Counter):

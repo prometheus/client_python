@@ -21,6 +21,7 @@ class _MmapedDict(object):
 
     Not thread safe.
     """
+
     def __init__(self, filename, read_mode=False):
         self._f = open(filename, 'rb' if read_mode else 'a+b')
         if os.fstat(self._f.fileno()).st_size == 0:

@@ -158,7 +158,7 @@ def text_fd_to_metric_families(fd):
     def build_metric(name, documentation, typ, samples):
         # Munge counters into OpenMetrics representation
         # used internally.
-        if typ == 'counter': 
+        if typ == 'counter':
             if name.endswith('_total'):
                 name = name[:-6]
             else:
