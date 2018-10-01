@@ -65,6 +65,14 @@ a 1.2
 """)
         self.assertEqual([GaugeMetricFamily("a", "help", value=1.2)], list(families))
 
+    def test_nan_gauge(self):
+        families = text_string_to_metric_families("""# TYPE a gauge
+# HELP a help
+a NaN
+# EOF
+""")
+        self.assertTrue(math.isnan(list(families)[0].samples[0].value))
+
     def test_unit_gauge(self):
         families = text_string_to_metric_families("""# TYPE a_seconds gauge
 # UNIT a_seconds seconds
@@ -485,6 +493,14 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
                 ('# TYPE a info\na 2\n# EOF\n'),
                 ('# TYPE a stateset\na 2.0\n# EOF\n'),
                 ('# TYPE a info\na 2.0\n# EOF\n'),
+                # Bad counter values.
+                ('# TYPE a counter\na_total NaN\n# EOF\n'),
+                ('# TYPE a histogram\na_sum NaN\n# EOF\n'),
+                ('# TYPE a histogram\na_count NaN\n# EOF\n'),
+                ('# TYPE a histogram\na_bucket NaN\n# EOF\n'),
+                ('# TYPE a gaugehistogram\na_bucket NaN\n# EOF\n'),
+                ('# TYPE a summary\na_sum NaN\n# EOF\n'),
+                ('# TYPE a summary\na_count NaN\n# EOF\n'),
                 ]:
             with self.assertRaises(ValueError):
                 list(text_string_to_metric_families(case))

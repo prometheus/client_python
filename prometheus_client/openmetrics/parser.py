@@ -2,6 +2,8 @@
 
 from __future__ import unicode_literals
 
+import math
+
 try:
     import StringIO
 except ImportError:
@@ -328,10 +330,13 @@ def text_fd_to_metric_families(fd):
                 allowed_names = [sample.name]
             else:
                 samples.append(sample)
+
             if typ == 'stateset' and sample.value not in [0, 1]:
                 raise ValueError("Stateset samples can only have values zero and one: " + line)
             if typ == 'info' and sample.value != 1:
                 raise ValueError("Info samples can only have value one: " + line)
+            if sample.name[len(name):] in ['_total', '_sum', '_count', '_bucket'] and math.isnan(sample.value):
+                raise ValueError("Counter-like samples cannot be NaN: " + line)
             if sample.exemplar and not (
                     typ in ['histogram', 'gaugehistogram']
                     and sample.name.endswith('_bucket')):
