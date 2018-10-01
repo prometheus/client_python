@@ -257,7 +257,6 @@ def text_fd_to_metric_families(fd):
         metric = core.Metric(name, documentation, typ, unit)
         # TODO: check labelvalues are valid utf8
         # TODO: check samples are appropriately grouped and ordered
-        # TODO: check info/stateset values are 1/0
         # TODO: Check histogram bucket rules being followed
         # TODO: Check for dupliate samples
         # TODO: Check for decresing timestamps
@@ -329,6 +328,10 @@ def text_fd_to_metric_families(fd):
                 allowed_names = [sample.name]
             else:
                 samples.append(sample)
+            if typ == 'stateset' and sample.value not in [0, 1]:
+                raise ValueError("Stateset samples can only have values zero and one: " + line)
+            if typ == 'info' and sample.value != 1:
+                raise ValueError("Info samples can only have value one: " + line)
             if sample.exemplar and not (
                     typ in ['histogram', 'gaugehistogram']
                     and sample.name.endswith('_bucket')):

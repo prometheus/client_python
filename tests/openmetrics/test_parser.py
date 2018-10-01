@@ -160,7 +160,7 @@ a_info{foo="bar"} 1
         families = text_string_to_metric_families("""# TYPE a stateset
 # HELP a help
 a{a="bar"} 0
-a{a="foo"} 1
+a{a="foo"} 1.0
 # EOF
 """)
         self.assertEqual([StateSetMetricFamily("a", "help", {'foo': True, 'bar': False})], list(families))
@@ -464,6 +464,11 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
                 ('# TYPE a histogram\na_sum 1 # {a="b"} 0.5\n# EOF\n'),
                 ('# TYPE a gaugehistogram\na_sum 1 # {a="b"} 0.5\n# EOF\n'),
                 ('# TYPE a_bucket gauge\na_bucket 1 # {a="b"} 0.5\n# EOF\n'),
+                # Bad stateset/info values.
+                ('# TYPE a stateset\na 2\n# EOF\n'),
+                ('# TYPE a info\na 2\n# EOF\n'),
+                ('# TYPE a stateset\na 2.0\n# EOF\n'),
+                ('# TYPE a info\na 2.0\n# EOF\n'),
                 ]:
             with self.assertRaises(ValueError):
                 list(text_string_to_metric_families(case))
