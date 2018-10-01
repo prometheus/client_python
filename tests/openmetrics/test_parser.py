@@ -431,6 +431,15 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
                 ('# UNIT a_seconds seconds \n# EOF\n'),
                 ('# TYPE x_u info\n# UNIT x_u u\n# EOF\n'),
                 ('# TYPE x_u stateset\n# UNIT x_u u\n# EOF\n'),
+                # Metadata in wrong place.
+                ('# HELP a x\na 1\n# TYPE a gauge\n# EOF\n'),
+                ('# TYPE a gauge\na 1\n# HELP a gauge\n# EOF\n'),
+                ('# TYPE a_s gauge\na_s 1\n# UNIT a_s s\n# EOF\n'),
+                # Repeated metadata.
+                ('# HELP a \n# HELP a \n# EOF\n'),
+                ('# HELP a x\n# HELP a x\n# EOF\n'),
+                ('# TYPE a untyped\n# TYPE a untyped\n# EOF\n'),
+                ('# UNIT a_s s\n# UNIT a_s s\n# EOF\n'),
                 # Bad metric names.
                 ('0a 1\n# EOF\n'),
                 ('a.b 1\n# EOF\n'),

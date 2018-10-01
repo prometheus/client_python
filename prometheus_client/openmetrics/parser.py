@@ -244,6 +244,12 @@ def text_fd_to_metric_families(fd):
         if name in seen_metrics:
             raise ValueError("Duplicate metric: " + name)
         seen_metrics.add(name)
+        if typ is None:
+            typ = 'untyped'
+        if documentation is None:
+            documentation = ''
+        if unit is None:
+            unit = ''
         if unit and not name.endswith("_" + unit):
             raise ValueError("Unit does not match metric name: " + name)
         if unit and typ in ['info', 'stateset']:
@@ -252,9 +258,7 @@ def text_fd_to_metric_families(fd):
         # TODO: check labelvalues are valid utf8
         # TODO: check samples are appropriately grouped and ordered
         # TODO: check info/stateset values are 1/0
-        # TODO: check for metadata in middle of samples
         # TODO: Check histogram bucket rules being followed
-        # TODO: Check for duplicate metrics
         # TODO: Check for dupliate samples
         # TODO: Check for decresing timestamps
         metric.samples = samples
@@ -273,29 +277,29 @@ def text_fd_to_metric_families(fd):
             parts = line.split(' ', 3)
             if len(parts) < 4:
                 raise ValueError("Invalid line: " + line)
+            if parts[2] == name and samples:
+                raise ValueError("Received metadata after samples: " + line)
+            if parts[2] != name:
+                if name != '':
+                    yield build_metric(name, documentation, typ, unit, samples)
+                # New metric
+                name = parts[2]
+                unit = None
+                typ = None
+                documentation = None
+                samples = []
+                allowed_names = [parts[2]]
+
             if parts[1] == 'HELP':
-                if parts[2] != name:
-                    if name != '':
-                        yield build_metric(name, documentation, typ, unit, samples)
-                    # New metric
-                    name = parts[2]
-                    unit = ''
-                    typ = 'untyped'
-                    samples = []
-                    allowed_names = [parts[2]]
+                if documentation is not None:
+                    raise ValueError("More than one HELP for metric: " + line)
                 if len(parts) == 4:
                     documentation = _unescape_help(parts[3])
                 elif len(parts) == 3:
                     raise ValueError("Invalid line: " + line)
             elif parts[1] == 'TYPE':
-                if parts[2] != name:
-                    if name != '':
-                        yield build_metric(name, documentation, typ, unit, samples)
-                    # New metric
-                    name = parts[2]
-                    documentation = ''
-                    unit = ''
-                    samples = []
+                if typ is not None:
+                    raise ValueError("More than one TYPE for metric: " + line)
                 typ = parts[3]
                 allowed_names = {
                     'counter': ['_total', '_created'],
@@ -306,14 +310,8 @@ def text_fd_to_metric_families(fd):
                 }.get(typ, [''])
                 allowed_names = [name + n for n in allowed_names]
             elif parts[1] == 'UNIT':
-                if parts[2] != name:
-                    if name != '':
-                        yield build_metric(name, documentation, typ, unit, samples)
-                    # New metric
-                    name = parts[2]
-                    typ = 'untyped'
-                    samples = []
-                    allowed_names = [parts[2]]
+                if unit is not None:
+                    raise ValueError("More than one UNIT for metric: " + line)
                 unit = parts[3]
             else:
                 raise ValueError("Invalid line: " + line)
