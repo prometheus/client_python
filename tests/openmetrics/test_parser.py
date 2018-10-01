@@ -134,7 +134,7 @@ a_gsum 2
 """)
         self.assertEqual([GaugeHistogramMetricFamily("a", "help", gsum_value=2, buckets=[("1", 0.0), ("+Inf", 3.0)])], list(families))
 
-    def test_histogram_exemplars(self):
+    def test_gaugehistogram_exemplars(self):
         families = text_string_to_metric_families("""# TYPE a gaugehistogram
 # HELP a help
 a_bucket{le="1"} 0 # {a="b"} 0.5
@@ -451,6 +451,10 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
                 ('# TYPE a histogram\na_bucket{le="+Inf"} 1 # {}1\n# EOF\n'),
                 ('# TYPE a histogram\na_bucket{le="+Inf"} 1 # {} 1 \n# EOF\n'),
                 ('# TYPE a histogram\na_bucket{le="+Inf"} 1 # {} 1 1 \n# EOF\n'),
+                # Exemplars on unallowed samples.
+                ('# TYPE a histogram\na_sum 1 # {a="b"} 0.5\n# EOF\n'),
+                ('# TYPE a gaugehistogram\na_sum 1 # {a="b"} 0.5\n# EOF\n'),
+                ('# TYPE a_bucket gauge\na_bucket 1 # {a="b"} 0.5\n# EOF\n'),
                 ]:
             with self.assertRaises(ValueError):
                 list(text_string_to_metric_families(case))

@@ -250,7 +250,6 @@ def text_fd_to_metric_families(fd):
             raise ValueError("Units not allowed for this metric type: " + name)
         metric = core.Metric(name, documentation, typ, unit)
         # TODO: check labelvalues are valid utf8
-        # TODO: check only histogram buckets have exemplars.
         # TODO: check samples are appropriately grouped and ordered
         # TODO: check info/stateset values are 1/0
         # TODO: check for metadata in middle of samples
@@ -320,18 +319,22 @@ def text_fd_to_metric_families(fd):
                 raise ValueError("Invalid line: " + line)
         else:
             sample = _parse_sample(line)
-            if sample[0] not in allowed_names:
+            if sample.name not in allowed_names:
                 if name != '':
                     yield build_metric(name, documentation, typ, unit, samples)
                 # Start an untyped metric.
-                name = sample[0]
+                name = sample.name
                 documentation = ''
                 unit = ''
                 typ = 'untyped'
                 samples = [sample]
-                allowed_names = [sample[0]]
+                allowed_names = [sample.name]
             else:
                 samples.append(sample)
+            if sample.exemplar and not (
+                    typ in ['histogram', 'gaugehistogram']
+                    and sample.name.endswith('_bucket')):
+                raise ValueError("Invalid line only histogram/gaugehistogram buckets can have exemplars: " + line)
 
     if name != '':
         yield build_metric(name, documentation, typ, unit, samples)
