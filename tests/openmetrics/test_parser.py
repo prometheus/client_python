@@ -122,13 +122,13 @@ a_sum 2
 # HELP a help
 a_bucket{le="1"} 0 # {a="b"} 0.5
 a_bucket{le="2"} 2 123 # {a="c"} 0.5
-a_bucket{le="+Inf"} 3 # {a="d"} 4 123
+a_bucket{le="+Inf"} 3 # {a="1234567890123456789012345678901234567890123456789012345678"} 4 123
 # EOF
 """)
         hfm = HistogramMetricFamily("a", "help")
         hfm.add_sample("a_bucket", {"le": "1"}, 0.0, None, Exemplar({"a": "b"}, 0.5))
         hfm.add_sample("a_bucket", {"le": "2"}, 2.0, Timestamp(123, 0), Exemplar({"a": "c"}, 0.5)), 
-        hfm.add_sample("a_bucket", {"le": "+Inf"}, 3.0, None, Exemplar({"a": "d"}, 4, Timestamp(123, 0)))
+        hfm.add_sample("a_bucket", {"le": "+Inf"}, 3.0, None, Exemplar({"a": "1234567890123456789012345678901234567890123456789012345678"}, 4, Timestamp(123, 0)))
         self.assertEqual([hfm], list(families))
 
     def test_simple_gaugehistogram(self):
@@ -484,6 +484,7 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
                 ('# TYPE a histogram\na_bucket{le="+Inf"} 1 # {}1\n# EOF\n'),
                 ('# TYPE a histogram\na_bucket{le="+Inf"} 1 # {} 1 \n# EOF\n'),
                 ('# TYPE a histogram\na_bucket{le="+Inf"} 1 # {} 1 1 \n# EOF\n'),
+                ('# TYPE a histogram\na_bucket{le="+Inf"} 1 # {a="12345678901234567890123456789012345678901234567890123456789"} 1 1\n# EOF\n'),
                 # Exemplars on unallowed samples.
                 ('# TYPE a histogram\na_sum 1 # {a="b"} 0.5\n# EOF\n'),
                 ('# TYPE a gaugehistogram\na_sum 1 # {a="b"} 0.5\n# EOF\n'),
