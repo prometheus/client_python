@@ -173,6 +173,14 @@ a{a="foo"} 1.0
         metric_family.add_sample("a", {}, 1)
         self.assertEqual([metric_family], list(families))
 
+    def test_empty_metadata(self):
+        families = text_string_to_metric_families("""# HELP a 
+# UNIT a 
+# EOF
+""")
+        metric_family = Metric("a", "", "untyped")
+        self.assertEqual([metric_family], list(families))
+
     def test_untyped(self):
         # https://github.com/prometheus/client_python/issues/79
         families = text_string_to_metric_families("""# HELP redis_connected_clients Redis connected clients
@@ -313,6 +321,14 @@ a_total{foo="b\\\\a\\z"} 2
         metric_family = CounterMetricFamily("a", "he\n\\l\\tp", labels=["foo"])
         metric_family.add_metric(["b\"a\nr"], 1)
         metric_family.add_metric(["b\\a\\z"], 2)
+        self.assertEqual([metric_family], list(families))
+
+    def test_null_byte(self):
+        families = text_string_to_metric_families("""# TYPE a counter
+# HELP a he\0lp
+# EOF
+""")
+        metric_family = CounterMetricFamily("a", "he\0lp")
         self.assertEqual([metric_family], list(families))
 
     def test_timestamps(self):
