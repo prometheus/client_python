@@ -192,7 +192,7 @@ a{a="foo"} 1.0
     def test_untyped(self):
         # https://github.com/prometheus/client_python/issues/79
         families = text_string_to_metric_families("""# HELP redis_connected_clients Redis connected clients
-# TYPE redis_connected_clients untyped
+# TYPE redis_connected_clients unknown
 redis_connected_clients{instance="rough-snowflake-web",port="6380"} 10.0
 redis_connected_clients{instance="rough-snowflake-web",port="6381"} 12.0
 # EOF
@@ -446,6 +446,7 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
                 ('# TYPE a meh\n# EOF\n'),
                 ('# TYPE a meh \n# EOF\n'),
                 ('# TYPE a gauge \n# EOF\n'),
+                ('# TYPE a untyped\n# EOF\n'),
                 # Bad UNIT.
                 ('# UNIT\n# EOF\n'),
                 ('# UNIT \n# EOF\n'),
@@ -498,14 +499,28 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
                 ('# TYPE a info\na 2\n# EOF\n'),
                 ('# TYPE a stateset\na 2.0\n# EOF\n'),
                 ('# TYPE a info\na 2.0\n# EOF\n'),
+                # Missing or invalid labels for a type.
+                ('# TYPE a summary\na 0\n# EOF\n'),
+                ('# TYPE a summary\na{quantile="-1"} 0\n# EOF\n'),
+                ('# TYPE a summary\na{quantile="foo"} 0\n# EOF\n'),
+                ('# TYPE a summary\na{quantile="1.01"} 0\n# EOF\n'),
+                ('# TYPE a summary\na{quantile="NaN"} 0\n# EOF\n'),
+                ('# TYPE a histogram\na_bucket 0\n# EOF\n'),
+                ('# TYPE a gaugehistogram\na_bucket 0\n# EOF\n'),
+                ('# TYPE a stateset\na 0\n# EOF\n'),
                 # Bad counter values.
                 ('# TYPE a counter\na_total NaN\n# EOF\n'),
                 ('# TYPE a histogram\na_sum NaN\n# EOF\n'),
                 ('# TYPE a histogram\na_count NaN\n# EOF\n'),
-                ('# TYPE a histogram\na_bucket NaN\n# EOF\n'),
-                ('# TYPE a gaugehistogram\na_bucket NaN\n# EOF\n'),
+                ('# TYPE a histogram\na_bucket{le="+Inf"} NaN\n# EOF\n'),
+                ('# TYPE a gaugehistogram\na_bucket{le="+Inf"} NaN\n# EOF\n'),
                 ('# TYPE a summary\na_sum NaN\n# EOF\n'),
                 ('# TYPE a summary\na_count NaN\n# EOF\n'),
+                # Bad grouping.
+                ('# TYPE a histogram\na_sum{a="1"} 0\na_sum{a="2"} 0\na_count{a="1"} 0\n# EOF\n'),
+                ('# TYPE a histogram\na_bucket{a="1",le="1"} 0\na_bucket{a="2",le="+Inf""} 0\na_bucket{a="1",le="+Inf"} 0\n# EOF\n'),
+                ('# TYPE a gaugehistogram\na_gsum{a="1"} 0\na_gsum{a="2"} 0\na_gcount{a="1"} 0\n# EOF\n'),
+                ('# TYPE a summary\nquantile{quantile="0"} 0\na_sum{a="1"} 0\nquantile{quantile="1"} 0\n# EOF\n'),
                 ]:
             with self.assertRaises(ValueError):
                 list(text_string_to_metric_families(case))

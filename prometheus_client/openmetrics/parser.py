@@ -228,7 +228,26 @@ def _parse_sample(text):
                 _parse_timestamp(exemplar_timestamp))
 
     return core.Sample(''.join(name), labels, val, ts, exemplar)
-    
+
+
+def _group_for_sample(sample, name, typ):
+    if typ == 'info':
+        # We can't distinguish between groups for info metrics.
+        return {}
+    if typ == 'summary' and sample.name == name:
+        d = sample.labels.copy()
+        del d['quantile']
+        return d
+    if typ == 'stateset':
+        d = sample.labels.copy()
+        del d[name]
+        return d
+    if typ in ['histogram', 'gaugehistogram'] and sample.name == name + '_bucket':
+        d = sample.labels.copy()
+        del d['le']
+        return d
+    return sample.labels
+
 
 def text_fd_to_metric_families(fd):
     """Parse Prometheus text format from a file descriptor.
@@ -240,9 +259,11 @@ def text_fd_to_metric_families(fd):
     Yields core.Metric's.
     """
     name = ''
-    documentation = ''
-    typ = 'untyped'
-    unit = ''
+    documentation = None
+    typ = None
+    unit = None
+    group = None
+    seen_groups = set()
     samples = []
     allowed_names = []
     eof = False
@@ -253,7 +274,7 @@ def text_fd_to_metric_families(fd):
             raise ValueError("Duplicate metric: " + name)
         seen_metrics.add(name)
         if typ is None:
-            typ = 'untyped'
+            typ = 'unknown'
         if documentation is None:
             documentation = ''
         if unit is None:
@@ -264,7 +285,7 @@ def text_fd_to_metric_families(fd):
             raise ValueError("Units not allowed for this metric type: " + name)
         metric = core.Metric(name, documentation, typ, unit)
         # TODO: check labelvalues are valid utf8
-        # TODO: check samples are appropriately grouped and ordered
+        # TODO: check samples are appropriately ordered
         # TODO: Check histogram bucket rules being followed
         # TODO: Check for dupliate samples
         # TODO: Check for decresing timestamps
@@ -294,6 +315,8 @@ def text_fd_to_metric_families(fd):
                 unit = None
                 typ = None
                 documentation = None
+                group = None
+                seen_groups = set()
                 samples = []
                 allowed_names = [parts[2]]
 
@@ -308,6 +331,8 @@ def text_fd_to_metric_families(fd):
                 if typ is not None:
                     raise ValueError("More than one TYPE for metric: " + line)
                 typ = parts[3]
+                if typ == 'untyped':
+                    raise ValueError("Invalid TYPE for metric: " + line)
                 allowed_names = {
                     'counter': ['_total', '_created'],
                     'summary': ['_count', '_sum', '', '_created'],
@@ -327,15 +352,32 @@ def text_fd_to_metric_families(fd):
             if sample.name not in allowed_names:
                 if name != '':
                     yield build_metric(name, documentation, typ, unit, samples)
-                # Start an untyped metric.
+                # Start an unknown metric.
                 name = sample.name
-                documentation = ''
-                unit = ''
-                typ = 'untyped'
+                documentation = None
+                unit = None
+                typ = 'unknown'
                 samples = [sample]
+                group = None
+                seen_groups = set()
                 allowed_names = [sample.name]
             else:
                 samples.append(sample)
+
+            if typ == 'stateset' and name not in sample.labels:
+                raise ValueError("Stateset missing label: " + line)
+            if (typ in ['histogram', 'gaugehistogram'] and name + '_bucket' == sample.name
+                    and float(sample.labels.get('le', -1)) < 0):
+                raise ValueError("Invalid le label: " + line)
+            if (typ == 'summary' and name == sample.name
+                    and not (0 <= float(sample.labels.get('quantile', -1)) <= 1)):
+                raise ValueError("Invalid quantile label: " + line)
+
+            g = tuple(sorted(_group_for_sample(sample, name, typ).items()))
+            if group is not None and g != group and g in seen_groups:
+                raise ValueError("Invalid metric group ordering: " + line)
+            group = g
+            seen_groups.add(g)
 
             if typ == 'stateset' and sample.value not in [0, 1]:
                 raise ValueError("Stateset samples can only have values zero and one: " + line)
