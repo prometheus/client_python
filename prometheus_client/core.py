@@ -30,8 +30,8 @@ _INF = float("inf")
 _MINUS_INF = float("-inf")
 _INITIAL_MMAP_SIZE = 1 << 20
 
-_pack_integer = struct.Struct(b'i').pack_into
-_pack_double = struct.Struct(b'd').pack_into
+_pack_integer_func = struct.Struct(b'i').pack
+_pack_double_func = struct.Struct(b'd').pack
 _unpack_integer = struct.Struct(b'i').unpack_from
 _unpack_double = struct.Struct(b'd').unpack_from
 
@@ -491,6 +491,17 @@ class _MutexValue(object):
     def get(self):
         with self._lock:
             return self._value
+
+
+# struct.pack_into has atomicity issues because it will temporarily write 0 into
+# the mmap, resulting in false reads to 0 when experiencing a lot of writes.
+# Using direct assignment solves this issue.
+def _pack_double(data, pos, value):
+    data[pos:pos + 8] = _pack_double_func(value)
+
+
+def _pack_integer(data, pos, value):
+    data[pos:pos + 4] = _pack_integer_func(value)
 
 
 class _MmapedDict(object):
