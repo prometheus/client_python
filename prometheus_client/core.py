@@ -31,7 +31,7 @@ _MINUS_INF = float("-inf")
 _INITIAL_MMAP_SIZE = 1 << 20
 
 _pack_integer = struct.Struct(b'i').pack_into
-_pack_double = struct.Struct(b'd').pack_into
+_pack_double_func = struct.Struct(b'd').pack
 _unpack_integer = struct.Struct(b'i').unpack_from
 _unpack_double = struct.Struct(b'd').unpack_from
 
@@ -491,6 +491,10 @@ class _MutexValue(object):
     def get(self):
         with self._lock:
             return self._value
+
+
+def _pack_double(data, pos, value):
+    data[pos:pos + 8] = _pack_double_func(value)
 
 
 class _MmapedDict(object):
