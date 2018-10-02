@@ -49,6 +49,8 @@ class Timestamp(object):
     def __init__(self, sec, nsec):
         if nsec < 0 or nsec >= 1e9:
             raise ValueError("Invalid value for nanoseconds in Timestamp: {}".format(nsec))
+        if sec < 0:
+            nsec = -nsec
         self.sec = int(sec)
         self.nsec = int(nsec)
 
@@ -63,6 +65,9 @@ class Timestamp(object):
 
     def __eq__(self, other):
         return type(self) == type(other) and self.sec == other.sec and self.nsec == other.nsec
+
+    def __gt__(self, other):
+        return self.sec > other.sec or self.nsec > other.nsec
 
 
 Exemplar = namedtuple('Exemplar', ['labels', 'value', 'timestamp'])

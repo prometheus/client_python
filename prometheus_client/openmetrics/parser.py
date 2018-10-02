@@ -264,6 +264,7 @@ def text_fd_to_metric_families(fd):
     unit = None
     group = None
     seen_groups = set()
+    group_timestamp = None
     samples = []
     allowed_names = []
     eof = False
@@ -285,10 +286,8 @@ def text_fd_to_metric_families(fd):
             raise ValueError("Units not allowed for this metric type: " + name)
         metric = core.Metric(name, documentation, typ, unit)
         # TODO: check labelvalues are valid utf8
-        # TODO: check samples are appropriately ordered
         # TODO: Check histogram bucket rules being followed
-        # TODO: Check for dupliate samples
-        # TODO: Check for decresing timestamps
+        # TODO: Check for duplicate samples
         metric.samples = samples
         return metric
 
@@ -317,6 +316,7 @@ def text_fd_to_metric_families(fd):
                 documentation = None
                 group = None
                 seen_groups = set()
+                group_timestamp = None
                 samples = []
                 allowed_names = [parts[2]]
 
@@ -359,6 +359,7 @@ def text_fd_to_metric_families(fd):
                 typ = 'unknown'
                 samples = [sample]
                 group = None
+                group_timestamp = None
                 seen_groups = set()
                 allowed_names = [sample.name]
             else:
@@ -375,8 +376,14 @@ def text_fd_to_metric_families(fd):
 
             g = tuple(sorted(_group_for_sample(sample, name, typ).items()))
             if group is not None and g != group and g in seen_groups:
-                raise ValueError("Invalid metric group ordering: " + line)
+                raise ValueError("Invalid metric grouping: " + line)
+            if group is not None and g == group:
+                if (sample.timestamp is None) != (group_timestamp is None):
+                    raise ValueError("Mix of timestamp presence within a group: " + line)
+                if group_timestamp is not None and group_timestamp > sample.timestamp and typ != 'info':
+                    raise ValueError("Timestamps went backwards within a group: " + line)
             group = g
+            group_timestamp = sample.timestamp
             seen_groups.add(g)
 
             if typ == 'stateset' and sample.value not in [0, 1]:
