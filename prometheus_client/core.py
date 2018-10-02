@@ -66,6 +66,9 @@ class Timestamp(object):
     def __eq__(self, other):
         return type(self) == type(other) and self.sec == other.sec and self.nsec == other.nsec
 
+    def __ne__(self, other):
+        return not self == other
+
     def __gt__(self, other):
         return self.sec > other.sec or self.nsec > other.nsec
 

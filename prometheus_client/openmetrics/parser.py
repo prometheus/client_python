@@ -249,6 +249,42 @@ def _group_for_sample(sample, name, typ):
     return sample.labels
 
 
+def _check_histogram(samples, name):
+    group = None
+    timestamp = None
+
+    def do_checks():
+        if bucket != float('+Inf'):
+            raise ValueError("+Inf bucket missing: " + name)
+        if count is not None and value != count:
+            raise ValueError("Count does not match +Inf value: " + name)
+
+    for s in samples:
+        suffix = s.name[len(name):]
+        g = _group_for_sample(s, name, 'histogram')
+        if g != group or s.timestamp != timestamp:
+            if group is not None:
+                do_checks()
+            count = None
+            bucket = -1
+            value = 0
+        group = g
+        timestamp = s.timestamp
+
+        if suffix == '_bucket':
+            b = float(s.labels['le'])
+            if b <= bucket:
+                raise ValueError("Buckets out of order: " + name)
+            if s.value < value:
+                raise ValueError("Bucket values out of order: " + name)
+            bucket = b
+            value = s.value
+        elif suffix in ['_count', '_gcount']:
+            count = s.value
+    if group is not None:
+        do_checks()
+
+
 def text_fd_to_metric_families(fd):
     """Parse Prometheus text format from a file descriptor.
 
@@ -284,9 +320,10 @@ def text_fd_to_metric_families(fd):
             raise ValueError("Unit does not match metric name: " + name)
         if unit and typ in ['info', 'stateset']:
             raise ValueError("Units not allowed for this metric type: " + name)
+        if typ in ['histogram', 'gaugehistogram']:
+            _check_histogram(samples, name)
         metric = core.Metric(name, documentation, typ, unit)
         # TODO: check labelvalues are valid utf8
-        # TODO: Check histogram bucket rules being followed
         # TODO: Check for duplicate samples
         metric.samples = samples
         return metric

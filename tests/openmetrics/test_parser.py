@@ -528,6 +528,14 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
                 ('# TYPE a gaugehistogram\na_bucket{le="+Inf"} NaN\n# EOF\n'),
                 ('# TYPE a summary\na_sum NaN\n# EOF\n'),
                 ('# TYPE a summary\na_count NaN\n# EOF\n'),
+                # Bad histograms.
+                ('# TYPE a histogram\na_sum 1\n# EOF\n'),
+                ('# TYPE a gaugehistogram\na_gsum 1\n# EOF\n'),
+                ('# TYPE a histogram\na_count 1\na_bucket{le="+Inf"} 0\n# EOF\n'),
+                ('# TYPE a histogram\na_bucket{le="+Inf"} 0\na_count 1\n# EOF\n'),
+                ('# TYPE a histogram\na_bucket{le="+Inf"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
+                ('# TYPE a histogram\na_bucket{le="2"} 0\na_bucket{le="1"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
+                ('# TYPE a histogram\na_bucket{le="1"} 1\na_bucket{le="2"} 1\na_bucket{le="+Inf"} 0\n# EOF\n'),
                 # Bad grouping or ordering.
                 ('# TYPE a histogram\na_sum{a="1"} 0\na_sum{a="2"} 0\na_count{a="1"} 0\n# EOF\n'),
                 ('# TYPE a histogram\na_bucket{a="1",le="1"} 0\na_bucket{a="2",le="+Inf""} 0\na_bucket{a="1",le="+Inf"} 0\n# EOF\n'),
