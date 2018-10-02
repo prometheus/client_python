@@ -75,7 +75,10 @@ def _parse_timestamp(timestamp):
             return core.Timestamp(int(parts[0]), int(parts[1][:9].ljust(9, "0")))
         except ValueError:
             # Float.
-            return float(timestamp)
+            ts = float(timestamp)
+            if math.isnan(ts) or math.isinf(ts):
+                raise ValueError("Invalid timestamp: {0!r}".format(timestamp))
+            return ts
 
 
 def _parse_labels(it, text):

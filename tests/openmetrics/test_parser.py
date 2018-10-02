@@ -477,6 +477,10 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
                 ('a 1 z\n# EOF\n'),
                 ('a 1 1z\n# EOF\n'),
                 ('a 1 1.1.1\n# EOF\n'),
+                ('a 1 NaN\n# EOF\n'),
+                ('a 1 Inf\n# EOF\n'),
+                ('a 1 +Inf\n# EOF\n'),
+                ('a 1 -Inf\n# EOF\n'),
                 # Bad exemplars.
                 ('# TYPE a histogram\na_bucket{le="+Inf"} 1 #\n# EOF\n'),
                 ('# TYPE a histogram\na_bucket{le="+Inf"} 1# {} 1\n# EOF\n'),
