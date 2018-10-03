@@ -294,14 +294,7 @@ def text_fd_to_metric_families(fd):
 
     Yields core.Metric's.
     """
-    name = ''
-    documentation = None
-    typ = None
-    unit = None
-    group = None
-    seen_groups = set()
-    group_timestamp = None
-    samples = []
+    name = None
     allowed_names = []
     eof = False
 
@@ -344,7 +337,7 @@ def text_fd_to_metric_families(fd):
             if parts[2] == name and samples:
                 raise ValueError("Received metadata after samples: " + line)
             if parts[2] != name:
-                if name != '':
+                if name is not None:
                     yield build_metric(name, documentation, typ, unit, samples)
                 # New metric
                 name = parts[2]
@@ -387,7 +380,7 @@ def text_fd_to_metric_families(fd):
         else:
             sample = _parse_sample(line)
             if sample.name not in allowed_names:
-                if name != '':
+                if name is not None:
                     yield build_metric(name, documentation, typ, unit, samples)
                 # Start an unknown metric.
                 name = sample.name
@@ -434,7 +427,7 @@ def text_fd_to_metric_families(fd):
                     and sample.name.endswith('_bucket')):
                 raise ValueError("Invalid line only histogram/gaugehistogram buckets can have exemplars: " + line)
 
-    if name != '':
+    if name is not None:
         yield build_metric(name, documentation, typ, unit, samples)
 
     if not eof:
