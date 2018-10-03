@@ -317,7 +317,6 @@ def text_fd_to_metric_families(fd):
             _check_histogram(samples, name)
         metric = core.Metric(name, documentation, typ, unit)
         # TODO: check labelvalues are valid utf8
-        # TODO: Check for duplicate samples
         metric.samples = samples
         return metric
 
@@ -347,6 +346,7 @@ def text_fd_to_metric_families(fd):
                 group = None
                 seen_groups = set()
                 group_timestamp = None
+                group_timestamp_samples = set()
                 samples = []
                 allowed_names = [parts[2]]
 
@@ -387,13 +387,12 @@ def text_fd_to_metric_families(fd):
                 documentation = None
                 unit = None
                 typ = 'unknown'
-                samples = [sample]
+                samples = []
                 group = None
                 group_timestamp = None
+                group_timestamp_samples = set()
                 seen_groups = set()
                 allowed_names = [sample.name]
-            else:
-                samples.append(sample)
 
             if typ == 'stateset' and name not in sample.labels:
                 raise ValueError("Stateset missing label: " + line)
@@ -412,6 +411,15 @@ def text_fd_to_metric_families(fd):
                     raise ValueError("Mix of timestamp presence within a group: " + line)
                 if group_timestamp is not None and group_timestamp > sample.timestamp and typ != 'info':
                     raise ValueError("Timestamps went backwards within a group: " + line)
+            else:
+                group_timestamp_samples = set()
+
+            series_id = (sample.name, tuple(sorted(sample.labels.items())))
+            if sample.timestamp != group_timestamp or series_id not in group_timestamp_samples:
+                # Not a duplicate due to timestamp truncation.
+                samples.append(sample)
+            group_timestamp_samples.add(series_id)
+
             group = g
             group_timestamp = sample.timestamp
             seen_groups.add(g)

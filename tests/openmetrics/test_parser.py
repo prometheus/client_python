@@ -185,6 +185,22 @@ a{a="foo"} 1.0
 """)
         self.assertEqual([StateSetMetricFamily("a", "help", {'foo': True, 'bar': False})], list(families))
 
+    def test_duplicate_timestamps(self):
+        families = text_string_to_metric_families("""# TYPE a gauge
+# HELP a help
+a{a="1",foo="bar"} 1 0.0000000000
+a{a="1",foo="bar"} 2 0.0000000001
+a{a="1",foo="bar"} 3 0.0000000010
+a{a="2",foo="bar"} 4 0.0000000000
+a{a="2",foo="bar"} 5 0.0000000001
+# EOF
+""")
+        imf = GaugeMetricFamily("a", "help")
+        imf.add_sample("a", {"a": "1", "foo": "bar"}, 1, Timestamp(0, 0))
+        imf.add_sample("a", {"a": "1", "foo": "bar"}, 3, Timestamp(0, 1))
+        imf.add_sample("a", {"a": "2", "foo": "bar"}, 4, Timestamp(0, 0))
+        self.assertEqual([imf], list(families))
+
     def test_no_metadata(self):
         families = text_string_to_metric_families("""a 1
 # EOF
@@ -533,7 +549,6 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
                 ('# TYPE a gaugehistogram\na_gsum 1\n# EOF\n'),
                 ('# TYPE a histogram\na_count 1\na_bucket{le="+Inf"} 0\n# EOF\n'),
                 ('# TYPE a histogram\na_bucket{le="+Inf"} 0\na_count 1\n# EOF\n'),
-                ('# TYPE a histogram\na_bucket{le="+Inf"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
                 ('# TYPE a histogram\na_bucket{le="2"} 0\na_bucket{le="1"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
                 ('# TYPE a histogram\na_bucket{le="1"} 1\na_bucket{le="2"} 1\na_bucket{le="+Inf"} 0\n# EOF\n'),
                 # Bad grouping or ordering.
