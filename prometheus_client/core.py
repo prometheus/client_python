@@ -49,6 +49,8 @@ class Timestamp(object):
     def __init__(self, sec, nsec):
         if nsec < 0 or nsec >= 1e9:
             raise ValueError("Invalid value for nanoseconds in Timestamp: {}".format(nsec))
+        if sec < 0:
+            nsec = -nsec
         self.sec = int(sec)
         self.nsec = int(nsec)
 
@@ -63,6 +65,12 @@ class Timestamp(object):
 
     def __eq__(self, other):
         return type(self) == type(other) and self.sec == other.sec and self.nsec == other.nsec
+
+    def __ne__(self, other):
+        return not self == other
+
+    def __gt__(self, other):
+        return self.sec > other.sec or self.nsec > other.nsec
 
 
 Exemplar = namedtuple('Exemplar', ['labels', 'value', 'timestamp'])
@@ -122,6 +130,7 @@ class CollectorRegistry(object):
             'counter': ['_total', '_created'],
             'summary': ['', '_sum', '_count', '_created'],
             'histogram': ['_bucket', '_sum', '_count', '_created'],
+            'gaugehistogram': ['_bucket', '_gsum', '_gcount'],
             'info': ['_info'],
         }
         for metric in desc_func():
@@ -391,7 +400,7 @@ class GaugeHistogramMetricFamily(Metric):
 
     For use by custom collectors.
     '''
-    def __init__(self, name, documentation, buckets=None, labels=None, unit=''):
+    def __init__(self, name, documentation, buckets=None, gsum_value=None, labels=None, unit=''):
         Metric.__init__(self, name, documentation, 'gaugehistogram', unit)
         if labels is not None and buckets is not None:
             raise ValueError('Can only specify at most one of buckets and labels.')
@@ -399,21 +408,25 @@ class GaugeHistogramMetricFamily(Metric):
             labels = []
         self._labelnames = tuple(labels)
         if buckets is not None:
-            self.add_metric([], buckets)
+            self.add_metric([], buckets, gsum_value)
 
-    def add_metric(self, labels, buckets, timestamp=None):
+    def add_metric(self, labels, buckets, gsum_value, timestamp=None):
         '''Add a metric to the metric family.
 
         Args:
           labels: A list of label values
           buckets: A list of pairs of bucket names and values.
               The buckets must be sorted, and +Inf present.
+          gsum_value: The sum value of the metric.
         '''
         for bucket, value in buckets:
             self.samples.append(Sample(
                 self.name + '_bucket',
                 dict(list(zip(self._labelnames, labels)) + [('le', bucket)]),
                 value, timestamp))
+        # +Inf is last and provides the count value.
+        self.samples.append(Sample(self.name + '_gcount', dict(zip(self._labelnames, labels)), buckets[-1][1], timestamp))
+        self.samples.append(Sample(self.name + '_gsum', dict(zip(self._labelnames, labels)), gsum_value, timestamp))
 
 
 class InfoMetricFamily(Metric):
@@ -465,7 +478,7 @@ class StateSetMetricFamily(Metric):
           value: A dict of string state names to booleans
         '''
         labels = tuple(labels)
-        for state, enabled in value.items():
+        for state, enabled in sorted(value.items()):
             v = (1 if enabled else 0)
             self.samples.append(Sample(self.name,
                 dict(zip(self._labelnames + (self.name,), labels + (state,))), v, timestamp))

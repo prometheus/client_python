@@ -4,7 +4,7 @@ from __future__ import unicode_literals
 
 from .. import core
 
-CONTENT_TYPE_LATEST = str('text/openmetrics; version=0.0.1; charset=utf-8')
+CONTENT_TYPE_LATEST = str('application/openmetrics-text; version=0.0.1; charset=utf-8')
 '''Content type of the latest OpenMetrics text format'''
 
 def generate_latest(registry):
@@ -26,7 +26,7 @@ def generate_latest(registry):
             else:
                 labelstr = ''
             if s.exemplar:
-                if metric.type != 'histogram' or not s.name.endswith('_bucket'):
+                if metric.type not in ('histogram', 'gaugehistogram') or not s.name.endswith('_bucket'):
                     raise ValueError("Metric {0} has exemplars, but is not a histogram bucket".format(metric.name))
                 labels = '{{{0}}}'.format(','.join(
                     ['{0}="{1}"'.format(
@@ -42,7 +42,6 @@ def generate_latest(registry):
                 exemplarstr = ''
             timestamp = ''
             if s.timestamp is not None:
-                # Convert to milliseconds.
                 timestamp = ' {0}'.format(s.timestamp)
             output.append('{0}{1} {2}{3}{4}\n'.format(s.name, labelstr,
                 core._floatToGoString(s.value), timestamp, exemplarstr))

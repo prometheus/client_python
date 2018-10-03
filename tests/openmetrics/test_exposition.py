@@ -134,11 +134,13 @@ hh_bucket{le="+Inf"} 0.0
             generate_latest(self.registry)
 
     def test_gaugehistogram(self):
-        self.custom_collector(GaugeHistogramMetricFamily('gh', 'help', buckets=[('1.0', 4), ('+Inf', (5))]))
+        self.custom_collector(GaugeHistogramMetricFamily('gh', 'help', buckets=[('1.0', 4), ('+Inf', (5))], gsum_value=7))
         self.assertEqual(b'''# HELP gh help
 # TYPE gh gaugehistogram
 gh_bucket{le="1.0"} 4.0
 gh_bucket{le="+Inf"} 5.0
+gh_gcount 5.0
+gh_gsum 7.0
 # EOF
 ''', generate_latest(self.registry))
 
