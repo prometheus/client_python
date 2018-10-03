@@ -124,7 +124,7 @@ def generate_latest(registry=core.REGISTRY):
 def choose_encoder(accept_header):
     accept_header = accept_header or ''
     for accepted in accept_header.split(','):
-        if accepted == 'text/openmetrics; version=0.0.1':
+        if accepted == 'application/openmetrics-text; version=0.0.1':
             return (openmetrics.exposition.generate_latest, 
                     openmetrics.exposition.CONTENT_TYPE_LATEST)
     return (generate_latest, CONTENT_TYPE_LATEST)

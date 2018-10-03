@@ -4,7 +4,7 @@ from __future__ import unicode_literals
 
 from .. import core
 
-CONTENT_TYPE_LATEST = str('text/openmetrics; version=0.0.1; charset=utf-8')
+CONTENT_TYPE_LATEST = str('application/openmetrics-text; version=0.0.1; charset=utf-8')
 '''Content type of the latest OpenMetrics text format'''
 
 def generate_latest(registry):
