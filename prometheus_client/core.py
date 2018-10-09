@@ -219,10 +219,6 @@ class Metric(object):
         if typ not in _METRIC_TYPES:
             raise ValueError('Invalid metric type: ' + typ)
         self.type = typ
-        if unit:
-            if not name.endswith('_' + unit):
-                raise ValueError('Metric name does not end with unit: ' + name)
-        self.unit = unit
         self.samples = []
 
     def add_sample(self, name, labels, value, timestamp=None, exemplar=None):
