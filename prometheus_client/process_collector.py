@@ -5,6 +5,7 @@ from __future__ import unicode_literals
 import os
 
 from . import core
+
 try:
     import resource
     _PAGESIZE = resource.getpagesize()

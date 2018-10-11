@@ -8,10 +8,11 @@ import socket
 import sys
 import threading
 from contextlib import closing
-from wsgiref.simple_server import make_server, WSGIRequestHandler
+from wsgiref.simple_server import WSGIRequestHandler, make_server
 
 from prometheus_client import core
 from prometheus_client.openmetrics import exposition as openmetrics
+
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
     from SocketServer import ThreadingMixIn

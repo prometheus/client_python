@@ -4,13 +4,14 @@ from __future__ import unicode_literals
 
 import re
 
+from . import core
+
 try:
     import StringIO
 except ImportError:
     # Python 3
     import io as StringIO
 
-from . import core
 
 
 def text_string_to_metric_families(text):

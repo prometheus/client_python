@@ -2,11 +2,10 @@
 
 from __future__ import unicode_literals
 
-from collections import defaultdict
-
 import glob
 import json
 import os
+from collections import defaultdict
 
 from . import core
 

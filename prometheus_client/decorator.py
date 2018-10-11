@@ -33,12 +33,12 @@ for the documentation.
 """
 from __future__ import print_function
 
+import collections
+import inspect
+import itertools
+import operator
 import re
 import sys
-import inspect
-import operator
-import itertools
-import collections
 
 __version__ = '4.0.10'
 

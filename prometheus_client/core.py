@@ -12,10 +12,9 @@ import struct
 import sys
 import time
 import types
-
+from collections import namedtuple
 from threading import Lock
 from timeit import default_timer
-from collections import namedtuple
 
 from .decorator import decorate
 

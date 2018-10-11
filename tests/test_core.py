@@ -4,12 +4,6 @@ import inspect
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-try:
-    import unittest2 as unittest
-except ImportError:
-    import unittest
-
-
 from prometheus_client.core import (
     CollectorRegistry,
     Counter,
@@ -23,12 +17,19 @@ from prometheus_client.core import (
     Info,
     InfoMetricFamily,
     Metric,
-    StateSetMetricFamily,
     Sample,
+    StateSetMetricFamily,
     Summary,
     SummaryMetricFamily,
-    UntypedMetricFamily,
+    UntypedMetricFamily
 )
+
+try:
+    import unittest2 as unittest
+except ImportError:
+    import unittest
+
+
 
 
 class TestCounter(unittest.TestCase):
