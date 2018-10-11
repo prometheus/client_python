@@ -4,13 +4,14 @@ from __future__ import unicode_literals
 
 import math
 
+from .. import core
+
 try:
     import StringIO
 except ImportError:
     # Python 3
     import io as StringIO
 
-from .. import core
 
 
 def text_string_to_metric_families(text):
@@ -83,7 +84,7 @@ def _parse_timestamp(timestamp):
 
 def _parse_labels(it, text):
     # The { has already been parsed.
-    state  = 'startoflabelname'
+    state = 'startoflabelname'
     labelname = []
     labelvalue = []
     labels = {}
@@ -223,9 +224,11 @@ def _parse_sample(text):
         exemplar_length = sum([len(k) + len(v) + 3 for k, v in exemplar_labels.items()]) + 2
         if exemplar_length > 64:
             raise ValueError("Exmplar labels are too long: " + text)
-        exemplar = core.Exemplar(exemplar_labels,
-                _parse_value(exemplar_value),
-                _parse_timestamp(exemplar_timestamp))
+        exemplar = core.Exemplar(
+            exemplar_labels,
+            _parse_value(exemplar_value),
+            _parse_timestamp(exemplar_timestamp),
+        )
 
     return core.Sample(''.join(name), labels, val, ts, exemplar)
 
@@ -299,6 +302,7 @@ def text_fd_to_metric_families(fd):
     eof = False
 
     seen_metrics = set()
+
     def build_metric(name, documentation, typ, unit, samples):
         if name in seen_metrics:
             raise ValueError("Duplicate metric: " + name)
@@ -322,7 +326,7 @@ def text_fd_to_metric_families(fd):
 
     for line in fd:
         if line[-1] == '\n':
-          line = line[:-1]
+            line = line[:-1]
 
         if eof:
             raise ValueError("Received line after # EOF: " + line)

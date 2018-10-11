@@ -4,13 +4,14 @@ from __future__ import unicode_literals
 
 import re
 
+from . import core
+
 try:
     import StringIO
 except ImportError:
     # Python 3
     import io as StringIO
 
-from . import core
 
 
 def text_string_to_metric_families(text):
@@ -158,7 +159,7 @@ def text_fd_to_metric_families(fd):
     def build_metric(name, documentation, typ, samples):
         # Munge counters into OpenMetrics representation
         # used internally.
-        if typ == 'counter': 
+        if typ == 'counter':
             if name.endswith('_total'):
                 name = name[:-6]
             else:

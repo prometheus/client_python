@@ -6,13 +6,6 @@ import shutil
 import sys
 import tempfile
 
-if sys.version_info < (2, 7):
-    # We need the skip decorators from unittest2 on Python 2.6.
-    import unittest2 as unittest
-else:
-    import unittest
-
-
 from prometheus_client import core
 from prometheus_client.core import (
     CollectorRegistry,
@@ -20,12 +13,20 @@ from prometheus_client.core import (
     Gauge,
     Histogram,
     Sample,
-    Summary,
+    Summary
 )
 from prometheus_client.multiprocess import (
-    mark_process_dead,
     MultiProcessCollector,
+    mark_process_dead
 )
+
+if sys.version_info < (2, 7):
+    # We need the skip decorators from unittest2 on Python 2.6.
+    import unittest2 as unittest
+else:
+    import unittest
+
+
 
 
 class TestMultiProcess(unittest.TestCase):
@@ -130,9 +131,9 @@ class TestMultiProcess(unittest.TestCase):
         self.assertEqual(2, self.registry.get_sample_value('g'))
 
     def test_namespace_subsystem(self):
-         c1 = Counter('c', 'help', registry=None, namespace='ns', subsystem='ss')
-         c1.inc(1)
-         self.assertEqual(1, self.registry.get_sample_value('ns_ss_c_total'))
+        c1 = Counter('c', 'help', registry=None, namespace='ns', subsystem='ss')
+        c1.inc(1)
+        self.assertEqual(1, self.registry.get_sample_value('ns_ss_c_total'))
 
     def test_counter_across_forks(self):
         pid = 0

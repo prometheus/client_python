@@ -2,17 +2,17 @@
 
 from __future__ import unicode_literals
 
-from collections import defaultdict
-
 import glob
 import json
 import os
+from collections import defaultdict
 
 from . import core
 
 
 class MultiProcessCollector(object):
     """Collector for files for multi-process mode."""
+
     def __init__(self, registry, path=None):
         if path is None:
             path = os.environ.get('prometheus_multiproc_dir')
