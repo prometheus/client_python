@@ -19,7 +19,6 @@ from collections import namedtuple
 
 from .decorator import decorate
 
-
 if sys.version_info > (3,):
     unicode = str
 
@@ -75,7 +74,7 @@ class Timestamp(object):
 
 
 Exemplar = namedtuple('Exemplar', ['labels', 'value', 'timestamp'])
-Exemplar.__new__.__defaults__ = (None, )
+Exemplar.__new__.__defaults__ = (None,)
 
 
 class CollectorRegistry(object):
@@ -177,6 +176,7 @@ class CollectorRegistry(object):
         class RestrictedRegistry(object):
             def collect(self):
                 return metrics
+
         return RestrictedRegistry()
 
     def get_sample_value(self, name, labels=None):
@@ -408,8 +408,10 @@ class HistogramMetricFamily(Metric):
                 exemplar,
             ))
         # +Inf is last and provides the count value.
-        self.samples.append(Sample(self.name + '_count', dict(zip(self._labelnames, labels)), buckets[-1][1], timestamp))
-        self.samples.append(Sample(self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value, timestamp))
+        self.samples.extend([
+            Sample(self.name + '_count', dict(zip(self._labelnames, labels)), buckets[-1][1], timestamp),
+            Sample(self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value, timestamp),
+        ])
 
 
 class GaugeHistogramMetricFamily(Metric):
@@ -443,8 +445,10 @@ class GaugeHistogramMetricFamily(Metric):
                 dict(list(zip(self._labelnames, labels)) + [('le', bucket)]),
                 value, timestamp))
         # +Inf is last and provides the count value.
-        self.samples.append(Sample(self.name + '_gcount', dict(zip(self._labelnames, labels)), buckets[-1][1], timestamp))
-        self.samples.append(Sample(self.name + '_gsum', dict(zip(self._labelnames, labels)), gsum_value, timestamp))
+        self.samples.extend([
+            Sample(self.name + '_gcount', dict(zip(self._labelnames, labels)), buckets[-1][1], timestamp),
+            Sample(self.name + '_gsum', dict(zip(self._labelnames, labels)), gsum_value, timestamp),
+        ])
 
 
 class InfoMetricFamily(Metric):
@@ -470,8 +474,12 @@ class InfoMetricFamily(Metric):
           labels: A list of label values
           value: A dict of labels
         '''
-        self.samples.append(Sample(self.name + '_info',
-            dict(dict(zip(self._labelnames, labels)), **value), 1, timestamp))
+        self.samples.append(Sample(
+            self.name + '_info',
+            dict(dict(zip(self._labelnames, labels)), **value),
+            1,
+            timestamp,
+        ))
 
 
 class StateSetMetricFamily(Metric):
@@ -500,8 +508,12 @@ class StateSetMetricFamily(Metric):
         labels = tuple(labels)
         for state, enabled in sorted(value.items()):
             v = (1 if enabled else 0)
-            self.samples.append(Sample(self.name,
-                dict(zip(self._labelnames + (self.name,), labels + (state,))), v, timestamp))
+            self.samples.append(Sample(
+                self.name,
+                dict(zip(self._labelnames + (self.name,), labels + (state,))),
+                v,
+                timestamp,
+            ))
 
 
 class _MutexValue(object):
@@ -766,7 +778,12 @@ class _LabelWrapper(object):
             labelvalues = tuple(unicode(l) for l in labelvalues)
         with self._lock:
             if labelvalues not in self._metrics:
-                self._metrics[labelvalues] = self._wrappedClass(self._name, self._labelnames, labelvalues, **self._kwargs)
+                self._metrics[labelvalues] = self._wrappedClass(
+                    self._name,
+                    self._labelnames,
+                    labelvalues,
+                    **self._kwargs
+                )
             return self._metrics[labelvalues]
 
     def remove(self, *labelvalues):
@@ -788,6 +805,7 @@ class _LabelWrapper(object):
 
 def _MetricWrapper(cls):
     '''Provides common functionality for metrics.'''
+
     def init(name, documentation, labelnames=(), namespace='', subsystem='', unit='', registry=REGISTRY, **kwargs):
         full_name = ''
         if namespace:
@@ -822,6 +840,7 @@ def _MetricWrapper(cls):
 
         def describe():
             return [Metric(full_name, documentation, cls._type)]
+
         collector.describe = describe
 
         def collect():
@@ -829,6 +848,7 @@ def _MetricWrapper(cls):
             for suffix, labels, value in collector._samples():
                 metric.add_sample(full_name + suffix, labels, value)
             return [metric]
+
         collector.collect = collect
 
         if registry:
@@ -897,8 +917,10 @@ class Counter(object):
         return _ExceptionCounter(self, exception)
 
     def _samples(self):
-        return (('_total', {}, self._value.get()),
-                ('_created', {}, self._created))
+        return (
+            ('_total', {}, self._value.get()),
+            ('_created', {}, self._created),
+        )
 
 
 @_MetricWrapper
@@ -991,11 +1013,12 @@ class Gauge(object):
         '''
 
         def samples(self):
-            return (('', {}, float(f())), )
+            return (('', {}, float(f())),)
+
         self._samples = types.MethodType(samples, self)
 
     def _samples(self):
-        return (('', {}, self._value.get()), )
+        return (('', {}, self._value.get()),)
 
 
 @_MetricWrapper
@@ -1122,7 +1145,13 @@ class Histogram(object):
         self._buckets = []
         bucket_labelnames = labelnames + ('le',)
         for b in buckets:
-            self._buckets.append(_ValueClass(self._type, name, name + '_bucket', bucket_labelnames, labelvalues + (_floatToGoString(b),)))
+            self._buckets.append(_ValueClass(
+                self._type,
+                name,
+                name + '_bucket',
+                bucket_labelnames,
+                labelvalues + (_floatToGoString(b),),
+            ))
 
     def observe(self, amount):
         '''Observe the given amount.'''
@@ -1186,7 +1215,7 @@ class Info(object):
 
     def _samples(self):
         with self._lock:
-            return (('_info', self._value, 1.0,), )
+            return (('_info', self._value, 1.0,),)
 
 
 @_MetricWrapper
@@ -1223,8 +1252,11 @@ class Enum(object):
 
     def _samples(self):
         with self._lock:
-            return [('', {self._name: s}, 1 if i == self._value else 0,)
-                       for i, s in enumerate(self._states)]
+            return [
+                ('', {self._name: s}, 1 if i == self._value else 0,)
+                for i, s
+                in enumerate(self._states)
+            ]
 
 
 class _ExceptionCounter(object):
@@ -1243,6 +1275,7 @@ class _ExceptionCounter(object):
         def wrapped(func, *args, **kwargs):
             with self:
                 return func(*args, **kwargs)
+
         return decorate(f, wrapped)
 
 
@@ -1260,6 +1293,7 @@ class _InprogressTracker(object):
         def wrapped(func, *args, **kwargs):
             with self:
                 return func(*args, **kwargs)
+
         return decorate(f, wrapped)
 
 
@@ -1284,4 +1318,5 @@ class _Timer(object):
             # ensures thread safety and reentrancy.
             with self._new_timer():
                 return func(*args, **kwargs)
+
         return decorate(f, wrapped)

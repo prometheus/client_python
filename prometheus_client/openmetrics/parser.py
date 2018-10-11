@@ -223,9 +223,11 @@ def _parse_sample(text):
         exemplar_length = sum([len(k) + len(v) + 3 for k, v in exemplar_labels.items()]) + 2
         if exemplar_length > 64:
             raise ValueError("Exmplar labels are too long: " + text)
-        exemplar = core.Exemplar(exemplar_labels,
-                _parse_value(exemplar_value),
-                _parse_timestamp(exemplar_timestamp))
+        exemplar = core.Exemplar(
+            exemplar_labels,
+            _parse_value(exemplar_value),
+            _parse_timestamp(exemplar_timestamp),
+        )
 
     return core.Sample(''.join(name), labels, val, ts, exemplar)
 
