@@ -13,8 +13,9 @@ from prometheus_client import Gauge, Counter, Summary, Histogram, Info, Enum, Me
 from prometheus_client import CollectorRegistry
 from prometheus_client.core import GaugeHistogramMetricFamily, Timestamp, Exemplar
 from prometheus_client.openmetrics.exposition import (
-        generate_latest,
+    generate_latest,
 )
+
 
 class TestGenerateText(unittest.TestCase):
     def setUp(self):

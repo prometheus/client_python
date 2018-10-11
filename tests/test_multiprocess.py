@@ -130,9 +130,9 @@ class TestMultiProcess(unittest.TestCase):
         self.assertEqual(2, self.registry.get_sample_value('g'))
 
     def test_namespace_subsystem(self):
-         c1 = Counter('c', 'help', registry=None, namespace='ns', subsystem='ss')
-         c1.inc(1)
-         self.assertEqual(1, self.registry.get_sample_value('ns_ss_c_total'))
+        c1 = Counter('c', 'help', registry=None, namespace='ns', subsystem='ss')
+        c1.inc(1)
+        self.assertEqual(1, self.registry.get_sample_value('ns_ss_c_total'))
 
     def test_counter_across_forks(self):
         pid = 0

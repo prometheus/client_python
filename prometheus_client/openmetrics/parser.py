@@ -83,7 +83,7 @@ def _parse_timestamp(timestamp):
 
 def _parse_labels(it, text):
     # The { has already been parsed.
-    state  = 'startoflabelname'
+    state = 'startoflabelname'
     labelname = []
     labelvalue = []
     labels = {}
@@ -299,6 +299,7 @@ def text_fd_to_metric_families(fd):
     eof = False
 
     seen_metrics = set()
+
     def build_metric(name, documentation, typ, unit, samples):
         if name in seen_metrics:
             raise ValueError("Duplicate metric: " + name)
@@ -322,7 +323,7 @@ def text_fd_to_metric_families(fd):
 
     for line in fd:
         if line[-1] == '\n':
-          line = line[:-1]
+            line = line[:-1]
 
         if eof:
             raise ValueError("Received line after # EOF: " + line)

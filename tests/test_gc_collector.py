@@ -16,29 +16,29 @@ class TestGCCollector(unittest.TestCase):
         self.gc.stop_gc({'generation': 0, 'collected': 10, 'uncollectable': 2})
 
         self.assertEqual(1,
-            self.registry.get_sample_value(
-                'python_gc_duration_seconds_count',
-                labels={"generation": "0"}))
+                         self.registry.get_sample_value(
+                             'python_gc_duration_seconds_count',
+                             labels={"generation": "0"}))
 
         self.assertEqual(1,
-            self.registry.get_sample_value(
-                'python_gc_collected_objects_count',
-                labels={"generation": "0"}))
+                         self.registry.get_sample_value(
+                             'python_gc_collected_objects_count',
+                             labels={"generation": "0"}))
 
         self.assertEqual(1,
-            self.registry.get_sample_value(
-                'python_gc_uncollectable_objects_count',
-                labels={"generation": "0"}))
+                         self.registry.get_sample_value(
+                             'python_gc_uncollectable_objects_count',
+                             labels={"generation": "0"}))
 
         self.assertEqual(10,
-            self.registry.get_sample_value(
-                'python_gc_collected_objects_sum',
-                labels={"generation": "0"}))
+                         self.registry.get_sample_value(
+                             'python_gc_collected_objects_sum',
+                             labels={"generation": "0"}))
 
         self.assertEqual(2,
-            self.registry.get_sample_value(
-                'python_gc_uncollectable_objects_sum',
-                labels={"generation": "0"}))
+                         self.registry.get_sample_value(
+                             'python_gc_uncollectable_objects_sum',
+                             labels={"generation": "0"}))
 
 
 class _MockGC(object):

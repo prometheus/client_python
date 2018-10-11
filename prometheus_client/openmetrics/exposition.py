@@ -7,6 +7,7 @@ from .. import core
 CONTENT_TYPE_LATEST = str('application/openmetrics-text; version=0.0.1; charset=utf-8')
 '''Content type of the latest OpenMetrics text format'''
 
+
 def generate_latest(registry):
     '''Returns the metrics from the registry in latest text format as a string.'''
     output = []

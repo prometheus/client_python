@@ -127,7 +127,7 @@ a_bucket{le="+Inf"} 3 # {a="1234567890123456789012345678901234567890123456789012
 """)
         hfm = HistogramMetricFamily("a", "help")
         hfm.add_sample("a_bucket", {"le": "1"}, 0.0, None, Exemplar({"a": "b"}, 0.5))
-        hfm.add_sample("a_bucket", {"le": "2"}, 2.0, None, Exemplar({"a": "c"}, 0.5)), 
+        hfm.add_sample("a_bucket", {"le": "2"}, 2.0, None, Exemplar({"a": "c"}, 0.5)),
         hfm.add_sample("a_bucket", {"le": "+Inf"}, 3.0, None, Exemplar({"a": "1234567890123456789012345678901234567890123456789012345678"}, 4, Timestamp(123, 0)))
         self.assertEqual([hfm], list(families))
 
@@ -152,7 +152,7 @@ a_bucket{le="+Inf"} 3 123 # {a="d"} 4 123
 """)
         hfm = GaugeHistogramMetricFamily("a", "help")
         hfm.add_sample("a_bucket", {"le": "1"}, 0.0, Timestamp(123, 0), Exemplar({"a": "b"}, 0.5))
-        hfm.add_sample("a_bucket", {"le": "2"}, 2.0, Timestamp(123, 0), Exemplar({"a": "c"}, 0.5)), 
+        hfm.add_sample("a_bucket", {"le": "2"}, 2.0, Timestamp(123, 0), Exemplar({"a": "c"}, 0.5)),
         hfm.add_sample("a_bucket", {"le": "+Inf"}, 3.0, Timestamp(123, 0), Exemplar({"a": "d"}, 4, Timestamp(123, 0)))
         self.assertEqual([hfm], list(families))
 
@@ -563,7 +563,7 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
                 ('# TYPE a gauge\na 0 1\na 0 0\n# EOF\n'),
                 ('# TYPE a gauge\na 0\na 0 0\n# EOF\n'),
                 ('# TYPE a gauge\na 0 0\na 0\n# EOF\n'),
-                ]:
+        ]:
             with self.assertRaises(ValueError):
                 list(text_string_to_metric_families(case))
 

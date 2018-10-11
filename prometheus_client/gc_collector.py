@@ -7,33 +7,35 @@ import time
 
 from . import core
 
+
 class GCCollector(object):
     """Collector for Garbage collection statistics."""
+
     def __init__(self, registry=core.REGISTRY, gc=gc):
         if not hasattr(gc, 'callbacks'):
             return
 
         collected = core.Histogram(
-           'python_gc_collected_objects',
-           'Objects collected during gc',
-           ['generation'],
-           buckets=[500, 1000, 5000, 10000, 50000],
-           registry=registry
+            'python_gc_collected_objects',
+            'Objects collected during gc',
+            ['generation'],
+            buckets=[500, 1000, 5000, 10000, 50000],
+            registry=registry
         )
 
         uncollectable = core.Histogram(
-           'python_gc_uncollectable_objects',
-           'Uncollectable object found during GC',
-           ['generation'],
-           buckets=[500, 1000, 5000, 10000, 50000],
-           registry=registry
+            'python_gc_uncollectable_objects',
+            'Uncollectable object found during GC',
+            ['generation'],
+            buckets=[500, 1000, 5000, 10000, 50000],
+            registry=registry
         )
 
         latency = core.Histogram(
-           'python_gc_duration_seconds',
-           'Time spent in garbage collection',
-           ['generation'],
-           registry=registry
+            'python_gc_duration_seconds',
+            'Time spent in garbage collection',
+            ['generation'],
+            registry=registry
         )
 
         times = {}

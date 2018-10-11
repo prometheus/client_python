@@ -15,6 +15,7 @@ except ImportError:
 
 class ProcessCollector(object):
     """Collector for Standard Exports such as cpu and memory."""
+
     def __init__(self, namespace='', pid=lambda: 'self', proc='/proc', registry=core.REGISTRY):
         self._namespace = namespace
         self._pid = pid
