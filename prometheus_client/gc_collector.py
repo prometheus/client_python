@@ -3,6 +3,7 @@
 from __future__ import unicode_literals
 
 import gc
+import os
 import time
 
 from . import core
@@ -10,6 +11,12 @@ from . import core
 class GCCollector(object):
     """Collector for Garbage collection statistics."""
     def __init__(self, registry=core.REGISTRY, gc=gc):
+        # To work around the deadlock issue described in
+        # https://github.com/prometheus/client_python/issues/322,
+        # the GC collector is always disabled in multiprocess mode.
+        if 'prometheus_multiproc_dir' in os.environ:
+            return
+
         if not hasattr(gc, 'callbacks'):
             return
 
