@@ -1,27 +1,14 @@
 from __future__ import unicode_literals
 
+from concurrent.futures import ThreadPoolExecutor
 import inspect
 import time
-from concurrent.futures import ThreadPoolExecutor
 
 from prometheus_client.core import (
-    CollectorRegistry,
-    Counter,
-    CounterMetricFamily,
-    Enum,
-    Gauge,
-    GaugeHistogramMetricFamily,
-    GaugeMetricFamily,
-    Histogram,
-    HistogramMetricFamily,
-    Info,
-    InfoMetricFamily,
-    Metric,
-    Sample,
-    StateSetMetricFamily,
-    Summary,
-    SummaryMetricFamily,
-    UntypedMetricFamily
+    CollectorRegistry, Counter, CounterMetricFamily, Enum, Gauge,
+    GaugeHistogramMetricFamily, GaugeMetricFamily, Histogram,
+    HistogramMetricFamily, Info, InfoMetricFamily, Metric, Sample,
+    StateSetMetricFamily, Summary, SummaryMetricFamily, UntypedMetricFamily,
 )
 
 try:

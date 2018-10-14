@@ -2,6 +2,7 @@
 
 from __future__ import unicode_literals
 
+from collections import namedtuple
 import copy
 import json
 import math
@@ -10,11 +11,10 @@ import os
 import re
 import struct
 import sys
-import time
-import types
-from collections import namedtuple
 from threading import Lock
+import time
 from timeit import default_timer
+import types
 
 from .decorator import decorate
 
