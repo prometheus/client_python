@@ -5,26 +5,13 @@ import threading
 import time
 
 from prometheus_client import (
-    CONTENT_TYPE_LATEST,
-    CollectorRegistry,
-    Counter,
-    Enum,
-    Gauge,
-    Histogram,
-    Info,
-    Metric,
-    Summary,
-    delete_from_gateway,
-    generate_latest,
-    instance_ip_grouping_key,
-    push_to_gateway,
-    pushadd_to_gateway
+    CollectorRegistry, CONTENT_TYPE_LATEST, Counter, delete_from_gateway, Enum,
+    Gauge, generate_latest, Histogram, Info, instance_ip_grouping_key, Metric,
+    push_to_gateway, pushadd_to_gateway, Summary,
 )
 from prometheus_client.core import GaugeHistogramMetricFamily, Timestamp
 from prometheus_client.exposition import (
-    MetricsHandler,
-    basic_auth_handler,
-    default_handler
+    basic_auth_handler, default_handler, MetricsHandler,
 )
 
 if sys.version_info < (2, 7):

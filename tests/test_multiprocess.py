@@ -8,16 +8,10 @@ import tempfile
 
 from prometheus_client import core
 from prometheus_client.core import (
-    CollectorRegistry,
-    Counter,
-    Gauge,
-    Histogram,
-    Sample,
-    Summary
+    CollectorRegistry, Counter, Gauge, Histogram, Sample, Summary,
 )
 from prometheus_client.multiprocess import (
-    MultiProcessCollector,
-    mark_process_dead
+    mark_process_dead, MultiProcessCollector,
 )
 
 if sys.version_info < (2, 7):

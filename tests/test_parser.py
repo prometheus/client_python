@@ -4,13 +4,8 @@ import math
 import sys
 
 from prometheus_client.core import (
-    CollectorRegistry,
-    CounterMetricFamily,
-    GaugeMetricFamily,
-    HistogramMetricFamily,
-    Metric,
-    Sample,
-    SummaryMetricFamily
+    CollectorRegistry, CounterMetricFamily, GaugeMetricFamily,
+    HistogramMetricFamily, Metric, Sample, SummaryMetricFamily,
 )
 from prometheus_client.exposition import generate_latest
 from prometheus_client.parser import text_string_to_metric_families
