@@ -141,6 +141,26 @@ class TestMultiProcess(unittest.TestCase):
         self.assertEqual(3, self.registry.get_sample_value('c_total'))
         self.assertEqual(1, c1._value.get())
 
+    def test_initialization_detects_pid_change(self):
+        pid = 0
+        core._ValueClass = core._MultiProcessValue(lambda: pid)
+
+        # can not inspect the files cache directly, as it's a closure, so we
+        # check for the actual files themselves
+        def files():
+            fs = os.listdir(os.environ['prometheus_multiproc_dir'])
+            fs.sort()
+            return fs
+
+        c1 = Counter('c1', 'c1', registry=None)
+        self.assertEqual(files(), ['counter_0.db'])
+        c2 = Counter('c2', 'c2', registry=None)
+        self.assertEqual(files(), ['counter_0.db'])
+        pid = 1
+        c3 = Counter('c3', 'c3', registry=None)
+        self.assertEqual(files(), ['counter_0.db', 'counter_1.db'])
+
+
     @unittest.skipIf(sys.version_info < (2, 7), "Test requires Python 2.7+.")
     def test_collect(self):
         pid = 0
