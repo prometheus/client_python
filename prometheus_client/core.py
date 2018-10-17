@@ -666,6 +666,7 @@ def _MultiProcessValue(_pidFunc=os.getpid):
         def __init__(self, typ, metric_name, name, labelnames, labelvalues, multiprocess_mode='', **kwargs):
             self._params = typ, metric_name, name, labelnames, labelvalues, multiprocess_mode
             with lock:
+                self.__check_for_pid_change()
                 self.__reset()
                 values.append(self)
 
