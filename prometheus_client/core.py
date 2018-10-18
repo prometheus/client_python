@@ -607,6 +607,10 @@ class _MmapedDict(object):
 
         while pos < used:
             encoded_len = _unpack_integer(data, pos)[0]
+            # check we are not reading beyond bounds
+            if encoded_len + pos > used:
+                msg = 'Read beyond file size detected, %s is corrupted.'
+                raise RuntimeError(msg % self._fname)
             pos += 4
             encoded = unpack_from(('%ss' % encoded_len).encode(), data, pos)[0]
             padded_len = encoded_len + (8 - (encoded_len + 4) % 8)
