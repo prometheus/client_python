@@ -562,6 +562,7 @@ class _MmapedDict(object):
 
     def __init__(self, filename, read_mode=False):
         self._f = open(filename, 'rb' if read_mode else 'a+b')
+        self._fname = filename
         if os.fstat(self._f.fileno()).st_size == 0:
             self._f.truncate(_INITIAL_MMAP_SIZE)
         self._capacity = os.fstat(self._f.fileno()).st_size
@@ -607,6 +608,10 @@ class _MmapedDict(object):
 
         while pos < used:
             encoded_len = _unpack_integer(data, pos)[0]
+            # check we are not reading beyond bounds
+            if encoded_len + pos > used:
+                msg = 'Read beyond file size detected, %s is corrupted.'
+                raise RuntimeError(msg % self._fname)
             pos += 4
             encoded = unpack_from(('%ss' % encoded_len).encode(), data, pos)[0]
             padded_len = encoded_len + (8 - (encoded_len + 4) % 8)

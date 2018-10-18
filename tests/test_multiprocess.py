@@ -296,6 +296,13 @@ class TestMmapedDict(unittest.TestCase):
             [('abc', 42.0), (key, 123.0), ('def', 17.0)],
             list(self.d.read_all_values()))
 
+    def test_corruption_detected(self):
+        self.d.write_value('abc', 42.0)
+        # corrupt the written data
+        self.d._m[8:16] = b'somejunk'
+        with self.assertRaises(RuntimeError):
+            list(self.d.read_all_values())
+
     def tearDown(self):
         os.unlink(self.tempfile)
 
