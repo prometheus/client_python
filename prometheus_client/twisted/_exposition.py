@@ -2,7 +2,7 @@ from __future__ import absolute_import, unicode_literals
 
 from twisted.web.resource import Resource
 
-from .. import REGISTRY, exposition
+from .. import exposition, REGISTRY
 
 
 class MetricsResource(Resource):
