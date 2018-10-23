@@ -2,9 +2,9 @@
 
 from . import core
 from . import exposition
-from . import process_collector
-from . import platform_collector
 from . import gc_collector
+from . import platform_collector
+from . import process_collector
 
 __all__ = ['Counter', 'Gauge', 'Summary', 'Histogram', 'Info', 'Enum']
 
