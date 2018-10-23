@@ -20,10 +20,35 @@ class TestPlatformCollector(unittest.TestCase):
             "patchlevel": "pvt_patchlevel"
         })
 
+    def test_python_info_namespace(self):
+        PlatformCollector(registry=self.registry, platform=self.platform, namespace='n')
+        self.assertLabels("n_python_info", {
+            "version": "python_version",
+            "implementation": "python_implementation",
+            "major": "pvt_major",
+            "minor": "pvt_minor",
+            "patchlevel": "pvt_patchlevel"
+        })
+
     def test_system_info_java(self):
         self.platform._system = "Java"
         PlatformCollector(registry=self.registry, platform=self.platform)
         self.assertLabels("python_info", {
+            "version": "python_version",
+            "implementation": "python_implementation",
+            "major": "pvt_major",
+            "minor": "pvt_minor",
+            "patchlevel": "pvt_patchlevel",
+            "jvm_version": "jv_release",
+            "jvm_release": "vm_release",
+            "jvm_vendor": "vm_vendor",
+            "jvm_name": "vm_name"
+        })
+
+    def test_system_info_java_namespace(self):
+        self.platform._system = "Java"
+        PlatformCollector(registry=self.registry, platform=self.platform, namespace='n')
+        self.assertLabels("n_python_info", {
             "version": "python_version",
             "implementation": "python_implementation",
             "major": "pvt_major",
@@ -67,3 +92,7 @@ class _MockPlatform(object):
             ("vm_name", "vm_release", "vm_vendor"),
             ("os_name", "os_version", "os_arch")
         )
+
+
+if __name__ == '__main__':
+    unittest.main()

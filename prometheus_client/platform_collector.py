@@ -10,14 +10,16 @@ from . import core
 class PlatformCollector(object):
     """Collector for python platform information"""
 
-    def __init__(self, registry=core.REGISTRY, platform=None):
+    def __init__(self, namespace='', registry=core.REGISTRY, platform=None):
+        self._namespace = namespace
+        self._prefix = namespace + '_python_' if namespace else 'python_'
         self._platform = pf if platform is None else platform
         info = self._info()
         system = self._platform.system()
         if system == "Java":
             info.update(self._java())
         self._metrics = [
-            self._add_metric("python_info", "Python platform information", info)
+            self._add_metric(self._prefix + "info", "Python platform information", info)
         ]
         if registry:
             registry.register(self)
