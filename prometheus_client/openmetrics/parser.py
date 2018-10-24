@@ -3,6 +3,7 @@
 from __future__ import unicode_literals
 
 import math
+import sys
 
 try:
     import StringIO
@@ -113,7 +114,10 @@ def _parse_labels(it, text):
                     raise ValueError("Invalid line: " + text)
                 utf8_str = ''.join(labelvalue)
                 try:
-                    utf8_str.encode('utf-8')
+                    if sys.version_info >= (3,):
+                        utf8_str.encode('utf-8')
+                    else:
+                        utf8_str.decode('utf-8')
                 except UnicodeEncodeError:
                     raise ValueError("Invalid line: " + text)
                 labels[''.join(labelname)] = utf8_str
