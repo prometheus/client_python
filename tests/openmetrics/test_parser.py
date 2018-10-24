@@ -210,7 +210,7 @@ a_total{foo="bar",bar="b{a}z"} 1
         try:
             families = text_string_to_metric_families('''# TYPE a counter
 # HELP a help
-a_total{foo="'''+u'\U00010000'+'''",bar="baz"} 1
+a_total{foo="'''+u'\uD802'+'''",bar="baz"} 1
 # EOF
 ''')
             for f in families: pass
