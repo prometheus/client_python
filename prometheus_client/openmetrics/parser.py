@@ -2,6 +2,8 @@
 
 from __future__ import unicode_literals
 
+import math
+
 try:
     import StringIO
 except ImportError:
@@ -73,7 +75,10 @@ def _parse_timestamp(timestamp):
             return core.Timestamp(int(parts[0]), int(parts[1][:9].ljust(9, "0")))
         except ValueError:
             # Float.
-            return float(timestamp)
+            ts = float(timestamp)
+            if math.isnan(ts) or math.isinf(ts):
+                raise ValueError("Invalid timestamp: {0!r}".format(timestamp))
+            return ts
 
 
 def _parse_labels(it, text):
@@ -219,12 +224,70 @@ def _parse_sample(text):
     ts = _parse_timestamp(timestamp)
     exemplar = None
     if exemplar_labels is not None:
+        exemplar_length = sum([len(k) + len(v) + 3 for k, v in exemplar_labels.items()]) + 2
+        if exemplar_length > 64:
+            raise ValueError("Exmplar labels are too long: " + text)
         exemplar = core.Exemplar(exemplar_labels,
                 _parse_value(exemplar_value),
                 _parse_timestamp(exemplar_timestamp))
 
     return core.Sample(''.join(name), labels, val, ts, exemplar)
-    
+
+
+def _group_for_sample(sample, name, typ):
+    if typ == 'info':
+        # We can't distinguish between groups for info metrics.
+        return {}
+    if typ == 'summary' and sample.name == name:
+        d = sample.labels.copy()
+        del d['quantile']
+        return d
+    if typ == 'stateset':
+        d = sample.labels.copy()
+        del d[name]
+        return d
+    if typ in ['histogram', 'gaugehistogram'] and sample.name == name + '_bucket':
+        d = sample.labels.copy()
+        del d['le']
+        return d
+    return sample.labels
+
+
+def _check_histogram(samples, name):
+    group = None
+    timestamp = None
+
+    def do_checks():
+        if bucket != float('+Inf'):
+            raise ValueError("+Inf bucket missing: " + name)
+        if count is not None and value != count:
+            raise ValueError("Count does not match +Inf value: " + name)
+
+    for s in samples:
+        suffix = s.name[len(name):]
+        g = _group_for_sample(s, name, 'histogram')
+        if g != group or s.timestamp != timestamp:
+            if group is not None:
+                do_checks()
+            count = None
+            bucket = -1
+            value = 0
+        group = g
+        timestamp = s.timestamp
+
+        if suffix == '_bucket':
+            b = float(s.labels['le'])
+            if b <= bucket:
+                raise ValueError("Buckets out of order: " + name)
+            if s.value < value:
+                raise ValueError("Bucket values out of order: " + name)
+            bucket = b
+            value = s.value
+        elif suffix in ['_count', '_gcount']:
+            count = s.value
+    if group is not None:
+        do_checks()
+
 
 def text_fd_to_metric_families(fd):
     """Parse Prometheus text format from a file descriptor.
@@ -235,11 +298,7 @@ def text_fd_to_metric_families(fd):
 
     Yields core.Metric's.
     """
-    name = ''
-    documentation = ''
-    typ = 'untyped'
-    unit = ''
-    samples = []
+    name = None
     allowed_names = []
     eof = False
 
@@ -248,20 +307,20 @@ def text_fd_to_metric_families(fd):
         if name in seen_metrics:
             raise ValueError("Duplicate metric: " + name)
         seen_metrics.add(name)
+        if typ is None:
+            typ = 'unknown'
+        if documentation is None:
+            documentation = ''
+        if unit is None:
+            unit = ''
         if unit and not name.endswith("_" + unit):
             raise ValueError("Unit does not match metric name: " + name)
         if unit and typ in ['info', 'stateset']:
             raise ValueError("Units not allowed for this metric type: " + name)
+        if typ in ['histogram', 'gaugehistogram']:
+            _check_histogram(samples, name)
         metric = core.Metric(name, documentation, typ, unit)
         # TODO: check labelvalues are valid utf8
-        # TODO: check only histogram buckets have exemplars.
-        # TODO: check samples are appropriately grouped and ordered
-        # TODO: check info/stateset values are 1/0
-        # TODO: check for metadata in middle of samples
-        # TODO: Check histogram bucket rules being followed
-        # TODO: Check for duplicate metrics
-        # TODO: Check for dupliate samples
-        # TODO: Check for decresing timestamps
         metric.samples = samples
         return metric
 
@@ -278,30 +337,36 @@ def text_fd_to_metric_families(fd):
             parts = line.split(' ', 3)
             if len(parts) < 4:
                 raise ValueError("Invalid line: " + line)
+            if parts[2] == name and samples:
+                raise ValueError("Received metadata after samples: " + line)
+            if parts[2] != name:
+                if name is not None:
+                    yield build_metric(name, documentation, typ, unit, samples)
+                # New metric
+                name = parts[2]
+                unit = None
+                typ = None
+                documentation = None
+                group = None
+                seen_groups = set()
+                group_timestamp = None
+                group_timestamp_samples = set()
+                samples = []
+                allowed_names = [parts[2]]
+
             if parts[1] == 'HELP':
-                if parts[2] != name:
-                    if name != '':
-                        yield build_metric(name, documentation, typ, unit, samples)
-                    # New metric
-                    name = parts[2]
-                    unit = ''
-                    typ = 'untyped'
-                    samples = []
-                    allowed_names = [parts[2]]
+                if documentation is not None:
+                    raise ValueError("More than one HELP for metric: " + line)
                 if len(parts) == 4:
                     documentation = _unescape_help(parts[3])
                 elif len(parts) == 3:
                     raise ValueError("Invalid line: " + line)
             elif parts[1] == 'TYPE':
-                if parts[2] != name:
-                    if name != '':
-                        yield build_metric(name, documentation, typ, unit, samples)
-                    # New metric
-                    name = parts[2]
-                    documentation = ''
-                    unit = ''
-                    samples = []
+                if typ is not None:
+                    raise ValueError("More than one TYPE for metric: " + line)
                 typ = parts[3]
+                if typ == 'untyped':
+                    raise ValueError("Invalid TYPE for metric: " + line)
                 allowed_names = {
                     'counter': ['_total', '_created'],
                     'summary': ['_count', '_sum', '', '_created'],
@@ -311,33 +376,70 @@ def text_fd_to_metric_families(fd):
                 }.get(typ, [''])
                 allowed_names = [name + n for n in allowed_names]
             elif parts[1] == 'UNIT':
-                if parts[2] != name:
-                    if name != '':
-                        yield build_metric(name, documentation, typ, unit, samples)
-                    # New metric
-                    name = parts[2]
-                    typ = 'untyped'
-                    samples = []
-                    allowed_names = [parts[2]]
+                if unit is not None:
+                    raise ValueError("More than one UNIT for metric: " + line)
                 unit = parts[3]
             else:
                 raise ValueError("Invalid line: " + line)
         else:
             sample = _parse_sample(line)
-            if sample[0] not in allowed_names:
-                if name != '':
+            if sample.name not in allowed_names:
+                if name is not None:
                     yield build_metric(name, documentation, typ, unit, samples)
-                # Start an untyped metric.
-                name = sample[0]
-                documentation = ''
-                unit = ''
-                typ = 'untyped'
-                samples = [sample]
-                allowed_names = [sample[0]]
-            else:
-                samples.append(sample)
+                # Start an unknown metric.
+                name = sample.name
+                documentation = None
+                unit = None
+                typ = 'unknown'
+                samples = []
+                group = None
+                group_timestamp = None
+                group_timestamp_samples = set()
+                seen_groups = set()
+                allowed_names = [sample.name]
 
-    if name != '':
+            if typ == 'stateset' and name not in sample.labels:
+                raise ValueError("Stateset missing label: " + line)
+            if (typ in ['histogram', 'gaugehistogram'] and name + '_bucket' == sample.name
+                    and float(sample.labels.get('le', -1)) < 0):
+                raise ValueError("Invalid le label: " + line)
+            if (typ == 'summary' and name == sample.name
+                    and not (0 <= float(sample.labels.get('quantile', -1)) <= 1)):
+                raise ValueError("Invalid quantile label: " + line)
+
+            g = tuple(sorted(_group_for_sample(sample, name, typ).items()))
+            if group is not None and g != group and g in seen_groups:
+                raise ValueError("Invalid metric grouping: " + line)
+            if group is not None and g == group:
+                if (sample.timestamp is None) != (group_timestamp is None):
+                    raise ValueError("Mix of timestamp presence within a group: " + line)
+                if group_timestamp is not None and group_timestamp > sample.timestamp and typ != 'info':
+                    raise ValueError("Timestamps went backwards within a group: " + line)
+            else:
+                group_timestamp_samples = set()
+
+            series_id = (sample.name, tuple(sorted(sample.labels.items())))
+            if sample.timestamp != group_timestamp or series_id not in group_timestamp_samples:
+                # Not a duplicate due to timestamp truncation.
+                samples.append(sample)
+            group_timestamp_samples.add(series_id)
+
+            group = g
+            group_timestamp = sample.timestamp
+            seen_groups.add(g)
+
+            if typ == 'stateset' and sample.value not in [0, 1]:
+                raise ValueError("Stateset samples can only have values zero and one: " + line)
+            if typ == 'info' and sample.value != 1:
+                raise ValueError("Info samples can only have value one: " + line)
+            if sample.name[len(name):] in ['_total', '_sum', '_count', '_bucket'] and math.isnan(sample.value):
+                raise ValueError("Counter-like samples cannot be NaN: " + line)
+            if sample.exemplar and not (
+                    typ in ['histogram', 'gaugehistogram']
+                    and sample.name.endswith('_bucket')):
+                raise ValueError("Invalid line only histogram/gaugehistogram buckets can have exemplars: " + line)
+
+    if name is not None:
         yield build_metric(name, documentation, typ, unit, samples)
 
     if not eof:

@@ -65,6 +65,14 @@ a 1.2
 """)
         self.assertEqual([GaugeMetricFamily("a", "help", value=1.2)], list(families))
 
+    def test_nan_gauge(self):
+        families = text_string_to_metric_families("""# TYPE a gauge
+# HELP a help
+a NaN
+# EOF
+""")
+        self.assertTrue(math.isnan(list(families)[0].samples[0].value))
+
     def test_unit_gauge(self):
         families = text_string_to_metric_families("""# TYPE a_seconds gauge
 # UNIT a_seconds seconds
@@ -113,14 +121,14 @@ a_sum 2
         families = text_string_to_metric_families("""# TYPE a histogram
 # HELP a help
 a_bucket{le="1"} 0 # {a="b"} 0.5
-a_bucket{le="2"} 2 123 # {a="c"} 0.5
-a_bucket{le="+Inf"} 3 # {a="d"} 4 123
+a_bucket{le="2"} 2 # {a="c"} 0.5
+a_bucket{le="+Inf"} 3 # {a="1234567890123456789012345678901234567890123456789012345678"} 4 123
 # EOF
 """)
         hfm = HistogramMetricFamily("a", "help")
         hfm.add_sample("a_bucket", {"le": "1"}, 0.0, None, Exemplar({"a": "b"}, 0.5))
-        hfm.add_sample("a_bucket", {"le": "2"}, 2.0, Timestamp(123, 0), Exemplar({"a": "c"}, 0.5)), 
-        hfm.add_sample("a_bucket", {"le": "+Inf"}, 3.0, None, Exemplar({"a": "d"}, 4, Timestamp(123, 0)))
+        hfm.add_sample("a_bucket", {"le": "2"}, 2.0, None, Exemplar({"a": "c"}, 0.5)), 
+        hfm.add_sample("a_bucket", {"le": "+Inf"}, 3.0, None, Exemplar({"a": "1234567890123456789012345678901234567890123456789012345678"}, 4, Timestamp(123, 0)))
         self.assertEqual([hfm], list(families))
 
     def test_simple_gaugehistogram(self):
@@ -134,18 +142,18 @@ a_gsum 2
 """)
         self.assertEqual([GaugeHistogramMetricFamily("a", "help", gsum_value=2, buckets=[("1", 0.0), ("+Inf", 3.0)])], list(families))
 
-    def test_histogram_exemplars(self):
+    def test_gaugehistogram_exemplars(self):
         families = text_string_to_metric_families("""# TYPE a gaugehistogram
 # HELP a help
-a_bucket{le="1"} 0 # {a="b"} 0.5
+a_bucket{le="1"} 0 123 # {a="b"} 0.5
 a_bucket{le="2"} 2 123 # {a="c"} 0.5
-a_bucket{le="+Inf"} 3 # {a="d"} 4 123
+a_bucket{le="+Inf"} 3 123 # {a="d"} 4 123
 # EOF
 """)
         hfm = GaugeHistogramMetricFamily("a", "help")
-        hfm.add_sample("a_bucket", {"le": "1"}, 0.0, None, Exemplar({"a": "b"}, 0.5))
+        hfm.add_sample("a_bucket", {"le": "1"}, 0.0, Timestamp(123, 0), Exemplar({"a": "b"}, 0.5))
         hfm.add_sample("a_bucket", {"le": "2"}, 2.0, Timestamp(123, 0), Exemplar({"a": "c"}, 0.5)), 
-        hfm.add_sample("a_bucket", {"le": "+Inf"}, 3.0, None, Exemplar({"a": "d"}, 4, Timestamp(123, 0)))
+        hfm.add_sample("a_bucket", {"le": "+Inf"}, 3.0, Timestamp(123, 0), Exemplar({"a": "d"}, 4, Timestamp(123, 0)))
         self.assertEqual([hfm], list(families))
 
     def test_simple_info(self):
@@ -156,14 +164,42 @@ a_info{foo="bar"} 1
 """)
         self.assertEqual([InfoMetricFamily("a", "help", {'foo': 'bar'})], list(families))
 
+    def test_info_timestamps(self):
+        families = text_string_to_metric_families("""# TYPE a info
+# HELP a help
+a_info{a="1",foo="bar"} 1 1
+a_info{a="2",foo="bar"} 1 0
+# EOF
+""")
+        imf = InfoMetricFamily("a", "help")
+        imf.add_sample("a_info", {"a": "1", "foo": "bar"}, 1, Timestamp(1, 0))
+        imf.add_sample("a_info", {"a": "2", "foo": "bar"}, 1, Timestamp(0, 0))
+        self.assertEqual([imf], list(families))
+
     def test_simple_stateset(self):
         families = text_string_to_metric_families("""# TYPE a stateset
 # HELP a help
 a{a="bar"} 0
-a{a="foo"} 1
+a{a="foo"} 1.0
 # EOF
 """)
         self.assertEqual([StateSetMetricFamily("a", "help", {'foo': True, 'bar': False})], list(families))
+
+    def test_duplicate_timestamps(self):
+        families = text_string_to_metric_families("""# TYPE a gauge
+# HELP a help
+a{a="1",foo="bar"} 1 0.0000000000
+a{a="1",foo="bar"} 2 0.0000000001
+a{a="1",foo="bar"} 3 0.0000000010
+a{a="2",foo="bar"} 4 0.0000000000
+a{a="2",foo="bar"} 5 0.0000000001
+# EOF
+""")
+        imf = GaugeMetricFamily("a", "help")
+        imf.add_sample("a", {"a": "1", "foo": "bar"}, 1, Timestamp(0, 0))
+        imf.add_sample("a", {"a": "1", "foo": "bar"}, 3, Timestamp(0, 1))
+        imf.add_sample("a", {"a": "2", "foo": "bar"}, 4, Timestamp(0, 0))
+        self.assertEqual([imf], list(families))
 
     def test_no_metadata(self):
         families = text_string_to_metric_families("""a 1
@@ -173,10 +209,18 @@ a{a="foo"} 1
         metric_family.add_sample("a", {}, 1)
         self.assertEqual([metric_family], list(families))
 
+    def test_empty_metadata(self):
+        families = text_string_to_metric_families("""# HELP a 
+# UNIT a 
+# EOF
+""")
+        metric_family = Metric("a", "", "untyped")
+        self.assertEqual([metric_family], list(families))
+
     def test_untyped(self):
         # https://github.com/prometheus/client_python/issues/79
         families = text_string_to_metric_families("""# HELP redis_connected_clients Redis connected clients
-# TYPE redis_connected_clients untyped
+# TYPE redis_connected_clients unknown
 redis_connected_clients{instance="rough-snowflake-web",port="6380"} 10.0
 redis_connected_clients{instance="rough-snowflake-web",port="6381"} 12.0
 # EOF
@@ -327,6 +371,14 @@ a_total{foo="b\\\\a\\z"} 2
         metric_family.add_metric(["b\\a\\z"], 2)
         self.assertEqual([metric_family], list(families))
 
+    def test_null_byte(self):
+        families = text_string_to_metric_families("""# TYPE a counter
+# HELP a he\0lp
+# EOF
+""")
+        metric_family = CounterMetricFamily("a", "he\0lp")
+        self.assertEqual([metric_family], list(families))
+
     def test_timestamps(self):
         families = text_string_to_metric_families("""# TYPE a counter
 # HELP a help
@@ -434,6 +486,7 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
                 ('# TYPE a meh\n# EOF\n'),
                 ('# TYPE a meh \n# EOF\n'),
                 ('# TYPE a gauge \n# EOF\n'),
+                ('# TYPE a untyped\n# EOF\n'),
                 # Bad UNIT.
                 ('# UNIT\n# EOF\n'),
                 ('# UNIT \n# EOF\n'),
@@ -443,6 +496,15 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
                 ('# UNIT a_seconds seconds \n# EOF\n'),
                 ('# TYPE x_u info\n# UNIT x_u u\n# EOF\n'),
                 ('# TYPE x_u stateset\n# UNIT x_u u\n# EOF\n'),
+                # Metadata in wrong place.
+                ('# HELP a x\na 1\n# TYPE a gauge\n# EOF\n'),
+                ('# TYPE a gauge\na 1\n# HELP a gauge\n# EOF\n'),
+                ('# TYPE a_s gauge\na_s 1\n# UNIT a_s s\n# EOF\n'),
+                # Repeated metadata.
+                ('# HELP a \n# HELP a \n# EOF\n'),
+                ('# HELP a x\n# HELP a x\n# EOF\n'),
+                ('# TYPE a untyped\n# TYPE a untyped\n# EOF\n'),
+                ('# UNIT a_s s\n# UNIT a_s s\n# EOF\n'),
                 # Bad metric names.
                 ('0a 1\n# EOF\n'),
                 ('a.b 1\n# EOF\n'),
@@ -456,6 +518,10 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
                 ('a 1 z\n# EOF\n'),
                 ('a 1 1z\n# EOF\n'),
                 ('a 1 1.1.1\n# EOF\n'),
+                ('a 1 NaN\n# EOF\n'),
+                ('a 1 Inf\n# EOF\n'),
+                ('a 1 +Inf\n# EOF\n'),
+                ('a 1 -Inf\n# EOF\n'),
                 # Bad exemplars.
                 ('# TYPE a histogram\na_bucket{le="+Inf"} 1 #\n# EOF\n'),
                 ('# TYPE a histogram\na_bucket{le="+Inf"} 1# {} 1\n# EOF\n'),
@@ -463,6 +529,52 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
                 ('# TYPE a histogram\na_bucket{le="+Inf"} 1 # {}1\n# EOF\n'),
                 ('# TYPE a histogram\na_bucket{le="+Inf"} 1 # {} 1 \n# EOF\n'),
                 ('# TYPE a histogram\na_bucket{le="+Inf"} 1 # {} 1 1 \n# EOF\n'),
+                ('# TYPE a histogram\na_bucket{le="+Inf"} 1 # {a="12345678901234567890123456789012345678901234567890123456789"} 1 1\n# EOF\n'),
+                # Exemplars on unallowed samples.
+                ('# TYPE a histogram\na_sum 1 # {a="b"} 0.5\n# EOF\n'),
+                ('# TYPE a gaugehistogram\na_sum 1 # {a="b"} 0.5\n# EOF\n'),
+                ('# TYPE a_bucket gauge\na_bucket 1 # {a="b"} 0.5\n# EOF\n'),
+                # Bad stateset/info values.
+                ('# TYPE a stateset\na 2\n# EOF\n'),
+                ('# TYPE a info\na 2\n# EOF\n'),
+                ('# TYPE a stateset\na 2.0\n# EOF\n'),
+                ('# TYPE a info\na 2.0\n# EOF\n'),
+                # Missing or invalid labels for a type.
+                ('# TYPE a summary\na 0\n# EOF\n'),
+                ('# TYPE a summary\na{quantile="-1"} 0\n# EOF\n'),
+                ('# TYPE a summary\na{quantile="foo"} 0\n# EOF\n'),
+                ('# TYPE a summary\na{quantile="1.01"} 0\n# EOF\n'),
+                ('# TYPE a summary\na{quantile="NaN"} 0\n# EOF\n'),
+                ('# TYPE a histogram\na_bucket 0\n# EOF\n'),
+                ('# TYPE a gaugehistogram\na_bucket 0\n# EOF\n'),
+                ('# TYPE a stateset\na 0\n# EOF\n'),
+                # Bad counter values.
+                ('# TYPE a counter\na_total NaN\n# EOF\n'),
+                ('# TYPE a histogram\na_sum NaN\n# EOF\n'),
+                ('# TYPE a histogram\na_count NaN\n# EOF\n'),
+                ('# TYPE a histogram\na_bucket{le="+Inf"} NaN\n# EOF\n'),
+                ('# TYPE a gaugehistogram\na_bucket{le="+Inf"} NaN\n# EOF\n'),
+                ('# TYPE a summary\na_sum NaN\n# EOF\n'),
+                ('# TYPE a summary\na_count NaN\n# EOF\n'),
+                # Bad histograms.
+                ('# TYPE a histogram\na_sum 1\n# EOF\n'),
+                ('# TYPE a gaugehistogram\na_gsum 1\n# EOF\n'),
+                ('# TYPE a histogram\na_count 1\na_bucket{le="+Inf"} 0\n# EOF\n'),
+                ('# TYPE a histogram\na_bucket{le="+Inf"} 0\na_count 1\n# EOF\n'),
+                ('# TYPE a histogram\na_bucket{le="2"} 0\na_bucket{le="1"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
+                ('# TYPE a histogram\na_bucket{le="1"} 1\na_bucket{le="2"} 1\na_bucket{le="+Inf"} 0\n# EOF\n'),
+                # Bad grouping or ordering.
+                ('# TYPE a histogram\na_sum{a="1"} 0\na_sum{a="2"} 0\na_count{a="1"} 0\n# EOF\n'),
+                ('# TYPE a histogram\na_bucket{a="1",le="1"} 0\na_bucket{a="2",le="+Inf""} 0\na_bucket{a="1",le="+Inf"} 0\n# EOF\n'),
+                ('# TYPE a gaugehistogram\na_gsum{a="1"} 0\na_gsum{a="2"} 0\na_gcount{a="1"} 0\n# EOF\n'),
+                ('# TYPE a summary\nquantile{quantile="0"} 0\na_sum{a="1"} 0\nquantile{quantile="1"} 0\n# EOF\n'),
+                ('# TYPE a gauge\na 0 -1\na 0 -2\n# EOF\n'),
+                ('# TYPE a gauge\na 0 -1\na 0 -1.1\n# EOF\n'),
+                ('# TYPE a gauge\na 0 1\na 0 -1\n# EOF\n'),
+                ('# TYPE a gauge\na 0 1.1\na 0 1\n# EOF\n'),
+                ('# TYPE a gauge\na 0 1\na 0 0\n# EOF\n'),
+                ('# TYPE a gauge\na 0\na 0 0\n# EOF\n'),
+                ('# TYPE a gauge\na 0 0\na 0\n# EOF\n'),
                 ]:
             with self.assertRaises(ValueError):
                 list(text_string_to_metric_families(case))
