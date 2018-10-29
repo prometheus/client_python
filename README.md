@@ -2,6 +2,8 @@
 
 The official Python 2 and 3 client for [Prometheus](http://prometheus.io).
 
+[Release notes](https://github.com/prometheus/client_python/releases)
+
 ## Three Step Demo
 
 **One**: Install the client:
