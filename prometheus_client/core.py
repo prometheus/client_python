@@ -1003,12 +1003,19 @@ class Gauge(object):
         '''
         return _InprogressTracker(self)
 
-    def time(self):
+    def time(self, observe_exceptions=None):
         '''Time a block of code or function, and set the duration in seconds.
+
+        Args:
+          observe_exceptions: None, an Exception or tuple of Exceptions, or an empty tuple
+            None: always observe
+            Exception or tuple of Exceptions: observe if no exception raised;
+                observe if exception raised is provided or in tuple.
+            empty tuple: only observe if no exception raised.
 
         Can be used as a function decorator or context manager.
         '''
-        return _Timer(self.set)
+        return _Timer(self.set, observe_exceptions=observe_exceptions)
 
     def set_function(self, f):
         '''Call the provided function to return the Gauge value.
@@ -1070,12 +1077,19 @@ class Summary(object):
         self._count.inc(1)
         self._sum.inc(amount)
 
-    def time(self):
+    def time(self, observe_exceptions=None):
         '''Time a block of code or function, and observe the duration in seconds.
+
+        Args:
+          observe_exceptions: None, an Exception or tuple of Exceptions, or an empty tuple
+            None: always observe
+            Exception or tuple of Exceptions: observe if no exception raised;
+                observe if exception raised is provided or in tuple.
+            empty tuple: only observe if no exception raised.
 
         Can be used as a function decorator or context manager.
         '''
-        return _Timer(self.observe)
+        return _Timer(self.observe, observe_exceptions=observe_exceptions)
 
     def _samples(self):
         return (
@@ -1166,12 +1180,19 @@ class Histogram(object):
                 self._buckets[i].inc(1)
                 break
 
-    def time(self):
+    def time(self, observe_exceptions=None):
         '''Time a block of code or function, and observe the duration in seconds.
+
+        Args:
+          observe_exceptions: None, an Exception or tuple of Exceptions, or an empty tuple
+            None: always observe
+            Exception or tuple of Exceptions: observe if no exception raised;
+                observe if exception raised is provided or in tuple.
+            empty tuple: only observe if no exception raised.
 
         Can be used as a function decorator or context manager.
         '''
-        return _Timer(self.observe)
+        return _Timer(self.observe, observe_exceptions=observe_exceptions)
 
     def _samples(self):
         samples = []
@@ -1303,8 +1324,13 @@ class _InprogressTracker(object):
 
 
 class _Timer(object):
-    def __init__(self, callback):
+    def __init__(self, callback, observe_exceptions=None):
         self._callback = callback
+        # expecting None, a tuple of exceptions, or an empty tuple
+        if observe_exceptions and not isinstance(observe_exceptions, tuple):
+            self._observe_exceptions = (observe_exceptions,)
+        else:
+            self._observe_exceptions = observe_exceptions
 
     def _new_timer(self):
         return self.__class__(self._callback)
@@ -1315,7 +1341,10 @@ class _Timer(object):
     def __exit__(self, typ, value, traceback):
         # Time can go backwards.
         duration = max(default_timer() - self._start, 0)
-        self._callback(duration)
+        # optionally ignore observe if unknown exception encountered
+        if (not typ or self._observe_exceptions is None
+                or typ in self._observe_exceptions):
+            self._callback(duration)
 
     def __call__(self, f):
         def wrapped(func, *args, **kwargs):

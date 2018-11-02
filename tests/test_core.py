@@ -150,6 +150,50 @@ class TestGauge(unittest.TestCase):
             time.sleep(.001)
         self.assertNotEqual(0, self.registry.get_sample_value('g'))
 
+    def test_time_block_exception(self):
+        class TestException(Exception):
+            pass
+
+        self.assertEqual(0, self.registry.get_sample_value('g'))
+        expected_duration = 1
+        # confirm captured when observe_exceptions is None
+        with self.assertRaises(Exception):
+            with self.gauge.time():
+                time.sleep(expected_duration)
+                raise Exception("a test exception to observe")
+        actual = self.registry.get_sample_value('g')
+        self.assertGreater(actual, expected_duration)
+        self.assertLess(actual, expected_duration + 1)
+
+        expected_duration = 2
+        # confirm not captured with an empty tuple
+        with self.assertRaises(Exception):
+            with self.gauge.time(observe_exceptions=()):
+                time.sleep(expected_duration)
+                raise Exception("a test exception to ignore")
+        self.assertEqual(actual, self.registry.get_sample_value('g'))
+
+        # confirm captured with provided exception
+        with self.assertRaises(Exception):
+            with self.gauge.time(observe_exceptions=Exception):
+                time.sleep(expected_duration)
+                raise Exception("a test exception to observe")
+        self.assertNotEqual(actual, self.registry.get_sample_value('g'))
+        actual = self.registry.get_sample_value('g')
+        self.assertGreater(actual, expected_duration)
+        self.assertLess(actual, expected_duration + 1)
+
+        expected_duration = 1
+        # confirm captured with tuple of exceptions
+        with self.assertRaises(Exception):
+            with self.gauge.time(observe_exceptions=(Exception, TestException)):
+                time.sleep(expected_duration)
+                raise TestException("a test exception to observe")
+        self.assertNotEqual(actual, self.registry.get_sample_value('g'))
+        actual = self.registry.get_sample_value('g')
+        self.assertGreater(actual, expected_duration)
+        self.assertLess(actual, expected_duration + 1)
+
 
 class TestSummary(unittest.TestCase):
     def setUp(self):
@@ -229,6 +273,35 @@ class TestSummary(unittest.TestCase):
         with self.summary.time():
             pass
         self.assertEqual(1, self.registry.get_sample_value('s_count'))
+
+    def test_block_exceptions(self):
+        class TestException(Exception):
+            pass
+
+        self.assertEqual(0, self.registry.get_sample_value('s_count'))
+        # confirm captured when observe_exceptions is None
+        with self.assertRaises(Exception):
+            with self.summary.time():
+                raise Exception("a test exception to observe")
+        self.assertEqual(1, self.registry.get_sample_value('s_count'))
+
+        # confirm not captured with an empty tuple
+        with self.assertRaises(Exception):
+            with self.summary.time(observe_exceptions=()):
+                raise Exception("a test exception to ignore")
+        self.assertEqual(1, self.registry.get_sample_value('s_count'))
+
+        # confirm captured with provided exception
+        with self.assertRaises(Exception):
+            with self.summary.time(observe_exceptions=Exception):
+                raise Exception("a test exception to observe")
+        self.assertEqual(2, self.registry.get_sample_value('s_count'))
+
+        # confirm captured with tuple of exceptions
+        with self.assertRaises(Exception):
+            with self.summary.time(observe_exceptions=(Exception, TestException)):
+                raise TestException("a test exception to observe")
+        self.assertEqual(3, self.registry.get_sample_value('s_count'))
 
 
 class TestHistogram(unittest.TestCase):
@@ -333,6 +406,37 @@ class TestHistogram(unittest.TestCase):
             pass
         self.assertEqual(1, self.registry.get_sample_value('h_count'))
         self.assertEqual(1, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
+
+    def test_block_exception(self):
+        class TestException(Exception):
+            pass
+
+        self.assertEqual(0, self.registry.get_sample_value('h_count'))
+        self.assertEqual(0, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
+        # confirm captured when observe_exceptions is None
+        with self.assertRaises(Exception):
+            with self.histogram.time():
+                raise Exception("a test exception to observe")
+        self.assertEqual(1, self.registry.get_sample_value('h_count'))
+        self.assertEqual(1, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
+        # confirm not captured with an empty tuple
+        with self.assertRaises(Exception):
+            with self.histogram.time(observe_exceptions=()):
+                raise Exception("a test exception to observe")
+        self.assertEqual(1, self.registry.get_sample_value('h_count'))
+        self.assertEqual(1, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
+        # confirm captured with provided exception
+        with self.assertRaises(Exception):
+            with self.histogram.time(observe_exceptions=Exception):
+                raise Exception("a test exception to observe")
+        self.assertEqual(2, self.registry.get_sample_value('h_count'))
+        self.assertEqual(2, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
+        # confirm captured with tuple of exceptions
+        with self.assertRaises(Exception):
+            with self.histogram.time(observe_exceptions=(Exception, TestException)):
+                raise TestException("a test exception to observe")
+        self.assertEqual(3, self.registry.get_sample_value('h_count'))
+        self.assertEqual(3, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
 
 
 class TestInfo(unittest.TestCase):
