@@ -248,13 +248,13 @@ a_total 1
         self.assertEqual([CounterMetricFamily("a", "", value=1)], list(families))
 
     def test_labels_and_infinite(self):
-        families = text_string_to_metric_families("""# TYPE a counter
+        families = text_string_to_metric_families("""# TYPE a gauge
 # HELP a help
-a_total{foo="bar"} +Inf
-a_total{foo="baz"} -Inf
+a{foo="bar"} +Inf
+a{foo="baz"} -Inf
 # EOF
 """)
-        metric_family = CounterMetricFamily("a", "help", labels=["foo"])
+        metric_family = GaugeMetricFamily("a", "help", labels=["foo"])
         metric_family.add_metric(["bar"], float('inf'))
         metric_family.add_metric(["baz"], float('-inf'))
         self.assertEqual([metric_family], list(families))
@@ -527,12 +527,23 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
                 ('# TYPE a stateset\na 0\n# EOF\n'),
                 # Bad counter values.
                 ('# TYPE a counter\na_total NaN\n# EOF\n'),
+                ('# TYPE a counter\na_total -1\n# EOF\n'),
                 ('# TYPE a histogram\na_sum NaN\n# EOF\n'),
                 ('# TYPE a histogram\na_count NaN\n# EOF\n'),
                 ('# TYPE a histogram\na_bucket{le="+Inf"} NaN\n# EOF\n'),
+                ('# TYPE a histogram\na_sum -1\n# EOF\n'),
+                ('# TYPE a histogram\na_count -1\n# EOF\n'),
+                ('# TYPE a histogram\na_bucket{le="+Inf"} -1\n# EOF\n'),
                 ('# TYPE a gaugehistogram\na_bucket{le="+Inf"} NaN\n# EOF\n'),
+                ('# TYPE a gaugehistogram\na_bucket{le="+Inf"} -1\na_gcount -1\n# EOF\n'),
+                ('# TYPE a gaugehistogram\na_bucket{le="+Inf"} -1\n# EOF\n'),
+                ('# TYPE a gaugehistogram\na_bucket{le="+Inf"} 1\na_gsum -1\n# EOF\n'),
+                ('# TYPE a gaugehistogram\na_bucket{le="+Inf"} 1\na_gsum NaN\n# EOF\n'),
                 ('# TYPE a summary\na_sum NaN\n# EOF\n'),
                 ('# TYPE a summary\na_count NaN\n# EOF\n'),
+                ('# TYPE a summary\na_sum -1\n# EOF\n'),
+                ('# TYPE a summary\na_count -1\n# EOF\n'),
+                ('# TYPE a summary\na{quantile="0.5"} -1\n# EOF\n'),
                 # Bad histograms.
                 ('# TYPE a histogram\na_sum 1\n# EOF\n'),
                 ('# TYPE a gaugehistogram\na_gsum 1\n# EOF\n'),
