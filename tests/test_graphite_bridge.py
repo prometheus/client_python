@@ -1,12 +1,14 @@
-import unittest
 import threading
+import unittest
+
+from prometheus_client import CollectorRegistry, Gauge
+from prometheus_client.bridge.graphite import GraphiteBridge
+
 try:
     import SocketServer
 except ImportError:
     import socketserver as SocketServer
 
-from prometheus_client import Gauge, CollectorRegistry
-from prometheus_client.bridge.graphite import GraphiteBridge
 
 
 def fake_timer():

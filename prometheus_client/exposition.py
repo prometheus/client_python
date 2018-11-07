@@ -3,15 +3,16 @@
 from __future__ import unicode_literals
 
 import base64
+from contextlib import closing
 import os
 import socket
 import sys
 import threading
-from contextlib import closing
 from wsgiref.simple_server import make_server, WSGIRequestHandler
 
 from prometheus_client import core
-from prometheus_client import openmetrics
+from prometheus_client.openmetrics import exposition as openmetrics
+
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
     from SocketServer import ThreadingMixIn
@@ -37,7 +38,7 @@ def make_wsgi_app(registry=core.REGISTRY):
     def prometheus_app(environ, start_response):
         params = parse_qs(environ.get('QUERY_STRING', ''))
         r = registry
-        encoder, content_type = choose_encoder(environ.get['HTTP_ACCEPT'])
+        encoder, content_type = choose_encoder(environ.get('HTTP_ACCEPT'))
         if 'name[]' in params:
             r = r.restricted_registry(params['name[]'])
         output = encoder(r)
@@ -124,9 +125,9 @@ def generate_latest(registry=core.REGISTRY):
 def choose_encoder(accept_header):
     accept_header = accept_header or ''
     for accepted in accept_header.split(','):
-        if accepted == 'application/openmetrics-text; version=0.0.1':
-            return (openmetrics.exposition.generate_latest, 
-                    openmetrics.exposition.CONTENT_TYPE_LATEST)
+        if accepted.split(';')[0].strip() == 'application/openmetrics-text':
+            return (openmetrics.generate_latest,
+                    openmetrics.CONTENT_TYPE_LATEST)
     return (generate_latest, CONTENT_TYPE_LATEST)
 
 

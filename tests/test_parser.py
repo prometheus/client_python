@@ -3,27 +3,19 @@ from __future__ import unicode_literals
 import math
 import sys
 
+from prometheus_client.core import (
+    CollectorRegistry, CounterMetricFamily, GaugeMetricFamily,
+    HistogramMetricFamily, Metric, Sample, SummaryMetricFamily,
+)
+from prometheus_client.exposition import generate_latest
+from prometheus_client.parser import text_string_to_metric_families
+
 if sys.version_info < (2, 7):
     # We need the skip decorators from unittest2 on Python 2.6.
     import unittest2 as unittest
 else:
     import unittest
 
-from prometheus_client.core import (
-    CollectorRegistry,
-    CounterMetricFamily,
-    GaugeMetricFamily,
-    HistogramMetricFamily,
-    Metric,
-    Sample,
-    SummaryMetricFamily,
-)
-from prometheus_client.exposition import (
-    generate_latest,
-)
-from prometheus_client.parser import (
-    text_string_to_metric_families,
-)
 
 
 class TestParse(unittest.TestCase):

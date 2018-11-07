@@ -6,4 +6,6 @@ dist
 .coverage.*
 .coverage
 .tox
+.*cache
+htmlcov
 .vscode

@@ -6,6 +6,14 @@ import shutil
 import sys
 import tempfile
 
+from prometheus_client import core
+from prometheus_client.core import (
+    CollectorRegistry, Counter, Gauge, Histogram, Sample, Summary,
+)
+from prometheus_client.multiprocess import (
+    mark_process_dead, MultiProcessCollector,
+)
+
 if sys.version_info < (2, 7):
     # We need the skip decorators from unittest2 on Python 2.6.
     import unittest2 as unittest
@@ -13,19 +21,6 @@ else:
     import unittest
 
 
-from prometheus_client import core
-from prometheus_client.core import (
-    CollectorRegistry,
-    Counter,
-    Gauge,
-    Histogram,
-    Sample,
-    Summary,
-)
-from prometheus_client.multiprocess import (
-    mark_process_dead,
-    MultiProcessCollector,
-)
 
 
 class TestMultiProcess(unittest.TestCase):
@@ -130,9 +125,9 @@ class TestMultiProcess(unittest.TestCase):
         self.assertEqual(2, self.registry.get_sample_value('g'))
 
     def test_namespace_subsystem(self):
-         c1 = Counter('c', 'help', registry=None, namespace='ns', subsystem='ss')
-         c1.inc(1)
-         self.assertEqual(1, self.registry.get_sample_value('ns_ss_c_total'))
+        c1 = Counter('c', 'help', registry=None, namespace='ns', subsystem='ss')
+        c1.inc(1)
+        self.assertEqual(1, self.registry.get_sample_value('ns_ss_c_total'))
 
     def test_counter_across_forks(self):
         pid = 0
@@ -145,6 +140,26 @@ class TestMultiProcess(unittest.TestCase):
         c1.inc(1)
         self.assertEqual(3, self.registry.get_sample_value('c_total'))
         self.assertEqual(1, c1._value.get())
+
+    def test_initialization_detects_pid_change(self):
+        pid = 0
+        core._ValueClass = core._MultiProcessValue(lambda: pid)
+
+        # can not inspect the files cache directly, as it's a closure, so we
+        # check for the actual files themselves
+        def files():
+            fs = os.listdir(os.environ['prometheus_multiproc_dir'])
+            fs.sort()
+            return fs
+
+        c1 = Counter('c1', 'c1', registry=None)
+        self.assertEqual(files(), ['counter_0.db'])
+        c2 = Counter('c2', 'c2', registry=None)
+        self.assertEqual(files(), ['counter_0.db'])
+        pid = 1
+        c3 = Counter('c3', 'c3', registry=None)
+        self.assertEqual(files(), ['counter_0.db', 'counter_1.db'])
+
 
     @unittest.skipIf(sys.version_info < (2, 7), "Test requires Python 2.7+.")
     def test_collect(self):
@@ -280,6 +295,13 @@ class TestMmapedDict(unittest.TestCase):
         self.assertEqual(
             [('abc', 42.0), (key, 123.0), ('def', 17.0)],
             list(self.d.read_all_values()))
+
+    def test_corruption_detected(self):
+        self.d.write_value('abc', 42.0)
+        # corrupt the written data
+        self.d._m[8:16] = b'somejunk'
+        with self.assertRaises(RuntimeError):
+            list(self.d.read_all_values())
 
     def tearDown(self):
         os.unlink(self.tempfile)
