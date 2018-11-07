@@ -296,6 +296,12 @@ class TestPushGateway(unittest.TestCase):
         handler = MetricsHandler.factory(self.registry)
         self.assertEqual(handler.registry, self.registry)
 
+    def test_metrics_handler_subclassing(self):
+        subclass = type(str('MetricsHandlerSubclass'), (MetricsHandler, object), {})
+        handler = subclass.factory(self.registry)
+
+        self.assertTrue(issubclass(handler, (MetricsHandler, subclass)))
+
 
 if __name__ == '__main__':
     unittest.main()

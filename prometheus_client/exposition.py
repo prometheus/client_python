@@ -154,8 +154,8 @@ class MetricsHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         """Log nothing."""
 
-    @staticmethod
-    def factory(registry):
+    @classmethod
+    def factory(cls, registry):
         """Returns a dynamic MetricsHandler class tied
            to the passed registry.
         """
@@ -164,8 +164,8 @@ class MetricsHandler(BaseHTTPRequestHandler):
 
         # As we have unicode_literals, we need to create a str()
         #  object for type().
-        cls_name = str('MetricsHandler')
-        MyMetricsHandler = type(cls_name, (MetricsHandler, object),
+        cls_name = str(cls.__name__)
+        MyMetricsHandler = type(cls_name, (cls, object),
                                 {"registry": registry})
         return MyMetricsHandler
 
