@@ -252,9 +252,13 @@ a_total{foo="bar",bar="b{a}z"} 1
 
     def test_labels_with_invalid_utf8_values(self):
         try:
+            if sys.version_info < (2, 7):
+                inj = '\xc3\x83'
+            else:
+                inj = u'\uD802'
             families = text_string_to_metric_families('''# TYPE a counter
 # HELP a help
-a_total{foo="'''+u'\uD802'+'''",bar="baz"} 1
+a_total{foo="'''+inj+'''",bar="baz"} 1
 # EOF
 ''')
             for f in families: pass

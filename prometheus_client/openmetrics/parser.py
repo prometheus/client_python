@@ -114,11 +114,8 @@ def _parse_labels(it, text):
                     raise ValueError("Invalid line: " + text)
                 utf8_str = ''.join(labelvalue)
                 try:
-                    if sys.version_info >= (3,):
-                        utf8_str.encode('utf-8')
-                    else:
-                        utf8_str.decode('utf-8')
-                except UnicodeEncodeError:
+                    utf8_str.encode('utf-8')
+                except UnicodeError:
                     raise ValueError("Invalid line: " + text)
                 labels[''.join(labelname)] = utf8_str
                 labelname = []
