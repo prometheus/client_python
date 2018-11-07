@@ -4,18 +4,22 @@ import sys
 import threading
 import time
 
+from prometheus_client import (
+    CollectorRegistry, CONTENT_TYPE_LATEST, Counter, delete_from_gateway, Enum,
+    Gauge, generate_latest, Histogram, Info, instance_ip_grouping_key, Metric,
+    push_to_gateway, pushadd_to_gateway, Summary,
+)
+from prometheus_client.core import GaugeHistogramMetricFamily, Timestamp
+from prometheus_client.exposition import (
+    basic_auth_handler, default_handler, MetricsHandler,
+)
+
 if sys.version_info < (2, 7):
     # We need the skip decorators from unittest2 on Python 2.6.
     import unittest2 as unittest
 else:
     import unittest
 
-from prometheus_client import Gauge, Counter, Summary, Histogram, Info, Enum, Metric
-from prometheus_client import CollectorRegistry, generate_latest
-from prometheus_client import push_to_gateway, pushadd_to_gateway, delete_from_gateway
-from prometheus_client import CONTENT_TYPE_LATEST, instance_ip_grouping_key
-from prometheus_client.core import GaugeHistogramMetricFamily, Timestamp
-from prometheus_client.exposition import default_handler, basic_auth_handler, MetricsHandler
 
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler

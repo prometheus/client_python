@@ -33,12 +33,12 @@ for the documentation.
 """
 from __future__ import print_function
 
+import collections
+import inspect
+import itertools
+import operator
 import re
 import sys
-import inspect
-import operator
-import itertools
-import collections
 
 __version__ = '4.0.10'
 
@@ -50,6 +50,7 @@ if sys.version_info >= (3,):
 else:
     class getfullargspec(object):
         "A quick and dirty replacement for getfullargspec for Python 2.X"
+
         def __init__(self, f):
             self.args, self.varargs, self.varkw, self.defaults = \
                 inspect.getargspec(f)

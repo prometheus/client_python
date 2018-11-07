@@ -4,8 +4,8 @@ from __future__ import unicode_literals
 import logging
 import re
 import socket
-import time
 import threading
+import time
 from timeit import default_timer
 
 from .. import core

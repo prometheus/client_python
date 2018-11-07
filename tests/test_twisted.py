@@ -2,13 +2,13 @@ from __future__ import absolute_import, unicode_literals
 
 import sys
 
+from prometheus_client import CollectorRegistry, Counter, generate_latest
+
 if sys.version_info < (2, 7):
     from unittest2 import skipUnless
 else:
     from unittest import skipUnless
 
-from prometheus_client import Counter
-from prometheus_client import CollectorRegistry, generate_latest
 
 try:
     from prometheus_client.twisted import MetricsResource
