@@ -47,19 +47,32 @@ class GCCollector(object):
 
         times = {}
 
+        # Avoid _cb() being called re-entrantly
+        # by setting this flag and clearing it once
+        # the callback operation is complete.
+        # See https://github.com/prometheus/client_python/issues/322#issuecomment-438021132
+        self.gc_cb_active = False
+
         def _cb(phase, info):
-            gen = info['generation']
+            try:
+                if self.gc_cb_active:
+                    return
+                self.gc_cb_active = True
 
-            if phase == 'start':
-                times[gen] = time.time()
+                gen = info['generation']
 
-            if phase == 'stop':
-                delta = time.time() - times[gen]
-                latency.labels(gen).observe(delta)
-                if 'collected' in info:
-                    collected.labels(gen).observe(info['collected'])
-                if 'uncollectable' in info:
-                    uncollectable.labels(gen).observe(info['uncollectable'])
+                if phase == 'start':
+                    times[gen] = time.time()
+
+                if phase == 'stop':
+                    delta = time.time() - times[gen]
+                    latency.labels(gen).observe(delta)
+                    if 'collected' in info:
+                        collected.labels(gen).observe(info['collected'])
+                    if 'uncollectable' in info:
+                        uncollectable.labels(gen).observe(info['uncollectable'])
+            finally:
+                self.gc_cb_active = False
 
         gc.callbacks.append(_cb)
 
