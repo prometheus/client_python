@@ -4,7 +4,8 @@ from __future__ import unicode_literals
 
 import re
 
-from . import core
+from .metrics_core import Metric
+from .samples import Sample
 
 try:
     import StringIO
@@ -126,7 +127,7 @@ def _parse_sample(text):
         label = text[label_start + 1:label_end]
         # The value is after the label end (ignoring curly brace and space)
         value = float(_parse_value(text[label_end + 2:]))
-        return core.Sample(name, _parse_labels(label), value)
+        return Sample(name, _parse_labels(label), value)
 
     # We don't have labels
     except ValueError:
@@ -138,7 +139,7 @@ def _parse_sample(text):
         name = text[:name_end]
         # The value is after the name
         value = float(_parse_value(text[name_end:]))
-        return core.Sample(name, {}, value)
+        return Sample(name, {}, value)
 
 
 def text_fd_to_metric_families(fd):
@@ -148,7 +149,7 @@ def text_fd_to_metric_families(fd):
     so successful parsing does not imply that the parsed
     text meets the specification.
 
-    Yields core.Metric's.
+    Yields Metric's.
     """
     name = ''
     documentation = ''
@@ -167,7 +168,7 @@ def text_fd_to_metric_families(fd):
                 for s in samples:
                     new_samples.append(tuple((s[0] + '_total', ) + s[1:]))
                     samples = new_samples
-        metric = core.Metric(name, documentation, typ)
+        metric = Metric(name, documentation, typ)
         metric.samples = samples
         return metric
 

@@ -6,13 +6,14 @@ import gc
 import os
 import time
 
-from . import core
+from .metrics import Histogram
+from .registry import REGISTRY
 
 
 class GCCollector(object):
     """Collector for Garbage collection statistics."""
 
-    def __init__(self, registry=core.REGISTRY, gc=gc):
+    def __init__(self, registry=REGISTRY, gc=gc):
         # To work around the deadlock issue described in
         # https://github.com/prometheus/client_python/issues/322,
         # the GC collector is always disabled in multiprocess mode.
@@ -22,7 +23,7 @@ class GCCollector(object):
         if not hasattr(gc, 'callbacks'):
             return
 
-        collected = core.Histogram(
+        collected = Histogram(
             'python_gc_collected_objects',
             'Objects collected during gc',
             ['generation'],
@@ -30,7 +31,7 @@ class GCCollector(object):
             registry=registry
         )
 
-        uncollectable = core.Histogram(
+        uncollectable = Histogram(
             'python_gc_uncollectable_objects',
             'Uncollectable object found during GC',
             ['generation'],
@@ -38,7 +39,7 @@ class GCCollector(object):
             registry=registry
         )
 
-        latency = core.Histogram(
+        latency = Histogram(
             'python_gc_duration_seconds',
             'Time spent in garbage collection',
             ['generation'],
