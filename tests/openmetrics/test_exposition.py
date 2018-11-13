@@ -4,19 +4,10 @@ import sys
 import time
 
 from prometheus_client import (
-    CollectorRegistry,
-    Counter,
-    Enum,
-    Gauge,
-    Histogram,
-    Info,
-    Metric,
-    Summary
+    CollectorRegistry, Counter, Enum, Gauge, Histogram, Info, Metric, Summary,
 )
 from prometheus_client.core import (
-    Exemplar,
-    GaugeHistogramMetricFamily,
-    Timestamp
+    Exemplar, GaugeHistogramMetricFamily, Timestamp,
 )
 from prometheus_client.openmetrics.exposition import generate_latest
 

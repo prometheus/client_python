@@ -4,18 +4,10 @@ import math
 import sys
 
 from prometheus_client.core import (
-    CollectorRegistry,
-    CounterMetricFamily,
-    Exemplar,
-    GaugeHistogramMetricFamily,
-    GaugeMetricFamily,
-    HistogramMetricFamily,
-    InfoMetricFamily,
-    Metric,
-    Sample,
-    StateSetMetricFamily,
-    SummaryMetricFamily,
-    Timestamp
+    CollectorRegistry, CounterMetricFamily, Exemplar,
+    GaugeHistogramMetricFamily, GaugeMetricFamily, HistogramMetricFamily,
+    InfoMetricFamily, Metric, Sample, StateSetMetricFamily,
+    SummaryMetricFamily, Timestamp,
 )
 from prometheus_client.openmetrics.exposition import generate_latest
 from prometheus_client.openmetrics.parser import text_string_to_metric_families
