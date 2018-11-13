@@ -10,8 +10,9 @@ import sys
 import threading
 from wsgiref.simple_server import make_server, WSGIRequestHandler
 
-from prometheus_client import core
-from prometheus_client.openmetrics import exposition as openmetrics
+from .openmetrics import exposition as openmetrics
+from .registry import REGISTRY
+from .utils import floatToGoString
 
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
@@ -33,7 +34,7 @@ CONTENT_TYPE_LATEST = str('text/plain; version=0.0.4; charset=utf-8')
 PYTHON26_OR_OLDER = sys.version_info < (2, 7)
 
 
-def make_wsgi_app(registry=core.REGISTRY):
+def make_wsgi_app(registry=REGISTRY):
     '''Create a WSGI app which serves the metrics from a registry.'''
     def prometheus_app(environ, start_response):
         params = parse_qs(environ.get('QUERY_STRING', ''))
@@ -57,7 +58,7 @@ class _SilentHandler(WSGIRequestHandler):
         """Log nothing."""
 
 
-def start_wsgi_server(port, addr='', registry=core.REGISTRY):
+def start_wsgi_server(port, addr='', registry=REGISTRY):
     """Starts a WSGI server for prometheus metrics as a daemon thread."""
     app = make_wsgi_app(registry)
     httpd = make_server(addr, port, app, handler_class=_SilentHandler)
@@ -66,7 +67,7 @@ def start_wsgi_server(port, addr='', registry=core.REGISTRY):
     t.start()
 
 
-def generate_latest(registry=core.REGISTRY):
+def generate_latest(registry=REGISTRY):
     '''Returns the metrics from the registry in latest text format as a string.'''
 
     def sample_line(s):
@@ -82,7 +83,7 @@ def generate_latest(registry=core.REGISTRY):
             # Convert to milliseconds.
             timestamp = ' {0:d}'.format(int(float(s.timestamp) * 1000))
         return '{0}{1} {2}{3}\n'.format(
-            s.name, labelstr, core._floatToGoString(s.value), timestamp)
+            s.name, labelstr, floatToGoString(s.value), timestamp)
 
     output = []
     for metric in registry.collect():
@@ -132,8 +133,8 @@ def choose_encoder(accept_header):
 
 
 class MetricsHandler(BaseHTTPRequestHandler):
-    """HTTP handler that gives metrics from ``core.REGISTRY``."""
-    registry = core.REGISTRY
+    """HTTP handler that gives metrics from ``REGISTRY``."""
+    registry = REGISTRY
 
     def do_GET(self):
         registry = self.registry
@@ -160,7 +161,7 @@ class MetricsHandler(BaseHTTPRequestHandler):
            to the passed registry.
         """
         # This implementation relies on MetricsHandler.registry
-        #  (defined above and defaulted to core.REGISTRY).
+        #  (defined above and defaulted to REGISTRY).
 
         # As we have unicode_literals, we need to create a str()
         #  object for type().
@@ -174,7 +175,7 @@ class _ThreadingSimpleServer(ThreadingMixIn, HTTPServer):
     """Thread per request HTTP server."""
 
 
-def start_http_server(port, addr='', registry=core.REGISTRY):
+def start_http_server(port, addr='', registry=REGISTRY):
     """Starts an HTTP server for prometheus metrics as a daemon thread"""
     CustomMetricsHandler = MetricsHandler.factory(registry)
     httpd = _ThreadingSimpleServer((addr, port), CustomMetricsHandler)

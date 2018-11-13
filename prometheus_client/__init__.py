@@ -5,18 +5,21 @@ from . import exposition
 from . import gc_collector
 from . import platform_collector
 from . import process_collector
+from . import registry
+from . import metrics_core
+from . import metrics
 
 __all__ = ['Counter', 'Gauge', 'Summary', 'Histogram', 'Info', 'Enum']
 
-CollectorRegistry = core.CollectorRegistry
-REGISTRY = core.REGISTRY
-Metric = core.Metric
-Counter = core.Counter
-Gauge = core.Gauge
-Summary = core.Summary
-Histogram = core.Histogram
-Info = core.Info
-Enum = core.Enum
+CollectorRegistry = registry.CollectorRegistry
+REGISTRY = registry.REGISTRY
+Metric = metrics_core.Metric
+Counter = metrics.Counter
+Gauge = metrics.Gauge
+Summary = metrics.Summary
+Histogram = metrics.Histogram
+Info = metrics.Info
+Enum = metrics.Enum
 
 CONTENT_TYPE_LATEST = exposition.CONTENT_TYPE_LATEST
 generate_latest = exposition.generate_latest

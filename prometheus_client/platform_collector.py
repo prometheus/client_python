@@ -4,13 +4,14 @@ from __future__ import unicode_literals
 
 import platform as pf
 
-from . import core
+from .metrics_core import GaugeMetricFamily
+from .registry import REGISTRY
 
 
 class PlatformCollector(object):
     """Collector for python platform information"""
 
-    def __init__(self, registry=core.REGISTRY, platform=None):
+    def __init__(self, registry=REGISTRY, platform=None):
         self._platform = pf if platform is None else platform
         info = self._info()
         system = self._platform.system()
@@ -29,7 +30,7 @@ class PlatformCollector(object):
     def _add_metric(name, documentation, data):
         labels = data.keys()
         values = [data[k] for k in labels]
-        g = core.GaugeMetricFamily(name, documentation, labels=labels)
+        g = GaugeMetricFamily(name, documentation, labels=labels)
         g.add_metric(values, 1)
         return g
 

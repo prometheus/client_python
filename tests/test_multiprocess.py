@@ -6,13 +6,14 @@ import shutil
 import sys
 import tempfile
 
-from prometheus_client import core
+from prometheus_client import core, mmap_dict, values
 from prometheus_client.core import (
     CollectorRegistry, Counter, Gauge, Histogram, Sample, Summary,
 )
 from prometheus_client.multiprocess import (
     mark_process_dead, MultiProcessCollector,
 )
+from prometheus_client.values import MultiProcessValue, MutexValue
 
 if sys.version_info < (2, 7):
     # We need the skip decorators from unittest2 on Python 2.6.
@@ -27,18 +28,22 @@ class TestMultiProcess(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
         os.environ['prometheus_multiproc_dir'] = self.tempdir
-        core._ValueClass = core._MultiProcessValue(lambda: 123)
+        values.ValueClass = MultiProcessValue(lambda: 123)
         self.registry = CollectorRegistry()
         self.collector = MultiProcessCollector(self.registry, self.tempdir)
+
+    @property
+    def _value_class(self):
+        return
 
     def tearDown(self):
         del os.environ['prometheus_multiproc_dir']
         shutil.rmtree(self.tempdir)
-        core._ValueClass = core._MutexValue
+        values.ValueClass = MutexValue
 
     def test_counter_adds(self):
         c1 = Counter('c', 'help', registry=None)
-        core._ValueClass = core._MultiProcessValue(lambda: 456)
+        values.ValueClass = MultiProcessValue(lambda: 456)
         c2 = Counter('c', 'help', registry=None)
         self.assertEqual(0, self.registry.get_sample_value('c_total'))
         c1.inc(1)
@@ -47,7 +52,7 @@ class TestMultiProcess(unittest.TestCase):
 
     def test_summary_adds(self):
         s1 = Summary('s', 'help', registry=None)
-        core._ValueClass = core._MultiProcessValue(lambda: 456)
+        values.ValueClass = MultiProcessValue(lambda: 456)
         s2 = Summary('s', 'help', registry=None)
         self.assertEqual(0, self.registry.get_sample_value('s_count'))
         self.assertEqual(0, self.registry.get_sample_value('s_sum'))
@@ -58,7 +63,7 @@ class TestMultiProcess(unittest.TestCase):
 
     def test_histogram_adds(self):
         h1 = Histogram('h', 'help', registry=None)
-        core._ValueClass = core._MultiProcessValue(lambda: 456)
+        values.ValueClass = MultiProcessValue(lambda: 456)
         h2 = Histogram('h', 'help', registry=None)
         self.assertEqual(0, self.registry.get_sample_value('h_count'))
         self.assertEqual(0, self.registry.get_sample_value('h_sum'))
@@ -71,7 +76,7 @@ class TestMultiProcess(unittest.TestCase):
 
     def test_gauge_all(self):
         g1 = Gauge('g', 'help', registry=None)
-        core._ValueClass = core._MultiProcessValue(lambda: 456)
+        values.ValueClass = MultiProcessValue(lambda: 456)
         g2 = Gauge('g', 'help', registry=None)
         self.assertEqual(0, self.registry.get_sample_value('g', {'pid': '123'}))
         self.assertEqual(0, self.registry.get_sample_value('g', {'pid': '456'}))
@@ -83,7 +88,7 @@ class TestMultiProcess(unittest.TestCase):
 
     def test_gauge_liveall(self):
         g1 = Gauge('g', 'help', registry=None, multiprocess_mode='liveall')
-        core._ValueClass = core._MultiProcessValue(lambda: 456)
+        values.ValueClass = MultiProcessValue(lambda: 456)
         g2 = Gauge('g', 'help', registry=None, multiprocess_mode='liveall')
         self.assertEqual(0, self.registry.get_sample_value('g', {'pid': '123'}))
         self.assertEqual(0, self.registry.get_sample_value('g', {'pid': '456'}))
@@ -97,7 +102,7 @@ class TestMultiProcess(unittest.TestCase):
 
     def test_gauge_min(self):
         g1 = Gauge('g', 'help', registry=None, multiprocess_mode='min')
-        core._ValueClass = core._MultiProcessValue(lambda: 456)
+        values.ValueClass = MultiProcessValue(lambda: 456)
         g2 = Gauge('g', 'help', registry=None, multiprocess_mode='min')
         self.assertEqual(0, self.registry.get_sample_value('g'))
         g1.set(1)
@@ -106,7 +111,7 @@ class TestMultiProcess(unittest.TestCase):
 
     def test_gauge_max(self):
         g1 = Gauge('g', 'help', registry=None, multiprocess_mode='max')
-        core._ValueClass = core._MultiProcessValue(lambda: 456)
+        values.ValueClass = MultiProcessValue(lambda: 456)
         g2 = Gauge('g', 'help', registry=None, multiprocess_mode='max')
         self.assertEqual(0, self.registry.get_sample_value('g'))
         g1.set(1)
@@ -115,7 +120,7 @@ class TestMultiProcess(unittest.TestCase):
 
     def test_gauge_livesum(self):
         g1 = Gauge('g', 'help', registry=None, multiprocess_mode='livesum')
-        core._ValueClass = core._MultiProcessValue(lambda: 456)
+        values.ValueClass = MultiProcessValue(lambda: 456)
         g2 = Gauge('g', 'help', registry=None, multiprocess_mode='livesum')
         self.assertEqual(0, self.registry.get_sample_value('g'))
         g1.set(1)
@@ -131,7 +136,7 @@ class TestMultiProcess(unittest.TestCase):
 
     def test_counter_across_forks(self):
         pid = 0
-        core._ValueClass = core._MultiProcessValue(lambda: pid)
+        values.ValueClass = MultiProcessValue(lambda: pid)
         c1 = Counter('c', 'help', registry=None)
         self.assertEqual(0, self.registry.get_sample_value('c_total'))
         c1.inc(1)
@@ -143,7 +148,7 @@ class TestMultiProcess(unittest.TestCase):
 
     def test_initialization_detects_pid_change(self):
         pid = 0
-        core._ValueClass = core._MultiProcessValue(lambda: pid)
+        values.ValueClass = MultiProcessValue(lambda: pid)
 
         # can not inspect the files cache directly, as it's a closure, so we
         # check for the actual files themselves
@@ -164,7 +169,7 @@ class TestMultiProcess(unittest.TestCase):
     @unittest.skipIf(sys.version_info < (2, 7), "Test requires Python 2.7+.")
     def test_collect(self):
         pid = 0
-        core._ValueClass = core._MultiProcessValue(lambda: pid)
+        values.ValueClass = MultiProcessValue(lambda: pid)
         labels = dict((i, i) for i in 'abcd')
 
         def add_label(key, value):
@@ -225,7 +230,7 @@ class TestMultiProcess(unittest.TestCase):
     @unittest.skipIf(sys.version_info < (2, 7), "Test requires Python 2.7+.")
     def test_merge_no_accumulate(self):
         pid = 0
-        core._ValueClass = core._MultiProcessValue(lambda: pid)
+        values.ValueClass = MultiProcessValue(lambda: pid)
         labels = dict((i, i) for i in 'abcd')
 
         def add_label(key, value):
@@ -273,22 +278,22 @@ class TestMmapedDict(unittest.TestCase):
     def setUp(self):
         fd, self.tempfile = tempfile.mkstemp()
         os.close(fd)
-        self.d = core._MmapedDict(self.tempfile)
+        self.d = mmap_dict.MmapedDict(self.tempfile)
 
     def test_process_restart(self):
         self.d.write_value('abc', 123.0)
         self.d.close()
-        self.d = core._MmapedDict(self.tempfile)
+        self.d = mmap_dict.MmapedDict(self.tempfile)
         self.assertEqual(123, self.d.read_value('abc'))
         self.assertEqual([('abc', 123.0)], list(self.d.read_all_values()))
 
     def test_expansion(self):
-        key = 'a' * core._INITIAL_MMAP_SIZE
+        key = 'a' * mmap_dict._INITIAL_MMAP_SIZE
         self.d.write_value(key, 123.0)
         self.assertEqual([(key, 123.0)], list(self.d.read_all_values()))
 
     def test_multi_expansion(self):
-        key = 'a' * core._INITIAL_MMAP_SIZE * 4
+        key = 'a' * mmap_dict._INITIAL_MMAP_SIZE * 4
         self.d.write_value('abc', 42.0)
         self.d.write_value(key, 123.0)
         self.d.write_value('def', 17.0)

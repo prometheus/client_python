@@ -7,7 +7,10 @@ import glob
 import json
 import os
 
-from . import core
+from .metrics_core import Metric
+from .mmap_dict import MmapedDict
+from .samples import Sample
+from .utils import floatToGoString
 
 
 class MultiProcessCollector(object):
@@ -37,14 +40,14 @@ class MultiProcessCollector(object):
         for f in files:
             parts = os.path.basename(f).split('_')
             typ = parts[0]
-            d = core._MmapedDict(f, read_mode=True)
+            d = MmapedDict(f, read_mode=True)
             for key, value in d.read_all_values():
                 metric_name, name, labels = json.loads(key)
                 labels_key = tuple(sorted(labels.items()))
 
                 metric = metrics.get(metric_name)
                 if metric is None:
-                    metric = core.Metric(metric_name, 'Multiprocess metric', typ)
+                    metric = Metric(metric_name, 'Multiprocess metric', typ)
                     metrics[metric_name] = metric
 
                 if typ == 'gauge':
@@ -99,7 +102,7 @@ class MultiProcessCollector(object):
                     for bucket, value in sorted(values.items()):
                         sample_key = (
                             metric.name + '_bucket',
-                            labels + (('le', core._floatToGoString(bucket)), ),
+                            labels + (('le', floatToGoString(bucket)), ),
                         )
                         if accumulate:
                             acc += value
@@ -110,7 +113,7 @@ class MultiProcessCollector(object):
                         samples[(metric.name + '_count', labels)] = acc
 
             # Convert to correct sample format.
-            metric.samples = [core.Sample(name, dict(labels), value) for (name, labels), value in samples.items()]
+            metric.samples = [Sample(name, dict(labels), value) for (name, labels), value in samples.items()]
         return metrics.values()
 
 

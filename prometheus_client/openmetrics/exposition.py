@@ -2,7 +2,7 @@
 
 from __future__ import unicode_literals
 
-from .. import core
+from ..utils import floatToGoString
 
 CONTENT_TYPE_LATEST = str('application/openmetrics-text; version=0.0.1; charset=utf-8')
 '''Content type of the latest OpenMetrics text format'''
@@ -36,13 +36,13 @@ def generate_latest(registry):
                 if s.exemplar.timestamp is not None:
                     exemplarstr = ' # {0} {1} {2}'.format(
                         labels,
-                        core._floatToGoString(s.exemplar.value),
+                        floatToGoString(s.exemplar.value),
                         s.exemplar.timestamp,
                     )
                 else:
                     exemplarstr = ' # {0} {1}'.format(
                         labels,
-                        core._floatToGoString(s.exemplar.value),
+                        floatToGoString(s.exemplar.value),
                     )
             else:
                 exemplarstr = ''
@@ -52,7 +52,7 @@ def generate_latest(registry):
             output.append('{0}{1} {2}{3}{4}\n'.format(
                 s.name,
                 labelstr,
-                core._floatToGoString(s.value),
+                floatToGoString(s.value),
                 timestamp,
                 exemplarstr,
             ))

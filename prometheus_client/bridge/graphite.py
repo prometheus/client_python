@@ -8,10 +8,11 @@ import threading
 import time
 from timeit import default_timer
 
-from .. import core
+from ..registry import REGISTRY
 
 # Roughly, have to keep to what works as a file name.
 # We also remove periods, so labels can be distinguished.
+
 _INVALID_GRAPHITE_CHARS = re.compile(r"[^a-zA-Z0-9_-]")
 
 
@@ -45,7 +46,7 @@ class _RegularPush(threading.Thread):
 
 
 class GraphiteBridge(object):
-    def __init__(self, address, registry=core.REGISTRY, timeout_seconds=30, _timer=time.time):
+    def __init__(self, address, registry=REGISTRY, timeout_seconds=30, _timer=time.time):
         self._address = address
         self._registry = registry
         self._timeout = timeout_seconds
