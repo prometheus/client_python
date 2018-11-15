@@ -98,50 +98,50 @@ a{quantile="0.5"} 0.7
     def test_simple_histogram(self):
         families = text_string_to_metric_families("""# TYPE a histogram
 # HELP a help
-a_bucket{le="1"} 0
+a_bucket{le="1.0"} 0
 a_bucket{le="+Inf"} 3
 a_count 3
 a_sum 2
 # EOF
 """)
-        self.assertEqual([HistogramMetricFamily("a", "help", sum_value=2, buckets=[("1", 0.0), ("+Inf", 3.0)])], list(families))
+        self.assertEqual([HistogramMetricFamily("a", "help", sum_value=2, buckets=[("1.0", 0.0), ("+Inf", 3.0)])], list(families))
 
     def test_histogram_exemplars(self):
         families = text_string_to_metric_families("""# TYPE a histogram
 # HELP a help
-a_bucket{le="1"} 0 # {a="b"} 0.5
-a_bucket{le="2"} 2 # {a="c"} 0.5
+a_bucket{le="1.0"} 0 # {a="b"} 0.5
+a_bucket{le="2.0"} 2 # {a="c"} 0.5
 a_bucket{le="+Inf"} 3 # {a="1234567890123456789012345678901234567890123456789012345678"} 4 123
 # EOF
 """)
         hfm = HistogramMetricFamily("a", "help")
-        hfm.add_sample("a_bucket", {"le": "1"}, 0.0, None, Exemplar({"a": "b"}, 0.5))
-        hfm.add_sample("a_bucket", {"le": "2"}, 2.0, None, Exemplar({"a": "c"}, 0.5)),
+        hfm.add_sample("a_bucket", {"le": "1.0"}, 0.0, None, Exemplar({"a": "b"}, 0.5))
+        hfm.add_sample("a_bucket", {"le": "2.0"}, 2.0, None, Exemplar({"a": "c"}, 0.5)),
         hfm.add_sample("a_bucket", {"le": "+Inf"}, 3.0, None, Exemplar({"a": "1234567890123456789012345678901234567890123456789012345678"}, 4, Timestamp(123, 0)))
         self.assertEqual([hfm], list(families))
 
     def test_simple_gaugehistogram(self):
         families = text_string_to_metric_families("""# TYPE a gaugehistogram
 # HELP a help
-a_bucket{le="1"} 0
+a_bucket{le="1.0"} 0
 a_bucket{le="+Inf"} 3
 a_gcount 3
 a_gsum 2
 # EOF
 """)
-        self.assertEqual([GaugeHistogramMetricFamily("a", "help", gsum_value=2, buckets=[("1", 0.0), ("+Inf", 3.0)])], list(families))
+        self.assertEqual([GaugeHistogramMetricFamily("a", "help", gsum_value=2, buckets=[("1.0", 0.0), ("+Inf", 3.0)])], list(families))
 
     def test_gaugehistogram_exemplars(self):
         families = text_string_to_metric_families("""# TYPE a gaugehistogram
 # HELP a help
-a_bucket{le="1"} 0 123 # {a="b"} 0.5
-a_bucket{le="2"} 2 123 # {a="c"} 0.5
+a_bucket{le="1.0"} 0 123 # {a="b"} 0.5
+a_bucket{le="2.0"} 2 123 # {a="c"} 0.5
 a_bucket{le="+Inf"} 3 123 # {a="d"} 4 123
 # EOF
 """)
         hfm = GaugeHistogramMetricFamily("a", "help")
-        hfm.add_sample("a_bucket", {"le": "1"}, 0.0, Timestamp(123, 0), Exemplar({"a": "b"}, 0.5))
-        hfm.add_sample("a_bucket", {"le": "2"}, 2.0, Timestamp(123, 0), Exemplar({"a": "c"}, 0.5)),
+        hfm.add_sample("a_bucket", {"le": "1.0"}, 0.0, Timestamp(123, 0), Exemplar({"a": "b"}, 0.5))
+        hfm.add_sample("a_bucket", {"le": "2.0"}, 2.0, Timestamp(123, 0), Exemplar({"a": "c"}, 0.5)),
         hfm.add_sample("a_bucket", {"le": "+Inf"}, 3.0, Timestamp(123, 0), Exemplar({"a": "d"}, 4, Timestamp(123, 0)))
         self.assertEqual([hfm], list(families))
 
@@ -383,11 +383,11 @@ b_total 2 1234567890
     def test_roundtrip(self):
         text = """# HELP go_gc_duration_seconds A summary of the GC invocation durations.
 # TYPE go_gc_duration_seconds summary
-go_gc_duration_seconds{quantile="0"} 0.013300656000000001
+go_gc_duration_seconds{quantile="0.0"} 0.013300656000000001
 go_gc_duration_seconds{quantile="0.25"} 0.013638736
 go_gc_duration_seconds{quantile="0.5"} 0.013759906
 go_gc_duration_seconds{quantile="0.75"} 0.013962066
-go_gc_duration_seconds{quantile="1"} 0.021383540000000003
+go_gc_duration_seconds{quantile="1.0"} 0.021383540000000003
 go_gc_duration_seconds_sum 56.12904785
 go_gc_duration_seconds_count 7476.0
 # HELP go_goroutines Number of goroutines that currently exist.
@@ -405,7 +405,7 @@ prometheus_local_storage_indexing_batch_duration_milliseconds_count 229.0
 process_cpu_seconds_total 29323.4
 # HELP process_virtual_memory_bytes Virtual memory size in bytes.
 # TYPE process_virtual_memory_bytes gauge
-process_virtual_memory_bytes 2478268416.0
+process_virtual_memory_bytes 2.478268416e+09
 # HELP prometheus_build_info A metric with a constant '1' value labeled by version, revision, and branch from which Prometheus was built.
 # TYPE prometheus_build_info gauge
 prometheus_build_info{branch="HEAD",revision="ef176e5",version="0.16.0rc1"} 1.0
@@ -413,12 +413,28 @@ prometheus_build_info{branch="HEAD",revision="ef176e5",version="0.16.0rc1"} 1.0
 # TYPE prometheus_local_storage_chunk_ops counter
 prometheus_local_storage_chunk_ops_total{type="clone"} 28.0
 prometheus_local_storage_chunk_ops_total{type="create"} 997844.0
-prometheus_local_storage_chunk_ops_total{type="drop"} 1345758.0
+prometheus_local_storage_chunk_ops_total{type="drop"} 1.345758e+06
 prometheus_local_storage_chunk_ops_total{type="load"} 1641.0
 prometheus_local_storage_chunk_ops_total{type="persist"} 981408.0
 prometheus_local_storage_chunk_ops_total{type="pin"} 32662.0
 prometheus_local_storage_chunk_ops_total{type="transcode"} 980180.0
 prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
+# HELP foo histogram Testing histogram buckets
+# TYPE foo histogram
+foo_bucket{le="0.0"} 0.0
+foo_bucket{le="1e-05"} 0.0
+foo_bucket{le="0.0001"} 0.0
+foo_bucket{le="0.1"} 8.0
+foo_bucket{le="1.0"} 10.0
+foo_bucket{le="10.0"} 17.0
+foo_bucket{le="100000.0"} 17.0
+foo_bucket{le="1e+06"} 17.0
+foo_bucket{le="1.55555555555552e+06"} 17.0
+foo_bucket{le="1e+23"} 17.0
+foo_bucket{le="+Inf"} 17.0
+foo_count 17.0
+foo_sum 324789.3
+foo_created 1.520430000123e+09
 # EOF
 """
         families = list(text_string_to_metric_families(text))
@@ -522,6 +538,7 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
                 ('# TYPE a summary\na{quantile="foo"} 0\n# EOF\n'),
                 ('# TYPE a summary\na{quantile="1.01"} 0\n# EOF\n'),
                 ('# TYPE a summary\na{quantile="NaN"} 0\n# EOF\n'),
+                ('# TYPE a summary\na{quantile="1"} 0\n# EOF\n'),
                 ('# TYPE a histogram\na_bucket 0\n# EOF\n'),
                 ('# TYPE a gaugehistogram\na_bucket 0\n# EOF\n'),
                 ('# TYPE a stateset\na 0\n# EOF\n'),
@@ -538,6 +555,12 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
                 ('# TYPE a gaugehistogram\na_gsum 1\n# EOF\n'),
                 ('# TYPE a histogram\na_count 1\na_bucket{le="+Inf"} 0\n# EOF\n'),
                 ('# TYPE a histogram\na_bucket{le="+Inf"} 0\na_count 1\n# EOF\n'),
+                ('# TYPE a histogram\na_bucket{le="1"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
+                ('# TYPE a histogram\na_bucket{le="9.999999999999999e+22"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
+                ('# TYPE a histogram\na_bucket{le="1.5555555555555201e+06"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
+                ('# TYPE a histogram\na_bucket{le="1e-04"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
+                ('# TYPE a histogram\na_bucket{le="1e+05"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
+                ('# TYPE a histogram\na_bucket{le="+INF"} 0\n# EOF\n'),
                 ('# TYPE a histogram\na_bucket{le="2"} 0\na_bucket{le="1"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
                 ('# TYPE a histogram\na_bucket{le="1"} 1\na_bucket{le="2"} 1\na_bucket{le="+Inf"} 0\n# EOF\n'),
                 # Bad grouping or ordering.

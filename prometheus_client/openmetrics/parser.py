@@ -6,6 +6,7 @@ import math
 
 from ..metrics_core import Metric, METRIC_LABEL_NAME_RE
 from ..samples import Exemplar, Sample, Timestamp
+from ..utils import floatToGoString
 
 try:
     import StringIO
@@ -371,7 +372,7 @@ def text_fd_to_metric_families(fd):
                 allowed_names = {
                     'counter': ['_total', '_created'],
                     'summary': ['_count', '_sum', '', '_created'],
-                    'histogram': ['_count', '_sum', '_bucket', 'created'],
+                    'histogram': ['_count', '_sum', '_bucket', '_created'],
                     'gaugehistogram': ['_gcount', '_gsum', '_bucket'],
                     'info': ['_info'],
                 }.get(typ, [''])
@@ -402,10 +403,12 @@ def text_fd_to_metric_families(fd):
             if typ == 'stateset' and name not in sample.labels:
                 raise ValueError("Stateset missing label: " + line)
             if (typ in ['histogram', 'gaugehistogram'] and name + '_bucket' == sample.name
-                    and float(sample.labels.get('le', -1)) < 0):
+                    and (float(sample.labels.get('le', -1)) < 0
+                         or sample.labels['le'] != floatToGoString(sample.labels['le']))):
                 raise ValueError("Invalid le label: " + line)
             if (typ == 'summary' and name == sample.name
-                    and not (0 <= float(sample.labels.get('quantile', -1)) <= 1)):
+                    and (not (0 <= float(sample.labels.get('quantile', -1)) <= 1)
+                         or sample.labels['quantile'] != floatToGoString(sample.labels['quantile']))):
                 raise ValueError("Invalid quantile label: " + line)
 
             g = tuple(sorted(_group_for_sample(sample, name, typ).items()))
