@@ -551,6 +551,7 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
                 ('# TYPE a summary\na_count NaN\n# EOF\n'),
                 ('# TYPE a summary\na_sum -1\n# EOF\n'),
                 ('# TYPE a summary\na_count -1\n# EOF\n'),
+                ('# TYPE a summary\na{quantile="0.5"} -1\n# EOF\n'),
                 # Bad histograms.
                 ('# TYPE a histogram\na_sum 1\n# EOF\n'),
                 ('# TYPE a gaugehistogram\na_gsum 1\n# EOF\n'),
