@@ -249,10 +249,10 @@ a_total{foo="bar",bar="b{a}z"} 1
 
     def test_labels_with_invalid_utf8_values(self):
         try:
-            if sys.version_info < (2, 7):
-                inj = '\xc3\x83'
-            else:
+            if sys.version_info >= (3,):
                 inj = u'\uD802'
+            else:
+                inj = '\xc3\x83'
             families = text_string_to_metric_families('''# TYPE a counter
 # HELP a help
 a_total{foo="'''+inj+'''",bar="baz"} 1
