@@ -252,12 +252,13 @@ a_total{foo="bar",bar="b{a}z"} 1
             if sys.version_info >= (3,):
                 inj = u'\uD802'
             else:
-                inj = '\xfc'
-            families = text_string_to_metric_families('''# TYPE a counter
+                inj = b'\xef'
+            str = '''# TYPE a counter
 # HELP a help
 a_total{foo="'''+inj+'''",bar="baz"} 1
 # EOF
-''')
+'''
+            families = text_string_to_metric_families(str)
             for f in families: pass
             assert False
         except ValueError:
