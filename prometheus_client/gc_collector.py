@@ -17,7 +17,8 @@ class GCCollector(object):
         # To work around the deadlock issue described in
         # https://github.com/prometheus/client_python/issues/322,
         # the GC collector is always disabled in multiprocess mode.
-        if 'prometheus_multiproc_dir' in os.environ:
+        if 'PROMETHEUS_MULTIPROC_DIR' in os.environ \
+                or 'prometheus_multiproc_dir' in os.environ:
             return
 
         if not hasattr(gc, 'callbacks'):

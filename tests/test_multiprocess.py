@@ -27,7 +27,7 @@ else:
 class TestMultiProcess(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
-        os.environ['prometheus_multiproc_dir'] = self.tempdir
+        os.environ['PROMETHEUS_MULTIPROC_DIR'] = self.tempdir
         values.ValueClass = MultiProcessValue(lambda: 123)
         self.registry = CollectorRegistry()
         self.collector = MultiProcessCollector(self.registry, self.tempdir)
@@ -37,7 +37,7 @@ class TestMultiProcess(unittest.TestCase):
         return
 
     def tearDown(self):
-        del os.environ['prometheus_multiproc_dir']
+        del os.environ['PROMETHEUS_MULTIPROC_DIR']
         shutil.rmtree(self.tempdir)
         values.ValueClass = MutexValue
 
@@ -82,7 +82,7 @@ class TestMultiProcess(unittest.TestCase):
         self.assertEqual(0, self.registry.get_sample_value('g', {'pid': '456'}))
         g1.set(1)
         g2.set(2)
-        mark_process_dead(123, os.environ['prometheus_multiproc_dir'])
+        mark_process_dead(123, os.environ['PROMETHEUS_MULTIPROC_DIR'])
         self.assertEqual(1, self.registry.get_sample_value('g', {'pid': '123'}))
         self.assertEqual(2, self.registry.get_sample_value('g', {'pid': '456'}))
 
@@ -96,7 +96,7 @@ class TestMultiProcess(unittest.TestCase):
         g2.set(2)
         self.assertEqual(1, self.registry.get_sample_value('g', {'pid': '123'}))
         self.assertEqual(2, self.registry.get_sample_value('g', {'pid': '456'}))
-        mark_process_dead(123, os.environ['prometheus_multiproc_dir'])
+        mark_process_dead(123, os.environ['PROMETHEUS_MULTIPROC_DIR'])
         self.assertEqual(None, self.registry.get_sample_value('g', {'pid': '123'}))
         self.assertEqual(2, self.registry.get_sample_value('g', {'pid': '456'}))
 
@@ -126,7 +126,7 @@ class TestMultiProcess(unittest.TestCase):
         g1.set(1)
         g2.set(2)
         self.assertEqual(3, self.registry.get_sample_value('g'))
-        mark_process_dead(123, os.environ['prometheus_multiproc_dir'])
+        mark_process_dead(123, os.environ['PROMETHEUS_MULTIPROC_DIR'])
         self.assertEqual(2, self.registry.get_sample_value('g'))
 
     def test_namespace_subsystem(self):
@@ -153,7 +153,7 @@ class TestMultiProcess(unittest.TestCase):
         # can not inspect the files cache directly, as it's a closure, so we
         # check for the actual files themselves
         def files():
-            fs = os.listdir(os.environ['prometheus_multiproc_dir'])
+            fs = os.listdir(os.environ['PROMETHEUS_MULTIPROC_DIR'])
             fs.sort()
             return fs
 
@@ -243,7 +243,7 @@ class TestMultiProcess(unittest.TestCase):
         pid = 1
         h.labels(**labels).observe(5)
 
-        path = os.path.join(os.environ['prometheus_multiproc_dir'], '*.db')
+        path = os.path.join(os.environ['PROMETHEUS_MULTIPROC_DIR'], '*.db')
         files = glob.glob(path)
         metrics = dict(
             (m.name, m) for m in self.collector.merge(files, accumulate=False)

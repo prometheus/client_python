@@ -478,7 +478,7 @@ There's several steps to getting this working:
 
 **One**: Gunicorn deployment
 
-The `prometheus_multiproc_dir` environment variable must be set to a directory
+The `PROMETHEUS_MULTIPROC_DIR` environment variable must be set to a directory
 that the client library can use for metrics. This directory must be wiped
 between Gunicorn runs (before startup is recommended).
 
