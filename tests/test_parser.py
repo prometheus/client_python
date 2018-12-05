@@ -305,7 +305,7 @@ prometheus_local_storage_indexing_batch_duration_milliseconds_count 229.0
 process_cpu_seconds_total 29323.4
 # HELP process_virtual_memory_bytes Virtual memory size in bytes.
 # TYPE process_virtual_memory_bytes gauge
-process_virtual_memory_bytes 2478268416.0
+process_virtual_memory_bytes 2.478268416e+09
 # HELP prometheus_build_info A metric with a constant '1' value labeled by version, revision, and branch from which Prometheus was built.
 # TYPE prometheus_build_info gauge
 prometheus_build_info{branch="HEAD",revision="ef176e5",version="0.16.0rc1"} 1.0
@@ -313,7 +313,7 @@ prometheus_build_info{branch="HEAD",revision="ef176e5",version="0.16.0rc1"} 1.0
 # TYPE prometheus_local_storage_chunk_ops_total counter
 prometheus_local_storage_chunk_ops_total{type="clone"} 28.0
 prometheus_local_storage_chunk_ops_total{type="create"} 997844.0
-prometheus_local_storage_chunk_ops_total{type="drop"} 1345758.0
+prometheus_local_storage_chunk_ops_total{type="drop"} 1.345758e+06
 prometheus_local_storage_chunk_ops_total{type="load"} 1641.0
 prometheus_local_storage_chunk_ops_total{type="persist"} 981408.0
 prometheus_local_storage_chunk_ops_total{type="pin"} 32662.0
