@@ -173,6 +173,7 @@ class MetricsHandler(BaseHTTPRequestHandler):
 
 class _ThreadingSimpleServer(ThreadingMixIn, HTTPServer):
     """Thread per request HTTP server."""
+    daemon_threads = True
 
 
 def start_http_server(port, addr='', registry=REGISTRY):
