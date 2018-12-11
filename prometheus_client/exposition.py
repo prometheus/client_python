@@ -173,6 +173,12 @@ class MetricsHandler(BaseHTTPRequestHandler):
 
 class _ThreadingSimpleServer(ThreadingMixIn, HTTPServer):
     """Thread per request HTTP server."""
+    # Make worker threads "fire and forget". Beginning with Python 3.7 this
+    # prevents a memory leak because ``ThreadingMixIn`` starts to gather all
+    # non-daemon threads in a list in order to join on them at server close.
+    # Enabling daemon threads virtually makes ``_ThreadingSimpleServer`` the
+    # same as Python 3.7's ``ThreadingHTTPServer``.
+    daemon_threads = True
 
 
 def start_http_server(port, addr='', registry=REGISTRY):
