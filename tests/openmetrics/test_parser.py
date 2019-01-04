@@ -567,8 +567,6 @@ foo_created 1.520430000123e+09
                 ('# TYPE a histogram\na_count 1\na_bucket{le="+Inf"} 0\n# EOF\n'),
                 ('# TYPE a histogram\na_bucket{le="+Inf"} 0\na_count 1\n# EOF\n'),
                 ('# TYPE a histogram\na_bucket{le="1"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
-                ('# TYPE a histogram\na_bucket{le="9.999999999999999e+22"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
-                ('# TYPE a histogram\na_bucket{le="1.5555555555555201e+06"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
                 ('# TYPE a histogram\na_bucket{le="1e-04"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
                 ('# TYPE a histogram\na_bucket{le="1e+05"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
                 ('# TYPE a histogram\na_bucket{le="+INF"} 0\n# EOF\n'),
@@ -586,6 +584,16 @@ foo_created 1.520430000123e+09
                 ('# TYPE a gauge\na 0 1\na 0 0\n# EOF\n'),
                 ('# TYPE a gauge\na 0\na 0 0\n# EOF\n'),
                 ('# TYPE a gauge\na 0 0\na 0\n# EOF\n'),
+        ]:
+            with self.assertRaises(ValueError):
+                list(text_string_to_metric_families(case))
+
+    @unittest.skipIf(sys.version_info < (2, 7), "float repr changed from 2.6 to 2.7")
+    def test_invalid_float_input(self):
+        for case in [
+                # Bad histograms.
+                ('# TYPE a histogram\na_bucket{le="9.999999999999999e+22"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
+                ('# TYPE a histogram\na_bucket{le="1.5555555555555201e+06"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
         ]:
             with self.assertRaises(ValueError):
                 list(text_string_to_metric_families(case))

@@ -6,7 +6,7 @@ class Timestamp(object):
 
     def __init__(self, sec, nsec):
         if nsec < 0 or nsec >= 1e9:
-            raise ValueError("Invalid value for nanoseconds in Timestamp: {}".format(nsec))
+            raise ValueError("Invalid value for nanoseconds in Timestamp: {0}".format(nsec))
         if sec < 0:
             nsec = -nsec
         self.sec = int(sec)
