@@ -568,6 +568,7 @@ foo_created 1.520430000123e+09
                 ('# TYPE a histogram\na_bucket{le="+Inf"} 0\na_count 1\n# EOF\n'),
                 ('# TYPE a histogram\na_bucket{le="1"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
                 ('# TYPE a histogram\na_bucket{le="9.999999999999999e+22"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
+                ('# TYPE a histogram\na_bucket{le="1.5555555555555201e+06"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
                 ('# TYPE a histogram\na_bucket{le="1e-04"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
                 ('# TYPE a histogram\na_bucket{le="1e+05"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
                 ('# TYPE a histogram\na_bucket{le="+INF"} 0\n# EOF\n'),
