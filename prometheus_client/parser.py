@@ -166,7 +166,7 @@ def text_fd_to_metric_families(fd):
             else:
                 new_samples = []
                 for s in samples:
-                    new_samples.append(tuple((s[0] + '_total', ) + s[1:]))
+                    new_samples.append(Sample(s[0] + '_total', *s[1:]))
                     samples = new_samples
         metric = Metric(name, documentation, typ)
         metric.samples = samples

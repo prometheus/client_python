@@ -19,20 +19,27 @@ else:
 
 
 class TestParse(unittest.TestCase):
+    def assertEqualMetrics(self, first, second, msg=None):
+        super(TestParse, self).assertEqual(first, second, msg)
+
+        # Test that samples are actually named tuples of type Sample.
+        for a, b in zip(first, second):
+            for sa, sb in zip(a.samples, b.samples):
+                assert sa.name == sb.name
 
     def test_simple_counter(self):
         families = text_string_to_metric_families("""# TYPE a counter
 # HELP a help
 a 1
 """)
-        self.assertEqual([CounterMetricFamily("a", "help", value=1)], list(families))
+        self.assertEqualMetrics([CounterMetricFamily("a", "help", value=1)], list(families))
 
     def test_simple_gauge(self):
         families = text_string_to_metric_families("""# TYPE a gauge
 # HELP a help
 a 1
 """)
-        self.assertEqual([GaugeMetricFamily("a", "help", value=1)], list(families))
+        self.assertEqualMetrics([GaugeMetricFamily("a", "help", value=1)], list(families))
 
     def test_simple_summary(self):
         families = text_string_to_metric_families("""# TYPE a summary
@@ -41,7 +48,7 @@ a_count 1
 a_sum 2
 """)
         summary = SummaryMetricFamily("a", "help", count_value=1, sum_value=2)
-        self.assertEqual([summary], list(families))
+        self.assertEqualMetrics([summary], list(families))
 
     def test_summary_quantiles(self):
         families = text_string_to_metric_families("""# TYPE a summary
@@ -54,7 +61,7 @@ a{quantile="0.5"} 0.7
         # still need to be able to parse them.
         metric_family = SummaryMetricFamily("a", "help", count_value=1, sum_value=2)
         metric_family.add_sample("a", {"quantile": "0.5"}, 0.7)
-        self.assertEqual([metric_family], list(families))
+        self.assertEqualMetrics([metric_family], list(families))
 
     def test_simple_histogram(self):
         families = text_string_to_metric_families("""# TYPE a histogram
@@ -64,14 +71,14 @@ a_bucket{le="+Inf"} 3
 a_count 3
 a_sum 2
 """)
-        self.assertEqual([HistogramMetricFamily("a", "help", sum_value=2, buckets=[("1", 0.0), ("+Inf", 3.0)])], list(families))
+        self.assertEqualMetrics([HistogramMetricFamily("a", "help", sum_value=2, buckets=[("1", 0.0), ("+Inf", 3.0)])], list(families))
 
     def test_no_metadata(self):
         families = text_string_to_metric_families("""a 1
 """)
         metric_family = Metric("a", "", "untyped")
         metric_family.add_sample("a", {}, 1)
-        self.assertEqual([metric_family], list(families))
+        self.assertEqualMetrics([metric_family], list(families))
 
     def test_untyped(self):
         # https://github.com/prometheus/client_python/issues/79
@@ -85,14 +92,14 @@ redis_connected_clients{instance="rough-snowflake-web",port="6381"} 12.0
             Sample("redis_connected_clients", {"instance": "rough-snowflake-web", "port": "6380"}, 10),
             Sample("redis_connected_clients", {"instance": "rough-snowflake-web", "port": "6381"}, 12),
         ]
-        self.assertEqual([m], list(families))
+        self.assertEqualMetrics([m], list(families))
 
     def test_type_help_switched(self):
         families = text_string_to_metric_families("""# HELP a help
 # TYPE a counter
 a 1
 """)
-        self.assertEqual([CounterMetricFamily("a", "help", value=1)], list(families))
+        self.assertEqualMetrics([CounterMetricFamily("a", "help", value=1)], list(families))
 
     def test_blank_lines_and_comments(self):
         families = text_string_to_metric_families("""
@@ -103,14 +110,14 @@ a 1
 
 a 1
 """)
-        self.assertEqual([CounterMetricFamily("a", "help", value=1)], list(families))
+        self.assertEqualMetrics([CounterMetricFamily("a", "help", value=1)], list(families))
 
     def test_tabs(self):
         families = text_string_to_metric_families("""#\tTYPE\ta\tcounter
 #\tHELP\ta\thelp
 a\t1
 """)
-        self.assertEqual([CounterMetricFamily("a", "help", value=1)], list(families))
+        self.assertEqualMetrics([CounterMetricFamily("a", "help", value=1)], list(families))
 
     def test_labels_with_curly_braces(self):
         families = text_string_to_metric_families("""# TYPE a counter
@@ -119,14 +126,14 @@ a{foo="bar", bar="b{a}z"} 1
 """)
         metric_family = CounterMetricFamily("a", "help", labels=["foo", "bar"])
         metric_family.add_metric(["bar", "b{a}z"], 1)
-        self.assertEqual([metric_family], list(families))
+        self.assertEqualMetrics([metric_family], list(families))
 
     def test_empty_help(self):
         families = text_string_to_metric_families("""# TYPE a counter
 # HELP a
 a 1
 """)
-        self.assertEqual([CounterMetricFamily("a", "", value=1)], list(families))
+        self.assertEqualMetrics([CounterMetricFamily("a", "", value=1)], list(families))
 
     def test_labels_and_infinite(self):
         families = text_string_to_metric_families("""# TYPE a counter
@@ -137,7 +144,7 @@ a{foo="baz"} -Inf
         metric_family = CounterMetricFamily("a", "help", labels=["foo"])
         metric_family.add_metric(["bar"], float('inf'))
         metric_family.add_metric(["baz"], float('-inf'))
-        self.assertEqual([metric_family], list(families))
+        self.assertEqualMetrics([metric_family], list(families))
 
     def test_spaces(self):
         families = text_string_to_metric_families("""# TYPE a counter
@@ -154,7 +161,7 @@ a \t{\t foo   = "boz"\t}\t 5
         metric_family.add_metric(["buz"], 3)
         metric_family.add_metric(["biz"], 4)
         metric_family.add_metric(["boz"], 5)
-        self.assertEqual([metric_family], list(families))
+        self.assertEqualMetrics([metric_family], list(families))
 
     def test_commas(self):
         families = text_string_to_metric_families("""# TYPE a counter
@@ -177,7 +184,7 @@ d{,  } 4
         b = CounterMetricFamily("b", "help", value=2)
         c = CounterMetricFamily("c", "help", value=3)
         d = CounterMetricFamily("d", "help", value=4)
-        self.assertEqual([a, b, c, d], list(families))
+        self.assertEqualMetrics([a, b, c, d], list(families))
 
     def test_multiple_trailing_commas(self):
         text = """# TYPE a counter
@@ -192,7 +199,7 @@ a{foo="bar",, } 1
 # HELP a help
 a{} 1
 """)
-        self.assertEqual([CounterMetricFamily("a", "help", value=1)], list(families))
+        self.assertEqualMetrics([CounterMetricFamily("a", "help", value=1)], list(families))
 
     def test_nan(self):
         families = text_string_to_metric_families("""a NaN
@@ -209,7 +216,7 @@ a{foo=""} 2
         metric_family = CounterMetricFamily("a", "help", labels=["foo"])
         metric_family.add_metric(["bar"], 1)
         metric_family.add_metric([""], 2)
-        self.assertEqual([metric_family], list(families))
+        self.assertEqualMetrics([metric_family], list(families))
 
     def test_label_escaping(self):
         for escaped_val, unescaped_val in [
@@ -231,7 +238,7 @@ a{foo="%s",bar="baz"} 1
             metric_family = CounterMetricFamily(
                 "a", "help", labels=["foo", "bar"])
             metric_family.add_metric([unescaped_val, "baz"], 1)
-            self.assertEqual([metric_family], list(families))
+            self.assertEqualMetrics([metric_family], list(families))
 
     def test_help_escaping(self):
         for escaped_val, unescaped_val in [
@@ -253,7 +260,7 @@ a{foo="bar"} 1
 """ % escaped_val))
             metric_family = CounterMetricFamily("a", unescaped_val, labels=["foo"])
             metric_family.add_metric(["bar"], 1)
-            self.assertEqual([metric_family], list(families))
+            self.assertEqualMetrics([metric_family], list(families))
 
     def test_escaping(self):
         families = text_string_to_metric_families("""# TYPE a counter
@@ -264,7 +271,7 @@ a{foo="b\\\\a\\z"} 2
         metric_family = CounterMetricFamily("a", "he\n\\l\\tp", labels=["foo"])
         metric_family.add_metric(["b\"a\nr"], 1)
         metric_family.add_metric(["b\\a\\z"], 2)
-        self.assertEqual([metric_family], list(families))
+        self.assertEqualMetrics([metric_family], list(families))
 
     def test_timestamps_discarded(self):
         families = text_string_to_metric_families("""# TYPE a counter
@@ -277,7 +284,7 @@ b 2  1234567890
         a = CounterMetricFamily("a", "help", labels=["foo"])
         a.add_metric(["bar"], 1)
         b = CounterMetricFamily("b", "help", value=2)
-        self.assertEqual([a, b], list(families))
+        self.assertEqualMetrics([a, b], list(families))
 
     @unittest.skipIf(sys.version_info < (2, 7), "Test requires Python 2.7+.")
     def test_roundtrip(self):
