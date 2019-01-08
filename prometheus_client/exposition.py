@@ -13,6 +13,7 @@ from wsgiref.simple_server import make_server, WSGIRequestHandler
 from .openmetrics import exposition as openmetrics
 from .registry import REGISTRY
 from .utils import floatToGoString
+from . import exceptions
 
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
@@ -109,14 +110,18 @@ def generate_latest(registry=REGISTRY):
         output.append('# TYPE {0} {1}\n'.format(mname, mtype))
 
         om_samples = {}
-        for s in metric.samples:
-            for suffix in ['_created', '_gsum', '_gcount']:
-                if s.name == metric.name + suffix:
-                    # OpenMetrics specific sample, put in a gauge at the end.
-                    om_samples.setdefault(suffix, []).append(sample_line(s))
-                    break
-            else:
-                output.append(sample_line(s))
+        try:
+            for s in metric.samples:
+                for suffix in ['_created', '_gsum', '_gcount']:
+                    if s.name == metric.name + suffix:
+                        # OpenMetrics specific sample, put in a gauge at the end.
+                        om_samples.setdefault(suffix, []).append(sample_line(s))
+                        break
+                else:
+                    output.append(sample_line(s))
+        except tuple(exceptions.Exceptions) as exception:
+            raise exceptions.from_exception(metric, exception)
+                    
         for suffix, lines in sorted(om_samples.items()):
             output.append('# TYPE {0}{1} gauge\n'.format(metric.name, suffix))
             output.extend(lines)
