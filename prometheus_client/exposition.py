@@ -13,7 +13,6 @@ from wsgiref.simple_server import make_server, WSGIRequestHandler
 from .openmetrics import exposition as openmetrics
 from .registry import REGISTRY
 from .utils import floatToGoString
-from . import exceptions
 
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
@@ -119,8 +118,9 @@ def generate_latest(registry=REGISTRY):
                         break
                 else:
                     output.append(sample_line(s))
-        except tuple(exceptions.Exceptions) as exception:
-            raise exceptions.from_exception(metric, exception)
+        except Exception as exception:
+            exception.args = (exception.args or ('',)) + (metric,)
+            raise
                     
         for suffix, lines in sorted(om_samples.items()):
             output.append('# TYPE {0}{1} gauge\n'.format(metric.name, suffix))

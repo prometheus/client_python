@@ -1,7 +1,6 @@
 import pytest
 
 from prometheus_client import core 
-from prometheus_client import exceptions
 from prometheus_client import exposition
 
 
@@ -24,7 +23,7 @@ def _expect_metric_exception(registry, expected_error):
     try:
         exposition.generate_latest(registry)
     except expected_error as exception:
-        assert hasattr(exception, 'metric')
+        assert isinstance(exception.args[-1], core.Metric)
         # Got a valid error as expected, return quietly
         return
 
@@ -36,11 +35,11 @@ def _expect_metric_exception(registry, expected_error):
     core.GaugeMetricFamily,
 ])
 @pytest.mark.parametrize('value,error', [
-    (None, exceptions.MetricTypeError),
-    ('', exceptions.MetricValueError),
-    ('x', exceptions.MetricValueError),
-    ([], exceptions.MetricTypeError),
-    ({}, exceptions.MetricTypeError),
+    (None, TypeError),
+    ('', ValueError),
+    ('x', ValueError),
+    ([], TypeError),
+    ({}, TypeError),
 ])
 def test_basic_metric_families(registry, MetricFamily, value, error):
     metric_family = MetricFamily(MetricFamily.__name__, 'help')
@@ -49,14 +48,14 @@ def test_basic_metric_families(registry, MetricFamily, value, error):
 
 
 @pytest.mark.parametrize('count_value,sum_value,error', [
-    (None, 0, exceptions.MetricTypeError),
-    (0, None, exceptions.MetricTypeError),
-    ('', 0, exceptions.MetricValueError),
-    (0, '', exceptions.MetricValueError),
-    ([], 0, exceptions.MetricTypeError),
-    (0, [], exceptions.MetricTypeError),
-    ({}, 0, exceptions.MetricTypeError),
-    (0, {}, exceptions.MetricTypeError),
+    (None, 0, TypeError),
+    (0, None, TypeError),
+    ('', 0, ValueError),
+    (0, '', ValueError),
+    ([], 0, TypeError),
+    (0, [], TypeError),
+    ({}, 0, TypeError),
+    (0, {}, TypeError),
 ])
 def test_summary_metric_family(registry, count_value, sum_value, error):
     metric_family = core.SummaryMetricFamily('summary', 'help')
@@ -69,14 +68,14 @@ def test_summary_metric_family(registry, count_value, sum_value, error):
     core.GaugeHistogramMetricFamily,
 ])
 @pytest.mark.parametrize('buckets,sum_value,error', [
-    ([('spam', 0), ('eggs', 0)], None, exceptions.MetricTypeError),
-    ([('spam', 0), ('eggs', None)], 0, exceptions.MetricTypeError),
-    ([('spam', 0), (None, 0)], 0, exceptions.MetricAttributeError),
-    ([('spam', None), ('eggs', 0)], 0, exceptions.MetricTypeError),
-    ([(None, 0), ('eggs', 0)], 0, exceptions.MetricAttributeError),
-    ([('spam', 0), ('eggs', 0)], '', exceptions.MetricValueError),
-    ([('spam', 0), ('eggs', '')], 0, exceptions.MetricValueError),
-    ([('spam', ''), ('eggs', 0)], 0, exceptions.MetricValueError),
+    ([('spam', 0), ('eggs', 0)], None, TypeError),
+    ([('spam', 0), ('eggs', None)], 0, TypeError),
+    ([('spam', 0), (None, 0)], 0, AttributeError),
+    ([('spam', None), ('eggs', 0)], 0, TypeError),
+    ([(None, 0), ('eggs', 0)], 0, AttributeError),
+    ([('spam', 0), ('eggs', 0)], '', ValueError),
+    ([('spam', 0), ('eggs', '')], 0, ValueError),
+    ([('spam', ''), ('eggs', 0)], 0, ValueError),
 ])
 def test_histogram_metric_families(MetricFamily, registry, buckets, sum_value, error):
     metric_family = MetricFamily(MetricFamily.__name__, 'help')
