@@ -87,29 +87,29 @@ def generate_latest(registry=REGISTRY):
 
     output = []
     for metric in registry.collect():
-        mname = metric.name
-        mtype = metric.type
-        # Munging from OpenMetrics into Prometheus format.
-        if mtype == 'counter':
-            mname = mname + '_total'
-        elif mtype == 'info':
-            mname = mname + '_info'
-            mtype = 'gauge'
-        elif mtype == 'stateset':
-            mtype = 'gauge'
-        elif mtype == 'gaugehistogram':
-            # A gauge histogram is really a gauge,
-            # but this captures the strucutre better.
-            mtype = 'histogram'
-        elif mtype == 'unknown':
-            mtype = 'untyped'
-
-        output.append('# HELP {0} {1}\n'.format(
-            mname, metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
-        output.append('# TYPE {0} {1}\n'.format(mname, mtype))
-
-        om_samples = {}
         try:
+            mname = metric.name
+            mtype = metric.type
+            # Munging from OpenMetrics into Prometheus format.
+            if mtype == 'counter':
+                mname = mname + '_total'
+            elif mtype == 'info':
+                mname = mname + '_info'
+                mtype = 'gauge'
+            elif mtype == 'stateset':
+                mtype = 'gauge'
+            elif mtype == 'gaugehistogram':
+                # A gauge histogram is really a gauge,
+                # but this captures the strucutre better.
+                mtype = 'histogram'
+            elif mtype == 'unknown':
+                mtype = 'untyped'
+
+            output.append('# HELP {0} {1}\n'.format(
+                mname, metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
+            output.append('# TYPE {0} {1}\n'.format(mname, mtype))
+
+            om_samples = {}
             for s in metric.samples:
                 for suffix in ['_created', '_gsum', '_gcount']:
                     if s.name == metric.name + suffix:
