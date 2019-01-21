@@ -7,6 +7,9 @@ import hashlib
 import os
 import sqlite3
 
+# "UPSERT syntax was added to SQLite with version 3.24.0 (2018-06-04)."
+has_upsert = (sqlite3.sqlite_version_info[:2] >= (3, 24))
+
 
 def sqlite_key(metric_name, name, labelnames, labelvalues, type, multiprocess_mode):
     """Format a key for use in the SQLite file."""
@@ -99,19 +102,37 @@ class _SqliteValue(object):
 
     def inc(self, amount):
         pid = self.pid_func()
-        self.database.execute(
-            'INSERT INTO prom_values (pid, muid, m_key, multiprocess_mode, value) VALUES (?, ?, ?, ?, ?) '
-            'ON CONFLICT (pid, muid) DO UPDATE SET value = value + ?',
-            (pid, self._muid, self._key, self.multiprocess_mode, amount, amount)
-        )
+        if has_upsert:
+            self.database.execute(
+                'INSERT INTO prom_values (pid, muid, m_key, multiprocess_mode, value) '
+                'VALUES (?, ?, ?, ?, ?) '
+                'ON CONFLICT (pid, muid) DO UPDATE SET value = value + ?',
+                (pid, self._muid, self._key, self.multiprocess_mode, amount, amount)
+            )
+        else:
+            # This is not 100% atomic.
+            cur = self.database.execute(
+                'UPDATE prom_values SET value = value + ? WHERE pid = ? AND muid = ?',
+                (amount, pid, self._muid)
+            )
+            if not cur.rowcount:
+                self.set(amount)
 
     def set(self, value):
         pid = self.pid_func()
-        self.database.execute(
-            'INSERT INTO prom_values (pid, muid, m_key, multiprocess_mode, value) VALUES (?, ?, ?, ?, ?) '
-            'ON CONFLICT (pid, muid) DO UPDATE SET value = ?',
-            (pid, self._muid, self._key, self.multiprocess_mode, value, value)
-        )
+        if has_upsert:
+            self.database.execute(
+                'INSERT INTO prom_values (pid, muid, m_key, multiprocess_mode, value) '
+                'VALUES (?, ?, ?, ?, ?) '
+                'ON CONFLICT (pid, muid) DO UPDATE SET value = ?',
+                (pid, self._muid, self._key, self.multiprocess_mode, value, value)
+            )
+        else:
+            self.database.execute(
+                'INSERT OR REPLACE INTO prom_values (pid, muid, m_key, multiprocess_mode, value) '
+                'VALUES (?, ?, ?, ?, ?)',
+                (pid, self._muid, self._key, self.multiprocess_mode, value)
+            )
 
     def get(self):
         pid = self.pid_func()
