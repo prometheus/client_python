@@ -1,5 +1,3 @@
-#!/usr/bin/python
-
 from __future__ import unicode_literals
 
 from collections import defaultdict
@@ -7,10 +5,10 @@ import glob
 import json
 import os
 
-from .metrics_core import Metric
+from ..metrics_core import Metric
 from .mmap_dict import MmapedDict
-from .samples import Sample
-from .utils import floatToGoString
+from ..samples import Sample
+from ..utils import floatToGoString
 
 
 class MultiProcessCollector(object):
