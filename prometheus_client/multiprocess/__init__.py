@@ -14,6 +14,9 @@ def MultiProcessCollector(registry, path=None):
     if multiprocess_backend == 'mmap':
         from prometheus_client.multiprocess.mmap_collector import MmapMultiProcessCollector
         return MmapMultiProcessCollector(registry=registry, path=path)
+    elif multiprocess_backend == 'sqlite':
+        from prometheus_client.multiprocess.sqlite import SqliteMultiProcessCollector
+        return SqliteMultiProcessCollector(registry=registry, path=path)
     else:
         raise NotImplementedError('unknown multiprocess backend %s' % multiprocess_backend)
 
@@ -22,6 +25,9 @@ def get_multiprocess_value_class():
     if multiprocess_backend == 'mmap':
         from prometheus_client.multiprocess.mmaped_value import MmapedValue
         return MmapedValue()
+    elif multiprocess_backend == 'sqlite':
+        from prometheus_client.multiprocess.sqlite import SqliteValue
+        return SqliteValue()
     else:
         raise NotImplementedError('unknown multiprocess backend %s' % multiprocess_backend)
 
@@ -33,5 +39,8 @@ def mark_process_dead(pid, path=None):
     if multiprocess_backend == 'mmap':
         from prometheus_client.multiprocess.mmap_utils import mmap_cleanup
         mmap_cleanup(path, pid)
+    elif multiprocess_backend == 'sqlite':
+        from prometheus_client.multiprocess.sqlite import sqlite_cleanup
+        sqlite_cleanup(path, pid)
     else:
         raise NotImplementedError('unknown multiprocess backend %s' % multiprocess_backend)
