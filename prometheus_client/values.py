@@ -31,9 +31,9 @@ def get_value_class():
     # This needs to be chosen before the first metric is constructed,
     # and as that may be in some arbitrary library the user/admin has
     # no control over we use an environment variable.
-    if 'prometheus_multiproc_dir' in os.environ:
-        from prometheus_client.multiprocess.mmaped_value import MmapedValue
-        return MmapedValue()
+    from prometheus_client.multiprocess import multiprocess_enabled, get_multiprocess_value_class
+    if multiprocess_enabled:
+        return get_multiprocess_value_class()
     else:
         return MutexValue
 

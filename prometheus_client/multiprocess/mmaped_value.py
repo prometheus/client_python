@@ -1,8 +1,7 @@
 import os
 from threading import Lock
 
-from prometheus_client.multiprocess import MmapedDict
-from prometheus_client.multiprocess.mmap_dict import mmap_key
+from prometheus_client.multiprocess.mmap_dict import MmapedDict, mmap_key
 
 
 def MmapedValue(_pidFunc=os.getpid):
