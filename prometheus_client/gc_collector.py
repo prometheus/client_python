@@ -7,9 +7,9 @@ import os
 import time
 from collections import defaultdict
 
+from .metrics import Histogram
 from .metrics_core import HistogramMetricFamily
 from .registry import REGISTRY
-from .metrics import Histogram
 from .utils import INF
 
 

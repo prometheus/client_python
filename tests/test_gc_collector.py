@@ -1,11 +1,13 @@
 from __future__ import unicode_literals
 
 import gc
+import sys
 import unittest
 
 from prometheus_client import CollectorRegistry, GCCollector
 
 
+@unittest.skipIf(sys.version_info < (3, ), "Test requires Python 3.+")
 class TestGCCollector(unittest.TestCase):
     def setUp(self):
         gc.disable()
