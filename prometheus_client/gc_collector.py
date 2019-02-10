@@ -89,7 +89,7 @@ class GCCollector(object):
         if bucket_name == GC_COLLECTOR._LATENCY:
             return Histogram.DEFAULT_BUCKETS
         _max = gc.get_threshold()[gen]
-        return [int(_max/100), int(_max/50), int(_max/10), int(_max/5), int(_max/2), _max]
+        return [int(_max / 100), int(_max / 50), int(_max / 10), int(_max / 5), int(_max / 2), _max]
 
     def collect(self):
         collected = HistogramMetricFamily(
