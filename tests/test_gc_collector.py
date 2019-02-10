@@ -1,5 +1,6 @@
 from __future__ import unicode_literals
 
+import gc
 import unittest
 
 from prometheus_client import CollectorRegistry, GCCollector
@@ -7,48 +8,74 @@ from prometheus_client import CollectorRegistry, GCCollector
 
 class TestGCCollector(unittest.TestCase):
     def setUp(self):
+        gc.disable()
+        gc.collect()
         self.registry = CollectorRegistry()
-        self.gc = _MockGC()
 
     def test_working(self):
-        collector = GCCollector(registry=self.registry, gc=self.gc)
-        self.gc.start_gc({'generation': 0})
-        self.gc.stop_gc({'generation': 0, 'collected': 10, 'uncollectable': 2})
+
+        GCCollector(registry=self.registry)
+
+        #  add targets for gc
+        a = []
+        a.append(a)
+        del a
+        b = []
+        b.append(b)
+        del b
+
+        gc.collect(0)
+        self.registry.collect()
 
         self.assertEqual(1,
                          self.registry.get_sample_value(
                              'python_gc_duration_seconds_count',
                              labels={"generation": "0"}))
+        self.assertEqual(1,
+                         self.registry.get_sample_value(
+                             'python_gc_duration_seconds_bucket',
+                             labels={"generation": "0", "le": 0.005}))
 
         self.assertEqual(1,
                          self.registry.get_sample_value(
                              'python_gc_collected_objects_count',
                              labels={"generation": "0"}))
 
-        self.assertEqual(1,
-                         self.registry.get_sample_value(
-                             'python_gc_uncollectable_objects_count',
-                             labels={"generation": "0"}))
-
-        self.assertEqual(10,
+        self.assertEqual(2,
                          self.registry.get_sample_value(
                              'python_gc_collected_objects_sum',
                              labels={"generation": "0"}))
-
-        self.assertEqual(2,
+        self.assertEqual(1,
                          self.registry.get_sample_value(
-                             'python_gc_uncollectable_objects_sum',
+                             'python_gc_collected_objects_bucket',
+                             labels={"generation": "0", "le": 7}))
+
+    def test_empty(self):
+
+        GCCollector(registry=self.registry)
+        gc.collect(0)
+        self.registry.collect()
+
+        self.assertEqual(1,
+                         self.registry.get_sample_value(
+                             'python_gc_duration_seconds_count',
+                             labels={"generation": "0"}))
+        self.assertEqual(1,
+                         self.registry.get_sample_value(
+                             'python_gc_duration_seconds_bucket',
+                             labels={"generation": "0", "le": 0.005}))
+
+        self.assertIsNone(self.registry.get_sample_value(
+                             'python_gc_collected_objects_count',
                              labels={"generation": "0"}))
 
+        self.assertIsNone(self.registry.get_sample_value(
+                             'python_gc_collected_objects_sum',
+                             labels={"generation": "0"}))
 
-class _MockGC(object):
-    def __init__(self):
-        self.callbacks = []
+        self.assertIsNone(self.registry.get_sample_value(
+                             'python_gc_collected_objects_bucket',
+                             labels={"generation": "0", "le": 7}))
 
-    def start_gc(self, info):
-        for cb in self.callbacks:
-            cb('start', info)
-
-    def stop_gc(self, info):
-        for cb in self.callbacks:
-            cb('stop', info)
+    def tearDown(self):
+        gc.enable()
