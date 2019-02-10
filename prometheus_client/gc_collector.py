@@ -7,7 +7,6 @@ import os
 import time
 from collections import defaultdict
 
-from .metrics import Histogram
 from .metrics_core import HistogramMetricFamily
 from .registry import REGISTRY
 from .utils import INF
@@ -87,9 +86,9 @@ class GCCollector(object):
     @staticmethod
     def _get_bounds(gen, bucket_name):
         if bucket_name == GC_COLLECTOR._LATENCY:
-            return Histogram.DEFAULT_BUCKETS
-        _max = gc.get_threshold()[gen]
-        return [int(_max / 100), int(_max / 50), int(_max / 10), int(_max / 5), int(_max / 2), _max]
+            return .005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0
+        _max = gc.get_threshold()[gen] * 2
+        return int(_max / 100), int(_max / 50), int(_max / 10), int(_max / 5), int(_max / 2), _max
 
     def collect(self):
         collected = HistogramMetricFamily(

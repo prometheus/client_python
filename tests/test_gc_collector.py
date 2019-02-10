@@ -55,7 +55,10 @@ class TestGCCollector(unittest.TestCase):
         self.assertEqual(1,
                          self.registry.get_sample_value(
                              'python_gc_collected_objects_bucket',
-                             labels={"generation": "0", "le": 7}))
+                             labels={
+                                 "generation": "0",
+                                 "le": gc.get_threshold()[0] * 2 / 100
+                             }))
 
     def test_empty(self):
 
