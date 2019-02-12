@@ -12,7 +12,7 @@ else:
 from prometheus_client import CollectorRegistry, GCCollector
 
 
-@unittest.skipIf(sys.version_info < (3, ), "Test requires Python 3.+")
+@unittest.skipIf(sys.version_info < (3, 4), "Test requires Python 3.4 +")
 class TestGCCollector(unittest.TestCase):
     def setUp(self):
         gc.disable()
@@ -22,6 +22,8 @@ class TestGCCollector(unittest.TestCase):
     def test_working(self):
 
         GCCollector(registry=self.registry)
+        self.registry.collect()
+        before = self.registry.get_sample_value('python_gc_collected_objects', labels={"generation": "0"})
 
         #  add targets for gc
         a = []
@@ -34,58 +36,23 @@ class TestGCCollector(unittest.TestCase):
         gc.collect(0)
         self.registry.collect()
 
-        self.assertEqual(1,
+        after = self.registry.get_sample_value('python_gc_collected_objects', labels={"generation": "0"})
+        self.assertEqual(2, after - before)
+        self.assertEqual(0,
                          self.registry.get_sample_value(
-                             'python_gc_duration_seconds_count',
+                             'python_gc_uncollectable_objects',
                              labels={"generation": "0"}))
-        self.assertEqual(1,
-                         self.registry.get_sample_value(
-                             'python_gc_duration_seconds_bucket',
-                             labels={"generation": "0", "le": 0.005}))
-
-        self.assertEqual(1,
-                         self.registry.get_sample_value(
-                             'python_gc_collected_objects_count',
-                             labels={"generation": "0"}))
-
-        self.assertEqual(2,
-                         self.registry.get_sample_value(
-                             'python_gc_collected_objects_sum',
-                             labels={"generation": "0"}))
-        self.assertEqual(1,
-                         self.registry.get_sample_value(
-                             'python_gc_collected_objects_bucket',
-                             labels={
-                                 "generation": "0",
-                                 "le": gc.get_threshold()[0] * 2 / 100
-                             }))
 
     def test_empty(self):
 
         GCCollector(registry=self.registry)
+        self.registry.collect()
+        before = self.registry.get_sample_value('python_gc_collected_objects', labels={"generation": "0"})
         gc.collect(0)
         self.registry.collect()
 
-        self.assertEqual(1,
-                         self.registry.get_sample_value(
-                             'python_gc_duration_seconds_count',
-                             labels={"generation": "0"}))
-        self.assertEqual(1,
-                         self.registry.get_sample_value(
-                             'python_gc_duration_seconds_bucket',
-                             labels={"generation": "0", "le": 0.005}))
-
-        self.assertIsNone(self.registry.get_sample_value(
-                             'python_gc_collected_objects_count',
-                             labels={"generation": "0"}))
-
-        self.assertIsNone(self.registry.get_sample_value(
-                             'python_gc_collected_objects_sum',
-                             labels={"generation": "0"}))
-
-        self.assertIsNone(self.registry.get_sample_value(
-                             'python_gc_collected_objects_bucket',
-                             labels={"generation": "0", "le": 7}))
+        after = self.registry.get_sample_value('python_gc_collected_objects', labels={"generation": "0"})
+        self.assertEqual(0, after - before)
 
     def tearDown(self):
         gc.enable()
