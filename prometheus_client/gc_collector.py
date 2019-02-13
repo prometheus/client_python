@@ -13,10 +13,6 @@ class GCCollector(object):
     """Collector for Garbage collection statistics."""
 
     def __init__(self, registry=REGISTRY):
-        # the GC collector is always disabled in multiprocess mode.
-        if 'prometheus_multiproc_dir' in os.environ:
-            return
-
         if not hasattr(gc, 'get_stats'):
             return
         registry.register(self)
