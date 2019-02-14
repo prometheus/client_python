@@ -17,7 +17,7 @@ from .utils import floatToGoString
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
     from SocketServer import ThreadingMixIn
-    from urllib2 import build_opener, Request, HTTPHandler
+    from urllib2 import build_opener, Request, HTTPHandler, HTTPSHandler
     from urllib import quote_plus
     from urlparse import parse_qs, urlparse
 except ImportError:
@@ -121,7 +121,7 @@ def generate_latest(registry=REGISTRY):
         except Exception as exception:
             exception.args = (exception.args or ('',)) + (metric,)
             raise
-                    
+
         for suffix, lines in sorted(om_samples.items()):
             output.append('# TYPE {0}{1} gauge\n'.format(metric.name, suffix))
             output.extend(lines)
@@ -238,6 +238,25 @@ def basic_auth_handler(url, method, timeout, headers, data, username=None, passw
             auth_header = b'Basic ' + auth_token
             headers.append(['Authorization', auth_header])
         default_handler(url, method, timeout, headers, data)()
+
+    return handle
+
+
+def tls_client_auth_handler(url, method, timeout, headers, data, tlscontext):
+    ''' Handler that implements TLS client certificate authenticated connections. '''
+
+    def handle():
+        request = Request(url, data=data)
+        request.get_method = lambda: method
+        for k, v in headers:
+            request.add_header(k, v)
+
+        resp = build_opener(
+            HTTPSHandler(context=tlscontext)).open(
+                request, timeout=timeout)
+        if resp.code >= 400:
+            raise IOError("error talking to pushgateway: {0} {1}".format(
+                resp.code, resp.msg))
 
     return handle
 

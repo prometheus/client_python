@@ -403,6 +403,30 @@ g.set_to_current_time()
 push_to_gateway('localhost:9091', job='batchA', registry=registry, handler=my_auth_handler)
 ```
 
+If the push gateway you are connecting to is protected with HTTPS Client Certificate Auth,
+you can use a special handler to set the TLS context.
+
+```python
+from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
+from prometheus_client.exposition import tls_client_auth_handler
+
+def my_auth_handler(url, method, timeout, headers, data):
+    context = ssl.create_default_context()
+    context.load_cert_chain(
+        certfile='pushgateway_client_cert',
+        keyfile='pushgateway_client_key')
+    context.load_verify_locations(
+        cafile='pushgateway_client_ca')
+
+    return tls_client_auth_handler(
+        url, method, timeout, headers, data, context)
+
+registry = CollectorRegistry()
+g = Gauge('job_last_success_unixtime', 'Last time a batch job successfully finished', registry=registry)
+g.set_to_current_time()
+push_to_gateway('localhost:9091', job='batchA', registry=registry, handler=my_auth_handler)
+```
+
 ## Bridges
 
 It is also possible to expose metrics to systems other than Prometheus.
