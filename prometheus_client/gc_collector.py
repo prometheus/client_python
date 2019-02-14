@@ -3,9 +3,8 @@
 from __future__ import unicode_literals
 
 import gc
-import os
 
-from .metrics_core import GaugeMetricFamily
+from .metrics_core import CounterMetricFamily
 from .registry import REGISTRY
 
 
@@ -18,18 +17,18 @@ class GCCollector(object):
         registry.register(self)
 
     def collect(self):
-        collected = GaugeMetricFamily(
-            'python_gc_collected_objects',
+        collected = CounterMetricFamily(
+            'python_gc_objects_collected',
             'Objects collected during gc',
             labels=['generation'],
         )
-        uncollectable = GaugeMetricFamily(
-            'python_gc_uncollectable_objects',
+        uncollectable = CounterMetricFamily(
+            'python_gc_objects_uncollectable',
             'Uncollectable object found during GC',
             labels=['generation'],
         )
 
-        collections = GaugeMetricFamily(
+        collections = CounterMetricFamily(
             'python_gc_collections',
             'Number of times this generation was collected',
             labels=['generation'],

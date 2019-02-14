@@ -23,7 +23,8 @@ class TestGCCollector(unittest.TestCase):
 
         GCCollector(registry=self.registry)
         self.registry.collect()
-        before = self.registry.get_sample_value('python_gc_collected_objects', labels={"generation": "0"})
+        before = self.registry.get_sample_value('python_gc_objects_collected_total',
+                                                labels={"generation": "0"})
 
         #  add targets for gc
         a = []
@@ -36,22 +37,25 @@ class TestGCCollector(unittest.TestCase):
         gc.collect(0)
         self.registry.collect()
 
-        after = self.registry.get_sample_value('python_gc_collected_objects', labels={"generation": "0"})
+        after = self.registry.get_sample_value('python_gc_objects_collected_total',
+                                               labels={"generation": "0"})
         self.assertEqual(2, after - before)
         self.assertEqual(0,
                          self.registry.get_sample_value(
-                             'python_gc_uncollectable_objects',
+                             'python_gc_objects_uncollectable_total',
                              labels={"generation": "0"}))
 
     def test_empty(self):
 
         GCCollector(registry=self.registry)
         self.registry.collect()
-        before = self.registry.get_sample_value('python_gc_collected_objects', labels={"generation": "0"})
+        before = self.registry.get_sample_value('python_gc_objects_collected_total',
+                                                labels={"generation": "0"})
         gc.collect(0)
         self.registry.collect()
 
-        after = self.registry.get_sample_value('python_gc_collected_objects', labels={"generation": "0"})
+        after = self.registry.get_sample_value('python_gc_objects_collected_total',
+                                               labels={"generation": "0"})
         self.assertEqual(0, after - before)
 
     def tearDown(self):
