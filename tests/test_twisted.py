@@ -9,7 +9,6 @@ if sys.version_info < (2, 7):
 else:
     from unittest import skipUnless
 
-
 try:
     from prometheus_client.twisted import MetricsResource
 
@@ -19,9 +18,11 @@ try:
     from twisted.internet import reactor
     from twisted.web.client import Agent
     from twisted.web.client import readBody
+
     HAVE_TWISTED = True
 except ImportError:
     from unittest import TestCase
+
     HAVE_TWISTED = False
 
 

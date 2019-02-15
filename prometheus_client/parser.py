@@ -14,7 +14,6 @@ except ImportError:
     import io as StringIO
 
 
-
 def text_string_to_metric_families(text):
     """Parse Prometheus text format from a unicode string.
 

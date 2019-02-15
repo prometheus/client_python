@@ -1,13 +1,12 @@
 #!/usr/bin/python
 
-from . import core
 from . import exposition
 from . import gc_collector
+from . import metrics
+from . import metrics_core
 from . import platform_collector
 from . import process_collector
 from . import registry
-from . import metrics_core
-from . import metrics
 
 __all__ = ['Counter', 'Gauge', 'Summary', 'Histogram', 'Info', 'Enum']
 
@@ -57,5 +56,6 @@ if __name__ == '__main__':
 
     start_http_server(8000)
     import time
+
     while True:
         time.sleep(1)

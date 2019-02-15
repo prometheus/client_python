@@ -20,7 +20,6 @@ class TestGCCollector(unittest.TestCase):
         self.registry = CollectorRegistry()
 
     def test_working(self):
-
         GCCollector(registry=self.registry)
         self.registry.collect()
         before = self.registry.get_sample_value('python_gc_objects_collected_total',
@@ -46,7 +45,6 @@ class TestGCCollector(unittest.TestCase):
                              labels={"generation": "0"}))
 
     def test_empty(self):
-
         GCCollector(registry=self.registry)
         self.registry.collect()
         before = self.registry.get_sample_value('python_gc_objects_collected_total',

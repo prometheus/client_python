@@ -22,7 +22,6 @@ def _pack_integer(data, pos, value):
     data[pos:pos + 4] = _pack_integer_func(value)
 
 
-
 class MmapedDict(object):
     """A dict of doubles, backed by an mmapped file.
 
@@ -41,7 +40,8 @@ class MmapedDict(object):
         if os.fstat(self._f.fileno()).st_size == 0:
             self._f.truncate(_INITIAL_MMAP_SIZE)
         self._capacity = os.fstat(self._f.fileno()).st_size
-        self._m = mmap.mmap(self._f.fileno(), self._capacity, access=mmap.ACCESS_READ if read_mode else mmap.ACCESS_WRITE)
+        self._m = mmap.mmap(self._f.fileno(), self._capacity,
+                            access=mmap.ACCESS_READ if read_mode else mmap.ACCESS_WRITE)
 
         self._positions = {}
         self._used = _unpack_integer(self._m, 0)[0]
