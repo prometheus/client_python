@@ -219,9 +219,17 @@ a{foo=""} 2
         self.assertEqualMetrics([metric_family], list(families))
 
     def test_label_escaping(self):
-        for escaped_val, unescaped_val in [('foo', 'foo'), ('\\foo', '\\foo'), ('\\\\foo', '\\foo'),
-                                           ('foo\\\\', 'foo\\'), ('\\\\', '\\'), ('\\n', '\n'), ('\\\\n', '\\n'),
-                                           ('\\\\\\n', '\\\n'), ('\\"', '"'), ('\\\\\\"', '\\"')]:
+        for escaped_val, unescaped_val in [
+            ('foo', 'foo'),
+            ('\\foo', '\\foo'),
+            ('\\\\foo', '\\foo'),
+            ('foo\\\\', 'foo\\'),
+            ('\\\\', '\\'),
+            ('\\n', '\n'),
+            ('\\\\n', '\\n'),
+            ('\\\\\\n', '\\\n'),
+            ('\\"', '"'),
+            ('\\\\\\"', '\\"')]:
             families = list(text_string_to_metric_families("""
 # TYPE a counter
 # HELP a help
@@ -233,9 +241,18 @@ a{foo="%s",bar="baz"} 1
             self.assertEqualMetrics([metric_family], list(families))
 
     def test_help_escaping(self):
-        for escaped_val, unescaped_val in [('foo', 'foo'), ('\\foo', '\\foo'), ('\\\\foo', '\\foo'),
-                                           ('foo\\', 'foo\\'), ('foo\\\\', 'foo\\'), ('\\n', '\n'), ('\\\\n', '\\n'),
-                                           ('\\\\\\n', '\\\n'), ('\\"', '\\"'), ('\\\\"', '\\"'), ('\\\\\\"', '\\\\"')]:
+        for escaped_val, unescaped_val in [
+            ('foo', 'foo'),
+            ('\\foo', '\\foo'),
+            ('\\\\foo', '\\foo'),
+            ('foo\\', 'foo\\'),
+            ('foo\\\\', 'foo\\'),
+            ('\\n', '\n'),
+            ('\\\\n', '\\n'),
+            ('\\\\\\n', '\\\n'),
+            ('\\"', '\\"'),
+            ('\\\\"', '\\"'),
+            ('\\\\\\"', '\\\\"')]:
             families = list(text_string_to_metric_families("""
 # TYPE a counter
 # HELP a %s
