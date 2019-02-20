@@ -6,7 +6,7 @@ import shutil
 import sys
 import tempfile
 
-from prometheus_client import core, mmap_dict, values
+from prometheus_client import mmap_dict, values
 from prometheus_client.core import (
     CollectorRegistry, Counter, Gauge, Histogram, Sample, Summary,
 )
@@ -20,8 +20,6 @@ if sys.version_info < (2, 7):
     import unittest2 as unittest
 else:
     import unittest
-
-
 
 
 class TestMultiProcess(unittest.TestCase):
@@ -164,7 +162,6 @@ class TestMultiProcess(unittest.TestCase):
         pid = 1
         c3 = Counter('c3', 'c3', registry=None)
         self.assertEqual(files(), ['counter_0.db', 'counter_1.db'])
-
 
     @unittest.skipIf(sys.version_info < (2, 7), "Test requires Python 2.7+.")
     def test_collect(self):

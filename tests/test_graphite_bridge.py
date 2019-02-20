@@ -10,7 +10,6 @@ except ImportError:
     import socketserver as SocketServer
 
 
-
 def fake_timer():
     return 1434898897.5
 

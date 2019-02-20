@@ -7,7 +7,7 @@ from .mmap_dict import mmap_key, MmapedDict
 
 
 class MutexValue(object):
-    '''A float protected by a mutex.'''
+    """A float protected by a mutex."""
 
     _multiprocess = False
 
@@ -38,7 +38,7 @@ def MultiProcessValue(_pidFunc=os.getpid):
     lock = Lock()
 
     class MmapedValue(object):
-        '''A float protected by a mutex backed by a per-process mmaped file.'''
+        """A float protected by a mutex backed by a per-process mmaped file."""
 
         _multiprocess = True
 

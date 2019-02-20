@@ -19,8 +19,6 @@ except ImportError:
     import unittest
 
 
-
-
 class TestCounter(unittest.TestCase):
     def setUp(self):
         self.registry = CollectorRegistry()
@@ -221,7 +219,7 @@ class TestSummary(unittest.TestCase):
         self.assertEqual(iterations, self.registry.get_sample_value('s_count'))
 
         # Arithmetic series with d == a_1
-        total_expected_duration = sleep * (iterations**2 + iterations) / 2
+        total_expected_duration = sleep * (iterations ** 2 + iterations) / 2
         rounding_coefficient = 0.9
         total_expected_duration *= rounding_coefficient
         self.assertLess(total_expected_duration, self.registry.get_sample_value('s_sum'))
@@ -428,6 +426,7 @@ class TestMetricWrapper(unittest.TestCase):
     def test_non_string_labels_raises(self):
         class Test(object):
             __str__ = None
+
         self.assertRaises(TypeError, self.counter.labels, Test())
         self.assertRaises(TypeError, self.counter.labels, l=Test())
 
@@ -486,6 +485,7 @@ class TestMetricFamilies(unittest.TestCase):
         class CustomCollector(object):
             def collect(self):
                 return [metric_family]
+
         self.registry.register(CustomCollector())
 
     def test_untyped(self):
@@ -675,6 +675,7 @@ class TestCollectorRegistry(unittest.TestCase):
         class CustomCollector(object):
             def collect(self):
                 return [metric_family]
+
         registry.register(CustomCollector())
 
     def test_autodescribe_disabled_by_default(self):

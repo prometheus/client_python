@@ -17,7 +17,6 @@ else:
     import unittest
 
 
-
 class TestParse(unittest.TestCase):
     def assertEqualMetrics(self, first, second, msg=None):
         super(TestParse, self).assertEqual(first, second, msg)
@@ -71,7 +70,8 @@ a_bucket{le="+Inf"} 3
 a_count 3
 a_sum 2
 """)
-        self.assertEqualMetrics([HistogramMetricFamily("a", "help", sum_value=2, buckets=[("1", 0.0), ("+Inf", 3.0)])], list(families))
+        self.assertEqualMetrics([HistogramMetricFamily("a", "help", sum_value=2, buckets=[("1", 0.0), ("+Inf", 3.0)])],
+                                list(families))
 
     def test_no_metadata(self):
         families = text_string_to_metric_families("""a 1
@@ -220,16 +220,16 @@ a{foo=""} 2
 
     def test_label_escaping(self):
         for escaped_val, unescaped_val in [
-                ('foo', 'foo'),
-                ('\\foo', '\\foo'),
-                ('\\\\foo', '\\foo'),
-                ('foo\\\\', 'foo\\'),
-                ('\\\\', '\\'),
-                ('\\n', '\n'),
-                ('\\\\n', '\\n'),
-                ('\\\\\\n', '\\\n'),
-                ('\\"', '"'),
-                ('\\\\\\"', '\\"')]:
+            ('foo', 'foo'),
+            ('\\foo', '\\foo'),
+            ('\\\\foo', '\\foo'),
+            ('foo\\\\', 'foo\\'),
+            ('\\\\', '\\'),
+            ('\\n', '\n'),
+            ('\\\\n', '\\n'),
+            ('\\\\\\n', '\\\n'),
+            ('\\"', '"'),
+            ('\\\\\\"', '\\"')]:
             families = list(text_string_to_metric_families("""
 # TYPE a counter
 # HELP a help
@@ -242,17 +242,17 @@ a{foo="%s",bar="baz"} 1
 
     def test_help_escaping(self):
         for escaped_val, unescaped_val in [
-                ('foo', 'foo'),
-                ('\\foo', '\\foo'),
-                ('\\\\foo', '\\foo'),
-                ('foo\\', 'foo\\'),
-                ('foo\\\\', 'foo\\'),
-                ('\\n', '\n'),
-                ('\\\\n', '\\n'),
-                ('\\\\\\n', '\\\n'),
-                ('\\"', '\\"'),
-                ('\\\\"', '\\"'),
-                ('\\\\\\"', '\\\\"')]:
+            ('foo', 'foo'),
+            ('\\foo', '\\foo'),
+            ('\\\\foo', '\\foo'),
+            ('foo\\', 'foo\\'),
+            ('foo\\\\', 'foo\\'),
+            ('\\n', '\n'),
+            ('\\\\n', '\\n'),
+            ('\\\\\\n', '\\\n'),
+            ('\\"', '\\"'),
+            ('\\\\"', '\\"'),
+            ('\\\\\\"', '\\\\"')]:
             families = list(text_string_to_metric_families("""
 # TYPE a counter
 # HELP a %s
