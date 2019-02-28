@@ -12,7 +12,7 @@ else:
 
 from prometheus_client import CollectorRegistry, GCCollector
 
-SKIP = sys.version_info < (3, 4) or platform.python_implementation() == "PyPy"
+SKIP = sys.version_info < (3, 4) or platform.python_implementation() != "CPython"
 
 
 @unittest.skipIf(SKIP, "Test requires CPython 3.4 +")

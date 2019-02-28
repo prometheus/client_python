@@ -13,7 +13,7 @@ class GCCollector(object):
     """Collector for Garbage collection statistics."""
 
     def __init__(self, registry=REGISTRY):
-        if not hasattr(gc, 'get_stats') or platform.python_implementation() == 'PyPy':
+        if not hasattr(gc, 'get_stats') or platform.python_implementation() != 'CPython':
             return
         registry.register(self)
 
