@@ -3,6 +3,7 @@
 from __future__ import unicode_literals
 
 import gc
+import platform
 
 from .metrics_core import CounterMetricFamily
 from .registry import REGISTRY
@@ -12,7 +13,7 @@ class GCCollector(object):
     """Collector for Garbage collection statistics."""
 
     def __init__(self, registry=REGISTRY):
-        if not hasattr(gc, 'get_stats'):
+        if not hasattr(gc, 'get_stats') or platform.python_implementation() != 'CPython':
             return
         registry.register(self)
 
