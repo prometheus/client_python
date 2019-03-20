@@ -12,13 +12,13 @@ RESERVED_METRIC_LABEL_NAME_RE = re.compile(r'^__.*$')
 
 
 class Metric(object):
-    '''A single metric family and its samples.
+    """A single metric family and its samples.
 
     This is intended only for internal use by the instrumentation client.
 
     Custom collectors should use GaugeMetricFamily, CounterMetricFamily
     and SummaryMetricFamily instead.
-    '''
+    """
 
     def __init__(self, name, documentation, typ, unit=''):
         if unit and not name.endswith("_" + unit):
@@ -36,9 +36,9 @@ class Metric(object):
         self.samples = []
 
     def add_sample(self, name, labels, value, timestamp=None, exemplar=None):
-        '''Add a sample to the metric.
+        """Add a sample to the metric.
 
-        Internal-only, do not use.'''
+        Internal-only, do not use."""
         self.samples.append(Sample(name, labels, value, timestamp, exemplar))
 
     def __eq__(self, other):
@@ -60,9 +60,9 @@ class Metric(object):
 
 
 class UnknownMetricFamily(Metric):
-    '''A single unknwon metric and its samples.
+    """A single unknwon metric and its samples.
     For use by custom collectors.
-    '''
+    """
 
     def __init__(self, name, documentation, value=None, labels=None, unit=''):
         Metric.__init__(self, name, documentation, 'unknown', unit)
@@ -75,11 +75,11 @@ class UnknownMetricFamily(Metric):
             self.add_metric([], value)
 
     def add_metric(self, labels, value, timestamp=None):
-        '''Add a metric to the metric family.
+        """Add a metric to the metric family.
         Args:
         labels: A list of label values
         value: The value of the metric.
-        '''
+        """
         self.samples.append(Sample(self.name, dict(zip(self._labelnames, labels)), value, timestamp))
 
 
@@ -88,10 +88,10 @@ UntypedMetricFamily = UnknownMetricFamily
 
 
 class CounterMetricFamily(Metric):
-    '''A single counter and its samples.
+    """A single counter and its samples.
 
     For use by custom collectors.
-    '''
+    """
 
     def __init__(self, name, documentation, value=None, labels=None, created=None, unit=''):
         # Glue code for pre-OpenMetrics metrics.
@@ -107,23 +107,23 @@ class CounterMetricFamily(Metric):
             self.add_metric([], value, created)
 
     def add_metric(self, labels, value, created=None, timestamp=None):
-        '''Add a metric to the metric family.
+        """Add a metric to the metric family.
 
         Args:
           labels: A list of label values
           value: The value of the metric
           created: Optional unix timestamp the child was created at.
-        '''
+        """
         self.samples.append(Sample(self.name + '_total', dict(zip(self._labelnames, labels)), value, timestamp))
         if created is not None:
             self.samples.append(Sample(self.name + '_created', dict(zip(self._labelnames, labels)), created, timestamp))
 
 
 class GaugeMetricFamily(Metric):
-    '''A single gauge and its samples.
+    """A single gauge and its samples.
 
     For use by custom collectors.
-    '''
+    """
 
     def __init__(self, name, documentation, value=None, labels=None, unit=''):
         Metric.__init__(self, name, documentation, 'gauge', unit)
@@ -136,20 +136,20 @@ class GaugeMetricFamily(Metric):
             self.add_metric([], value)
 
     def add_metric(self, labels, value, timestamp=None):
-        '''Add a metric to the metric family.
+        """Add a metric to the metric family.
 
         Args:
           labels: A list of label values
           value: A float
-        '''
+        """
         self.samples.append(Sample(self.name, dict(zip(self._labelnames, labels)), value, timestamp))
 
 
 class SummaryMetricFamily(Metric):
-    '''A single summary and its samples.
+    """A single summary and its samples.
 
     For use by custom collectors.
-    '''
+    """
 
     def __init__(self, name, documentation, count_value=None, sum_value=None, labels=None, unit=''):
         Metric.__init__(self, name, documentation, 'summary', unit)
@@ -164,22 +164,22 @@ class SummaryMetricFamily(Metric):
             self.add_metric([], count_value, sum_value)
 
     def add_metric(self, labels, count_value, sum_value, timestamp=None):
-        '''Add a metric to the metric family.
+        """Add a metric to the metric family.
 
         Args:
           labels: A list of label values
           count_value: The count value of the metric.
           sum_value: The sum value of the metric.
-        '''
+        """
         self.samples.append(Sample(self.name + '_count', dict(zip(self._labelnames, labels)), count_value, timestamp))
         self.samples.append(Sample(self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value, timestamp))
 
 
 class HistogramMetricFamily(Metric):
-    '''A single histogram and its samples.
+    """A single histogram and its samples.
 
     For use by custom collectors.
-    '''
+    """
 
     def __init__(self, name, documentation, buckets=None, sum_value=None, labels=None, unit=''):
         Metric.__init__(self, name, documentation, 'histogram', unit)
@@ -194,7 +194,7 @@ class HistogramMetricFamily(Metric):
             self.add_metric([], buckets, sum_value)
 
     def add_metric(self, labels, buckets, sum_value, timestamp=None):
-        '''Add a metric to the metric family.
+        """Add a metric to the metric family.
 
         Args:
           labels: A list of label values
@@ -203,7 +203,7 @@ class HistogramMetricFamily(Metric):
               or a triple of bucket name, value, and exemplar.
               The buckets must be sorted, and +Inf present.
           sum_value: The sum value of the metric.
-        '''
+        """
         for b in buckets:
             bucket, value = b[:2]
             exemplar = None
@@ -224,10 +224,10 @@ class HistogramMetricFamily(Metric):
 
 
 class GaugeHistogramMetricFamily(Metric):
-    '''A single gauge histogram and its samples.
+    """A single gauge histogram and its samples.
 
     For use by custom collectors.
-    '''
+    """
 
     def __init__(self, name, documentation, buckets=None, gsum_value=None, labels=None, unit=''):
         Metric.__init__(self, name, documentation, 'gaugehistogram', unit)
@@ -240,14 +240,14 @@ class GaugeHistogramMetricFamily(Metric):
             self.add_metric([], buckets, gsum_value)
 
     def add_metric(self, labels, buckets, gsum_value, timestamp=None):
-        '''Add a metric to the metric family.
+        """Add a metric to the metric family.
 
         Args:
           labels: A list of label values
           buckets: A list of pairs of bucket names and values.
               The buckets must be sorted, and +Inf present.
           gsum_value: The sum value of the metric.
-        '''
+        """
         for bucket, value in buckets:
             self.samples.append(Sample(
                 self.name + '_bucket',
@@ -261,10 +261,10 @@ class GaugeHistogramMetricFamily(Metric):
 
 
 class InfoMetricFamily(Metric):
-    '''A single info and its samples.
+    """A single info and its samples.
 
     For use by custom collectors.
-    '''
+    """
 
     def __init__(self, name, documentation, value=None, labels=None):
         Metric.__init__(self, name, documentation, 'info')
@@ -277,12 +277,12 @@ class InfoMetricFamily(Metric):
             self.add_metric([], value)
 
     def add_metric(self, labels, value, timestamp=None):
-        '''Add a metric to the metric family.
+        """Add a metric to the metric family.
 
         Args:
           labels: A list of label values
           value: A dict of labels
-        '''
+        """
         self.samples.append(Sample(
             self.name + '_info',
             dict(dict(zip(self._labelnames, labels)), **value),
@@ -292,10 +292,10 @@ class InfoMetricFamily(Metric):
 
 
 class StateSetMetricFamily(Metric):
-    '''A single stateset and its samples.
+    """A single stateset and its samples.
 
     For use by custom collectors.
-    '''
+    """
 
     def __init__(self, name, documentation, value=None, labels=None):
         Metric.__init__(self, name, documentation, 'stateset')
@@ -308,12 +308,12 @@ class StateSetMetricFamily(Metric):
             self.add_metric([], value)
 
     def add_metric(self, labels, value, timestamp=None):
-        '''Add a metric to the metric family.
+        """Add a metric to the metric family.
 
         Args:
           labels: A list of label values
           value: A dict of string state names to booleans
-        '''
+        """
         labels = tuple(labels)
         for state, enabled in sorted(value.items()):
             v = (1 if enabled else 0)

@@ -2,6 +2,7 @@ from __future__ import unicode_literals
 
 import gc
 import sys
+import platform
 
 if sys.version_info < (2, 7):
     # We need the skip decorators from unittest2 on Python 2.6.
@@ -11,8 +12,10 @@ else:
 
 from prometheus_client import CollectorRegistry, GCCollector
 
+SKIP = sys.version_info < (3, 4) or platform.python_implementation() != "CPython"
 
-@unittest.skipIf(sys.version_info < (3, 4), "Test requires Python 3.4 +")
+
+@unittest.skipIf(SKIP, "Test requires CPython 3.4 +")
 class TestGCCollector(unittest.TestCase):
     def setUp(self):
         gc.disable()
@@ -20,7 +23,6 @@ class TestGCCollector(unittest.TestCase):
         self.registry = CollectorRegistry()
 
     def test_working(self):
-
         GCCollector(registry=self.registry)
         self.registry.collect()
         before = self.registry.get_sample_value('python_gc_objects_collected_total',
@@ -46,7 +48,6 @@ class TestGCCollector(unittest.TestCase):
                              labels={"generation": "0"}))
 
     def test_empty(self):
-
         GCCollector(registry=self.registry)
         self.registry.collect()
         before = self.registry.get_sample_value('python_gc_objects_collected_total',

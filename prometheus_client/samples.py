@@ -2,7 +2,7 @@ from collections import namedtuple
 
 
 class Timestamp(object):
-    '''A nanosecond-resolution timestamp.'''
+    """A nanosecond-resolution timestamp."""
 
     def __init__(self, sec, nsec):
         if nsec < 0 or nsec >= 1e9:

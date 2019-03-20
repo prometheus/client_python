@@ -45,6 +45,7 @@ __version__ = '4.0.10'
 if sys.version_info >= (3,):
     from inspect import getfullargspec
 
+
     def get_init(cls):
         return cls.__init__
 else:
@@ -64,6 +65,7 @@ else:
             yield self.defaults
 
         getargspec = inspect.getargspec
+
 
     def get_init(cls):
         return cls.__init__.__func__
@@ -246,7 +248,7 @@ def decorator(caller, _func=None):
     if inspect.isclass(caller):
         name = caller.__name__.lower()
         doc = 'decorator(%s) converts functions/generators into ' \
-            'factories of %s objects' % (caller.__name__, caller.__name__)
+              'factories of %s objects' % (caller.__name__, caller.__name__)
     elif inspect.isfunction(caller):
         if caller.__name__ == '<lambda>':
             name = '_lambda_'
@@ -284,12 +286,16 @@ n_args = len(init.args)
 if n_args == 2 and not init.varargs:  # (self, genobj) Python 2.7
     def __init__(self, g, *a, **k):
         return _GeneratorContextManager.__init__(self, g(*a, **k))
+
+
     ContextManager.__init__ = __init__
 elif n_args == 2 and init.varargs:  # (self, gen, *a, **k) Python 3.4
     pass
 elif n_args == 4:  # (self, gen, args, kwds) Python 3.5
     def __init__(self, g, *a, **k):
         return _GeneratorContextManager.__init__(self, g, a, k)
+
+
     ContextManager.__init__ = __init__
 
 contextmanager = decorator(ContextManager)
@@ -380,6 +386,7 @@ def dispatch_on(*dispatch_args):
                 check(getfullargspec(f).args, operator.lt, ' in ' + f.__name__)
                 typemap[types] = f
                 return f
+
             return dec
 
         def dispatch_info(*types):

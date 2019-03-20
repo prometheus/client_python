@@ -15,7 +15,6 @@ except ImportError:
     import io as StringIO
 
 
-
 def text_string_to_metric_families(text):
     """Parse Openmetrics text format from a unicode string.
 
@@ -438,9 +437,11 @@ def text_fd_to_metric_families(fd):
                 raise ValueError("Info samples can only have value one: " + line)
             if typ == 'summary' and name == sample.name and sample.value < 0:
                 raise ValueError("Quantile values cannot be negative: " + line)
-            if sample.name[len(name):] in ['_total', '_sum', '_count', '_bucket', '_gcount', '_gsum'] and math.isnan(sample.value):
+            if sample.name[len(name):] in ['_total', '_sum', '_count', '_bucket', '_gcount', '_gsum'] and math.isnan(
+                    sample.value):
                 raise ValueError("Counter-like samples cannot be NaN: " + line)
-            if sample.name[len(name):] in ['_total', '_sum', '_count', '_bucket', '_gcount', '_gsum'] and sample.value < 0:
+            if sample.name[len(name):] in ['_total', '_sum', '_count', '_bucket', '_gcount',
+                                           '_gsum'] and sample.value < 0:
                 raise ValueError("Counter-like samples cannot be negative: " + line)
             if sample.exemplar and not (
                     typ in ['histogram', 'gaugehistogram']
