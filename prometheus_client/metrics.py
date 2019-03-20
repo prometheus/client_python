@@ -165,6 +165,9 @@ class MetricWrapperBase(object):
         if len(labelvalues) != len(self._labelnames):
             raise ValueError('Incorrect label count (expected %d, got %s)' % (len(self._labelnames), labelvalues))
         labelvalues = tuple(unicode(l) for l in labelvalues)
+
+        if labelvalues not in self._metrics:
+            raise ValueError('The label value tuple not exists')
         with self._lock:
             print(labelvalues)
             print(self._metrics)
