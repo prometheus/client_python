@@ -166,7 +166,10 @@ class MetricWrapperBase(object):
             raise ValueError('Incorrect label count (expected %d, got %s)' % (len(self._labelnames), labelvalues))
         labelvalues = tuple(unicode(l) for l in labelvalues)
         with self._lock:
+            print(labelvalues)
+            print(self._metrics)
             del self._metrics[labelvalues]
+
 
     def _samples(self):
         if self._is_parent():
