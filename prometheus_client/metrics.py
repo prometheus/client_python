@@ -167,7 +167,8 @@ class MetricWrapperBase(object):
         labelvalues = tuple(unicode(l) for l in labelvalues)
 
         if labelvalues not in self._metrics:
-            raise ValueError('The label value tuple not exists')
+            print('The label value tuple not exists')
+            return
         with self._lock:
             print(labelvalues)
             print(self._metrics)
