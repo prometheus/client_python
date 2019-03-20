@@ -5,12 +5,12 @@ from .metrics_core import Metric
 
 
 class CollectorRegistry(object):
-    '''Metric collector registry.
+    """Metric collector registry.
 
     Collectors must have a no-argument method 'collect' that returns a list of
     Metric objects. The returned metrics should be consistent with the Prometheus
     exposition formats.
-    '''
+    """
 
     def __init__(self, auto_describe=False):
         self._collector_to_names = {}
@@ -19,7 +19,7 @@ class CollectorRegistry(object):
         self._lock = Lock()
 
     def register(self, collector):
-        '''Add a collector to the registry.'''
+        """Add a collector to the registry."""
         with self._lock:
             names = self._get_names(collector)
             duplicates = set(self._names_to_collectors).intersection(names)
@@ -32,14 +32,14 @@ class CollectorRegistry(object):
             self._collector_to_names[collector] = names
 
     def unregister(self, collector):
-        '''Remove a collector from the registry.'''
+        """Remove a collector from the registry."""
         with self._lock:
             for name in self._collector_to_names[collector]:
                 del self._names_to_collectors[name]
             del self._collector_to_names[collector]
 
     def _get_names(self, collector):
-        '''Get names of timeseries the collector produces.'''
+        """Get names of timeseries the collector produces."""
         desc_func = None
         # If there's a describe function, use it.
         try:
@@ -67,7 +67,7 @@ class CollectorRegistry(object):
         return result
 
     def collect(self):
-        '''Yields metrics from the collectors in the registry.'''
+        """Yields metrics from the collectors in the registry."""
         collectors = None
         with self._lock:
             collectors = copy.copy(self._collector_to_names)
@@ -76,7 +76,7 @@ class CollectorRegistry(object):
                 yield metric
 
     def restricted_registry(self, names):
-        '''Returns object that only collects some metrics.
+        """Returns object that only collects some metrics.
 
         Returns an object which upon collect() will return
         only samples with the given names.
@@ -84,7 +84,7 @@ class CollectorRegistry(object):
         Intended usage is:
             generate_latest(REGISTRY.restricted_registry(['a_timeseries']))
 
-        Experimental.'''
+        Experimental."""
         names = set(names)
         collectors = set()
         with self._lock:
@@ -107,10 +107,10 @@ class CollectorRegistry(object):
         return RestrictedRegistry()
 
     def get_sample_value(self, name, labels=None):
-        '''Returns the sample value, or None if not found.
+        """Returns the sample value, or None if not found.
 
         This is inefficient, and intended only for use in unittests.
-        '''
+        """
         if labels is None:
             labels = {}
         for metric in self.collect():

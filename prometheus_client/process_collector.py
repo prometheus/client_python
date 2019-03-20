@@ -9,6 +9,7 @@ from .registry import REGISTRY
 
 try:
     import resource
+
     _PAGESIZE = resource.getpagesize()
 except ImportError:
     # Not Unix
@@ -59,18 +60,18 @@ class ProcessCollector(object):
                 parts = (stat.read().split(b')')[-1].split())
 
             vmem = GaugeMetricFamily(self._prefix + 'virtual_memory_bytes',
-                                          'Virtual memory size in bytes.', value=float(parts[20]))
+                                     'Virtual memory size in bytes.', value=float(parts[20]))
             rss = GaugeMetricFamily(self._prefix + 'resident_memory_bytes', 'Resident memory size in bytes.',
-                                         value=float(parts[21]) * _PAGESIZE)
+                                    value=float(parts[21]) * _PAGESIZE)
             start_time_secs = float(parts[19]) / self._ticks
             start_time = GaugeMetricFamily(self._prefix + 'start_time_seconds',
-                                                'Start time of the process since unix epoch in seconds.',
-                                                value=start_time_secs + self._btime)
+                                           'Start time of the process since unix epoch in seconds.',
+                                           value=start_time_secs + self._btime)
             utime = float(parts[11]) / self._ticks
             stime = float(parts[12]) / self._ticks
             cpu = CounterMetricFamily(self._prefix + 'cpu_seconds_total',
-                                           'Total user and system CPU time spent in seconds.',
-                                           value=utime + stime)
+                                      'Total user and system CPU time spent in seconds.',
+                                      value=utime + stime)
             result.extend([vmem, rss, start_time, cpu])
         except IOError:
             pass
@@ -80,12 +81,12 @@ class ProcessCollector(object):
                 for line in limits:
                     if line.startswith(b'Max open file'):
                         max_fds = GaugeMetricFamily(self._prefix + 'max_fds',
-                                                         'Maximum number of open file descriptors.',
-                                                         value=float(line.split()[3]))
+                                                    'Maximum number of open file descriptors.',
+                                                    value=float(line.split()[3]))
                         break
             open_fds = GaugeMetricFamily(self._prefix + 'open_fds',
-                                              'Number of open file descriptors.',
-                                              len(os.listdir(os.path.join(pid, 'fd'))))
+                                         'Number of open file descriptors.',
+                                         len(os.listdir(os.path.join(pid, 'fd'))))
             result.extend([open_fds, max_fds])
         except (IOError, OSError):
             pass

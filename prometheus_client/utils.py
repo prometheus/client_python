@@ -18,6 +18,6 @@ def floatToGoString(d):
         # Go switches to exponents sooner than Python.
         # We only need to care about positive values for le/quantile.
         if d > 0 and dot > 6:
-            mantissa = '{0}.{1}{2}'.format(s[0], s[1:dot], s[dot+1:]).rstrip('0.')
-            return '{0}e+0{1}'.format(mantissa, dot-1)
+            mantissa = '{0}.{1}{2}'.format(s[0], s[1:dot], s[dot + 1:]).rstrip('0.')
+            return '{0}e+0{1}'.format(mantissa, dot - 1)
         return s

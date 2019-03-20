@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 from ..utils import floatToGoString
 
 CONTENT_TYPE_LATEST = str('application/openmetrics-text; version=0.0.1; charset=utf-8')
-'''Content type of the latest OpenMetrics text format'''
+"""Content type of the latest OpenMetrics text format"""
 
 
 def generate_latest(registry):
@@ -23,8 +23,8 @@ def generate_latest(registry):
                 if s.labels:
                     labelstr = '{{{0}}}'.format(','.join(
                         ['{0}="{1}"'.format(
-                         k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
-                         for k, v in sorted(s.labels.items())]))
+                            k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
+                            for k, v in sorted(s.labels.items())]))
                 else:
                     labelstr = ''
                 if s.exemplar:
@@ -32,8 +32,8 @@ def generate_latest(registry):
                         raise ValueError("Metric {0} has exemplars, but is not a histogram bucket".format(metric.name))
                     labels = '{{{0}}}'.format(','.join(
                         ['{0}="{1}"'.format(
-                         k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
-                         for k, v in sorted(s.exemplar.labels.items())]))
+                            k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
+                            for k, v in sorted(s.exemplar.labels.items())]))
                     if s.exemplar.timestamp is not None:
                         exemplarstr = ' # {0} {1} {2}'.format(
                             labels,
@@ -60,6 +60,6 @@ def generate_latest(registry):
         except Exception as exception:
             exception.args = (exception.args or ('',)) + (metric,)
             raise
-                    
+
     output.append('# EOF\n')
     return ''.join(output).encode('utf-8')

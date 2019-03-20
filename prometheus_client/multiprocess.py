@@ -25,11 +25,8 @@ class MultiProcessCollector(object):
         if registry:
             registry.register(self)
 
-    def collect(self):
-        files = glob.glob(os.path.join(self._path, '*.db'))
-        return self.merge(files, accumulate=True)
-
-    def merge(self, files, accumulate=True):
+    @staticmethod
+    def merge(files, accumulate=True):
         """Merge metrics from given mmap files.
 
         By default, histograms are accumulated, as per prometheus wire format.
@@ -53,7 +50,7 @@ class MultiProcessCollector(object):
                 if typ == 'gauge':
                     pid = parts[2][:-3]
                     metric._multiprocess_mode = parts[1]
-                    metric.add_sample(name, labels_key + (('pid', pid), ), value)
+                    metric.add_sample(name, labels_key + (('pid', pid),), value)
                 else:
                     # The duplicates and labels are fixed in the next for.
                     metric.add_sample(name, labels_key, value)
@@ -102,7 +99,7 @@ class MultiProcessCollector(object):
                     for bucket, value in sorted(values.items()):
                         sample_key = (
                             metric.name + '_bucket',
-                            labels + (('le', floatToGoString(bucket)), ),
+                            labels + (('le', floatToGoString(bucket)),),
                         )
                         if accumulate:
                             acc += value
@@ -113,8 +110,12 @@ class MultiProcessCollector(object):
                         samples[(metric.name + '_count', labels)] = acc
 
             # Convert to correct sample format.
-            metric.samples = [Sample(name, dict(labels), value) for (name, labels), value in samples.items()]
+            metric.samples = [Sample(name_, dict(labels), value) for (name_, labels), value in samples.items()]
         return metrics.values()
+
+    def collect(self):
+        files = glob.glob(os.path.join(self._path, '*.db'))
+        return self.merge(files, accumulate=True)
 
 
 def mark_process_dead(pid, path=None):

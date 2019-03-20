@@ -55,7 +55,7 @@ class MetricWrapperBase(object):
         return not self._labelnames or (self._labelnames and self._labelvalues)
 
     def _is_parent(self):
-        return (self._labelnames and not self._labelvalues)
+        return self._labelnames and not self._labelvalues
 
     def _get_metric(self):
         return Metric(self._name, self._documentation, self._type, self._unit)
@@ -70,15 +70,15 @@ class MetricWrapperBase(object):
         return [metric]
 
     def __init__(self,
-        name,
-        documentation,
-        labelnames=(),
-        namespace='',
-        subsystem='',
-        unit='',
-        registry=REGISTRY,
-        labelvalues=None,
-    ):
+                 name,
+                 documentation,
+                 labelnames=(),
+                 namespace='',
+                 subsystem='',
+                 unit='',
+                 registry=REGISTRY,
+                 labelvalues=None,
+                 ):
         self._name = _build_full_name(self._type, name, namespace, subsystem, unit)
         self._labelnames = _validate_labelnames(self, labelnames)
         self._labelvalues = tuple(labelvalues or ())
@@ -103,7 +103,7 @@ class MetricWrapperBase(object):
                 registry.register(self)
 
     def labels(self, *labelvalues, **labelkwargs):
-        '''Return the child for the given labelset.
+        """Return the child for the given labelset.
 
         All metrics can have labels, allowing grouping of related time series.
         Taking a counter as an example:
@@ -124,7 +124,7 @@ class MetricWrapperBase(object):
 
         See the best practices on [naming](http://prometheus.io/docs/practices/naming/)
         and [labels](http://prometheus.io/docs/practices/instrumentation/#use-labels).
-        '''
+        """
         if not self._labelnames:
             raise ValueError('No label names were set when constructing %s' % self)
 
@@ -161,7 +161,7 @@ class MetricWrapperBase(object):
         if not self._labelnames:
             raise ValueError('No label names were set when constructing %s' % self)
 
-        '''Remove the given labelset from the metric.'''
+        """Remove the given labelset from the metric."""
         if len(labelvalues) != len(self._labelnames):
             raise ValueError('Incorrect label count (expected %d, got %s)' % (len(self._labelnames), labelvalues))
         labelvalues = tuple(unicode(l) for l in labelvalues)
@@ -198,7 +198,7 @@ class MetricWrapperBase(object):
 
 
 class Counter(MetricWrapperBase):
-    '''A Counter tracks counts of events or running totals.
+    """A Counter tracks counts of events or running totals.
 
     Example use cases for Counters:
     - Number of requests processed
@@ -228,26 +228,27 @@ class Counter(MetricWrapperBase):
         # Count only one type of exception
         with c.count_exceptions(ValueError):
             pass
-    '''
+    """
     _type = 'counter'
 
     def _metric_init(self):
-        self._value = values.ValueClass(self._type, self._name, self._name + '_total', self._labelnames, self._labelvalues)
+        self._value = values.ValueClass(self._type, self._name, self._name + '_total', self._labelnames,
+                                        self._labelvalues)
         self._created = time.time()
 
     def inc(self, amount=1):
-        '''Increment counter by the given amount.'''
+        """Increment counter by the given amount."""
         if amount < 0:
             raise ValueError('Counters can only be incremented by non-negative amounts.')
         self._value.inc(amount)
 
     def count_exceptions(self, exception=Exception):
-        '''Count exceptions in a block of code or function.
+        """Count exceptions in a block of code or function.
 
         Can be used as a function decorator or context manager.
         Increments the counter when an exception of the given
         type is raised up out of the code.
-        '''
+        """
         return ExceptionCounter(self, exception)
 
     def _child_samples(self):
@@ -258,7 +259,7 @@ class Counter(MetricWrapperBase):
 
 
 class Gauge(MetricWrapperBase):
-    '''Gauge metric, to report instantaneous values.
+    """Gauge metric, to report instantaneous values.
 
      Examples of Gauges include:
         - Inprogress requests
@@ -293,22 +294,21 @@ class Gauge(MetricWrapperBase):
         d = Gauge('data_objects', 'Number of objects')
         my_dict = {}
         d.set_function(lambda: len(my_dict))
-    '''
+    """
     _type = 'gauge'
     _MULTIPROC_MODES = frozenset(('min', 'max', 'livesum', 'liveall', 'all'))
 
-
     def __init__(self,
-        name,
-        documentation,
-        labelnames=(),
-        namespace='',
-        subsystem='',
-        unit='',
-        registry=REGISTRY,
-        labelvalues=None,
-        multiprocess_mode='all',
-    ):
+                 name,
+                 documentation,
+                 labelnames=(),
+                 namespace='',
+                 subsystem='',
+                 unit='',
+                 registry=REGISTRY,
+                 labelvalues=None,
+                 multiprocess_mode='all',
+                 ):
         self._multiprocess_mode = multiprocess_mode
         if multiprocess_mode not in self._MULTIPROC_MODES:
             raise ValueError('Invalid multiprocess mode: ' + multiprocess_mode)
@@ -331,43 +331,43 @@ class Gauge(MetricWrapperBase):
         )
 
     def inc(self, amount=1):
-        '''Increment gauge by the given amount.'''
+        """Increment gauge by the given amount."""
         self._value.inc(amount)
 
     def dec(self, amount=1):
-        '''Decrement gauge by the given amount.'''
+        """Decrement gauge by the given amount."""
         self._value.inc(-amount)
 
     def set(self, value):
-        '''Set gauge to the given value.'''
+        """Set gauge to the given value."""
         self._value.set(float(value))
 
     def set_to_current_time(self):
-        '''Set gauge to the current unixtime.'''
+        """Set gauge to the current unixtime."""
         self.set(time.time())
 
     def track_inprogress(self):
-        '''Track inprogress blocks of code or functions.
+        """Track inprogress blocks of code or functions.
 
         Can be used as a function decorator or context manager.
         Increments the gauge when the code is entered,
         and decrements when it is exited.
-        '''
+        """
         return InprogressTracker(self)
 
     def time(self):
-        '''Time a block of code or function, and set the duration in seconds.
+        """Time a block of code or function, and set the duration in seconds.
 
         Can be used as a function decorator or context manager.
-        '''
+        """
         return Timer(self.set)
 
     def set_function(self, f):
-        '''Call the provided function to return the Gauge value.
+        """Call the provided function to return the Gauge value.
 
         The function must return a float, and may be called from
         multiple threads. All other methods of the Gauge become NOOPs.
-        '''
+        """
 
         def samples(self):
             return (('', {}, float(f())),)
@@ -379,7 +379,7 @@ class Gauge(MetricWrapperBase):
 
 
 class Summary(MetricWrapperBase):
-    '''A Summary tracks the size and number of events.
+    """A Summary tracks the size and number of events.
 
     Example use cases for Summaries:
     - Response latency
@@ -400,32 +400,33 @@ class Summary(MetricWrapperBase):
 
         @REQUEST_TIME.time()
         def create_response(request):
-          """A dummy function"""
+          '''A dummy function'''
           time.sleep(1)
 
     Example for using the same Summary object as a context manager:
 
         with REQUEST_TIME.time():
             pass  # Logic to be timed
-    '''
+    """
     _type = 'summary'
     _reserved_labelnames = ['quantile']
 
     def _metric_init(self):
-        self._count = values.ValueClass(self._type, self._name, self._name + '_count', self._labelnames, self._labelvalues)
+        self._count = values.ValueClass(self._type, self._name, self._name + '_count', self._labelnames,
+                                        self._labelvalues)
         self._sum = values.ValueClass(self._type, self._name, self._name + '_sum', self._labelnames, self._labelvalues)
         self._created = time.time()
 
     def observe(self, amount):
-        '''Observe the given amount.'''
+        """Observe the given amount."""
         self._count.inc(1)
         self._sum.inc(amount)
 
     def time(self):
-        '''Time a block of code or function, and observe the duration in seconds.
+        """Time a block of code or function, and observe the duration in seconds.
 
         Can be used as a function decorator or context manager.
-        '''
+        """
         return Timer(self.observe)
 
     def _child_samples(self):
@@ -436,7 +437,7 @@ class Summary(MetricWrapperBase):
 
 
 class Histogram(MetricWrapperBase):
-    '''A Histogram tracks the size and number of events in buckets.
+    """A Histogram tracks the size and number of events in buckets.
 
     You can use Histograms for aggregatable calculation of quantiles.
 
@@ -459,7 +460,7 @@ class Histogram(MetricWrapperBase):
 
         @REQUEST_TIME.time()
         def create_response(request):
-          """A dummy function"""
+          '''A dummy function'''
           time.sleep(1)
 
     Example of using the same Histogram object as a context manager:
@@ -469,22 +470,22 @@ class Histogram(MetricWrapperBase):
 
     The default buckets are intended to cover a typical web/rpc request from milliseconds to seconds.
     They can be overridden by passing `buckets` keyword argument to `Histogram`.
-    '''
+    """
     _type = 'histogram'
     _reserved_labelnames = ['le']
     DEFAULT_BUCKETS = (.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, INF)
 
     def __init__(self,
-        name,
-        documentation,
-        labelnames=(),
-        namespace='',
-        subsystem='',
-        unit='',
-        registry=REGISTRY,
-        labelvalues=None,
-        buckets=DEFAULT_BUCKETS,
-    ):
+                 name,
+                 documentation,
+                 labelnames=(),
+                 namespace='',
+                 subsystem='',
+                 unit='',
+                 registry=REGISTRY,
+                 labelvalues=None,
+                 buckets=DEFAULT_BUCKETS,
+                 ):
         self._prepare_buckets(buckets)
         super(Histogram, self).__init__(
             name=name,
@@ -525,7 +526,7 @@ class Histogram(MetricWrapperBase):
             )
 
     def observe(self, amount):
-        '''Observe the given amount.'''
+        """Observe the given amount."""
         self._sum.inc(amount)
         for i, bound in enumerate(self._upper_bounds):
             if amount <= bound:
@@ -533,10 +534,10 @@ class Histogram(MetricWrapperBase):
                 break
 
     def time(self):
-        '''Time a block of code or function, and observe the duration in seconds.
+        """Time a block of code or function, and observe the duration in seconds.
 
         Can be used as a function decorator or context manager.
-        '''
+        """
         return Timer(self.observe)
 
     def _child_samples(self):
@@ -552,7 +553,7 @@ class Histogram(MetricWrapperBase):
 
 
 class Info(MetricWrapperBase):
-    '''Info metric, key-value pairs.
+    """Info metric, key-value pairs.
 
      Examples of Info include:
         - Build information
@@ -566,7 +567,7 @@ class Info(MetricWrapperBase):
         i.info({'version': '1.2.3', 'buildhost': 'foo@bar'})
 
      Info metrics do not work in multiprocess mode.
-    '''
+    """
     _type = 'info'
 
     def _metric_init(self):
@@ -575,7 +576,7 @@ class Info(MetricWrapperBase):
         self._value = {}
 
     def info(self, val):
-        '''Set info metric.'''
+        """Set info metric."""
         if self._labelname_set.intersection(val.keys()):
             raise ValueError('Overlapping labels for Info metric, metric: %s child: %s' % (
                 self._labelnames, val))
@@ -588,7 +589,7 @@ class Info(MetricWrapperBase):
 
 
 class Enum(MetricWrapperBase):
-    '''Enum metric, which of a set of states is true.
+    """Enum metric, which of a set of states is true.
 
      Example usage:
         from prometheus_client import Enum
@@ -599,20 +600,20 @@ class Enum(MetricWrapperBase):
 
      The first listed state will be the default.
      Enum metrics do not work in multiprocess mode.
-    '''
+    """
     _type = 'stateset'
 
     def __init__(self,
-        name,
-        documentation,
-        labelnames=(),
-        namespace='',
-        subsystem='',
-        unit='',
-        registry=REGISTRY,
-        labelvalues=None,
-        states=None,
-    ):
+                 name,
+                 documentation,
+                 labelnames=(),
+                 namespace='',
+                 subsystem='',
+                 unit='',
+                 registry=REGISTRY,
+                 labelvalues=None,
+                 states=None,
+                 ):
         super(Enum, self).__init__(
             name=name,
             documentation=documentation,
@@ -634,7 +635,7 @@ class Enum(MetricWrapperBase):
         self._lock = Lock()
 
     def state(self, state):
-        '''Set enum metric state.'''
+        """Set enum metric state."""
         with self._lock:
             self._value = self._states.index(state)
 
