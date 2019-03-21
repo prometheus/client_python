@@ -188,12 +188,19 @@ class _ThreadingSimpleServer(ThreadingMixIn, HTTPServer):
 
 
 def start_http_server(port, addr='', registry=REGISTRY):
-    """Starts an HTTP server for prometheus metrics as a daemon thread"""
+    """
+    Starts an HTTP server for prometheus metrics as a daemon thread
+
+    Returns a tuple containing the thread and httpd server
+
+    """
     CustomMetricsHandler = MetricsHandler.factory(registry)
     httpd = _ThreadingSimpleServer((addr, port), CustomMetricsHandler)
     t = threading.Thread(target=httpd.serve_forever)
     t.daemon = True
     t.start()
+
+    return (t, httpd)
 
 
 def write_to_textfile(path, registry):
