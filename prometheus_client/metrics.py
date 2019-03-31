@@ -541,8 +541,9 @@ class Histogram(MetricWrapperBase):
         samples = []
         acc = 0
         for i, bound in enumerate(self._upper_bounds):
-            acc += self._buckets[i].get()
-            samples.append(('_bucket', {'le': floatToGoString(bound)}, acc))
+            bucket = self._buckets[i].get()
+            acc += bucket
+            samples.append(('_bucket', {'le': floatToGoString(bound)}, bucket))
         samples.append(('_count', {}, acc))
         samples.append(('_sum', {}, self._sum.get()))
         samples.append(('_created', {}, self._created))
