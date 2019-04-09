@@ -359,7 +359,7 @@ class Gauge(MetricWrapperBase):
         """
         return Timer(self.set)
 
-    def set_function(self, f):
+    def set_function(self, f, *args, **kwargs):
         """Call the provided function to return the Gauge value.
 
         The function must return a float, and may be called from
@@ -367,7 +367,7 @@ class Gauge(MetricWrapperBase):
         """
 
         def samples(self):
-            return (('', {}, float(f())),)
+            return (('', {}, float(f(*args, **kwargs))),)
 
         self._child_samples = types.MethodType(samples, self)
 
