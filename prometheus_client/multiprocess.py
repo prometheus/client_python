@@ -13,7 +13,7 @@ from .samples import Sample
 from .utils import floatToGoString
 
 
-PATH = None
+PATH = os.environ.get('prometheus_multiproc_dir')
 
 
 class MultiProcessCollector(object):
@@ -24,8 +24,6 @@ class MultiProcessCollector(object):
 
         if path is not None:
             PATH = path
-        elif 'prometheus_multiproc_dir' in os.environ:
-            PATH = os.environ['prometheus_multiproc_dir']
 
         if not PATH or not os.path.isdir(PATH):
             raise ValueError('Any prometheus multiprocess dictionary is not set or not a directory.')
