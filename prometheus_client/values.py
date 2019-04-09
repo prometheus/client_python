@@ -4,6 +4,7 @@ import os
 from threading import Lock
 
 from .mmap_dict import mmap_key, MmapedDict
+from . import multiprocess
 
 
 class MutexValue(object):
@@ -57,7 +58,7 @@ def MultiProcessValue(_pidFunc=os.getpid):
                 file_prefix = typ
             if file_prefix not in files:
                 filename = os.path.join(
-                    os.environ['prometheus_multiproc_dir'],
+                    multiprocess.PATH,
                     '{0}_{1}.db'.format(file_prefix, pid['value']))
 
                 files[file_prefix] = MmapedDict(filename)
@@ -101,7 +102,7 @@ def get_value_class():
     # This needs to be chosen before the first metric is constructed,
     # and as that may be in some arbitrary library the user/admin has
     # no control over we use an environment variable.
-    if 'prometheus_multiproc_dir' in os.environ:
+    if multiprocess.PATH:
         return MultiProcessValue()
     else:
         return MutexValue

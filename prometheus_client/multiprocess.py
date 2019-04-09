@@ -13,15 +13,23 @@ from .samples import Sample
 from .utils import floatToGoString
 
 
+PATH = None
+
+
 class MultiProcessCollector(object):
     """Collector for files for multi-process mode."""
 
     def __init__(self, registry, path=None):
-        if path is None:
-            path = os.environ.get('prometheus_multiproc_dir')
-        if not path or not os.path.isdir(path):
-            raise ValueError('env prometheus_multiproc_dir is not set or not a directory')
-        self._path = path
+        global PATH
+
+        if path is not None:
+            PATH = path
+        elif 'prometheus_multiproc_dir' in os.environ:
+            PATH = os.environ['prometheus_multiproc_dir']
+
+        if not PATH or not os.path.isdir(PATH):
+            raise ValueError('Any prometheus multiprocess dictionary is not set or not a directory.')
+
         if registry:
             registry.register(self)
 
@@ -114,7 +122,7 @@ class MultiProcessCollector(object):
         return metrics.values()
 
     def collect(self):
-        files = glob.glob(os.path.join(self._path, '*.db'))
+        files = glob.glob(os.path.join(PATH, '*.db'))
         return self.merge(files, accumulate=True)
 
 
