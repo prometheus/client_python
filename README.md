@@ -325,6 +325,7 @@ app_dispatch = DispatcherMiddleware(app, {
     '/metrics': make_wsgi_app()
 })
 ```
+**Note:** `werkzeug.wsgi.DispatcherMiddleware` has moved to `werkzeug.middleware.dispatcher.DispatcherMiddleware`. This import is deprecated as of version 0.15 and will be removed in version 1.0.
 
 Run the example web application like this
 
