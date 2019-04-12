@@ -222,7 +222,7 @@ def _parse_sample(text):
     ts = _parse_timestamp(timestamp)
     exemplar = None
     if exemplar_labels is not None:
-        exemplar_length = sum([len(k) + len(v) + 3 for k, v in exemplar_labels.items()]) + 2
+        exemplar_length = sum([len(k) + len(v) for k, v in exemplar_labels.items()])
         if exemplar_length > 64:
             raise ValueError("Exmplar labels are too long: " + text)
         exemplar = Exemplar(

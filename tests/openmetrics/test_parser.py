@@ -518,7 +518,7 @@ foo_created 1.520430000123e+09
             ('# TYPE a histogram\na_bucket{le="+Inf"} 1 # {} 1 \n# EOF\n'),
             ('# TYPE a histogram\na_bucket{le="+Inf"} 1 # {} 1 1 \n# EOF\n'),
             ('# TYPE a histogram\na_bucket{le="+Inf"} 1 # '
-             '{a="12345678901234567890123456789012345678901234567890123456789"} 1 1\n# EOF\n'),
+             '{a="2345678901234567890123456789012345678901234567890123456789012345"} 1 1\n# EOF\n'),
             # Exemplars on unallowed samples.
             ('# TYPE a histogram\na_sum 1 # {a="b"} 0.5\n# EOF\n'),
             ('# TYPE a gaugehistogram\na_sum 1 # {a="b"} 0.5\n# EOF\n'),
