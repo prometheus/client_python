@@ -106,6 +106,9 @@ class TestMultiProcess(unittest.TestCase):
         g1.set(1)
         g2.set(2)
         self.assertEqual(1, self.registry.get_sample_value('g'))
+        mark_process_dead(123, os.environ['prometheus_multiproc_dir'])
+        self.assertEqual(None, self.registry.get_sample_value('g', {'pid': '123'}))
+        self.assertEqual(2, self.registry.get_sample_value('g'))
 
     def test_gauge_max(self):
         g1 = Gauge('g', 'help', registry=None, multiprocess_mode='max')
@@ -114,6 +117,9 @@ class TestMultiProcess(unittest.TestCase):
         self.assertEqual(0, self.registry.get_sample_value('g'))
         g1.set(1)
         g2.set(2)
+        self.assertEqual(2, self.registry.get_sample_value('g'))
+        mark_process_dead(123, os.environ['prometheus_multiproc_dir'])
+        self.assertEqual(None, self.registry.get_sample_value('g', {'pid': '123'}))
         self.assertEqual(2, self.registry.get_sample_value('g'))
 
     def test_gauge_livesum(self):

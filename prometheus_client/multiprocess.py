@@ -126,3 +126,7 @@ def mark_process_dead(pid, path=None):
         os.remove(f)
     for f in glob.glob(os.path.join(path, 'gauge_liveall_{0}.db'.format(pid))):
         os.remove(f)
+    for f in glob.glob(os.path.join(path, 'gauge_min_{0}.db'.format(pid))):
+        os.remove(f)
+    for f in glob.glob(os.path.join(path, 'gauge_max_{0}.db'.format(pid))):
+        os.remove(f)
