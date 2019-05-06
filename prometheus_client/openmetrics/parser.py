@@ -187,7 +187,7 @@ def _parse_sample(text):
         return Sample(name, labels, value, timestamp, exemplar)
 
     except ValueError as e:
-        if str(e) == "substring not found":
+        if str(e).startswith("substring not found"):
             # We don't have labels
             # Detect what separator is used
             separator = " "
