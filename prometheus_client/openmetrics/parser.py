@@ -3,8 +3,9 @@
 from __future__ import unicode_literals
 
 import math
+import re
 
-from ..metrics_core import Metric, METRIC_LABEL_NAME_RE
+from ..metrics_core import Metric
 from ..samples import Exemplar, Sample, Timestamp
 from ..utils import floatToGoString
 
@@ -22,6 +23,24 @@ def text_string_to_metric_families(text):
     """
     for metric_family in text_fd_to_metric_families(StringIO.StringIO(text)):
         yield metric_family
+
+
+ESCAPE_SEQUENCES = {
+    '\\\\': '\\',
+    '\\n': '\n',
+    '\\"': '"',
+}
+
+
+def replace_escape_sequence(match):
+    return ESCAPE_SEQUENCES[match.group(0)]
+
+
+ESCAPING_RE = re.compile(r'\\[\\n"]')
+
+
+def _replace_escaping(s):
+    return ESCAPING_RE.sub(replace_escape_sequence, s)
 
 
 def _unescape_help(text):
@@ -83,95 +102,126 @@ def _parse_timestamp(timestamp):
             return ts
 
 
-def _parse_labels(it, text):
-    # The { has already been parsed.
-    state = 'startoflabelname'
-    labelname = []
-    labelvalue = []
-    labels = {}
+def _is_character_escaped(s, charpos):
+    num_bslashes = 0
+    while (charpos > num_bslashes and
+           s[charpos - 1 - num_bslashes] == '\\'):
+        num_bslashes += 1
+    return num_bslashes % 2 == 1
 
-    for char in it:
-        if state == 'startoflabelname':
-            if char == '}':
-                state = 'endoflabels'
-            else:
-                state = 'labelname'
-                labelname.append(char)
-        elif state == 'labelname':
-            if char == '=':
-                state = 'labelvaluequote'
-            else:
-                labelname.append(char)
-        elif state == 'labelvaluequote':
-            if char == '"':
-                state = 'labelvalue'
-            else:
-                raise ValueError("Invalid line: " + text)
-        elif state == 'labelvalue':
-            if char == '\\':
-                state = 'labelvalueslash'
-            elif char == '"':
-                if not METRIC_LABEL_NAME_RE.match(''.join(labelname)):
-                    raise ValueError("Invalid line: " + text)
-                labels[''.join(labelname)] = ''.join(labelvalue)
-                labelname = []
-                labelvalue = []
-                state = 'endoflabelvalue'
-            else:
-                labelvalue.append(char)
-        elif state == 'endoflabelvalue':
-            if char == ',':
-                state = 'labelname'
-            elif char == '}':
-                state = 'endoflabels'
-            else:
-                raise ValueError("Invalid line: " + text)
-        elif state == 'labelvalueslash':
-            state = 'labelvalue'
-            if char == '\\':
-                labelvalue.append('\\')
-            elif char == 'n':
-                labelvalue.append('\n')
-            elif char == '"':
-                labelvalue.append('"')
-            else:
-                labelvalue.append('\\' + char)
-        elif state == 'endoflabels':
-            if char == ' ':
-                break
-            else:
-                raise ValueError("Invalid line: " + text)
-    return labels
+
+def _parse_labels(text):
+    labels = {}
+    # Return if we don't have valid labels
+    if "=" not in text:
+        return labels
+
+    escaping = False
+    if "\\" in text:
+        escaping = True
+
+    # Copy original labels
+    sub_labels = text
+    try:
+        # Process one label at a time
+        while sub_labels:
+            # The label name is before the equal
+            value_start = sub_labels.index("=")
+            label_name = sub_labels[:value_start]
+            sub_labels = sub_labels[value_start + 1:].lstrip()
+
+            # Find the first quote after the equal
+            quote_start = sub_labels.index('"') + 1
+            value_substr = sub_labels[quote_start:]
+
+            # Check for extra commas
+            if label_name[0] == ',' or value_substr[len(value_substr)-1] == ',':
+                raise ValueError
+
+            # Find the last unescaped quote
+            i = 0
+            while i < len(value_substr):
+                i = value_substr.index('"', i)
+                if not _is_character_escaped(value_substr, i):
+                    break
+                i += 1
+
+            # The label value is inbetween the first and last quote
+            quote_end = i + 1
+            label_value = sub_labels[quote_start:quote_end]
+            # Replace escaping if needed
+            if escaping:
+                label_value = _replace_escaping(label_value)
+            labels[label_name.strip()] = label_value
+
+            # Remove the processed label from the sub-slice for next iteration
+            sub_labels = sub_labels[quote_end + 1:]
+            next_comma = sub_labels.find(",") + 1
+            sub_labels = sub_labels[next_comma:].lstrip()
+
+            # Check for missing commas
+            if sub_labels and next_comma == 0:
+                raise ValueError
+            
+        return labels
+
+    except ValueError:
+        raise ValueError("Invalid labels: " + text)
 
 
 def _parse_sample(text):
-    name = []
-    value = []
+    # Detect the labels in the text
+    try:
+        # `index` and `rindex` methods raise a ValueError with
+        # `substring not found` message if text doesn't contain label braces
+        label_start = text.index("{")
+        label_end = text.rindex("}", 0, text.find(" # "))  # ignore exemplar label braces
+        # The name is before the labels
+        name = text[:label_start].strip()
+        # We ignore the starting curly brace
+        label = text[label_start + 1:label_end]
+        labels = _parse_labels(label)
+        # Parse the remaining text after the label end
+        remaining_text = text[label_end + 2:]
+        value, timestamp, exemplar = _parse_remaining_text(remaining_text)
+        return Sample(name, labels, value, timestamp, exemplar)
+
+    except ValueError as e:
+        if str(e) == "substring not found":
+            # We don't have labels
+            # Detect what separator is used
+            separator = " "
+            if separator not in text:
+                separator = "\t"
+            name_end = text.index(separator)
+            name = text[:name_end]
+            # Parse the remaining text after the name
+            remaining_text = text[name_end + 1:]
+            value, timestamp, exemplar = _parse_remaining_text(remaining_text)
+            return Sample(name, {}, value, timestamp, exemplar)
+        # The error occured while parsing
+        # The exception should be raised
+        raise e
+
+
+def _parse_remaining_text(text):
+    split_text = text.split(" ", 1)
+    val = _parse_value(split_text[0])
+    if len(split_text) == 1:
+        # We don't have timestamp or exemplar
+        return val, None, None  
+
     timestamp = []
-    labels = {}
     exemplar_value = []
     exemplar_timestamp = []
     exemplar_labels = None
 
-    state = 'name'
+    state = 'timestamp'
+    text = split_text[1]
 
     it = iter(text)
     for char in it:
-        if state == 'name':
-            if char == '{':
-                labels = _parse_labels(it, text)
-                # Space has already been parsed.
-                state = 'value'
-            elif char == ' ':
-                state = 'value'
-            else:
-                name.append(char)
-        elif state == 'value':
-            if char == ' ':
-                state = 'timestamp'
-            else:
-                value.append(char)
-        elif state == 'timestamp':
+        if state == 'timestamp':
             if char == '#' and not timestamp:
                 state = 'exemplarspace'
             elif char == ' ':
@@ -190,13 +240,23 @@ def _parse_sample(text):
                 raise ValueError("Invalid line: " + text)
         elif state == 'exemplarstartoflabels':
             if char == '{':
-                exemplar_labels = _parse_labels(it, text)
-                # Space has already been parsed.
+                label_start, label_end = text.index("{"), text.rindex("}")
+                exemplar_labels = _parse_labels(text[label_start + 1:label_end])
+                state = 'exemplarparsedlabels'
+            else:
+                raise ValueError("Invalid line: " + text)
+        elif state == 'exemplarparsedlabels':
+            if char == '}':
+                state = 'exemplarvaluespace'
+        elif state == 'exemplarvaluespace':
+            if char == ' ':
                 state = 'exemplarvalue'
             else:
                 raise ValueError("Invalid line: " + text)
         elif state == 'exemplarvalue':
-            if char == ' ':
+            if char == ' ' and not exemplar_value:
+                raise ValueError("Invalid line: " + text)
+            elif char == ' ':
                 state = 'exemplartimestamp'
             else:
                 exemplar_value.append(char)
@@ -212,13 +272,9 @@ def _parse_sample(text):
         raise ValueError("Invalid line: " + text)
 
     # Incomplete exemplar.
-    if state in ['exemplarhash', 'exemplarspace', 'exemplarstartoflabels']:
+    if state in ['exemplarhash', 'exemplarspace', 'exemplarstartoflabels', 'exemplarparsedlabels']:
         raise ValueError("Invalid line: " + text)
 
-    if not value:
-        raise ValueError("Invalid line: " + text)
-    value = ''.join(value)
-    val = _parse_value(value)
     ts = _parse_timestamp(timestamp)
     exemplar = None
     if exemplar_labels is not None:
@@ -231,7 +287,7 @@ def _parse_sample(text):
             _parse_timestamp(exemplar_timestamp),
         )
 
-    return Sample(''.join(name), labels, val, ts, exemplar)
+    return val, ts, exemplar
 
 
 def _group_for_sample(sample, name, typ):
