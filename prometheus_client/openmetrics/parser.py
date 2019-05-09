@@ -104,7 +104,7 @@ def _parse_timestamp(timestamp):
 
 def _is_character_escaped(s, charpos):
     num_bslashes = 0
-    while (charpos > 0 and
+    while (charpos > num_bslashes and
            s[charpos - 1 - num_bslashes] == '\\'):
         num_bslashes += 1
     return num_bslashes % 2 == 1
@@ -205,7 +205,7 @@ def _parse_labels(text):
             i = 0
             while i < len(value_substr):
                 i = value_substr.index('"', i)
-                if not _is_character_escaped(value_substr, i):
+                if not _is_character_escaped(value_substr[:i], i):
                     break
                 i += 1
 
