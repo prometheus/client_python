@@ -198,7 +198,7 @@ def _parse_labels(text):
                 raise ValueError
 
             # Check for extra commas
-            if label_name[0] == ',' or value_substr[len(value_substr) - 1] == ',':
+            if label_name[0] == ',' or value_substr[-1] == ',':
                 raise ValueError
 
             # Find the last unescaped quote
@@ -215,12 +215,12 @@ def _parse_labels(text):
             # Replace escaping if needed
             if "\\" in label_value:
                 label_value = _replace_escaping(label_value)
-            labels[label_name.strip()] = label_value
+            labels[label_name] = label_value
 
             # Remove the processed label from the sub-slice for next iteration
             sub_labels = sub_labels[quote_end + 1:]
             next_comma = sub_labels.find(",") + 1
-            sub_labels = sub_labels[next_comma:].lstrip()
+            sub_labels = sub_labels[next_comma:]
 
             # Check for missing commas
             if sub_labels and next_comma == 0:
@@ -253,23 +253,18 @@ def _parse_sample(text):
             # Fallback to parsing labels with a state machine
             labels, labels_len = _parse_labels_with_state_machine(text[label_start + 1:])
             label_end = labels_len + len(name) + 3  # We count the braces
-        # Parse the remaining text
-        remaining_text = text[label_end + 2:]
+    except ValueError:
+        # We don't have labels
+        name_end = text.index(" ")
+        name = text[:name_end]
+        # Parse the remaining text after the name
+        remaining_text = text[name_end + 1:]
         value, timestamp, exemplar = _parse_remaining_text(remaining_text)
-        return Sample(name, labels, value, timestamp, exemplar)
-
-    except ValueError as e:
-        if str(e).find("substring not found") > -1:
-            # We don't have labels
-            name_end = text.index(" ")
-            name = text[:name_end]
-            # Parse the remaining text after the name
-            remaining_text = text[name_end + 1:]
-            value, timestamp, exemplar = _parse_remaining_text(remaining_text)
-            return Sample(name, {}, value, timestamp, exemplar)
-        # The error occured while parsing
-        # The exception should be raised
-        raise e
+        return Sample(name, {}, value, timestamp, exemplar)
+    # Parsing labels succeeded, continue parsing the remaining text
+    remaining_text = text[label_end + 2:]
+    value, timestamp, exemplar = _parse_remaining_text(remaining_text)
+    return Sample(name, labels, value, timestamp, exemplar)
 
 
 def _parse_remaining_text(text):
