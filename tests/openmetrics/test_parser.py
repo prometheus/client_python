@@ -374,6 +374,18 @@ b_total 2 1234567890
         b.add_metric([], 2, timestamp=Timestamp(1234567890, 0))
         self.assertEqual([a, b], list(families))
 
+    def test_hash_in_label_value(self):
+        families = text_string_to_metric_families("""# TYPE a counter
+# HELP a help
+a_total{foo="foo # bar"} 1
+a_total{foo="} foo # bar # "} 1
+# EOF
+""")
+        a = CounterMetricFamily("a", "help", labels=["foo"])
+        a.add_metric(["foo # bar"], 1)
+        a.add_metric(["} foo # bar # "], 1)
+        self.assertEqual([a], list(families))
+
     @unittest.skipIf(sys.version_info < (2, 7), "Test requires Python 2.7+.")
     def test_roundtrip(self):
         text = """# HELP go_gc_duration_seconds A summary of the GC invocation durations.
