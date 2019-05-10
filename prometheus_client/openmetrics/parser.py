@@ -189,13 +189,12 @@ def _parse_labels(text):
             label_name = sub_labels[:value_start]
             sub_labels = sub_labels[value_start + 1:]
 
-            # Find the first quote after the equal
-            quote_start = sub_labels.index('"') + 1
-            value_substr = sub_labels[quote_start:]
-
-            # Check for empty label name
-            if len(label_name) == 0:
+            # Check for missing quotes 
+            if sub_labels[0] != '"':
                 raise ValueError
+
+            # The first quote is guaranteed to be after the equal
+            value_substr = sub_labels[1:]
 
             # Check for extra commas
             if label_name[0] == ',' or value_substr[-1] == ',':
@@ -211,7 +210,7 @@ def _parse_labels(text):
 
             # The label value is inbetween the first and last quote
             quote_end = i + 1
-            label_value = sub_labels[quote_start:quote_end]
+            label_value = sub_labels[1:quote_end]
             # Replace escaping if needed
             if "\\" in label_value:
                 label_value = _replace_escaping(label_value)
@@ -219,7 +218,10 @@ def _parse_labels(text):
 
             # Remove the processed label from the sub-slice for next iteration
             sub_labels = sub_labels[quote_end + 1:]
-            next_comma = sub_labels.find(",") + 1
+            if sub_labels.startswith(","):
+                next_comma = 1
+            else:
+                next_comma = 0
             sub_labels = sub_labels[next_comma:]
 
             # Check for missing commas
@@ -234,26 +236,8 @@ def _parse_labels(text):
 
 def _parse_sample(text):
     # Detect the labels in the text
-    try:
-        # `index` method raises a ValueError with
-        # `substring not found` message if text 
-        # doesn't contain label braces
-        label_start = text.index("{")
-        # The name is before the labels
-        name = text[:label_start]
-        seperator = " # "
-        if not name.endswith("_bucket") or text.count(seperator) == 0:
-            # Line doesn't contain an exemplar
-            # We can use `rindex` to find `label_end`
-            label_end = text.rindex("}")
-            label = text[label_start + 1:label_end]
-            labels = _parse_labels(label)
-        else:
-            # Line contains an exemplar
-            # Fallback to parsing labels with a state machine
-            labels, labels_len = _parse_labels_with_state_machine(text[label_start + 1:])
-            label_end = labels_len + len(name) + 3  # We count the braces
-    except ValueError:
+    label_start = text.find("{")
+    if label_start == -1:
         # We don't have labels
         name_end = text.index(" ")
         name = text[:name_end]
@@ -261,6 +245,20 @@ def _parse_sample(text):
         remaining_text = text[name_end + 1:]
         value, timestamp, exemplar = _parse_remaining_text(remaining_text)
         return Sample(name, {}, value, timestamp, exemplar)
+    # The name is before the labels
+    name = text[:label_start]
+    seperator = " # "
+    if text.count(seperator) == 0:
+        # Line doesn't contain an exemplar
+        # We can use `rindex` to find `label_end`
+        label_end = text.rindex("}")
+        label = text[label_start + 1:label_end]
+        labels = _parse_labels(label)
+    else:
+        # Line contains an exemplar
+        # Fallback to parsing labels with a state machine
+        labels, labels_len = _parse_labels_with_state_machine(text[label_start + 1:])
+        label_end = labels_len + len(name) + 3  # We count the braces        
     # Parsing labels succeeded, continue parsing the remaining text
     remaining_text = text[label_end + 2:]
     value, timestamp, exemplar = _parse_remaining_text(remaining_text)

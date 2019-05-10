@@ -595,6 +595,7 @@ foo_created 1.520430000123e+09
             ('# TYPE a gauge\na 0 0\na 0\n# EOF\n'),
         ]:
             with self.assertRaises(ValueError):
+                print(case)
                 list(text_string_to_metric_families(case))
 
     @unittest.skipIf(sys.version_info < (2, 7), "float repr changed from 2.6 to 2.7")
