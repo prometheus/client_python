@@ -142,7 +142,6 @@ def _parse_labels_with_state_machine(text):
                 if not METRIC_LABEL_NAME_RE.match(''.join(labelname)):
                     raise ValueError("Invalid line: " + text)
                 labels[''.join(labelname)] = ''.join(labelvalue)
-                labels_len += len(labelname) + len(labelvalue) + 1
                 labelname = []
                 labelvalue = []
                 state = 'endoflabelvalue'
@@ -170,6 +169,7 @@ def _parse_labels_with_state_machine(text):
                 break
             else:
                 raise ValueError("Invalid line: " + text)
+        labels_len += 1
     return labels, labels_len
 
 
@@ -258,7 +258,7 @@ def _parse_sample(text):
         # Line contains an exemplar
         # Fallback to parsing labels with a state machine
         labels, labels_len = _parse_labels_with_state_machine(text[label_start + 1:])
-        label_end = labels_len + len(name) + 3  # We count the braces        
+        label_end = labels_len + len(name)      
     # Parsing labels succeeded, continue parsing the remaining text
     remaining_text = text[label_end + 2:]
     value, timestamp, exemplar = _parse_remaining_text(remaining_text)
