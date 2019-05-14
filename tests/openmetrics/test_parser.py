@@ -386,6 +386,36 @@ a_total{foo="} foo # bar # "} 1
         a.add_metric(["} foo # bar # "], 1)
         self.assertEqual([a], list(families))
 
+    def test_exemplars_with_hash_in_label_values(self):
+        families = text_string_to_metric_families("""# TYPE a histogram
+# HELP a help
+a_bucket{le="1.0",foo="bar # "} 0 # {a="b",foo="bar # bar"} 0.5
+a_bucket{le="2.0",foo="bar # "} 2 # {a="c",foo="bar # bar"} 0.5
+a_bucket{le="+Inf",foo="bar # "} 3 # {a="d",foo="bar # bar"} 4
+# EOF
+""")
+        hfm = HistogramMetricFamily("a", "help")
+        hfm.add_sample("a_bucket", {"le": "1.0", "foo": "bar # "}, 0.0, None, Exemplar({"a": "b", "foo": "bar # bar"}, 0.5))
+        hfm.add_sample("a_bucket", {"le": "2.0", "foo": "bar # "}, 2.0, None, Exemplar({"a": "c", "foo": "bar # bar"}, 0.5))
+        hfm.add_sample("a_bucket", {"le": "+Inf", "foo": "bar # "}, 3.0, None, Exemplar({"a": "d", "foo": "bar # bar"}, 4))
+        self.assertEqual([hfm], list(families))
+
+    @unittest.skipIf(sys.version_info < (3, 3), "Test requires Python 3.3+.")
+    def test_fallback_to_state_machine_label_parsing(self):
+        from unittest.mock import patch
+        label_parsing_function = "prometheus_client.openmetrics.parser._parse_labels_with_state_machine"
+        return_values = [{"foo": "foo # bar"}, len('foo="foo # bar"}')]
+        with patch(label_parsing_function, return_value=return_values) as mock:
+            families = text_string_to_metric_families("""# TYPE a counter
+# HELP a help
+a_total{foo="foo # bar"} 1
+# EOF
+""")
+            a = CounterMetricFamily("a", "help", labels=["foo"])
+            a.add_metric(["foo # bar"], 1)
+            self.assertEqual([a], list(families))
+        mock.assert_called_with('foo="foo # bar"} 1')
+
     @unittest.skipIf(sys.version_info < (2, 7), "Test requires Python 2.7+.")
     def test_roundtrip(self):
         text = """# HELP go_gc_duration_seconds A summary of the GC invocation durations.
@@ -535,6 +565,9 @@ foo_created 1.520430000123e+09
             ('# TYPE a histogram\na_sum 1 # {a="b"} 0.5\n# EOF\n'),
             ('# TYPE a gaugehistogram\na_sum 1 # {a="b"} 0.5\n# EOF\n'),
             ('# TYPE a_bucket gauge\na_bucket 1 # {a="b"} 0.5\n# EOF\n'),
+            # Exemplars on unallowed metric types.
+            ('# TYPE a counter\na_total 1 # {a="b"} 1\n# EOF\n'),
+            ('# TYPE a gauge\na 1 # {a="b"} 1\n# EOF\n'),
             # Bad stateset/info values.
             ('# TYPE a stateset\na 2\n# EOF\n'),
             ('# TYPE a info\na 2\n# EOF\n'),
@@ -595,7 +628,6 @@ foo_created 1.520430000123e+09
             ('# TYPE a gauge\na 0 0\na 0\n# EOF\n'),
         ]:
             with self.assertRaises(ValueError):
-                print(case)
                 list(text_string_to_metric_families(case))
 
     @unittest.skipIf(sys.version_info < (2, 7), "float repr changed from 2.6 to 2.7")
