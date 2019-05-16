@@ -403,9 +403,15 @@ a_bucket{le="+Inf",foo="bar # "} 3 # {a="d",foo="bar # bar"} 4
     @unittest.skipIf(sys.version_info < (3, 3), "Test requires Python 3.3+.")
     def test_fallback_to_state_machine_label_parsing(self):
         from unittest.mock import patch
-        label_parsing_function = "prometheus_client.openmetrics.parser._parse_labels_with_state_machine"
-        return_values = [{"foo": "foo # bar"}, len('foo="foo # bar"}')]
-        with patch(label_parsing_function, return_value=return_values) as mock:
+        from prometheus_client.openmetrics.parser import _parse_sample
+
+        parse_sample_function = "prometheus_client.openmetrics.parser._parse_sample"
+        parse_labels_function = "prometheus_client.openmetrics.parser._parse_labels"
+        parse_remaining_function = "prometheus_client.openmetrics.parser._parse_remaining_text"
+        state_machine_function = "prometheus_client.openmetrics.parser._parse_labels_with_state_machine"
+
+        parse_sample_return_value = Sample("a_total", {"foo": "foo # bar"}, 1)
+        with patch(parse_sample_function, return_value=parse_sample_return_value) as mock:
             families = text_string_to_metric_families("""# TYPE a counter
 # HELP a help
 a_total{foo="foo # bar"} 1
@@ -414,7 +420,46 @@ a_total{foo="foo # bar"} 1
             a = CounterMetricFamily("a", "help", labels=["foo"])
             a.add_metric(["foo # bar"], 1)
             self.assertEqual([a], list(families))
-        mock.assert_called_with('foo="foo # bar"} 1')
+            mock.assert_called_once_with('a_total{foo="foo # bar"} 1')
+
+        # First fallback case
+        state_machine_return_values = [{"foo": "foo # bar"}, len('foo="foo # bar"}')]
+        parse_remaining_values = [1, None, None]
+        with patch(parse_labels_function) as mock1:
+            with patch(state_machine_function, return_value=state_machine_return_values) as mock2:
+                with patch(parse_remaining_function, return_value=parse_remaining_values) as mock3:
+                    sample = _parse_sample('a_total{foo="foo # bar"} 1')
+                    s = Sample("a_total", {"foo": "foo # bar"}, 1)
+                    self.assertEqual(s, sample)
+                    mock1.assert_not_called()
+                    mock2.assert_called_once_with('foo="foo # bar"} 1')
+                    mock3.assert_called_once_with('1')
+
+        # Second fallback case
+        state_machine_return_values = [{"le": "1.0"}, len('le="1.0"}')]
+        parse_remaining_values = [0.0, Timestamp(123, 0), Exemplar({"a": "b"}, 0.5)]
+        with patch(parse_labels_function) as mock1:
+            with patch(state_machine_function, return_value=state_machine_return_values) as mock2:
+                with patch(parse_remaining_function, return_value=parse_remaining_values) as mock3:
+                    sample = _parse_sample('a_bucket{le="1.0"} 0 123 # {a="b"} 0.5')
+                    s = Sample("a_bucket", {"le": "1.0"}, 0.0, Timestamp(123, 0), Exemplar({"a": "b"}, 0.5))
+                    self.assertEqual(s, sample)
+                    mock1.assert_not_called()
+                    mock2.assert_called_once_with('le="1.0"} 0 123 # {a="b"} 0.5')
+                    mock3.assert_called_once_with('0 123 # {a="b"} 0.5')
+
+        # No need to fallback case
+        parse_labels_return_values = {"foo": "foo#bar"}
+        parse_remaining_values = [1, None, None]
+        with patch(parse_labels_function, return_value=parse_labels_return_values) as mock1:
+            with patch(state_machine_function) as mock2:
+                with patch(parse_remaining_function, return_value=parse_remaining_values) as mock3:
+                    sample = _parse_sample('a_total{foo="foo#bar"} 1')
+                    s = Sample("a_total", {"foo": "foo#bar"}, 1)
+                    self.assertEqual(s, sample)
+                    mock1.assert_called_once_with('foo="foo#bar"')
+                    mock2.assert_not_called()
+                    mock3.assert_called_once_with('1')
 
     @unittest.skipIf(sys.version_info < (2, 7), "Test requires Python 2.7+.")
     def test_roundtrip(self):
@@ -495,6 +540,12 @@ foo_created 1.520430000123e+09
             ('a{a=1} 1\n# EOF\n'),
             ('a{a="1} 1\n# EOF\n'),
             ('a{a=\'1\'} 1\n# EOF\n'),
+            # Missing equal or label value.
+            ('a{a} 1\n# EOF\n'),
+            ('a{a"value"} 1\n# EOF\n'),
+            ('a{a""} 1\n# EOF\n'),
+            ('a{a=} 1\n# EOF\n'),
+            ('a{a="} 1\n# EOF\n'),
             # Missing or extra commas.
             ('a{a="1"b="2"} 1\n# EOF\n'),
             ('a{a="1",,b="2"} 1\n# EOF\n'),
