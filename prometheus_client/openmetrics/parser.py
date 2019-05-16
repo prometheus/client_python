@@ -175,9 +175,10 @@ def _parse_labels_with_state_machine(text):
 
 def _parse_labels(text):
     labels = {}
-    # Return if we don't have valid labels
-    if "=" not in text:
-        return labels
+
+    # Raise error if we don't have valid labels
+    if text and "=" not in text:
+        raise ValueError
 
     # Copy original labels
     sub_labels = text
@@ -190,14 +191,16 @@ def _parse_labels(text):
             sub_labels = sub_labels[value_start + 1:]
 
             # Check for missing quotes 
-            if sub_labels[0] != '"':
+            if not sub_labels or sub_labels[0] != '"':
                 raise ValueError
 
             # The first quote is guaranteed to be after the equal
             value_substr = sub_labels[1:]
 
             # Check for extra commas
-            if label_name[0] == ',' or value_substr[-1] == ',':
+            if not label_name or label_name[0] == ',':
+                raise ValueError
+            if not value_substr or value_substr[-1] == ',':
                 raise ValueError
 
             # Find the last unescaped quote
@@ -255,7 +258,7 @@ def _parse_sample(text):
         label = text[label_start + 1:label_end]
         labels = _parse_labels(label)
     else:
-        # Line contains an exemplar
+        # Line potentially contains an exemplar
         # Fallback to parsing labels with a state machine
         labels, labels_len = _parse_labels_with_state_machine(text[label_start + 1:])
         label_end = labels_len + len(name)      
