@@ -11,7 +11,7 @@ try:
     import resource
 
     _PAGESIZE = resource.getpagesize()
-except(ImportError, AttributeError):
+except ImportError:
     # Not Unix
     _PAGESIZE = 4096
 
