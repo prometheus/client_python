@@ -412,12 +412,15 @@ class Summary(MetricWrapperBase):
         self._count = values.ValueClass(self._type, self._name, self._name + '_count', self._labelnames,
                                         self._labelvalues)
         self._sum = values.ValueClass(self._type, self._name, self._name + '_sum', self._labelnames, self._labelvalues)
+        self._delta = 0.0
         self._created = time.time()
+
 
     def observe(self, amount):
         """Observe the given amount."""
         self._count.inc(1)
         self._sum.inc(amount)
+        self._delta = amount
 
     def time(self):
         """Time a block of code or function, and observe the duration in seconds.
@@ -430,7 +433,8 @@ class Summary(MetricWrapperBase):
         return (
             ('_count', {}, self._count.get()),
             ('_sum', {}, self._sum.get()),
-            ('_created', {}, self._created))
+            ('_created', {}, self._created),
+            ('_delta', {}, self._delta))
 
 
 class Histogram(MetricWrapperBase):
@@ -511,6 +515,7 @@ class Histogram(MetricWrapperBase):
     def _metric_init(self):
         self._buckets = []
         self._created = time.time()
+        self._delta = 0.0
         bucket_labelnames = self._labelnames + ('le',)
         self._sum = values.ValueClass(self._type, self._name, self._name + '_sum', self._labelnames, self._labelvalues)
         for b in self._upper_bounds:
@@ -525,6 +530,7 @@ class Histogram(MetricWrapperBase):
     def observe(self, amount):
         """Observe the given amount."""
         self._sum.inc(amount)
+        self._delta = amount
         for i, bound in enumerate(self._upper_bounds):
             if amount <= bound:
                 self._buckets[i].inc(1)
@@ -546,6 +552,8 @@ class Histogram(MetricWrapperBase):
         samples.append(('_count', {}, acc))
         samples.append(('_sum', {}, self._sum.get()))
         samples.append(('_created', {}, self._created))
+        samples.append(('_delta', {}, self._delta))
+
         return tuple(samples)
 
 

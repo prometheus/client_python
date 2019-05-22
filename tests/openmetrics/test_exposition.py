@@ -61,6 +61,7 @@ class TestGenerateText(unittest.TestCase):
 ss_count{a="c",b="d"} 1.0
 ss_sum{a="c",b="d"} 17.0
 ss_created{a="c",b="d"} 123.456
+ss_delta{a="c",b="d"} 17.0
 # EOF
 """, generate_latest(self.registry))
 
@@ -88,6 +89,7 @@ hh_bucket{le="+Inf"} 1.0
 hh_count 1.0
 hh_sum 0.05
 hh_created 123.456
+hh_delta 0.05
 # EOF
 """, generate_latest(self.registry))
 
