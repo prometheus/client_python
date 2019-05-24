@@ -1,4 +1,5 @@
 import sys
+from bisect import bisect_left
 from threading import Lock
 import time
 import types
@@ -525,10 +526,8 @@ class Histogram(MetricWrapperBase):
     def observe(self, amount):
         """Observe the given amount."""
         self._sum.inc(amount)
-        for i, bound in enumerate(self._upper_bounds):
-            if amount <= bound:
-                self._buckets[i].inc(1)
-                break
+        i = bisect_left(self._upper_bounds, amount)
+        self._buckets[i].inc(1)
 
     def time(self):
         """Time a block of code or function, and observe the duration in seconds.
