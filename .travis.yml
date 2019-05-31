@@ -19,8 +19,14 @@ matrix:
       env: TOXENV=py35
     - python: "3.6"
       env: TOXENV=py36
-    - python: "3.6"
-      env: TOXENV=py36-nooptionals
+    - python: "3.7"
+      env: TOXENV=py37
+      dist: xenial
+      sudo: true
+    - python: "3.7"
+      env: TOXENV=py37-nooptionals
+      dist: xenial
+      sudo: true
     - python: "pypy"
       env: TOXENV=pypy
     - python: "pypy3"
