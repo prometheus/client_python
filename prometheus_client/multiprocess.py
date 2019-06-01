@@ -56,7 +56,7 @@ class MultiProcessCollector(object):
                     metric.add_sample(name, labels_key, value)
             d.close()
 
-        for metric in metrics.values():
+        for n, metric in metrics.iteritems():
             samples = defaultdict(float)
             buckets = {}
             for s in metric.samples:
@@ -73,6 +73,8 @@ class MultiProcessCollector(object):
                             samples[(s.name, without_pid)] = value
                     elif metric._multiprocess_mode == 'livesum':
                         samples[(name, without_pid)] += value
+                    elif metric._multiprocess_mode == "livelatest":
+                        continue
                     else:  # all/liveall
                         samples[(name, labels)] = value
 
@@ -87,10 +89,33 @@ class MultiProcessCollector(object):
                     else:
                         # _sum/_count
                         samples[(s.name, labels)] += value
-
                 else:
                     # Counter and Summary.
                     samples[(s.name, labels)] += value
+
+            # Handle the livelatest gauge multiprocess mode type:
+            # The livelatest gauge stores a pair value named $(METRIC_NAME)_at with the updated timestamp
+            # Each we see a livelatest metric, lookup the "at" value for each sample pid and choose the latest value:
+            if metric.type == "gauge" and metric._multiprocess_mode == "livelatest":
+                at_pid = []
+                for s in metric.samples:
+                    if s.name.endswith("_at"):
+                        labels = dict(s.labels)
+                        at_pid.append((s.value, labels["pid"]))
+                if at_pid:
+                    ts, pid = max(at_pid)
+                    for s in metric.samples:
+                        if s.name.endswith("_at"):
+                            continue
+                        labels = dict(s.labels)
+                        if labels["pid"] == pid:
+                            del labels["pid"]
+                            metric.samples = [Sample(s.name,
+                                                     labels=labels,
+                                                     value=s.value,
+                                                     timestamp=ts)]
+                            break
+                continue
 
             # Accumulate bucket values.
             if metric.type == 'histogram':
@@ -108,7 +133,6 @@ class MultiProcessCollector(object):
                             samples[sample_key] = value
                     if accumulate:
                         samples[(metric.name + '_count', labels)] = acc
-
             # Convert to correct sample format.
             metric.samples = [Sample(name_, dict(labels), value) for (name_, labels), value in samples.items()]
         return metrics.values()
@@ -122,7 +146,5 @@ def mark_process_dead(pid, path=None):
     """Do bookkeeping for when one process dies in a multi-process setup."""
     if path is None:
         path = os.environ.get('prometheus_multiproc_dir')
-    for f in glob.glob(os.path.join(path, 'gauge_livesum_{0}.db'.format(pid))):
-        os.remove(f)
-    for f in glob.glob(os.path.join(path, 'gauge_liveall_{0}.db'.format(pid))):
+    for f in glob.glob(os.path.join(path, 'gauge_{livelatest,liveall,livesum}_{0}.db'.format(pid))):
         os.remove(f)

@@ -1,7 +1,6 @@
 import sys
 from threading import Lock
 import time
-import types
 
 from . import values  # retain this import style for testability
 from .context_managers import ExceptionCounter, InprogressTracker, Timer
@@ -293,7 +292,7 @@ class Gauge(MetricWrapperBase):
         d.set_function(lambda: len(my_dict))
     """
     _type = 'gauge'
-    _MULTIPROC_MODES = frozenset(('min', 'max', 'livesum', 'liveall', 'all'))
+    _MULTIPROC_MODES = frozenset(('min', 'max', 'livelatest', 'livesum', 'liveall', 'all'))
 
     def __init__(self,
                  name,
@@ -326,22 +325,37 @@ class Gauge(MetricWrapperBase):
             self._type, self._name, self._name, self._labelnames, self._labelvalues,
             multiprocess_mode=self._multiprocess_mode
         )
+        if self._multiprocess_mode == 'livelatest':
+            self._at = values.ValueClass(self._type,
+                                         self._name,
+                                         self._name + '_at', self._labelnames,
+                                         self._labelvalues,
+                                         multiprocess_mode='livelatest')
+
+    def _optionally_update_at(self):
+        if self._multiprocess_mode == 'livelatest':
+            self._at.set(time.time())
 
     def inc(self, amount=1):
         """Increment gauge by the given amount."""
         self._value.inc(amount)
+        self._optionally_update_at()
+
 
     def dec(self, amount=1):
         """Decrement gauge by the given amount."""
         self._value.inc(-amount)
+        self._optionally_update_at()
 
     def set(self, value):
         """Set gauge to the given value."""
         self._value.set(float(value))
+        self._optionally_update_at()
 
     def set_to_current_time(self):
         """Set gauge to the current unixtime."""
         self.set(time.time())
+        self._optionally_update_at()
 
     def track_inprogress(self):
         """Track inprogress blocks of code or functions.
@@ -365,14 +379,17 @@ class Gauge(MetricWrapperBase):
         The function must return a float, and may be called from
         multiple threads. All other methods of the Gauge become NOOPs.
         """
+        self._f = f
 
-        def samples(self):
-            return (('', {}, float(f())),)
-
-        self._child_samples = types.MethodType(samples, self)
 
     def _child_samples(self):
-        return (('', {}, self._value.get()),)
+        samples = []
+        if self._f is None:
+            samples.append(('', {}, self._value.get()))
+        if self._multiprocess_mode == 'last':
+            at = self._at() if self._f is None else time.time()
+            samples.append(('_at', {}, at))
+        return tuple(samples)
 
 
 class Summary(MetricWrapperBase):
