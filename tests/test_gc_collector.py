@@ -1,8 +1,8 @@
 from __future__ import unicode_literals
 
 import gc
-import sys
 import platform
+import sys
 
 if sys.version_info < (2, 7):
     # We need the skip decorators from unittest2 on Python 2.6.
