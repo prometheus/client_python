@@ -306,6 +306,8 @@ class Gauge(MetricWrapperBase):
                  multiprocess_mode='all',
                  ):
         self._multiprocess_mode = multiprocess_mode
+        self._f = None
+        self._at = None
         if multiprocess_mode not in self._MULTIPROC_MODES:
             raise ValueError('Invalid multiprocess mode: ' + multiprocess_mode)
         super(Gauge, self).__init__(
@@ -381,13 +383,12 @@ class Gauge(MetricWrapperBase):
         """
         self._f = f
 
-
     def _child_samples(self):
         samples = []
-        if self._f is None:
-            samples.append(('', {}, self._value.get()))
-        if self._multiprocess_mode == 'last':
-            at = self._at() if self._f is None else time.time()
+        v = self._value.get() if self._f is None else self._f()
+        samples.append(('', {}, v))
+        if self._multiprocess_mode == 'livelatest':
+            at = self._at.get() if self._f is None else time.time()
             samples.append(('_at', {}, at))
         return tuple(samples)
 
