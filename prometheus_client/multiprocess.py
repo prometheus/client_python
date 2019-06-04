@@ -80,7 +80,7 @@ class MultiProcessCollector(object):
             for s in metric.samples:
                 name, labels, value, timestamp, exemplar = s
                 if metric.type == 'gauge':
-                    without_pid_key = (name, tuple(l for l in labels if l[0] != 'pid'))
+                    without_pid_key = (name, tuple([l for l in labels if l[0] != 'pid']))
                     if metric._multiprocess_mode == 'min':
                         current = samples_setdefault(without_pid_key, value)
                         if value < current:
@@ -95,15 +95,18 @@ class MultiProcessCollector(object):
                         samples[(name, labels)] = value
 
                 elif metric.type == 'histogram':
-                    bucket = tuple(float(l[1]) for l in labels if l[0] == 'le')
-                    if bucket:
-                        # _bucket
-                        without_le = tuple(l for l in labels if l[0] != 'le')
-                        buckets[without_le][bucket[0]] += value
-                    else:
+                    # A for loop with early exit is faster than a genexpr
+                    # or a listcomp that ends up building unnecessary things
+                    for l in labels:
+                        if l[0] == 'le':
+                            bucket_value = float(l[1])
+                            # _bucket
+                            without_le = tuple(l for l in labels if l[0] != 'le')
+                            buckets[without_le][bucket_value] += value
+                            break
+                    else:  # did not find the `le` key
                         # _sum/_count
                         samples[(name, labels)] += value
-
                 else:
                     # Counter and Summary.
                     samples[(name, labels)] += value
