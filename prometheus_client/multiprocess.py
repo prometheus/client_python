@@ -33,6 +33,11 @@ class MultiProcessCollector(object):
         But if writing the merged data back to mmap files, use
         accumulate=False to avoid compound accumulation.
         """
+        metrics = MultiProcessCollector._read_metrics(files)
+        return MultiProcessCollector._accumulate_metrics(metrics, accumulate)
+
+    @staticmethod
+    def _read_metrics(files):
         metrics = {}
         for f in files:
             parts = os.path.basename(f).split('_')
@@ -55,7 +60,10 @@ class MultiProcessCollector(object):
                     # The duplicates and labels are fixed in the next for.
                     metric.add_sample(name, labels_key, value)
             d.close()
+        return metrics
 
+    @staticmethod
+    def _accumulate_metrics(metrics, accumulate):
         for metric in metrics.values():
             samples = defaultdict(float)
             buckets = {}
