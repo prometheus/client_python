@@ -22,6 +22,29 @@ def _pack_integer(data, pos, value):
     data[pos:pos + 4] = _pack_integer_func(value)
 
 
+def _read_all_values(data, used=0):
+    """Yield (key, value, pos). No locking is performed."""
+
+    if used <= 0:
+        # If not valid `used` value is passed in, read it from the file.
+        used = _unpack_integer(data, 0)[0]
+
+    pos = 8
+
+    while pos < used:
+        encoded_len = _unpack_integer(data, pos)[0]
+        # check we are not reading beyond bounds
+        if encoded_len + pos > used:
+            raise RuntimeError('Read beyond file size detected, file is corrupted.')
+        pos += 4
+        encoded_key = data[pos : pos + encoded_len]
+        padded_len = encoded_len + (8 - (encoded_len + 4) % 8)
+        pos += padded_len
+        value = _unpack_double(data, pos)[0]
+        yield encoded_key.decode('utf-8'), value, pos
+        pos += 8
+
+
 class MmapedDict(object):
     """A dict of doubles, backed by an mmapped file.
 
@@ -55,6 +78,12 @@ class MmapedDict(object):
                 for key, _, pos in self._read_all_values():
                     self._positions[key] = pos
 
+    @staticmethod
+    def read_all_values_from_file(filename):
+        with open(filename, 'rb') as infp:
+            data = infp.read()
+        return _read_all_values(data)
+
     def _init_value(self, key):
         """Initialize a value. Lock must be held by caller."""
         encoded = key.encode('utf-8')
@@ -74,30 +103,10 @@ class MmapedDict(object):
 
     def _read_all_values(self):
         """Yield (key, value, pos). No locking is performed."""
-
-        pos = 8
-
-        # cache variables to local ones and prevent attributes lookup
-        # on every loop iteration
-        used = self._used
-        data = self._m
-
-        while pos < used:
-            encoded_len = _unpack_integer(data, pos)[0]
-            # check we are not reading beyond bounds
-            if encoded_len + pos > used:
-                msg = 'Read beyond file size detected, %s is corrupted.'
-                raise RuntimeError(msg % self._fname)
-            pos += 4
-            encoded_key = data[pos : pos + encoded_len]
-            padded_len = encoded_len + (8 - (encoded_len + 4) % 8)
-            pos += padded_len
-            value = _unpack_double(data, pos)[0]
-            yield encoded_key.decode('utf-8'), value, pos
-            pos += 8
+        return _read_all_values(data=self._m, used=self._used)
 
     def read_all_values(self):
-        """Yield (key, value, pos). No locking is performed."""
+        """Yield (key, value). No locking is performed."""
         for k, v, _ in self._read_all_values():
             yield k, v
 

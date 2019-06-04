@@ -54,8 +54,7 @@ class MultiProcessCollector(object):
         for f in files:
             parts = os.path.basename(f).split('_')
             typ = parts[0]
-            d = MmapedDict(f, read_mode=True)
-            for key, value in d.read_all_values():
+            for key, value, pos in MmapedDict.read_all_values_from_file(f):
                 metric_name, name, labels, labels_key = _parse_key(key)
 
                 metric = metrics.get(metric_name)
@@ -70,7 +69,6 @@ class MultiProcessCollector(object):
                 else:
                     # The duplicates and labels are fixed in the next for.
                     metric.add_sample(name, labels_key, value)
-            d.close()
         return metrics
 
     @staticmethod
