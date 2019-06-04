@@ -3,6 +3,7 @@
 from __future__ import unicode_literals
 
 from collections import defaultdict
+import errno
 import glob
 import json
 import os
@@ -11,6 +12,20 @@ from .metrics_core import Metric
 from .mmap_dict import MmapedDict
 from .samples import Sample
 from .utils import floatToGoString
+
+GAUGE_LATEST = "latest"
+GAUGE_LIVEALL = "liveall"
+GAUGE_LIVESUM = "livesum"
+GAUGE_MAX = "max"
+GAUGE_MIN = "min"
+
+GAUGES = [
+    GAUGE_LATEST,
+    GAUGE_LIVEALL,
+    GAUGE_LIVESUM,
+    GAUGE_MAX,
+    GAUGE_MIN,
+]
 
 
 class MultiProcessCollector(object):
@@ -38,7 +53,7 @@ class MultiProcessCollector(object):
             parts = os.path.basename(f).split('_')
             typ = parts[0]
             d = MmapedDict(f, read_mode=True)
-            for key, value in d.read_all_values():
+            for key, value, ts in d.read_all_values():
                 metric_name, name, labels = json.loads(key)
                 labels_key = tuple(sorted(labels.items()))
 
@@ -50,10 +65,10 @@ class MultiProcessCollector(object):
                 if typ == 'gauge':
                     pid = parts[2][:-3]
                     metric._multiprocess_mode = parts[1]
-                    metric.add_sample(name, labels_key + (('pid', pid),), value)
+                    metric.add_sample(name, labels_key + (('pid', pid),), value, timestamp=ts)
                 else:
                     # The duplicates and labels are fixed in the next for.
-                    metric.add_sample(name, labels_key, value)
+                    metric.add_sample(name, labels_key, value, timestamp=ts)
             d.close()
 
         for n, metric in metrics.iteritems():
@@ -146,5 +161,9 @@ def mark_process_dead(pid, path=None):
     """Do bookkeeping for when one process dies in a multi-process setup."""
     if path is None:
         path = os.environ.get('prometheus_multiproc_dir')
-    for f in glob.glob(os.path.join(path, 'gauge_{livelatest,liveall,livesum}_{0}.db'.format(pid))):
-        os.remove(f)
+    for gauge_type in GAUGES:
+        try:
+            os.unlink("{}/gauge_{}_{}.db".format(path, gauge_type, pid))
+        except OSError, e:
+            if e.errno != errno.ENOENT:
+                raise

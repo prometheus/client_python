@@ -5,6 +5,7 @@ import os
 import shutil
 import sys
 import tempfile
+import time
 
 from prometheus_client import mmap_dict, values
 from prometheus_client.core import (
@@ -73,6 +74,7 @@ class TestMultiProcess(unittest.TestCase):
         self.assertEqual(2, self.registry.get_sample_value('h_bucket', {'le': '5.0'}))
 
     def test_gauge_all(self):
+        values.ValueClass = MultiProcessValue(lambda: 123)
         g1 = Gauge('g', 'help', registry=None)
         values.ValueClass = MultiProcessValue(lambda: 456)
         g2 = Gauge('g', 'help', registry=None)
@@ -85,16 +87,19 @@ class TestMultiProcess(unittest.TestCase):
         self.assertEqual(2, self.registry.get_sample_value('g', {'pid': '456'}))
 
     def test_gauge_liveall(self):
+        values.ValueClass = MultiProcessValue(lambda: 123)
         g1 = Gauge('g', 'help', registry=None, multiprocess_mode='liveall')
+        self.assertEqual(0, self.registry.get_sample_value('g', {'pid': '123'}))
+        g1.set(1)
         values.ValueClass = MultiProcessValue(lambda: 456)
         g2 = Gauge('g', 'help', registry=None, multiprocess_mode='liveall')
-        self.assertEqual(0, self.registry.get_sample_value('g', {'pid': '123'}))
         self.assertEqual(0, self.registry.get_sample_value('g', {'pid': '456'}))
-        g1.set(1)
         g2.set(2)
         self.assertEqual(1, self.registry.get_sample_value('g', {'pid': '123'}))
         self.assertEqual(2, self.registry.get_sample_value('g', {'pid': '456'}))
         mark_process_dead(123, os.environ['prometheus_multiproc_dir'])
+        print os.listdir(os.environ["prometheus_multiproc_dir"])
+
         self.assertEqual(None, self.registry.get_sample_value('g', {'pid': '123'}))
         self.assertEqual(2, self.registry.get_sample_value('g', {'pid': '456'}))
 
@@ -117,6 +122,7 @@ class TestMultiProcess(unittest.TestCase):
         self.assertEqual(2, self.registry.get_sample_value('g'))
 
     def test_gauge_livesum(self):
+        values.ValueClass = MultiProcessValue(lambda: 123)
         g1 = Gauge('g', 'help', registry=None, multiprocess_mode='livesum')
         values.ValueClass = MultiProcessValue(lambda: 456)
         g2 = Gauge('g', 'help', registry=None, multiprocess_mode='livesum')
@@ -277,17 +283,24 @@ class TestMmapedDict(unittest.TestCase):
         os.close(fd)
         self.d = mmap_dict.MmapedDict(self.tempfile)
 
+    def test_timestamp(self):
+        t0 = int(time.time() * 100)
+        self.d.write_value("foo", 3.0, timestamp=t0)
+        v, t = self.d.read_value_timestamp("foo")
+        self.assertEqual(3.0, v)
+        self.assertEqual(t0, t)
+
     def test_process_restart(self):
         self.d.write_value('abc', 123.0)
         self.d.close()
         self.d = mmap_dict.MmapedDict(self.tempfile)
         self.assertEqual(123, self.d.read_value('abc'))
-        self.assertEqual([('abc', 123.0)], list(self.d.read_all_values()))
+        self.assertEqual([('abc', 123.0, None)], list(self.d.read_all_values()))
 
     def test_expansion(self):
         key = 'a' * mmap_dict._INITIAL_MMAP_SIZE
         self.d.write_value(key, 123.0)
-        self.assertEqual([(key, 123.0)], list(self.d.read_all_values()))
+        self.assertEqual([(key, 123.0, None)], list(self.d.read_all_values()))
 
     def test_multi_expansion(self):
         key = 'a' * mmap_dict._INITIAL_MMAP_SIZE * 4
@@ -295,7 +308,7 @@ class TestMmapedDict(unittest.TestCase):
         self.d.write_value(key, 123.0)
         self.d.write_value('def', 17.0)
         self.assertEqual(
-            [('abc', 42.0), (key, 123.0), ('def', 17.0)],
+            [('abc', 42.0, None), (key, 123.0, None), ('def', 17.0, None)],
             list(self.d.read_all_values()))
 
     def test_corruption_detected(self):
