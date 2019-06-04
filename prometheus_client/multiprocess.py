@@ -75,21 +75,22 @@ class MultiProcessCollector(object):
     def _accumulate_metrics(metrics, accumulate):
         for metric in metrics.values():
             samples = defaultdict(float)
-            buckets = {}
+            buckets = defaultdict(lambda: defaultdict(float))
+            samples_setdefault = samples.setdefault
             for s in metric.samples:
-                name, labels, value = s.name, s.labels, s.value
+                name, labels, value, timestamp, exemplar = s
                 if metric.type == 'gauge':
-                    without_pid = tuple(l for l in labels if l[0] != 'pid')
+                    without_pid_key = (name, tuple(l for l in labels if l[0] != 'pid'))
                     if metric._multiprocess_mode == 'min':
-                        current = samples.setdefault((name, without_pid), value)
+                        current = samples_setdefault(without_pid_key, value)
                         if value < current:
-                            samples[(s.name, without_pid)] = value
+                            samples[without_pid_key] = value
                     elif metric._multiprocess_mode == 'max':
-                        current = samples.setdefault((name, without_pid), value)
+                        current = samples_setdefault(without_pid_key, value)
                         if value > current:
-                            samples[(s.name, without_pid)] = value
+                            samples[without_pid_key] = value
                     elif metric._multiprocess_mode == 'livesum':
-                        samples[(name, without_pid)] += value
+                        samples[without_pid_key] += value
                     else:  # all/liveall
                         samples[(name, labels)] = value
 
@@ -98,16 +99,14 @@ class MultiProcessCollector(object):
                     if bucket:
                         # _bucket
                         without_le = tuple(l for l in labels if l[0] != 'le')
-                        buckets.setdefault(without_le, {})
-                        buckets[without_le].setdefault(bucket[0], 0.0)
                         buckets[without_le][bucket[0]] += value
                     else:
                         # _sum/_count
-                        samples[(s.name, labels)] += value
+                        samples[(name, labels)] += value
 
                 else:
                     # Counter and Summary.
-                    samples[(s.name, labels)] += value
+                    samples[(name, labels)] += value
 
             # Accumulate bucket values.
             if metric.type == 'histogram':
