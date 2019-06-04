@@ -12,6 +12,8 @@ from .mmap_dict import MmapedDict
 from .samples import Sample
 from .utils import floatToGoString
 
+MP_METRIC_HELP = 'Multiprocess metric'
+
 
 class MultiProcessCollector(object):
     """Collector for files for multi-process mode."""
@@ -39,17 +41,26 @@ class MultiProcessCollector(object):
     @staticmethod
     def _read_metrics(files):
         metrics = {}
+        key_cache = {}
+
+        def _parse_key(key):
+            val = key_cache.get(key)
+            if not val:
+                metric_name, name, labels = json.loads(key)
+                labels_key = tuple(sorted(labels.items()))
+                val = key_cache[key] = (metric_name, name, labels, labels_key)
+            return val
+
         for f in files:
             parts = os.path.basename(f).split('_')
             typ = parts[0]
             d = MmapedDict(f, read_mode=True)
             for key, value in d.read_all_values():
-                metric_name, name, labels = json.loads(key)
-                labels_key = tuple(sorted(labels.items()))
+                metric_name, name, labels, labels_key = _parse_key(key)
 
                 metric = metrics.get(metric_name)
                 if metric is None:
-                    metric = Metric(metric_name, 'Multiprocess metric', typ)
+                    metric = Metric(metric_name, MP_METRIC_HELP, typ)
                     metrics[metric_name] = metric
 
                 if typ == 'gauge':
