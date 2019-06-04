@@ -81,7 +81,6 @@ class MmapedDict(object):
         # on every loop iteration
         used = self._used
         data = self._m
-        unpack_from = struct.unpack_from
 
         while pos < used:
             encoded_len = _unpack_integer(data, pos)[0]
@@ -90,11 +89,11 @@ class MmapedDict(object):
                 msg = 'Read beyond file size detected, %s is corrupted.'
                 raise RuntimeError(msg % self._fname)
             pos += 4
-            encoded = unpack_from(('%ss' % encoded_len).encode(), data, pos)[0]
+            encoded_key = data[pos : pos + encoded_len]
             padded_len = encoded_len + (8 - (encoded_len + 4) % 8)
             pos += padded_len
             value = _unpack_double(data, pos)[0]
-            yield encoded.decode('utf-8'), value, pos
+            yield encoded_key.decode('utf-8'), value, pos
             pos += 8
 
     def read_all_values(self):
