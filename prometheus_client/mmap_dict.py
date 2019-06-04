@@ -37,9 +37,11 @@ class MmapedDict(object):
     def __init__(self, filename, read_mode=False):
         self._f = open(filename, 'rb' if read_mode else 'a+b')
         self._fname = filename
-        if os.fstat(self._f.fileno()).st_size == 0:
+        capacity = os.fstat(self._f.fileno()).st_size
+        if capacity == 0:
             self._f.truncate(_INITIAL_MMAP_SIZE)
-        self._capacity = os.fstat(self._f.fileno()).st_size
+            capacity = _INITIAL_MMAP_SIZE
+        self._capacity = capacity
         self._m = mmap.mmap(self._f.fileno(), self._capacity,
                             access=mmap.ACCESS_READ if read_mode else mmap.ACCESS_WRITE)
 
