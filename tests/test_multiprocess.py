@@ -12,7 +12,7 @@ from prometheus_client.core import (
     CollectorRegistry, Counter, Gauge, Histogram, Sample, Summary,
 )
 from prometheus_client.multiprocess import (
-    mark_process_dead, MultiProcessCollector,
+    mark_process_dead, MultiProcessCollector, cleanup_dead_processes
 )
 from prometheus_client.values import MultiProcessValue, MutexValue
 
@@ -82,6 +82,7 @@ class TestMultiProcess(unittest.TestCase):
         self.assertEqual(0, self.registry.get_sample_value('g', {'pid': '456'}))
         g1.set(1)
         g2.set(2)
+        cleanup_dead_processes()
         mark_process_dead(123, os.environ['prometheus_multiproc_dir'])
         self.assertEqual(1, self.registry.get_sample_value('g', {'pid': '123'}))
         self.assertEqual(2, self.registry.get_sample_value('g', {'pid': '456'}))
@@ -102,6 +103,25 @@ class TestMultiProcess(unittest.TestCase):
 
         self.assertEqual(None, self.registry.get_sample_value('g', {'pid': '123'}))
         self.assertEqual(2, self.registry.get_sample_value('g', {'pid': '456'}))
+
+    def test_gauge_latest(self):
+        p0 = '123456'
+        p1 = '456789'
+        self.assertEqual(None, self.registry.get_sample_value('g'))
+        values.ValueClass = MultiProcessValue(lambda: p0)
+        g1 = Gauge('g', 'G', registry=None, multiprocess_mode=Gauge.LATEST)
+        t0 = time.time()
+        g1.set(1, timestamp=t0)
+        self.assertEqual(1, self.registry.get_sample_value('g'))
+        cleanup_dead_processes()
+        self.assertEqual(1, self.registry.get_sample_value('g'))
+        values.ValueClass = MultiProcessValue(lambda: p1)
+        g2 = Gauge('g', 'G', registry=None, multiprocess_mode=Gauge.LATEST)
+        t1 = t0 - time.time()
+        g2.set(2, timestamp=t1)
+        self.assertEqual(1, self.registry.get_sample_value('g'))
+        cleanup_dead_processes()
+        self.assertEqual(1, self.registry.get_sample_value('g'))
 
     def test_gauge_min(self):
         g1 = Gauge('g', 'help', registry=None, multiprocess_mode='min')

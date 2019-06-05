@@ -292,7 +292,15 @@ class Gauge(MetricWrapperBase):
         d.set_function(lambda: len(my_dict))
     """
     _type = 'gauge'
-    _MULTIPROC_MODES = frozenset(('min', 'max', 'latest', 'livesum', 'liveall', 'all'))
+    ALL = "all"
+    LATEST = "latest"
+    LIVEALL = "liveall"
+    LIVESUM = "livesum"
+    MAX = "max"
+    MIN = "min"
+
+
+    _MULTIPROC_MODES = frozenset((MIN, MAX, LATEST, LIVESUM, LIVEALL, ALL))
 
     def __init__(self,
                  name,
@@ -337,9 +345,9 @@ class Gauge(MetricWrapperBase):
         """Decrement gauge by the given amount."""
         self._value.inc(-amount, timestamp=timestamp)
 
-    def set(self, value):
+    def set(self, value, timestamp=None):
         """Set gauge to the given value."""
-        self._value.set(float(value))
+        self._value.set(float(value), timestamp=timestamp)
 
     def set_to_current_time(self, timestamp=None):
         """Set gauge to the current unixtime."""
