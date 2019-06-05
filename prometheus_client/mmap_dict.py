@@ -81,8 +81,13 @@ class MmapedDict(object):
     @staticmethod
     def read_all_values_from_file(filename):
         with open(filename, 'rb') as infp:
-            data = infp.read()
-        return _read_all_values(data)
+            # Read the first block of data, including the first 4 bytes which tell us
+            # how much of the file (which is preallocated to _INITIAL_MMAP_SIZE bytes) is occupied.
+            data = infp.read(65535)
+            used = _unpack_integer(data, 0)[0]
+            if used > len(data):  # Then read in the rest, if needed.
+                data += infp.read(used - len(data))
+        return _read_all_values(data, used)
 
     def _init_value(self, key):
         """Initialize a value. Lock must be held by caller."""
