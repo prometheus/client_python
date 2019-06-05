@@ -12,11 +12,11 @@ import re
 import shutil
 import tempfile
 
+from .metrics import Counter, Gauge, Histogram
 from .metrics_core import Metric
-from .mmap_dict import MmapedDict, mmap_key
+from .mmap_dict import mmap_key, MmapedDict
 from .samples import Sample
 from .utils import floatToGoString
-from .metrics import Gauge, Counter, Histogram
 
 
 PROMETHEUS_MULTIPROC_DIR = "prometheus_multiproc_dir"
@@ -65,7 +65,7 @@ class MultiProcessCollector(object):
                 metric.add_sample(name, labels_key, value, timestamp=timestamp)
             d.close()
 
-        for n, metric in metrics.iteritems():
+        for metric in metrics.itervalues():
             # Handle the Gauge "latest" multiprocess mode type:
             if metric.type == Gauge._type and metric._multiprocess_mode == Gauge.LATEST:
                 s = max(metric.samples, key=lambda i: i.timestamp)
@@ -147,16 +147,22 @@ class MultiProcessCollector(object):
 
 def mark_process_dead(pid, path=None):
     """Do bookkeeping for when one process dies in a multi-process setup."""
-    if path is None:
-        path = os.environ.get('prometheus_multiproc_dir')
+    path = _multiproc_dir() if path is None else path
+    _remove_livesum_dbs(pid, path=path)
+
+
+def _remove_livesum_dbs(pid, path):
     for gauge_type in [Gauge.LIVESUM, Gauge.LIVEALL]:
         _safe_remove("{}/gauge_{}_{}.db".format(path, gauge_type, pid))
 
 
+def _multiproc_dir():
+    return os.environ[PROMETHEUS_MULTIPROC_DIR]
+
+
 def cleanup_process(pid, prom_dir=None):
     """Aggregate dead worker's metrics into a single archive file."""
-    if prom_dir is None:
-        prom_dir = os.environ['prometheus_multiproc_dir']
+    prom_dir = _multiproc_dir() if prom_dir is None else prom_dir
 
     worker_paths = [
         "counter_{}.db".format(pid),
@@ -181,11 +187,13 @@ def cleanup_process(pid, prom_dir=None):
     worker_paths = (os.path.join(prom_dir, f) for f in worker_paths)
     worker_paths = filter(os.path.exists, worker_paths)
     if worker_paths:
-        worker_paths.extend(filter(os.path.exists, merged_paths.itervalues()))
+        all_paths = worker_paths + filter(os.path.exists, merged_paths.values())
         collector = MultiProcessCollector(None, path=prom_dir)
-        metrics = collector.merge(worker_paths, accumulate=False)
+        metrics = collector.merge(all_paths, accumulate=False)
         _write_metrics(metrics, merged_paths)
-    mark_process_dead(pid)
+    for worker_path in worker_paths:
+        _safe_remove(worker_path)
+    _remove_livesum_dbs(pid, path=prom_dir)
 
 
 def _safe_remove(p):

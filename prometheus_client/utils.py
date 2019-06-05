@@ -1,9 +1,9 @@
 import math
-import time
 
 
 INF = float("inf")
 MINUS_INF = float("-inf")
+
 
 def floatToGoString(d):
     d = float(d)

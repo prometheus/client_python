@@ -1,14 +1,13 @@
-# Partially based on https://github.com/canonical-ols/talisker/blob/master/talisker/prometheus.py
-
-from builtins import *  # noqa
-from . import (CollectorRegistry, multiprocess)
-from .exposition import make_wsgi_app
-from .multiprocess import cleanup_dead_processes
 import logging
-import re
+import sys
 import thread
 import time
 import traceback
+
+from . import (CollectorRegistry, multiprocess)
+from .exposition import make_wsgi_app
+from .multiprocess import cleanup_dead_processes
+
 
 CLEANUP_INTERVAL = 60.0
 

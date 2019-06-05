@@ -12,7 +12,7 @@ from prometheus_client.core import (
     CollectorRegistry, Counter, Gauge, Histogram, Sample, Summary,
 )
 from prometheus_client.multiprocess import (
-    mark_process_dead, MultiProcessCollector, cleanup_dead_processes
+    cleanup_dead_processes, mark_process_dead, MultiProcessCollector
 )
 from prometheus_client.values import MultiProcessValue, MutexValue
 
