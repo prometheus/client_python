@@ -27,7 +27,7 @@ class MmapedDict(object):
     Then 4 bytes of padding.
     There's then a number of entries, consisting of a 4 byte int which is the
     size of the next field, a utf-8 encoded string key, padding to a 8 byte
-    alignment, a 8 byte float which is the value and then an 8 byte timestamp (int64 milliseconds).
+    alignment, a 8 byte float which is the value and then an 8 byte timestamp (seconds).
 
     Not thread safe.
     """
@@ -134,9 +134,9 @@ def mmap_key(metric_name, name, labelnames, labelvalues):
 def _from_timestamp_float(timestamp):
     """Convert timestamp from a pure floating point value
 
-    NaN is decoded as None
+    inf is decoded as None
     """
-    if timestamp < 0: #timestamp == float('nan'):
+    if timestamp == float('inf'):
         return None
     else:
         return timestamp
@@ -145,9 +145,9 @@ def _from_timestamp_float(timestamp):
 def _to_timestamp_float(timestamp):
     """Convert timestamp to a pure floating point value
 
-    None is converted to NaN
+    None is encoded as inf
     """
     if timestamp is None:
-        return -1 # float('nan')
+        return float('inf')
     else:
         return float(timestamp)
