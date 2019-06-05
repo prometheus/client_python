@@ -75,7 +75,7 @@ def generate_latest(registry=REGISTRY):
         if line.labels:
             labelstr = '{{{0}}}'.format(','.join(
                 ['{0}="{1}"'.format(
-                    k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
+                    k, str(v).replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
                     for k, v in sorted(line.labels.items())]))
         else:
             labelstr = ''
