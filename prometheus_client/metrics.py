@@ -336,23 +336,27 @@ class Gauge(MetricWrapperBase):
             multiprocess_mode=self._multiprocess_mode
         )
 
+    def _current_time(self, timestamp):
+        """Get the current unixtime for the LATEST multiprocess_mode"""
+        if not timestamp and self._multiprocess_mode == self.LATEST:
+            timestamp = time.time()
+        return timestamp
 
     def inc(self, amount=1, timestamp=None):
         """Increment gauge by the given amount."""
-        self._value.inc(amount, timestamp=timestamp)
-
+        self._value.inc(amount, timestamp=self._current_time(timestamp))
 
     def dec(self, amount=1, timestamp=None):
         """Decrement gauge by the given amount."""
-        self._value.inc(-amount, timestamp=timestamp)
+        self._value.inc(-amount, timestamp=self._current_time(timestamp))
 
     def set(self, value, timestamp=None):
         """Set gauge to the given value."""
-        self._value.set(float(value), timestamp=timestamp)
+        self._value.set(float(value), timestamp=self._current_time(timestamp))
 
     def set_to_current_time(self, timestamp=None):
         """Set gauge to the current unixtime."""
-        self.set(time.time(), timestamp=timestamp)
+        self.set(time.time(), timestamp=self._current_time(timestamp))
 
     def track_inprogress(self):
         """Track inprogress blocks of code or functions.
