@@ -22,6 +22,29 @@ def _pack_integer(data, pos, value):
     data[pos:pos + 4] = _pack_integer_func(value)
 
 
+def _read_all_values(data, used=0):
+    """Yield (key, value, pos). No locking is performed."""
+
+    if used <= 0:
+        # If not valid `used` value is passed in, read it from the file.
+        used = _unpack_integer(data, 0)[0]
+
+    pos = 8
+
+    while pos < used:
+        encoded_len = _unpack_integer(data, pos)[0]
+        # check we are not reading beyond bounds
+        if encoded_len + pos > used:
+            raise RuntimeError('Read beyond file size detected, file is corrupted.')
+        pos += 4
+        encoded_key = data[pos : pos + encoded_len]
+        padded_len = encoded_len + (8 - (encoded_len + 4) % 8)
+        pos += padded_len
+        value = _unpack_double(data, pos)[0]
+        yield encoded_key.decode('utf-8'), value, pos
+        pos += 8
+
+
 class MmapedDict(object):
     """A dict of doubles, backed by an mmapped file.
 
@@ -37,9 +60,11 @@ class MmapedDict(object):
     def __init__(self, filename, read_mode=False):
         self._f = open(filename, 'rb' if read_mode else 'a+b')
         self._fname = filename
-        if os.fstat(self._f.fileno()).st_size == 0:
+        capacity = os.fstat(self._f.fileno()).st_size
+        if capacity == 0:
             self._f.truncate(_INITIAL_MMAP_SIZE)
-        self._capacity = os.fstat(self._f.fileno()).st_size
+            capacity = _INITIAL_MMAP_SIZE
+        self._capacity = capacity
         self._m = mmap.mmap(self._f.fileno(), self._capacity,
                             access=mmap.ACCESS_READ if read_mode else mmap.ACCESS_WRITE)
 
@@ -52,6 +77,17 @@ class MmapedDict(object):
             if not read_mode:
                 for key, _, pos in self._read_all_values():
                     self._positions[key] = pos
+
+    @staticmethod
+    def read_all_values_from_file(filename):
+        with open(filename, 'rb') as infp:
+            # Read the first block of data, including the first 4 bytes which tell us
+            # how much of the file (which is preallocated to _INITIAL_MMAP_SIZE bytes) is occupied.
+            data = infp.read(65535)
+            used = _unpack_integer(data, 0)[0]
+            if used > len(data):  # Then read in the rest, if needed.
+                data += infp.read(used - len(data))
+        return _read_all_values(data, used)
 
     def _init_value(self, key):
         """Initialize a value. Lock must be held by caller."""
@@ -72,31 +108,10 @@ class MmapedDict(object):
 
     def _read_all_values(self):
         """Yield (key, value, pos). No locking is performed."""
-
-        pos = 8
-
-        # cache variables to local ones and prevent attributes lookup
-        # on every loop iteration
-        used = self._used
-        data = self._m
-        unpack_from = struct.unpack_from
-
-        while pos < used:
-            encoded_len = _unpack_integer(data, pos)[0]
-            # check we are not reading beyond bounds
-            if encoded_len + pos > used:
-                msg = 'Read beyond file size detected, %s is corrupted.'
-                raise RuntimeError(msg % self._fname)
-            pos += 4
-            encoded = unpack_from(('%ss' % encoded_len).encode(), data, pos)[0]
-            padded_len = encoded_len + (8 - (encoded_len + 4) % 8)
-            pos += padded_len
-            value = _unpack_double(data, pos)[0]
-            yield encoded.decode('utf-8'), value, pos
-            pos += 8
+        return _read_all_values(data=self._m, used=self._used)
 
     def read_all_values(self):
-        """Yield (key, value, pos). No locking is performed."""
+        """Yield (key, value). No locking is performed."""
         for k, v, _ in self._read_all_values():
             yield k, v
 

@@ -12,6 +12,8 @@ from .mmap_dict import MmapedDict
 from .samples import Sample
 from .utils import floatToGoString
 
+MP_METRIC_HELP = 'Multiprocess metric'
+
 
 class MultiProcessCollector(object):
     """Collector for files for multi-process mode."""
@@ -33,18 +35,31 @@ class MultiProcessCollector(object):
         But if writing the merged data back to mmap files, use
         accumulate=False to avoid compound accumulation.
         """
+        metrics = MultiProcessCollector._read_metrics(files)
+        return MultiProcessCollector._accumulate_metrics(metrics, accumulate)
+
+    @staticmethod
+    def _read_metrics(files):
         metrics = {}
+        key_cache = {}
+
+        def _parse_key(key):
+            val = key_cache.get(key)
+            if not val:
+                metric_name, name, labels = json.loads(key)
+                labels_key = tuple(sorted(labels.items()))
+                val = key_cache[key] = (metric_name, name, labels, labels_key)
+            return val
+
         for f in files:
             parts = os.path.basename(f).split('_')
             typ = parts[0]
-            d = MmapedDict(f, read_mode=True)
-            for key, value in d.read_all_values():
-                metric_name, name, labels = json.loads(key)
-                labels_key = tuple(sorted(labels.items()))
+            for key, value, pos in MmapedDict.read_all_values_from_file(f):
+                metric_name, name, labels, labels_key = _parse_key(key)
 
                 metric = metrics.get(metric_name)
                 if metric is None:
-                    metric = Metric(metric_name, 'Multiprocess metric', typ)
+                    metric = Metric(metric_name, MP_METRIC_HELP, typ)
                     metrics[metric_name] = metric
 
                 if typ == 'gauge':
@@ -54,43 +69,47 @@ class MultiProcessCollector(object):
                 else:
                     # The duplicates and labels are fixed in the next for.
                     metric.add_sample(name, labels_key, value)
-            d.close()
+        return metrics
 
+    @staticmethod
+    def _accumulate_metrics(metrics, accumulate):
         for metric in metrics.values():
             samples = defaultdict(float)
-            buckets = {}
+            buckets = defaultdict(lambda: defaultdict(float))
+            samples_setdefault = samples.setdefault
             for s in metric.samples:
-                name, labels, value = s.name, s.labels, s.value
+                name, labels, value, timestamp, exemplar = s
                 if metric.type == 'gauge':
-                    without_pid = tuple(l for l in labels if l[0] != 'pid')
+                    without_pid_key = (name, tuple([l for l in labels if l[0] != 'pid']))
                     if metric._multiprocess_mode == 'min':
-                        current = samples.setdefault((name, without_pid), value)
+                        current = samples_setdefault(without_pid_key, value)
                         if value < current:
-                            samples[(s.name, without_pid)] = value
+                            samples[without_pid_key] = value
                     elif metric._multiprocess_mode == 'max':
-                        current = samples.setdefault((name, without_pid), value)
+                        current = samples_setdefault(without_pid_key, value)
                         if value > current:
-                            samples[(s.name, without_pid)] = value
+                            samples[without_pid_key] = value
                     elif metric._multiprocess_mode == 'livesum':
-                        samples[(name, without_pid)] += value
+                        samples[without_pid_key] += value
                     else:  # all/liveall
                         samples[(name, labels)] = value
 
                 elif metric.type == 'histogram':
-                    bucket = tuple(float(l[1]) for l in labels if l[0] == 'le')
-                    if bucket:
-                        # _bucket
-                        without_le = tuple(l for l in labels if l[0] != 'le')
-                        buckets.setdefault(without_le, {})
-                        buckets[without_le].setdefault(bucket[0], 0.0)
-                        buckets[without_le][bucket[0]] += value
-                    else:
+                    # A for loop with early exit is faster than a genexpr
+                    # or a listcomp that ends up building unnecessary things
+                    for l in labels:
+                        if l[0] == 'le':
+                            bucket_value = float(l[1])
+                            # _bucket
+                            without_le = tuple(l for l in labels if l[0] != 'le')
+                            buckets[without_le][bucket_value] += value
+                            break
+                    else:  # did not find the `le` key
                         # _sum/_count
-                        samples[(s.name, labels)] += value
-
+                        samples[(name, labels)] += value
                 else:
                     # Counter and Summary.
-                    samples[(s.name, labels)] += value
+                    samples[(name, labels)] += value
 
             # Accumulate bucket values.
             if metric.type == 'histogram':
