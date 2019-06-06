@@ -12,7 +12,7 @@ CLEANUP_INTERVAL = 60.0
 
 registry = CollectorRegistry()
 multiprocess.MultiProcessCollector(registry)
-prometheus_expoter_app = make_wsgi_app(registry)
+app = make_wsgi_app(registry)
 log = logging.getLogger(__name__)
 
 
@@ -33,14 +33,3 @@ def start_cleanup_thread():
 
 def on_starting(server):
     start_cleanup_thread()
-
-
-def app(req, start_response):
-    if req.get("PATH_INFO") == "/healthz":
-        body = "OK"
-        headers = [("Content-Type", "text/plain"),
-                   ("Content-Length", "{:d}".format(len(body)))]
-        start_response("200 OK", headers)
-        return iter([body])
-    else:
-        return prometheus_expoter_app(req, start_response)

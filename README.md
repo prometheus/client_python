@@ -505,7 +505,7 @@ from prometheus_client import multiprocess_exporter
 ....
 def app(environ, start_response):
     if environ.get("PATH_INFO") == "/metrics":
-        return multiprocess_exporter.prometheus_exporter_app(environ, start_response)
+        return multiprocess_exporter.app(environ, start_response)
     else:
         return ...
 ```
@@ -536,7 +536,7 @@ celery ...
 
 ```
 
-This will export the metrics at `http://127.0.0.1:9500` as well as a health check endpoint at `http://127.0.0.1:9500/healthz`
+This will export the metrics at `http://127.0.0.1:9500`
 
 Only one exporter process should run per filesystem, prometheus_multiproc_dir.
 
