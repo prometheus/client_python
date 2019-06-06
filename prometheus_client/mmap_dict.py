@@ -5,17 +5,15 @@ import struct
 
 _INITIAL_MMAP_SIZE = 1 << 20
 _pack_integer_func = struct.Struct(b'i').pack
-_pack_double_func = struct.Struct(b'd').pack
+_value_timestamp = struct.Struct(b'dd')
 _unpack_integer = struct.Struct(b'i').unpack_from
-_unpack_double = struct.Struct(b'd').unpack_from
 
 
 # struct.pack_into has atomicity issues because it will temporarily write 0 into
 # the mmap, resulting in false reads to 0 when experiencing a lot of writes.
 # Using direct assignment solves this issue.
-
-def _pack_double(data, pos, value):
-    data[pos:pos + 8] = _pack_double_func(value)
+def _pack_value_timestamp(data, pos, value, timestamp):
+    data[pos:pos + _value_timestamp.size] = _value_timestamp.pack(value, timestamp)
 
 
 def _pack_integer(data, pos, value):
@@ -29,7 +27,7 @@ class MmapedDict(object):
     Then 4 bytes of padding.
     There's then a number of entries, consisting of a 4 byte int which is the
     size of the next field, a utf-8 encoded string key, padding to a 8 byte
-    alignment, and then a 8 byte float which is the value.
+    alignment, a 8 byte float which is the value and then an 8 byte timestamp (seconds).
 
     Not thread safe.
     """
@@ -50,7 +48,7 @@ class MmapedDict(object):
             _pack_integer(self._m, 0, self._used)
         else:
             if not read_mode:
-                for key, _, pos in self._read_all_values():
+                for key, _, _, pos in self._read_all_values():
                     self._positions[key] = pos
 
     def _init_value(self, key):
@@ -58,7 +56,7 @@ class MmapedDict(object):
         encoded = key.encode('utf-8')
         # Pad to be 8-byte aligned.
         padded = encoded + (b' ' * (8 - (len(encoded) + 4) % 8))
-        value = struct.pack('i{0}sd'.format(len(padded)).encode(), len(encoded), padded, 0.0)
+        value = struct.pack('i{0}sdd'.format(len(padded)).encode(), len(encoded), padded, 0.0, 0.0)
         while self._used + len(value) > self._capacity:
             self._capacity *= 2
             self._f.truncate(self._capacity)
@@ -68,10 +66,10 @@ class MmapedDict(object):
         # Update how much space we've used.
         self._used += len(value)
         _pack_integer(self._m, 0, self._used)
-        self._positions[key] = self._used - 8
+        self._positions[key] = self._used - _value_timestamp.size
 
     def _read_all_values(self):
-        """Yield (key, value, pos). No locking is performed."""
+        """Yield (key, value, timestamp, pos). No locking is performed."""
 
         pos = 8
 
@@ -91,28 +89,32 @@ class MmapedDict(object):
             encoded = unpack_from(('%ss' % encoded_len).encode(), data, pos)[0]
             padded_len = encoded_len + (8 - (encoded_len + 4) % 8)
             pos += padded_len
-            value = _unpack_double(data, pos)[0]
-            yield encoded.decode('utf-8'), value, pos
-            pos += 8
+            value, timestamp = _value_timestamp.unpack_from(data, pos)
+            yield encoded.decode('utf-8'), value, _from_timestamp_float(timestamp), pos
+            pos += _value_timestamp.size
 
     def read_all_values(self):
         """Yield (key, value, pos). No locking is performed."""
-        for k, v, _ in self._read_all_values():
-            yield k, v
+        for k, v, ts, _ in self._read_all_values():
+            yield k, v, ts
 
-    def read_value(self, key):
+    def read_value_timestamp(self, key):
         if key not in self._positions:
             self._init_value(key)
         pos = self._positions[key]
         # We assume that reading from an 8 byte aligned value is atomic
-        return _unpack_double(self._m, pos)[0]
+        val, ts = _value_timestamp.unpack_from(self._m, pos)
+        return val, _from_timestamp_float(ts)
 
-    def write_value(self, key, value):
+    def read_value(self, key):
+        return self.read_value_timestamp(key)[0]
+
+    def write_value(self, key, value, timestamp=None):
         if key not in self._positions:
             self._init_value(key)
         pos = self._positions[key]
         # We assume that writing to an 8 byte aligned value is atomic
-        _pack_double(self._m, pos, value)
+        _pack_value_timestamp(self._m, pos, value, _to_timestamp_float(timestamp))
 
     def close(self):
         if self._f:
@@ -127,3 +129,25 @@ def mmap_key(metric_name, name, labelnames, labelvalues):
     # ensure labels are in consistent order for identity
     labels = dict(zip(labelnames, labelvalues))
     return json.dumps([metric_name, name, labels], sort_keys=True)
+
+
+def _from_timestamp_float(timestamp):
+    """Convert timestamp from a pure floating point value
+
+    inf is decoded as None
+    """
+    if timestamp == float('inf'):
+        return None
+    else:
+        return timestamp
+
+
+def _to_timestamp_float(timestamp):
+    """Convert timestamp to a pure floating point value
+
+    None is encoded as inf
+    """
+    if timestamp is None:
+        return float('inf')
+    else:
+        return float(timestamp)

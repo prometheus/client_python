@@ -13,19 +13,26 @@ class MutexValue(object):
 
     def __init__(self, typ, metric_name, name, labelnames, labelvalues, **kwargs):
         self._value = 0.0
+        self._timestamp = None
         self._lock = Lock()
 
-    def inc(self, amount):
+    def inc(self, amount, timestamp=None):
         with self._lock:
             self._value += amount
+            self._timestamp = timestamp
 
-    def set(self, value):
+    def set(self, value, timestamp=None):
         with self._lock:
             self._value = value
+            self._timestamp = timestamp
 
     def get(self):
         with self._lock:
             return self._value
+
+    def timestamp(self):
+        with self._lock:
+            return self._timestamp
 
 
 def MultiProcessValue(_pidFunc=os.getpid):
@@ -63,7 +70,7 @@ def MultiProcessValue(_pidFunc=os.getpid):
                 files[file_prefix] = MmapedDict(filename)
             self._file = files[file_prefix]
             self._key = mmap_key(metric_name, name, labelnames, labelvalues)
-            self._value = self._file.read_value(self._key)
+            self._value, self._timestamp = self._file.read_value_timestamp(self._key)
 
         def __check_for_pid_change(self):
             actual_pid = _pidFunc()
@@ -76,23 +83,29 @@ def MultiProcessValue(_pidFunc=os.getpid):
                 for value in values:
                     value.__reset()
 
-        def inc(self, amount):
+        def inc(self, amount, timestamp=None):
             with lock:
                 self.__check_for_pid_change()
                 self._value += amount
-                self._file.write_value(self._key, self._value)
+                self._timestamp = timestamp
+                self._file.write_value(self._key, self._value, timestamp=self._timestamp)
 
-        def set(self, value):
+        def set(self, value, timestamp=None):
             with lock:
                 self.__check_for_pid_change()
                 self._value = value
-                self._file.write_value(self._key, self._value)
+                self._timestamp = timestamp
+                self._file.write_value(self._key, self._value, timestamp=self._timestamp)
 
         def get(self):
             with lock:
                 self.__check_for_pid_change()
                 return self._value
 
+        def timestamp(self):
+            with lock:
+                self.__check_for_pid_change()
+                return self._timestamp
     return MmapedValue
 
 

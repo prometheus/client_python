@@ -1,5 +1,6 @@
 import math
 
+
 INF = float("inf")
 MINUS_INF = float("-inf")
 

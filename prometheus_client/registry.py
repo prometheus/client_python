@@ -115,6 +115,7 @@ class CollectorRegistry(object):
             labels = {}
         for metric in self.collect():
             for s in metric.samples:
+                assert not isinstance(s, unicode), s
                 if s.name == name and s.labels == labels:
                     return s.value
         return None

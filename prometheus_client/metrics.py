@@ -65,8 +65,8 @@ class MetricWrapperBase(object):
 
     def collect(self):
         metric = self._get_metric()
-        for suffix, labels, value in self._samples():
-            metric.add_sample(self._name + suffix, labels, value)
+        for suffix, labels, value, timestamp in self._samples():
+            metric.add_sample(self._name + suffix, labels, value, timestamp=timestamp)
         return [metric]
 
     def __init__(self,
@@ -179,8 +179,8 @@ class MetricWrapperBase(object):
             metrics = self._metrics.copy()
         for labels, metric in metrics.items():
             series_labels = list(zip(self._labelnames, labels))
-            for suffix, sample_labels, value in metric._samples():
-                yield (suffix, dict(series_labels + list(sample_labels.items())), value)
+            for suffix, sample_labels, value, timestamp in metric._samples():
+                yield (suffix, dict(series_labels + list(sample_labels.items())), value, timestamp)
 
     def _child_samples(self):  # pragma: no cover
         raise NotImplementedError('_child_samples() must be implemented by %r' % self)
@@ -250,8 +250,8 @@ class Counter(MetricWrapperBase):
 
     def _child_samples(self):
         return (
-            ('_total', {}, self._value.get()),
-            ('_created', {}, self._created),
+            ('_total', {}, self._value.get(), None),
+            ('_created', {}, self._created, None),
         )
 
 
@@ -293,7 +293,15 @@ class Gauge(MetricWrapperBase):
         d.set_function(lambda: len(my_dict))
     """
     _type = 'gauge'
-    _MULTIPROC_MODES = frozenset(('min', 'max', 'livesum', 'liveall', 'all'))
+    ALL = "all"
+    LATEST = "latest"
+    LIVEALL = "liveall"
+    LIVESUM = "livesum"
+    MAX = "max"
+    MIN = "min"
+
+
+    _MULTIPROC_MODES = frozenset((MIN, MAX, LATEST, LIVESUM, LIVEALL, ALL))
 
     def __init__(self,
                  name,
@@ -307,6 +315,7 @@ class Gauge(MetricWrapperBase):
                  multiprocess_mode='all',
                  ):
         self._multiprocess_mode = multiprocess_mode
+        self._f = None
         if multiprocess_mode not in self._MULTIPROC_MODES:
             raise ValueError('Invalid multiprocess mode: ' + multiprocess_mode)
         super(Gauge, self).__init__(
@@ -327,21 +336,27 @@ class Gauge(MetricWrapperBase):
             multiprocess_mode=self._multiprocess_mode
         )
 
-    def inc(self, amount=1):
+    def _current_time(self, timestamp):
+        """Get the current unixtime for the LATEST multiprocess_mode"""
+        if not timestamp and self._multiprocess_mode == self.LATEST:
+            timestamp = time.time()
+        return timestamp
+
+    def inc(self, amount=1, timestamp=None):
         """Increment gauge by the given amount."""
-        self._value.inc(amount)
+        self._value.inc(amount, timestamp=self._current_time(timestamp))
 
-    def dec(self, amount=1):
+    def dec(self, amount=1, timestamp=None):
         """Decrement gauge by the given amount."""
-        self._value.inc(-amount)
+        self._value.inc(-amount, timestamp=self._current_time(timestamp))
 
-    def set(self, value):
+    def set(self, value, timestamp=None):
         """Set gauge to the given value."""
-        self._value.set(float(value))
+        self._value.set(float(value), timestamp=self._current_time(timestamp))
 
-    def set_to_current_time(self):
+    def set_to_current_time(self, timestamp=None):
         """Set gauge to the current unixtime."""
-        self.set(time.time())
+        self.set(time.time(), timestamp=self._current_time(timestamp))
 
     def track_inprogress(self):
         """Track inprogress blocks of code or functions.
@@ -367,12 +382,12 @@ class Gauge(MetricWrapperBase):
         """
 
         def samples(self):
-            return (('', {}, float(f())),)
+            return (('', {}, float(f()), None),)
 
         self._child_samples = types.MethodType(samples, self)
 
     def _child_samples(self):
-        return (('', {}, self._value.get()),)
+        return (('', {}, self._value.get(), self._value.timestamp()),)
 
 
 class Summary(MetricWrapperBase):
@@ -428,9 +443,9 @@ class Summary(MetricWrapperBase):
 
     def _child_samples(self):
         return (
-            ('_count', {}, self._count.get()),
-            ('_sum', {}, self._sum.get()),
-            ('_created', {}, self._created))
+            ('_count', {}, self._count.get(), None),
+            ('_sum', {}, self._sum.get(), None),
+            ('_created', {}, self._created, None))
 
 
 class Histogram(MetricWrapperBase):
@@ -542,10 +557,10 @@ class Histogram(MetricWrapperBase):
         acc = 0
         for i, bound in enumerate(self._upper_bounds):
             acc += self._buckets[i].get()
-            samples.append(('_bucket', {'le': floatToGoString(bound)}, acc))
-        samples.append(('_count', {}, acc))
-        samples.append(('_sum', {}, self._sum.get()))
-        samples.append(('_created', {}, self._created))
+            samples.append(('_bucket', {'le': floatToGoString(bound)}, acc, None))
+        samples.append(('_count', {}, acc, None))
+        samples.append(('_sum', {}, self._sum.get(), None))
+        samples.append(('_created', {}, self._created, None))
         return tuple(samples)
 
 
@@ -582,7 +597,7 @@ class Info(MetricWrapperBase):
 
     def _child_samples(self):
         with self._lock:
-            return (('_info', self._value, 1.0,),)
+            return (('_info', self._value, 1.0, None),)
 
 
 class Enum(MetricWrapperBase):
@@ -639,7 +654,7 @@ class Enum(MetricWrapperBase):
     def _child_samples(self):
         with self._lock:
             return [
-                ('', {self._name: s}, 1 if i == self._value else 0,)
+                ('', {self._name: s}, 1 if i == self._value else 0, None)
                 for i, s
                 in enumerate(self._states)
             ]
