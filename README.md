@@ -235,8 +235,8 @@ ProcessCollector(namespace='mydaemon', pid=lambda: open('/var/run/daemon.pid').r
 ### Platform Collector
 
 The client also automatically exports some metadata about Python. If using Jython,
-metadata about the JVM in use is also included. This information is available as 
-labels on the `python_info` metric. The value of the metric is 1, since it is the 
+metadata about the JVM in use is also included. This information is available as
+labels on the `python_info` metric. The value of the metric is 1, since it is the
 labels that carry information.
 
 ## Exporting
@@ -459,7 +459,7 @@ implement a proper `describe`, or if that's not practical have `describe`
 return an empty list.
 
 
-## Multiprocess Mode (Gunicorn)
+## Multiprocess Mode
 
 Prometheus client libaries presume a threaded model, where metrics are shared
 across workers. This doesn't work so well for languages such as Python where
@@ -476,19 +476,70 @@ This comes with a number of limitations:
 
 There's several steps to getting this working:
 
-**One**: Gunicorn deployment
+**One**: Deployment
 
 The `prometheus_multiproc_dir` environment variable must be set to a directory
-that the client library can use for metrics. This directory must be wiped
-between Gunicorn runs (before startup is recommended).
+that the client library can use to share metric databases between processes.  In production it is recommended
+to use a tmpfs volume (e.g. `/tmp/prometheus`) for this directory so that the exporter doesn't interfere
+disk IO.
 
-Put the following in the config file:
+Application workers write to metric databases in this directory.  The exporter
+process reads from it and merges dead application worker metric databases.
+
+### Option A: Integrating with an existing Gunicorn/WSGI application:
+
+Add the following to your Gunicorn config file:
+
 ```python
-from prometheus_client import multiprocess
+from prometheus_client import multiprocess_exporter
 
-def child_exit(server, worker):
-    multiprocess.mark_process_dead(worker.pid)
+def on_starting(server):
+    multiprocess.start_cleanup_thread()
 ```
+
+Add the Prometheus Exporter WSGI handler to your existing WSGI handler
+
+```python
+from prometheus_client import multiprocess_exporter
+
+....
+def app(environ, start_response):
+    if environ.get("PATH_INFO") == "/metrics":
+        return multiprocess_exporter.prometheus_exporter_app(environ, start_response)
+    else:
+        return ...
+```
+
+### Option B (Celery and other applications): Run a sidecar Gunicorn process to export the metrics
+
+In the same filesystem as your other Python application, start an exporter sidecar
+
+```shell
+#!/bin/bash
+
+export prometheus_multiproc_dir=/tmp/prometheus # some dir
+# Start the sidecar exporter:
+(
+  set -eu
+  mkdir -p ${prometheus_multiproc_dir}
+  exec gunicorn \
+    --config python:prometheus_client.prometheus_exporter \
+    --preload \
+    --workers 1 \
+    --threads 10 \
+    --bind 0.0.0.0:9500 \
+    prometheus_client.prometheus_exporter:app
+) &
+
+# Start the application:
+celery ...
+
+```
+
+This will export the metrics at `http://127.0.0.1:9500` as well as a health check endpoint at `http://127.0.0.1:9500/healthz`
+
+Only one exporter process should run per filesystem, prometheus_multiproc_dir.
+
 
 **Two**: Inside the application
 ```python
@@ -522,6 +573,7 @@ Gauges have several modes they can run in, which can be selected with the
 `multiprocess_mode` parameter.
 
 - 'all': Default. Return a timeseries per process alive or dead.
+- 'latest': Default. Return the most recent gauge update value.
 - 'liveall': Return a timeseries per process that is still alive.
 - 'livesum': Return a single timeseries that is the sum of the values of alive processes.
 - 'max': Return a single timeseries that is the maximum of the values of all processes, alive or dead.

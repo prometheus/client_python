@@ -1,5 +1,4 @@
 import logging
-import sys
 import thread
 import time
 import traceback
@@ -13,7 +12,7 @@ CLEANUP_INTERVAL = 60.0
 
 registry = CollectorRegistry()
 multiprocess.MultiProcessCollector(registry)
-prom_app = make_wsgi_app(registry)
+prometheus_expoter_app = make_wsgi_app(registry)
 log = logging.getLogger(__name__)
 
 
@@ -28,9 +27,12 @@ def cleanup_thread():
         time.sleep(CLEANUP_INTERVAL)
 
 
-def on_starting(server):
-    logging.basicConfig(stream=sys.stderr)
+def start_cleanup_thread():
     thread.start_new_thread(cleanup_thread, (), {})
+
+
+def on_starting(server):
+    start_cleanup_thread()
 
 
 def app(req, start_response):
@@ -41,4 +43,4 @@ def app(req, start_response):
         start_response("200 OK", headers)
         return iter([body])
     else:
-        return prom_app(req, start_response)
+        return prometheus_expoter_app(req, start_response)

@@ -47,21 +47,21 @@ class MultiProcessCollector(object):
         for f in files:
             parts = os.path.splitext(os.path.basename(f))[0].split('_')
             typ = parts[0]
+            multiprocess_mode = parts[1] if typ == Gauge._type else None
+            pid = parts[2] if multiprocess_mode and len(parts) > 2 else None
             d = MmapedDict(f, read_mode=True)
             for key, value, timestamp in d.read_all_values():
                 metric_name, name, labels = json.loads(key)
+                if pid:
+                    labels["pid"] = pid
                 labels_key = tuple(sorted(labels.items()))
 
                 metric = metrics.get(metric_name)
                 if metric is None:
                     metric = Metric(metric_name, 'Multiprocess metric', typ)
                     metrics[metric_name] = metric
-
-                if typ == 'gauge':
-                    if len(parts) > 2:
-                        pid = parts[2]
-                        labels_key += (('pid', pid), )
-                    metric._multiprocess_mode = parts[1]
+                if multiprocess_mode:
+                    metric._multiprocess_mode = multiprocess_mode
                 metric.add_sample(name, labels_key, value, timestamp=timestamp)
             d.close()
 

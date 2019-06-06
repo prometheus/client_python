@@ -306,8 +306,8 @@ class TestMmapedDict(unittest.TestCase):
         t0 = time.time()
         self.d.write_value("foo", 3.0, timestamp=t0)
         v, t = self.d.read_value_timestamp("foo")
-        self.failUnless((v - 3.0) ** 2 < 0.001)
-        self.failUnless((t0 - t) ** 2 < 0.001)
+        self.assertTrue((v - 3.0) ** 2 < 0.001)
+        self.assertTrue((t0 - t) ** 2 < 0.001)
 
     def test_process_restart(self):
         self.d.write_value('abc', 123.0)
