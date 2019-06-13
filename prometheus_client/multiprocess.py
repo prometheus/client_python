@@ -12,6 +12,11 @@ from .mmap_dict import MmapedDict
 from .samples import Sample
 from .utils import floatToGoString
 
+try:  # Python3
+    FileNotFoundError
+except NameError:  # Python >= 2.5
+    FileNotFoundError = IOError
+
 MP_METRIC_HELP = 'Multiprocess metric'
 
 
@@ -54,7 +59,16 @@ class MultiProcessCollector(object):
         for f in files:
             parts = os.path.basename(f).split('_')
             typ = parts[0]
-            for key, value, pos in MmapedDict.read_all_values_from_file(f):
+            try:
+                file_values = MmapedDict.read_all_values_from_file(f)
+            except FileNotFoundError:
+                if typ == 'gauge' and parts[1] in ('liveall', 'livesum'):
+                    # Those files can disappear between the glob of collect
+                    # and now (via a mark_process_dead call) so don't fail if
+                    # the file is missing
+                    continue
+                raise
+            for key, value, pos in file_values:
                 metric_name, name, labels, labels_key = _parse_key(key)
 
                 metric = metrics.get(metric_name)
