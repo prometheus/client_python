@@ -14,6 +14,10 @@ from .utils import floatToGoString, INF
 
 if sys.version_info > (3,):
     unicode = str
+    create_bound_method = types.MethodType
+else:
+    def create_bound_method(func, obj):
+        return types.MethodType(func, obj, obj.__class__)
 
 
 def _build_full_name(metric_type, name, namespace, subsystem, unit):
@@ -369,7 +373,7 @@ class Gauge(MetricWrapperBase):
         def samples(self):
             return (('', {}, float(f())),)
 
-        self._child_samples = types.MethodType(samples, self)
+        self._child_samples = create_bound_method(samples, self)
 
     def _child_samples(self):
         return (('', {}, self._value.get()),)
