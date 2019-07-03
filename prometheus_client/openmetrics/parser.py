@@ -238,10 +238,11 @@ def _parse_labels(text):
 
 
 def _parse_sample(text):
+    seperator = " # "
     # Detect the labels in the text
     label_start = text.find("{")
-    if label_start == -1:
-        # We don't have labels
+    if label_start == -1 or seperator in text[:label_start]:
+        # We don't have labels, but there could be an exemplar.
         name_end = text.index(" ")
         name = text[:name_end]
         # Parse the remaining text after the name
@@ -250,8 +251,7 @@ def _parse_sample(text):
         return Sample(name, {}, value, timestamp, exemplar)
     # The name is before the labels
     name = text[:label_start]
-    seperator = " # "
-    if text.count(seperator) == 0:
+    if seperator not in text:
         # Line doesn't contain an exemplar
         # We can use `rindex` to find `label_end`
         label_end = text.rindex("}")
@@ -261,7 +261,7 @@ def _parse_sample(text):
         # Line potentially contains an exemplar
         # Fallback to parsing labels with a state machine
         labels, labels_len = _parse_labels_with_state_machine(text[label_start + 1:])
-        label_end = labels_len + len(name)      
+        label_end = labels_len + len(name)
     # Parsing labels succeeded, continue parsing the remaining text
     remaining_text = text[label_end + 2:]
     value, timestamp, exemplar = _parse_remaining_text(remaining_text)
@@ -564,9 +564,9 @@ def text_fd_to_metric_families(fd):
                                            '_gsum'] and sample.value < 0:
                 raise ValueError("Counter-like samples cannot be negative: " + line)
             if sample.exemplar and not (
-                    typ in ['histogram', 'gaugehistogram']
-                    and sample.name.endswith('_bucket')):
-                raise ValueError("Invalid line only histogram/gaugehistogram buckets can have exemplars: " + line)
+                    (typ in ['histogram', 'gaugehistogram'] and sample.name.endswith('_bucket'))
+                    or (typ in ['counter'] and sample.name.endswith('_total'))):
+                raise ValueError("Invalid line only histogram/gaugehistogram buckets and counters can have exemplars: " + line)
 
     if name is not None:
         yield build_metric(name, documentation, typ, unit, samples)

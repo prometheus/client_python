@@ -148,6 +148,16 @@ a_bucket{le="+Inf"} 3 123 # {a="d"} 4 123
         hfm.add_sample("a_bucket", {"le": "+Inf"}, 3.0, Timestamp(123, 0), Exemplar({"a": "d"}, 4, Timestamp(123, 0)))
         self.assertEqual([hfm], list(families))
 
+    def test_counter_exemplars(self):
+        families = text_string_to_metric_families("""# TYPE a counter
+# HELP a help
+a_total 0 123 # {a="b"} 0.5
+# EOF
+""")
+        cfm = CounterMetricFamily("a", "help")
+        cfm.add_sample("a_total", {}, 0.0, Timestamp(123, 0), Exemplar({"a": "b"}, 0.5))
+        self.assertEqual([cfm], list(families))
+
     def test_simple_info(self):
         families = text_string_to_metric_families("""# TYPE a info
 # HELP a help
@@ -616,9 +626,11 @@ foo_created 1.520430000123e+09
             ('# TYPE a histogram\na_sum 1 # {a="b"} 0.5\n# EOF\n'),
             ('# TYPE a gaugehistogram\na_sum 1 # {a="b"} 0.5\n# EOF\n'),
             ('# TYPE a_bucket gauge\na_bucket 1 # {a="b"} 0.5\n# EOF\n'),
+            ('# TYPE a counter\na_created 1 # {a="b"} 0.5\n# EOF\n'),
             # Exemplars on unallowed metric types.
-            ('# TYPE a counter\na_total 1 # {a="b"} 1\n# EOF\n'),
             ('# TYPE a gauge\na 1 # {a="b"} 1\n# EOF\n'),
+            ('# TYPE a info\na_info 1 # {a="b"} 1\n# EOF\n'),
+            ('# TYPE a stateset\na{a="b"} 1 # {c="d"} 1\n# EOF\n'),
             # Bad stateset/info values.
             ('# TYPE a stateset\na 2\n# EOF\n'),
             ('# TYPE a info\na 2\n# EOF\n'),
