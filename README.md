@@ -452,7 +452,7 @@ used to predetermine the names of time series a `CollectorRegistry` exposes and
 thus to detect collisions and duplicate registrations.
 
 Usually custom collectors do not have to implement `describe`. If `describe` is
-not implemented and the CollectorRegistry was created with `auto_desribe=True`
+not implemented and the CollectorRegistry was created with `auto_describe=True`
 (which is the case for the default registry) then `collect` will be called at
 registration time instead of `describe`. If this could cause problems, either
 implement a proper `describe`, or if that's not practical have `describe`
