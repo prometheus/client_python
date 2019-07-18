@@ -6,6 +6,7 @@ from threading import Lock
 from .mmap_dict import mmap_key, MmapedDict
 from .pidprovider import Pidprovider
 
+
 class MutexValue(object):
     """A float protected by a mutex."""
 
@@ -26,6 +27,7 @@ class MutexValue(object):
     def get(self):
         with self._lock:
             return self._value
+
 
 def MultiProcessValue(_pidFunc=Pidprovider.getpid):
     files = {}
