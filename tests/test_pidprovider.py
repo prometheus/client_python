@@ -37,9 +37,9 @@ class TestPidprovider(unittest.TestCase):
 
     def test_with_default_pidprovider(self):
         Counter('c1', 'c1', registry=None)
-        self.assertEqual(self._files(), ['counter_{}.db'.format(os.getpid())])
+        self.assertEqual(self._files(), ['counter_{0}.db'.format(os.getpid())])
 
     def test_with_user_defined_pidprovider(self):
-        Pidprovider.source = lambda: 1234
+        Pidprovider.source = staticmethod(lambda: 1234)
         Counter('c1', 'c1', registry=None)
-        self.assertEqual(self._files(), ['counter_1234.db'.format(os.getpid())])
+        self.assertEqual(self._files(), ['counter_1234.db'])
