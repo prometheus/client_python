@@ -343,7 +343,7 @@ def _use_gateway(method, gateway, job, registry, grouping_key, timeout, handler)
     gateway_url = urlparse(gateway)
     if not gateway_url.scheme or (PYTHON26_OR_OLDER and gateway_url.scheme not in ['http', 'https']):
         gateway = 'http://{0}'.format(gateway)
-    url = '{0}/metrics/job/{1}'.format(gateway, quote_plus(job))
+    url = '{0}/metrics/{1}/{2}'.format(gateway, *_escape_grouping_key("job", job))
 
     data = b''
     if method != 'DELETE':
@@ -352,13 +352,21 @@ def _use_gateway(method, gateway, job, registry, grouping_key, timeout, handler)
     if grouping_key is None:
         grouping_key = {}
     url += ''.join(
-        '/{0}/{1}'.format(quote_plus(str(k)), quote_plus(str(v)))
+        '/{0}/{1}'.format(*_escape_grouping_key(str(k), str(v)))
         for k, v in sorted(grouping_key.items()))
 
     handler(
         url=url, method=method, timeout=timeout,
         headers=[('Content-Type', CONTENT_TYPE_LATEST)], data=data,
     )()
+
+
+def _escape_grouping_key(k, v):
+    if '/' in v:
+        # Added in Pushgateway 0.9.0.
+        return k + "@base64", base64.urlsafe_b64encode(v.encode("utf-8")).decode("utf-8")
+    else:
+        return k, quote_plus(v)
 
 
 def instance_ip_grouping_key():
