@@ -560,6 +560,11 @@ foo_created 1.520430000123e+09
             ('a{a="1"b="2"} 1\n# EOF\n'),
             ('a{a="1",,b="2"} 1\n# EOF\n'),
             ('a{a="1",b="2",} 1\n# EOF\n'),
+            # Invalid labels.
+            ('a{1="1"} 1\n# EOF\n'),
+            ('a{a="1",a="1"} 1\n# EOF\n'),
+            ('a{1=" # "} 1\n# EOF\n'),
+            ('a{a=" # ",a=" # "} 1\n# EOF\n'),
             # Missing value.
             ('a\n# EOF\n'),
             ('a \n# EOF\n'),
