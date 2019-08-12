@@ -30,7 +30,7 @@ class ProcessCollector(object):
         self._ticks = 100.0
         try:
             self._ticks = os.sysconf('SC_CLK_TCK')
-        except (ValueError, TypeError, AttributeError):
+        except (ValueError, TypeError, AttributeError, OSError):
             pass
 
         # This is used to test if we can access /proc.
