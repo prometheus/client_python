@@ -139,9 +139,12 @@ def _parse_labels_with_state_machine(text):
             if char == '\\':
                 state = 'labelvalueslash'
             elif char == '"':
-                if not METRIC_LABEL_NAME_RE.match(''.join(labelname)):
-                    raise ValueError("Invalid line: " + text)
-                labels[''.join(labelname)] = ''.join(labelvalue)
+                ln = ''.join(labelname)
+                if not METRIC_LABEL_NAME_RE.match(ln):
+                    raise ValueError("Invalid line, bad label name: " + text)
+                if ln in labels:
+                    raise ValueError("Invalid line, duplicate label name: " + text)
+                labels[ln] = ''.join(labelvalue)
                 labelname = []
                 labelvalue = []
                 state = 'endoflabelvalue'
@@ -217,6 +220,10 @@ def _parse_labels(text):
             # Replace escaping if needed
             if "\\" in label_value:
                 label_value = _replace_escaping(label_value)
+            if not METRIC_LABEL_NAME_RE.match(label_name):
+                raise ValueError("invalid line, bad label name: " + text)
+            if label_name in labels:
+                raise ValueError("invalid line, duplicate label name: " + text)
             labels[label_name] = label_value
 
             # Remove the processed label from the sub-slice for next iteration
