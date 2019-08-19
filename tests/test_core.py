@@ -76,15 +76,7 @@ class TestCounter(unittest.TestCase):
         try:
             counter.count_exceptions()
         except ValueError as e:
-            self.assertIn('metric is not observable', str(e))
-
-    def test_inc_not_observable(self):
-        counter = Counter('counter', 'help', labelnames=('label',), registry=self.registry)
-
-        try:
-            counter.count_exceptions()
-        except ValueError as e:
-            self.assertIn('metric is not observable', str(e))
+            self.assertIn('missing label values', str(e))
 
 
 class TestGauge(unittest.TestCase):

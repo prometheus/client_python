@@ -63,10 +63,7 @@ class MetricWrapperBase(object):
         # a counter, will fail if the metric is not observable, because only if a
         # metric is observable will the value be initialized.
         if not self._is_observable():
-            raise ValueError(
-                '%s metric is not observable. This is likely because the metric requires '
-                'that labels be applied before performing the operation' % str(self._type)
-            )
+            raise ValueError('%s metric is missing label values' % str(self._type))
 
     def _is_parent(self):
         return self._labelnames and not self._labelvalues
@@ -249,11 +246,8 @@ class Counter(MetricWrapperBase):
 
     def inc(self, amount=1):
         """Increment counter by the given amount."""
-        self._raise_if_not_observable()
-
         if amount < 0:
             raise ValueError('Counters can only be incremented by non-negative amounts.')
-
         self._value.inc(amount)
 
     def count_exceptions(self, exception=Exception):
