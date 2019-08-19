@@ -70,6 +70,22 @@ class TestCounter(unittest.TestCase):
         self.assertTrue(raised)
         self.assertEqual(1, self.registry.get_sample_value('c_total'))
 
+    def test_count_exceptions_not_observable(self):
+        counter = Counter('counter', 'help', labelnames=('label',), registry=self.registry)
+
+        try:
+            counter.count_exceptions()
+        except ValueError as e:
+            self.assertIn('metric is not observable', str(e))
+
+    def test_inc_not_observable(self):
+        counter = Counter('counter', 'help', labelnames=('label',), registry=self.registry)
+
+        try:
+            counter.count_exceptions()
+        except ValueError as e:
+            self.assertIn('metric is not observable', str(e))
+
 
 class TestGauge(unittest.TestCase):
     def setUp(self):
