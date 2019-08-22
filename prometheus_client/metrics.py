@@ -58,6 +58,13 @@ class MetricWrapperBase(object):
         # * the child of a labelled metric.
         return not self._labelnames or (self._labelnames and self._labelvalues)
 
+    def _raise_if_not_observable(self):
+        # Functions that mutate the state of the metric, for example incrementing
+        # a counter, will fail if the metric is not observable, because only if a
+        # metric is observable will the value be initialized.
+        if not self._is_observable():
+            raise ValueError('%s metric is missing label values' % str(self._type))
+
     def _is_parent(self):
         return self._labelnames and not self._labelvalues
 
@@ -250,6 +257,7 @@ class Counter(MetricWrapperBase):
         Increments the counter when an exception of the given
         type is raised up out of the code.
         """
+        self._raise_if_not_observable()
         return ExceptionCounter(self, exception)
 
     def _child_samples(self):
@@ -354,6 +362,7 @@ class Gauge(MetricWrapperBase):
         Increments the gauge when the code is entered,
         and decrements when it is exited.
         """
+        self._raise_if_not_observable()
         return InprogressTracker(self)
 
     def time(self):
@@ -361,6 +370,7 @@ class Gauge(MetricWrapperBase):
 
         Can be used as a function decorator or context manager.
         """
+        self._raise_if_not_observable()
         return Timer(self.set)
 
     def set_function(self, f):
@@ -428,6 +438,7 @@ class Summary(MetricWrapperBase):
 
         Can be used as a function decorator or context manager.
         """
+        self._raise_if_not_observable()
         return Timer(self.observe)
 
     def _child_samples(self):

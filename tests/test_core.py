@@ -70,6 +70,14 @@ class TestCounter(unittest.TestCase):
         self.assertTrue(raised)
         self.assertEqual(1, self.registry.get_sample_value('c_total'))
 
+    def test_count_exceptions_not_observable(self):
+        counter = Counter('counter', 'help', labelnames=('label',), registry=self.registry)
+
+        try:
+            counter.count_exceptions()
+        except ValueError as e:
+            self.assertIn('missing label values', str(e))
+
 
 class TestGauge(unittest.TestCase):
     def setUp(self):
@@ -150,6 +158,22 @@ class TestGauge(unittest.TestCase):
             time.sleep(.001)
         self.assertNotEqual(0, self.registry.get_sample_value('g'))
 
+    def test_track_in_progress_not_observable(self):
+        g = Gauge('test', 'help', labelnames=('label',), registry=self.registry)
+
+        try:
+            g.track_inprogress()
+        except ValueError as e:
+            self.assertIn('missing label values', str(e))
+
+    def test_timer_not_observable(self):
+        g = Gauge('test', 'help', labelnames=('label',), registry=self.registry)
+
+        try:
+            g.time()
+        except ValueError as e:
+            self.assertIn('missing label values', str(e))
+
 
 class TestSummary(unittest.TestCase):
     def setUp(self):
@@ -229,6 +253,14 @@ class TestSummary(unittest.TestCase):
         with self.summary.time():
             pass
         self.assertEqual(1, self.registry.get_sample_value('s_count'))
+
+    def test_timer_not_observable(self):
+        s = Summary('test', 'help', labelnames=('label',), registry=self.registry)
+
+        try:
+            s.time()
+        except ValueError as e:
+            self.assertIn('missing label values', str(e))
 
 
 class TestHistogram(unittest.TestCase):
