@@ -2,7 +2,7 @@ from __future__ import unicode_literals
 
 from timeit import default_timer
 
-from .decorator import decorate
+from decorator import decorate
 
 
 class ExceptionCounter(object):

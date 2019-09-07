@@ -18,6 +18,7 @@ setup(
         'prometheus_client.openmetrics',
         'prometheus_client.twisted',
     ],
+    install_requires=['decorator'],
     extras_require={
         'twisted': ['twisted'],
     },
