@@ -72,7 +72,7 @@ def _unescape_help(text):
 
 def _parse_value(value):
     value = ''.join(value)
-    if value != value.strip():
+    if value != value.strip() or '_' in value:
         raise ValueError("Invalid value: {0!r}".format(value))
     try:
         return int(value)
@@ -84,7 +84,7 @@ def _parse_timestamp(timestamp):
     timestamp = ''.join(timestamp)
     if not timestamp:
         return None
-    if timestamp != timestamp.strip():
+    if timestamp != timestamp.strip() or '_' in timestamp:
         raise ValueError("Invalid timestamp: {0!r}".format(timestamp))
     try:
         # Simple int.
