@@ -121,10 +121,12 @@ with g.track_inprogress():
 A Gauge can also take its value from a callback:
 
 ```python
-d = Gauge('data_objects', 'Number of objects')
-my_dict = {}
-d.set_function(lambda: len(my_dict))
+import threading
+ 
+d = Gauge('Threads', 'Number of active threads')
+d.set_function(lambda: threading.active_count())
 ```
+In this case each time when prometheus will collect metrics a gauge will return result of lambda function.
 
 ### Summary
 
