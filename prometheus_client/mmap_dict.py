@@ -136,6 +136,9 @@ class MmapedDict(object):
             self._f.close()
             self._f = None
 
+    def __del__(self):
+        self.close()
+
 
 def mmap_key(metric_name, name, labelnames, labelvalues):
     """Format a key for use in the mmap file."""

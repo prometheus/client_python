@@ -5,6 +5,9 @@ import os
 import shutil
 import sys
 import tempfile
+import warnings
+
+import gc
 
 from prometheus_client import mmap_dict, values
 from prometheus_client.core import (
@@ -22,6 +25,41 @@ else:
     import unittest
 
 
+def retry_after_close_handler(fct, *args, **kwargs):
+    """
+    Test are failing on windows do to the fact that remove operation
+    will raise a PermissionError if MmapedDict has an handler open on the file.
+    """
+    current_handlers = None
+    closed_files = None
+    try:
+        while True:
+            try:
+                return fct(*args, **kwargs)
+            except PermissionError as e:
+                if current_handlers is None:
+                    closed_files = []
+                    current_handlers = {}
+                    for obj in gc.get_objects():
+                        if isinstance(obj, mmap_dict.MmapedDict):
+                            try:
+                                current_handlers[obj._fname].append(obj)
+                            except KeyError:
+                                current_handlers[obj._fname] = [obj]
+                try:
+                    for obj in current_handlers.pop(e.filename):
+                        obj.close()
+                except KeyError:
+                    raise
+                else:
+                    closed_files.append(e.filename)
+    finally:
+        if closed_files:
+            warnings.warn("%s call was blocked by MmapedDict handler(s) on following files:"
+                          " %s (handler has been closed)" %
+                          (fct.__name__, ', '.join(closed_files)))
+
+
 class TestMultiProcess(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
@@ -36,8 +74,10 @@ class TestMultiProcess(unittest.TestCase):
 
     def tearDown(self):
         del os.environ['prometheus_multiproc_dir']
-        shutil.rmtree(self.tempdir)
         values.ValueClass = MutexValue
+        del self.registry
+        del self.collector
+        retry_after_close_handler(shutil.rmtree, self.tempdir)
 
     def test_counter_adds(self):
         c1 = Counter('c', 'help', registry=None)
@@ -94,7 +134,7 @@ class TestMultiProcess(unittest.TestCase):
         g2.set(2)
         self.assertEqual(1, self.registry.get_sample_value('g', {'pid': '123'}))
         self.assertEqual(2, self.registry.get_sample_value('g', {'pid': '456'}))
-        mark_process_dead(123, os.environ['prometheus_multiproc_dir'])
+        retry_after_close_handler(mark_process_dead, 123, os.environ['prometheus_multiproc_dir'])
         self.assertEqual(None, self.registry.get_sample_value('g', {'pid': '123'}))
         self.assertEqual(2, self.registry.get_sample_value('g', {'pid': '456'}))
 
@@ -124,7 +164,7 @@ class TestMultiProcess(unittest.TestCase):
         g1.set(1)
         g2.set(2)
         self.assertEqual(3, self.registry.get_sample_value('g'))
-        mark_process_dead(123, os.environ['prometheus_multiproc_dir'])
+        retry_after_close_handler(mark_process_dead, 123, os.environ['prometheus_multiproc_dir'])
         self.assertEqual(2, self.registry.get_sample_value('g'))
 
     def test_namespace_subsystem(self):
@@ -316,6 +356,7 @@ class TestMmapedDict(unittest.TestCase):
             list(self.d.read_all_values())
 
     def tearDown(self):
+        del self.d
         os.unlink(self.tempfile)
 
 
