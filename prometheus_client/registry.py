@@ -12,11 +12,13 @@ class CollectorRegistry(object):
     exposition formats.
     """
 
-    def __init__(self, auto_describe=False):
+    def __init__(self, auto_describe=False, target_info=None):
         self._collector_to_names = {}
         self._names_to_collectors = {}
         self._auto_describe = auto_describe
         self._lock = Lock()
+        self._target_info = {}
+        self.set_target_info(target_info)
 
     def register(self, collector):
         """Add a collector to the registry."""
@@ -69,8 +71,13 @@ class CollectorRegistry(object):
     def collect(self):
         """Yields metrics from the collectors in the registry."""
         collectors = None
+        ti = None
         with self._lock:
             collectors = copy.copy(self._collector_to_names)
+            if self._target_info:
+                ti = self._target_info_metric()
+        if ti:
+            yield ti
         for collector in collectors:
             for metric in collector.collect():
                 yield metric
@@ -87,11 +94,14 @@ class CollectorRegistry(object):
         Experimental."""
         names = set(names)
         collectors = set()
+        metrics = []
         with self._lock:
+            if 'target_info' in names and self._target_info:
+                metrics.append(self._target_info_metric())
+                names.remove('target_info')
             for name in names:
                 if name in self._names_to_collectors:
                     collectors.add(self._names_to_collectors[name])
-        metrics = []
         for collector in collectors:
             for metric in collector.collect():
                 samples = [s for s in metric.samples if s[0] in names]
@@ -105,6 +115,25 @@ class CollectorRegistry(object):
                 return metrics
 
         return RestrictedRegistry()
+
+    def set_target_info(self, labels):
+        with self._lock:
+            if labels:
+                if not self._target_info and 'target_info' in self._names_to_collectors:
+                    raise ValueError('CollectorRegistry already contains a target_info metric')
+                self._names_to_collectors['target_info'] = None
+            elif self._target_info:
+                self._names_to_collectors.pop('target_info', None)
+            self._target_info = labels
+
+    def get_target_info(self):
+        with self._lock:
+            return self._target_info
+
+    def _target_info_metric(self):
+        m = Metric('target', 'Target metadata', 'info')
+        m.add_sample('target_info', self._target_info, 1)
+        return m
 
     def get_sample_value(self, name, labels=None):
         """Returns the sample value, or None if not found.
