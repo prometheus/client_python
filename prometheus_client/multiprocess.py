@@ -23,7 +23,7 @@ class MultiProcessCollector(object):
 
     def __init__(self, registry, path=None):
         if path is None:
-            path = os.environ.get('prometheus_multiproc_dir')
+            path = os.environ.get('prometheus_multiproc_dir') or os.environ.get('PROMETHEUS_MULTIPROC_DIR')
         if not path or not os.path.isdir(path):
             raise ValueError('env prometheus_multiproc_dir is not set or not a directory')
         self._path = path

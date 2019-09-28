@@ -8,3 +8,4 @@ dist
 .tox
 .*cache
 htmlcov
+.idea
