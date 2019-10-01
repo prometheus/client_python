@@ -56,6 +56,7 @@ class TestGenerateText(unittest.TestCase):
         self.assertEqual(b"""# HELP cc_total A counter
 # TYPE cc_total counter
 cc_total 1.0
+# HELP cc_created A counter
 # TYPE cc_created gauge
 cc_created 123.456
 """, generate_latest(self.registry))
@@ -66,6 +67,7 @@ cc_created 123.456
         self.assertEqual(b"""# HELP cc_total A counter
 # TYPE cc_total counter
 cc_total 1.0
+# HELP cc_created A counter
 # TYPE cc_created gauge
 cc_created 123.456
 """, generate_latest(self.registry))
@@ -82,6 +84,7 @@ cc_created 123.456
 # TYPE ss summary
 ss_count{a="c",b="d"} 1.0
 ss_sum{a="c",b="d"} 17.0
+# HELP ss_created A summary
 # TYPE ss_created gauge
 ss_created{a="c",b="d"} 123.456
 """, generate_latest(self.registry))
@@ -109,6 +112,7 @@ hh_bucket{le="10.0"} 1.0
 hh_bucket{le="+Inf"} 1.0
 hh_count 1.0
 hh_sum 0.05
+# HELP hh_created A histogram
 # TYPE hh_created gauge
 hh_created 123.456
 """, generate_latest(self.registry))
@@ -119,8 +123,10 @@ hh_created 123.456
 # TYPE gh histogram
 gh_bucket{le="1.0"} 4.0
 gh_bucket{le="+Inf"} 5.0
+# HELP gh_gcount help
 # TYPE gh_gcount gauge
 gh_gcount 5.0
+# HELP gh_gsum help
 # TYPE gh_gsum gauge
 gh_gsum 7.0
 """, generate_latest(self.registry))
