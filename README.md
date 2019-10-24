@@ -314,7 +314,7 @@ Save the snippet below in a `myapp.py` file
 
 ```python
 from flask import Flask
-from werkzeug.wsgi import DispatcherMiddleware
+from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from prometheus_client import make_wsgi_app
 
 # Create my app
