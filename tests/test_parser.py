@@ -273,7 +273,7 @@ a{foo="b\\\\a\\z"} 2
         metric_family.add_metric(["b\\a\\z"], 2)
         self.assertEqualMetrics([metric_family], list(families))
 
-    def test_timestamps_discarded(self):
+    def test_timestamps(self):
         families = text_string_to_metric_families("""# TYPE a counter
 # HELP a help
 a{foo="bar"} 1\t000
@@ -282,8 +282,9 @@ a{foo="bar"} 1\t000
 b 2  1234567890
 """)
         a = CounterMetricFamily("a", "help", labels=["foo"])
-        a.add_metric(["bar"], 1)
-        b = CounterMetricFamily("b", "help", value=2)
+        a.add_metric(["bar"], 1, timestamp=0)
+        b = CounterMetricFamily("b", "help")
+        b.add_metric([], 2, timestamp=1234567890)
         self.assertEqualMetrics([a, b], list(families))
 
     @unittest.skipIf(sys.version_info < (2, 7), "Test requires Python 2.7+.")
