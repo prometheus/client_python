@@ -1,3 +1,4 @@
+dist: xenial
 sudo: false
 cache:
   directories:
@@ -22,11 +23,12 @@ matrix:
       env: TOXENV=py36
     - python: "3.7"
       env: TOXENV=py37
-      dist: xenial
       sudo: true
-    - python: "3.7"
-      env: TOXENV=py37-nooptionals
-      dist: xenial
+    - python: "3.8"
+      env: TOXENV=py38
+      sudo: true
+    - python: "3.8"
+      env: TOXENV=py38-nooptionals
       sudo: true
     - python: "pypy"
       env: TOXENV=pypy
