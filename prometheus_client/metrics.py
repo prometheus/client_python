@@ -80,6 +80,10 @@ class MetricWrapperBase(object):
             metric.add_sample(self._name + suffix, labels, value)
         return [metric]
 
+    def __repr__(self):
+        metric_type = type(self)
+        return "{0}.{1}:{2}".format(metric_type.__module__, metric_type.__name__, self._name)
+
     def __init__(self,
                  name,
                  documentation,
