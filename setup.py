@@ -1,4 +1,10 @@
 from setuptools import setup
+from os import path
+
+
+with open(path.join(path.abspath(path.dirname(__file__)), 'README.md')) as f:
+    long_description = f.read()
+
 
 setup(
     name="prometheus_client",
@@ -6,9 +12,8 @@ setup(
     author="Brian Brazil",
     author_email="brian.brazil@robustperception.io",
     description="Python client for the Prometheus monitoring system.",
-    long_description=(
-        "See https://github.com/prometheus/client_python/blob/master/README.md"
-        " for documentation."),
+    long_description=long_description,
+    long_description_content_type='text/markdown',
     license="Apache Software License 2.0",
     keywords="prometheus monitoring instrumentation client",
     url="https://github.com/prometheus/client_python",
