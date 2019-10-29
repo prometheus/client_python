@@ -103,15 +103,17 @@ def _parse_labels(labels_string):
 
 
 # If we have multiple values only consider the first
-def _parse_value(s):
+def _parse_value_and_timestamp(s):
     s = s.lstrip()
     separator = " "
     if separator not in s:
         separator = "\t"
-    i = s.find(separator)
-    if i == -1:
-        return s
-    return s[:i]
+    values = [value.strip() for value in s.split(separator) if value.strip()]
+    if not values:
+        return float(s), None
+    value = float(values[0])
+    timestamp = (float(values[-1])/1000) if len(values) > 1 else None
+    return value, timestamp
 
 
 def _parse_sample(text):
@@ -123,8 +125,8 @@ def _parse_sample(text):
         # We ignore the starting curly brace
         label = text[label_start + 1:label_end]
         # The value is after the label end (ignoring curly brace and space)
-        value = float(_parse_value(text[label_end + 2:]))
-        return Sample(name, _parse_labels(label), value)
+        value, timestamp = _parse_value_and_timestamp(text[label_end + 2:])
+        return Sample(name, _parse_labels(label), value, timestamp)
 
     # We don't have labels
     except ValueError:
@@ -135,8 +137,8 @@ def _parse_sample(text):
         name_end = text.index(separator)
         name = text[:name_end]
         # The value is after the name
-        value = float(_parse_value(text[name_end:]))
-        return Sample(name, {}, value)
+        value, timestamp = _parse_value_and_timestamp(text[name_end:])
+        return Sample(name, {}, value, timestamp)
 
 
 def text_fd_to_metric_families(fd):
