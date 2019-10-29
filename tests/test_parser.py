@@ -280,11 +280,13 @@ a{foo="bar"} 1\t000
 # TYPE b counter
 # HELP b help
 b 2  1234567890
+b 88   1234566000   
 """)
         a = CounterMetricFamily("a", "help", labels=["foo"])
         a.add_metric(["bar"], 1, timestamp=0)
         b = CounterMetricFamily("b", "help")
-        b.add_metric([], 2, timestamp=1234567890)
+        b.add_metric([], 2, timestamp=1234567.89)
+        b.add_metric([], 88, timestamp=1234566)
         self.assertEqualMetrics([a, b], list(families))
 
     @unittest.skipIf(sys.version_info < (2, 7), "Test requires Python 2.7+.")
