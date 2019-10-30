@@ -30,9 +30,13 @@ class TestCounter(unittest.TestCase):
         self.assertEqual(1, self.registry.get_sample_value('c_total'))
         self.counter.inc(7)
         self.assertEqual(8, self.registry.get_sample_value('c_total'))
+    
+    def test_repr(self):
+        self.assertEqual(repr(self.counter), "prometheus_client.metrics.Counter(c)")
 
     def test_negative_increment_raises(self):
         self.assertRaises(ValueError, self.counter.inc, -1)
+    
 
     def test_function_decorator(self):
         @self.counter.count_exceptions(ValueError)
@@ -83,6 +87,9 @@ class TestGauge(unittest.TestCase):
     def setUp(self):
         self.registry = CollectorRegistry()
         self.gauge = Gauge('g', 'help', registry=self.registry)
+    
+    def test_repr(self):
+        self.assertEqual(repr(self.gauge), "prometheus_client.metrics.Gauge(g)")
 
     def test_gauge(self):
         self.assertEqual(0, self.registry.get_sample_value('g'))
@@ -180,6 +187,9 @@ class TestSummary(unittest.TestCase):
         self.registry = CollectorRegistry()
         self.summary = Summary('s', 'help', registry=self.registry)
 
+    def test_repr(self):
+        self.assertEqual(repr(self.summary), "prometheus_client.metrics.Summary(s)")
+
     def test_summary(self):
         self.assertEqual(0, self.registry.get_sample_value('s_count'))
         self.assertEqual(0, self.registry.get_sample_value('s_sum'))
@@ -268,6 +278,10 @@ class TestHistogram(unittest.TestCase):
         self.registry = CollectorRegistry()
         self.histogram = Histogram('h', 'help', registry=self.registry)
         self.labels = Histogram('hl', 'help', ['l'], registry=self.registry)
+
+    def test_repr(self):
+        self.assertEqual(repr(self.histogram), "prometheus_client.metrics.Histogram(h)")
+        self.assertEqual(repr(self.labels), "prometheus_client.metrics.Histogram(hl)")
 
     def test_histogram(self):
         self.assertEqual(0, self.registry.get_sample_value('h_bucket', {'le': '1.0'}))
@@ -372,6 +386,10 @@ class TestInfo(unittest.TestCase):
         self.registry = CollectorRegistry()
         self.info = Info('i', 'help', registry=self.registry)
         self.labels = Info('il', 'help', ['l'], registry=self.registry)
+
+    def test_repr(self):
+        self.assertEqual(repr(self.info), "prometheus_client.metrics.Info(i)")
+        self.assertEqual(repr(self.labels), "prometheus_client.metrics.Info(il)")
 
     def test_info(self):
         self.assertEqual(1, self.registry.get_sample_value('i_info', {}))
