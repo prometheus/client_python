@@ -60,7 +60,7 @@ class Metric(object):
 
 
 class UnknownMetricFamily(Metric):
-    """A single unknwon metric and its samples.
+    """A single unknown metric and its samples.
     For use by custom collectors.
     """
 
