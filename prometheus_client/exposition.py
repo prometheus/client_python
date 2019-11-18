@@ -99,7 +99,7 @@ def generate_latest(registry=REGISTRY):
                 mtype = 'gauge'
             elif mtype == 'gaugehistogram':
                 # A gauge histogram is really a gauge,
-                # but this captures the strucutre better.
+                # but this captures the structure better.
                 mtype = 'histogram'
             elif mtype == 'unknown':
                 mtype = 'untyped'

@@ -83,7 +83,7 @@ def _parse_labels(labels_string):
                     break
                 i += 1
 
-            # The label value is inbetween the first and last quote
+            # The label value is between the first and last quote
             quote_end = i + 1
             label_value = sub_labels[quote_start:quote_end]
             # Replace escaping if needed

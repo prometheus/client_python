@@ -214,7 +214,7 @@ def _parse_labels(text):
                     break
                 i += 1
 
-            # The label value is inbetween the first and last quote
+            # The label value is between the first and last quote
             quote_end = i + 1
             label_value = sub_labels[1:quote_end]
             # Replace escaping if needed
@@ -245,10 +245,10 @@ def _parse_labels(text):
 
 
 def _parse_sample(text):
-    seperator = " # "
+    separator = " # "
     # Detect the labels in the text
     label_start = text.find("{")
-    if label_start == -1 or seperator in text[:label_start]:
+    if label_start == -1 or separator in text[:label_start]:
         # We don't have labels, but there could be an exemplar.
         name_end = text.index(" ")
         name = text[:name_end]
@@ -258,7 +258,7 @@ def _parse_sample(text):
         return Sample(name, {}, value, timestamp, exemplar)
     # The name is before the labels
     name = text[:label_start]
-    if seperator not in text:
+    if separator not in text:
         # Line doesn't contain an exemplar
         # We can use `rindex` to find `label_end`
         label_end = text.rindex("}")
