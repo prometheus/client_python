@@ -1,6 +1,6 @@
 from __future__ import unicode_literals
 
-from timeit import default_timer
+from time import monotonic
 
 from .decorator import decorate
 
@@ -51,11 +51,10 @@ class Timer(object):
         return self.__class__(self._callback)
 
     def __enter__(self):
-        self._start = default_timer()
+        self._start = monotonic()
 
     def __exit__(self, typ, value, traceback):
-        # Time can go backwards.
-        duration = max(default_timer() - self._start, 0)
+        duration = monotonic() - self._start
         self._callback(duration)
 
     def __call__(self, f):
