@@ -194,6 +194,7 @@ def start_http_server(port, addr='', registry=REGISTRY):
     t = threading.Thread(target=httpd.serve_forever)
     t.daemon = True
     t.start()
+    return t
 
 
 def write_to_textfile(path, registry):
