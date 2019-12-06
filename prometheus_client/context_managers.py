@@ -1,6 +1,6 @@
 from __future__ import unicode_literals
 
-from time import monotonic
+from monotonic import monotonic
 
 from .decorator import decorate
 
