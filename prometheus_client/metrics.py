@@ -566,7 +566,8 @@ class Histogram(MetricWrapperBase):
             acc += self._buckets[i].get()
             samples.append(('_bucket', {'le': floatToGoString(bound)}, acc))
         samples.append(('_count', {}, acc))
-        samples.append(('_sum', {}, self._sum.get()))
+        if self._upper_bounds[0] >= 0:
+            samples.append(('_sum', {}, self._sum.get()))
         samples.append(('_created', {}, self._created))
         return tuple(samples)
 

@@ -91,6 +91,22 @@ hh_created 123.456
 # EOF
 """, generate_latest(self.registry))
 
+    def test_histogram_negative_buckets(self):
+        s = Histogram('hh', 'A histogram', buckets=[-1, -0.5, 0, 0.5, 1], registry=self.registry)
+        s.observe(-0.5)
+        self.assertEqual(b"""# HELP hh A histogram
+# TYPE hh histogram
+hh_bucket{le="-1.0"} 0.0
+hh_bucket{le="-0.5"} 1.0
+hh_bucket{le="0.0"} 1.0
+hh_bucket{le="0.5"} 1.0
+hh_bucket{le="1.0"} 1.0
+hh_bucket{le="+Inf"} 1.0
+hh_count 1.0
+hh_created 123.456
+# EOF
+""", generate_latest(self.registry))
+
     def test_histogram_exemplar(self):
         class MyCollector(object):
             def collect(self):
@@ -147,6 +163,18 @@ gh_bucket{le="1.0"} 4.0
 gh_bucket{le="+Inf"} 5.0
 gh_gcount 5.0
 gh_gsum 7.0
+# EOF
+""", generate_latest(self.registry))
+
+    def test_gaugehistogram_negative_buckets(self):
+        self.custom_collector(
+            GaugeHistogramMetricFamily('gh', 'help', buckets=[('-1.0', 4), ('+Inf', (5))], gsum_value=-7))
+        self.assertEqual(b"""# HELP gh help
+# TYPE gh gaugehistogram
+gh_bucket{le="-1.0"} 4.0
+gh_bucket{le="+Inf"} 5.0
+gh_gcount 5.0
+gh_gsum -7.0
 # EOF
 """, generate_latest(self.registry))
 

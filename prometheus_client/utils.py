@@ -2,6 +2,7 @@ import math
 
 INF = float("inf")
 MINUS_INF = float("-inf")
+NaN = float("NaN")
 
 
 def floatToGoString(d):

@@ -183,8 +183,8 @@ class HistogramMetricFamily(Metric):
 
     def __init__(self, name, documentation, buckets=None, sum_value=None, labels=None, unit=''):
         Metric.__init__(self, name, documentation, 'histogram', unit)
-        if (sum_value is None) != (buckets is None):
-            raise ValueError('buckets and sum_value must be provided together.')
+        if sum_value is not None and buckets is None:
+            raise ValueError('sum value cannot be provided without buckets.')
         if labels is not None and buckets is not None:
             raise ValueError('Can only specify at most one of buckets and labels.')
         if labels is None:
@@ -217,10 +217,13 @@ class HistogramMetricFamily(Metric):
                 exemplar,
             ))
         # +Inf is last and provides the count value.
-        self.samples.extend([
-            Sample(self.name + '_count', dict(zip(self._labelnames, labels)), buckets[-1][1], timestamp),
-            Sample(self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value, timestamp),
-        ])
+        self.samples.append(
+                Sample(self.name + '_count', dict(zip(self._labelnames, labels)), buckets[-1][1], timestamp))
+        # Don't iunclude sum if there's negative buckets.
+        if float(buckets[0][0]) >= 0 and sum_value is not None:
+            self.samples.append(
+                    Sample(self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value, timestamp))
+
 
 
 class GaugeHistogramMetricFamily(Metric):
