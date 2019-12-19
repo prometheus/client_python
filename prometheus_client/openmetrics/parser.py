@@ -389,6 +389,10 @@ def _check_histogram(samples, name):
             raise ValueError("+Inf bucket missing: " + name)
         if count is not None and value != count:
             raise ValueError("Count does not match +Inf value: " + name)
+        if has_negative_buckets and has_sum:
+            raise ValueError("Cannot have _sum with negative buckets: " + name)
+        if not has_negative_buckets and has_negative_gsum:
+            raise ValueError("Cannot have negative _gsum with non-negative buckets: " + name)
 
     for s in samples:
         suffix = s.name[len(name):]
@@ -397,14 +401,19 @@ def _check_histogram(samples, name):
             if group is not None:
                 do_checks()
             count = None
-            bucket = -1
+            bucket = None
+            has_negative_buckets = False
+            has_sum = False
+            has_negative_gsum = False
             value = 0
         group = g
         timestamp = s.timestamp
 
         if suffix == '_bucket':
             b = float(s.labels['le'])
-            if b <= bucket:
+            if b < 0:
+                has_negative_buckets = True
+            if bucket is not None and b <= bucket:
                 raise ValueError("Buckets out of order: " + name)
             if s.value < value:
                 raise ValueError("Bucket values out of order: " + name)
@@ -412,6 +421,11 @@ def _check_histogram(samples, name):
             value = s.value
         elif suffix in ['_count', '_gcount']:
             count = s.value
+        elif suffix in ['_sum']:
+            has_sum = True
+        elif suffix in ['_gsum'] and s.value < 0:
+            has_negative_gsum = True
+
     if group is not None:
         do_checks()
 
@@ -529,7 +543,7 @@ def text_fd_to_metric_families(fd):
             if typ == 'stateset' and name not in sample.labels:
                 raise ValueError("Stateset missing label: " + line)
             if (typ in ['histogram', 'gaugehistogram'] and name + '_bucket' == sample.name
-                    and (float(sample.labels.get('le', -1)) < 0
+                    and (sample.labels.get('le', "NaN") == "NaN"
                          or sample.labels['le'] != floatToGoString(sample.labels['le']))):
                 raise ValueError("Invalid le label: " + line)
             if (typ == 'summary' and name == sample.name
@@ -567,8 +581,7 @@ def text_fd_to_metric_families(fd):
             if sample.name[len(name):] in ['_total', '_sum', '_count', '_bucket', '_gcount', '_gsum'] and math.isnan(
                     sample.value):
                 raise ValueError("Counter-like samples cannot be NaN: " + line)
-            if sample.name[len(name):] in ['_total', '_sum', '_count', '_bucket', '_gcount',
-                                           '_gsum'] and sample.value < 0:
+            if sample.name[len(name):] in ['_total', '_sum', '_count', '_bucket', '_gcount'] and sample.value < 0:
                 raise ValueError("Counter-like samples cannot be negative: " + line)
             if sample.exemplar and not (
                     (typ in ['histogram', 'gaugehistogram'] and sample.name.endswith('_bucket'))

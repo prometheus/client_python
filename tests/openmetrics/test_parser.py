@@ -122,6 +122,18 @@ a_sum 2
         self.assertEqual([HistogramMetricFamily("a", "help", sum_value=2, buckets=[("1.0", 0.0), ("+Inf", 3.0)])],
                          list(families))
 
+    def test_negative_bucket_histogram(self):
+        families = text_string_to_metric_families("""# TYPE a histogram
+# HELP a help
+a_bucket{le="-1.0"} 0
+a_bucket{le="1.0"} 1
+a_bucket{le="+Inf"} 3
+a_count 3
+# EOF
+""")
+        self.assertEqual([HistogramMetricFamily("a", "help", buckets=[("-1.0", 0.0), ("1.0", 1.0), ("+Inf", 3.0)])],
+                         list(families))
+
     def test_histogram_exemplars(self):
         families = text_string_to_metric_families("""# TYPE a histogram
 # HELP a help
@@ -148,6 +160,19 @@ a_gsum 2
 # EOF
 """)
         self.assertEqual([GaugeHistogramMetricFamily("a", "help", gsum_value=2, buckets=[("1.0", 0.0), ("+Inf", 3.0)])],
+                         list(families))
+
+    def test_negative_bucket_gaugehistogram(self):
+        families = text_string_to_metric_families("""# TYPE a gaugehistogram
+# HELP a help
+a_bucket{le="-1.0"} 1
+a_bucket{le="1.0"} 2
+a_bucket{le="+Inf"} 3
+a_gcount 3
+a_gsum -5
+# EOF
+""")
+        self.assertEqual([GaugeHistogramMetricFamily("a", "help", gsum_value=-5, buckets=[("-1.0", 1.0), ("1.0", 2.0), ("+Inf", 3.0)])],
                          list(families))
 
     def test_gaugehistogram_exemplars(self):
@@ -689,6 +714,8 @@ foo_created 1.520430000123e+09
             ('# TYPE a histogram\na_sum -1\n# EOF\n'),
             ('# TYPE a histogram\na_count -1\n# EOF\n'),
             ('# TYPE a histogram\na_bucket{le="+Inf"} -1\n# EOF\n'),
+            ('# TYPE a histogram\na_bucket{le="-1.0"} 1\na_bucket{le="+Inf"} 2\na_sum -1\n# EOF\n'),
+            ('# TYPE a histogram\na_bucket{le="-1.0"} 1\na_bucket{le="+Inf"} 2\na_sum 1\n# EOF\n'),
             ('# TYPE a gaugehistogram\na_bucket{le="+Inf"} NaN\n# EOF\n'),
             ('# TYPE a gaugehistogram\na_bucket{le="+Inf"} -1\na_gcount -1\n# EOF\n'),
             ('# TYPE a gaugehistogram\na_bucket{le="+Inf"} -1\n# EOF\n'),

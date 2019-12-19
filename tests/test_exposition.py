@@ -386,7 +386,6 @@ def test_summary_metric_family(registry, count_value, sum_value, error):
 
 
 @pytest.mark.parametrize('MetricFamily', [
-    core.HistogramMetricFamily,
     core.GaugeHistogramMetricFamily,
 ])
 @pytest.mark.parametrize('buckets,sum_value,error', [

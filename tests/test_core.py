@@ -657,7 +657,7 @@ class TestMetricFamilies(unittest.TestCase):
         self.assertRaises(ValueError, SummaryMetricFamily, 's', 'help', count_value=1, sum_value=1, labels=['a'])
 
         self.assertRaises(ValueError, HistogramMetricFamily, 'h', 'help', sum_value=1)
-        self.assertRaises(ValueError, HistogramMetricFamily, 'h', 'help', buckets={})
+        self.assertRaises(KeyError, HistogramMetricFamily, 'h', 'help', buckets={})
         self.assertRaises(ValueError, HistogramMetricFamily, 'h', 'help', sum_value=1, labels=['a'])
         self.assertRaises(ValueError, HistogramMetricFamily, 'h', 'help', buckets={}, labels=['a'])
         self.assertRaises(ValueError, HistogramMetricFamily, 'h', 'help', buckets={}, sum_value=1, labels=['a'])
