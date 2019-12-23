@@ -235,6 +235,13 @@ class TestPushGateway(unittest.TestCase):
         self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
+    def test_push_schemeless_url(self):
+        push_to_gateway(self.address.replace('http://', ''), "my_job", self.registry)
+        self.assertEqual(self.requests[0][0].command, 'PUT')
+        self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job')
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
+        self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
+
     def test_push_with_groupingkey(self):
         push_to_gateway(self.address, "my_job", self.registry, {'a': 9})
         self.assertEqual(self.requests[0][0].command, 'PUT')
