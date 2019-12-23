@@ -29,7 +29,6 @@ CONTENT_TYPE_LATEST = str('text/plain; version=0.0.4; charset=utf-8')
 """Content type of the latest text format"""
 
 PYTHON26_OR_OLDER = sys.version_info < (2, 7)
-# Due to https://bugs.python.org/issue27657:
 PYTHON376_OR_NEWER = sys.version_info > (3, 7, 5)
 
 def make_wsgi_app(registry=REGISTRY):
@@ -342,6 +341,7 @@ def delete_from_gateway(
 
 def _use_gateway(method, gateway, job, registry, grouping_key, timeout, handler):
     gateway_url = urlparse(gateway)
+    # See https://bugs.python.org/issue27657 for details on urlparse in py>=3.7.6.
     if not gateway_url.scheme or (
             (PYTHON376_OR_NEWER or PYTHON26_OR_OLDER)
             and gateway_url.scheme not in ['http', 'https']
