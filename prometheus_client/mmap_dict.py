@@ -83,7 +83,7 @@ class MmapedDict(object):
         with open(filename, 'rb') as infp:
             # Read the first block of data, including the first 4 bytes which tell us
             # how much of the file (which is preallocated to _INITIAL_MMAP_SIZE bytes) is occupied.
-            data = infp.read(65535)
+            data = infp.read(mmap.PAGESIZE)
             used = _unpack_integer(data, 0)[0]
             if used > len(data):  # Then read in the rest, if needed.
                 data += infp.read(used - len(data))
