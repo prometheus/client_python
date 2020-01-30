@@ -469,7 +469,7 @@ To handle this the client library can be put in multiprocess mode.
 This comes with a number of limitations:
 
 - Registries can not be used as normal, all instantiated metrics are exported
-- Custom collectors do not work (e.g. cpu and memory metrics)
+- Custom collectors do not work (e.g. cpu and memory metrics, gauge.set_function)
 - Info and Enum metrics do not work
 - The pushgateway cannot be used
 - Gauges cannot use the `pid` label
