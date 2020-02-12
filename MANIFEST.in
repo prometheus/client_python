@@ -1,0 +1,2 @@
+recursive-include tests *
+prune tests/__pycache__
