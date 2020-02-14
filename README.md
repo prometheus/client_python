@@ -362,6 +362,40 @@ uwsgi --http 127.0.0.1:8000 --wsgi-file myapp.py --callable app_dispatch
 
 Visit http://localhost:8000/metrics to see the metrics
 
+#### Quart
+
+To use Prometheus with [Quart](https://pgjones.gitlab.io/quart/) we need to
+serve metrics through a Prometheus ASGI application. This can be achieved using
+[Hypercorn's application dispatching](https://pgjones.gitlab.io/hypercorn/dispatch_apps.html).
+Below is a working example.
+
+Save the snippet below in a `myapp.py` file
+
+```python
+from quart import Quart
+from hypercorn.middleware import DispatcherMiddleware
+from prometheus_client import make_asgi_app
+
+# Create my app
+app = Quart(__name__)
+
+# Add Prometheus ASGI app to route /metrics
+app_dispatch = DispatcherMiddleware({
+    "/metrics": make_asgi_app(),
+    "/": app
+})
+```
+
+Run the example web application like this
+
+```bash
+# Install daphne if you do not have it
+pip install daphne
+daphne myapp:app_dispatch
+```
+
+Visit http://localhost:8000/ to see the metrics
+
 ### Node exporter textfile collector
 
 The [textfile collector](https://github.com/prometheus/node_exporter#textfile-collector)
