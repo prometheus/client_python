@@ -31,6 +31,7 @@ CONTENT_TYPE_LATEST = str('text/plain; version=0.0.4; charset=utf-8')
 PYTHON26_OR_OLDER = sys.version_info < (2, 7)
 PYTHON376_OR_NEWER = sys.version_info > (3, 7, 5)
 
+
 def make_wsgi_app(registry=REGISTRY):
     """Create a WSGI app which serves the metrics from a registry."""
 
@@ -378,3 +379,10 @@ def instance_ip_grouping_key():
     with closing(socket.socket(socket.AF_INET, socket.SOCK_DGRAM)) as s:
         s.connect(('localhost', 0))
         return {'instance': s.getsockname()[0]}
+
+
+try:
+    # Python >3.5 only
+    from .asgi import make_asgi_app
+except:
+    pass
