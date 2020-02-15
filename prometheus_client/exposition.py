@@ -32,19 +32,22 @@ PYTHON26_OR_OLDER = sys.version_info < (2, 7)
 PYTHON376_OR_NEWER = sys.version_info > (3, 7, 5)
 
 
+def _bake_output(registry, accept_header, params):
+    """Bake output for metrics output."""
+    encoder, content_type = choose_encoder(accept_header)
+    if 'name[]' in params:
+        registry = registry.restricted_registry(params['name[]'])
+    output = encoder(registry)
+    return str('200 OK'), [(str('Content-type'), content_type)], output
+
+
 def make_wsgi_app(registry=REGISTRY):
     """Create a WSGI app which serves the metrics from a registry."""
 
     def prometheus_app(environ, start_response):
+        accept_header = environ.get('HTTP_ACCEPT')
         params = parse_qs(environ.get('QUERY_STRING', ''))
-        r = registry
-        encoder, content_type = choose_encoder(environ.get('HTTP_ACCEPT'))
-        if 'name[]' in params:
-            r = r.restricted_registry(params['name[]'])
-        output = encoder(r)
-
-        status = str('200 OK')
-        headers = [(str('Content-type'), content_type)]
+        status, headers, output = _bake_output(registry, accept_header, params)
         start_response(status, headers)
         return [output]
 

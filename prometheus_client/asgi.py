@@ -1,6 +1,6 @@
 from urllib.parse import parse_qs
 
-from .exposition import choose_encoder
+from .exposition import _bake_output
 from .registry import REGISTRY
 
 
@@ -10,23 +10,21 @@ def make_asgi_app(registry=REGISTRY):
     async def prometheus_app(scope, receive, send):
         assert scope.get("type") == "http"
         params = parse_qs(scope.get('query_string', b''))
-        r = registry
         accept_header = "Accept: " + ",".join([
             value.decode("utf8") for (name, value) in scope.get('headers')
             if name.decode("utf8") == 'accept'
         ])
-        encoder, content_type = choose_encoder(accept_header)
-        if 'name[]' in params:
-            r = r.restricted_registry(params['name[]'])
-        output = encoder(r)
-
+        status, headers, output = _bake_output(registry, accept_header, params)
         payload = await receive()
         if payload.get("type") == "http.request":
             await send(
                 {
                     "type": "http.response.start",
-                    "status": 200,
-                    "headers": [[b"Content-Type", content_type.encode('utf8')]],
+                    "status": int(status.split(' ')[0]),
+                    "headers": [
+                        [key.encode('utf8'), value.encode('utf8')]
+                        for (key,value) in headers
+                    ]
                 }
             )
             await send({"type": "http.response.body", "body": output})
