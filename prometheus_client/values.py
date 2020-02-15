@@ -28,10 +28,17 @@ class MutexValue(object):
             return self._value
 
 
-def MultiProcessValue(_pidFunc=os.getpid):
+def MultiProcessValue(process_identifier=os.getpid):
+    """Returns a MmapedValue class based on a process_identifier function.
+
+    The 'process_identifier' function MUST comply with this simple rule:
+    when called in simultaneously running processes it MUST return distinct values.
+
+    Using a different function than the default 'os.getpid' is at your own risk.
+    """
     files = {}
     values = []
-    pid = {'value': _pidFunc()}
+    pid = {'value': process_identifier()}
     # Use a single global lock when in multi-processing mode
     # as we presume this means there is no threading going on.
     # This avoids the need to also have mutexes in __MmapDict.
@@ -66,7 +73,7 @@ def MultiProcessValue(_pidFunc=os.getpid):
             self._value = self._file.read_value(self._key)
 
         def __check_for_pid_change(self):
-            actual_pid = _pidFunc()
+            actual_pid = process_identifier()
             if pid['value'] != actual_pid:
                 pid['value'] = actual_pid
                 # There has been a fork(), reset all the values.
