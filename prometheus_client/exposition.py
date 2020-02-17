@@ -38,17 +38,20 @@ def _bake_output(registry, accept_header, params):
     if 'name[]' in params:
         registry = registry.restricted_registry(params['name[]'])
     output = encoder(registry)
-    return str('200 OK'), [(str('Content-type'), content_type)], output
+    return str('200 OK'), (str('Content-Type'), content_type), output
 
 
 def make_wsgi_app(registry=REGISTRY):
     """Create a WSGI app which serves the metrics from a registry."""
 
     def prometheus_app(environ, start_response):
+        # Prepare parameters
         accept_header = environ.get('HTTP_ACCEPT')
         params = parse_qs(environ.get('QUERY_STRING', ''))
-        status, headers, output = _bake_output(registry, accept_header, params)
-        start_response(status, headers)
+        # Bake output
+        status, header, output = _bake_output(registry, accept_header, params)
+        # Return output
+        start_response(status, [header])
         return [output]
 
     return prometheus_app
@@ -147,18 +150,15 @@ class MetricsHandler(BaseHTTPRequestHandler):
     registry = REGISTRY
 
     def do_GET(self):
+        # Prepare parameters
         registry = self.registry
+        accept_header = self.headers.get('Accept')
         params = parse_qs(urlparse(self.path).query)
-        encoder, content_type = choose_encoder(self.headers.get('Accept'))
-        if 'name[]' in params:
-            registry = registry.restricted_registry(params['name[]'])
-        try:
-            output = encoder(registry)
-        except:
-            self.send_error(500, 'error generating metric output')
-            raise
-        self.send_response(200)
-        self.send_header('Content-Type', content_type)
+        # Bake output
+        status, header, output = _bake_output(registry, accept_header, params)
+        # Return output
+        self.send_response(int(status.split(' ')[0]))
+        self.send_header('Content-Type', header[1])
         self.end_headers()
         self.wfile.write(output)
 

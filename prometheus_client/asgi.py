@@ -9,12 +9,15 @@ def make_asgi_app(registry=REGISTRY):
 
     async def prometheus_app(scope, receive, send):
         assert scope.get("type") == "http"
+        # Prepare parameters
         params = parse_qs(scope.get('query_string', b''))
         accept_header = "Accept: " + ",".join([
             value.decode("utf8") for (name, value) in scope.get('headers')
             if name.decode("utf8") == 'accept'
         ])
-        status, headers, output = _bake_output(registry, accept_header, params)
+        # Bake output
+        status, header, output = _bake_output(registry, accept_header, params)
+        # Return output
         payload = await receive()
         if payload.get("type") == "http.request":
             await send(
@@ -22,8 +25,7 @@ def make_asgi_app(registry=REGISTRY):
                     "type": "http.response.start",
                     "status": int(status.split(' ')[0]),
                     "headers": [
-                        [key.encode('utf8'), value.encode('utf8')]
-                        for (key,value) in headers
+                        (x.encode('utf8') for x in header)
                     ]
                 }
             )
