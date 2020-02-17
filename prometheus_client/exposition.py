@@ -6,7 +6,7 @@ import os
 import socket
 import sys
 import threading
-from wsgiref.simple_server import make_server, WSGIRequestHandler
+from wsgiref.simple_server import make_server, WSGIServer, WSGIRequestHandler
 
 from .openmetrics import exposition as openmetrics
 from .registry import REGISTRY
@@ -64,13 +64,24 @@ class _SilentHandler(WSGIRequestHandler):
         """Log nothing."""
 
 
+class ThreadingWSGIServer(ThreadingMixIn, WSGIServer):
+    """Thread per request HTTP server."""
+    # Make worker threads "fire and forget". Beginning with Python 3.7 this
+    # prevents a memory leak because ``ThreadingMixIn`` starts to gather all
+    # non-daemon threads in a list in order to join on them at server close.
+    daemon_threads = True
+
+
 def start_wsgi_server(port, addr='', registry=REGISTRY):
     """Starts a WSGI server for prometheus metrics as a daemon thread."""
     app = make_wsgi_app(registry)
-    httpd = make_server(addr, port, app, handler_class=_SilentHandler)
+    httpd = make_server(addr, port, app, ThreadingWSGIServer, handler_class=_SilentHandler)
     t = threading.Thread(target=httpd.serve_forever)
     t.daemon = True
     t.start()
+
+
+start_http_server = start_wsgi_server
 
 
 def generate_latest(registry=REGISTRY):
@@ -179,25 +190,6 @@ class MetricsHandler(BaseHTTPRequestHandler):
         MyMetricsHandler = type(cls_name, (cls, object),
                                 {"registry": registry})
         return MyMetricsHandler
-
-
-class _ThreadingSimpleServer(ThreadingMixIn, HTTPServer):
-    """Thread per request HTTP server."""
-    # Make worker threads "fire and forget". Beginning with Python 3.7 this
-    # prevents a memory leak because ``ThreadingMixIn`` starts to gather all
-    # non-daemon threads in a list in order to join on them at server close.
-    # Enabling daemon threads virtually makes ``_ThreadingSimpleServer`` the
-    # same as Python 3.7's ``ThreadingHTTPServer``.
-    daemon_threads = True
-
-
-def start_http_server(port, addr='', registry=REGISTRY):
-    """Starts an HTTP server for prometheus metrics as a daemon thread"""
-    CustomMetricsHandler = MetricsHandler.factory(registry)
-    httpd = _ThreadingSimpleServer((addr, port), CustomMetricsHandler)
-    t = threading.Thread(target=httpd.serve_forever)
-    t.daemon = True
-    t.start()
 
 
 def write_to_textfile(path, registry):
