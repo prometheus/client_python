@@ -25,7 +25,7 @@ def make_asgi_app(registry=REGISTRY):
                     "type": "http.response.start",
                     "status": int(status.split(' ')[0]),
                     "headers": [
-                        (x.encode('utf8') for x in header)
+                        tuple(x.encode('utf8') for x in header)
                     ]
                 }
             )
