@@ -169,7 +169,7 @@ class MetricsHandler(BaseHTTPRequestHandler):
         status, header, output = _bake_output(registry, accept_header, params)
         # Return output
         self.send_response(int(status.split(' ')[0]))
-        self.send_header('Content-Type', header[1])
+        self.send_header(*header)
         self.end_headers()
         self.wfile.write(output)
 
