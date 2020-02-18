@@ -311,8 +311,6 @@ start_wsgi_server(8000)
 To use Prometheus with [ASGI](http://asgi.readthedocs.org/en/latest/), there is
 `make_asgi_app` which creates an ASGI application.
 
-Save the snippet below in a `myapp.py` file
-
 ```python
 from prometheus_client import make_asgi_app
 
@@ -320,17 +318,6 @@ app = make_asgi_app()
 ```
 Such an application can be useful when integrating Prometheus metrics with ASGI
 apps.
-
-The app can be used to serve the metrics through an ASGI implementation, such
-as [daphne](https://github.com/django/daphne) or
-[uvicorn](https://www.uvicorn.org/).
-```bash
-# Install daphne if you do not have it
-pip install daphne
-daphne myapp:app
-```
-
-Visit http://localhost:8000/ to see the metrics
 
 #### Flask
 
