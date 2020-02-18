@@ -2,7 +2,6 @@ from __future__ import absolute_import, unicode_literals
 
 import sys
 from unittest import TestCase
-from parameterized import parameterized
 from wsgiref.util import setup_testing_defaults
 from prometheus_client import make_wsgi_app
 
@@ -34,13 +33,7 @@ class WSGITest(TestCase):
                 )
             )
 
-    @parameterized.expand([
-        ["counter", "A counter", 2],
-        ["counter", "Another counter", 3],
-        ["requests", "Number of requests", 5],
-        ["failed_requests", "Number of failed requests", 7],
-    ])
-    def test_reports_metrics(self, metric_name, help_text, increments):
+    def validate_metrics(self, metric_name, help_text, increments):
         """
         WSGI app serves the metrics from the provided registry.
         """
@@ -62,3 +55,15 @@ class WSGITest(TestCase):
         self.assertIn("# HELP " + metric_name + "_total " + help_text + "\n", output)
         self.assertIn("# TYPE " + metric_name + "_total counter\n", output)
         self.assertIn(metric_name + "_total " + str(increments) + ".0\n", output)
+
+    def test_report_metrics_1(self):
+        self.validate_metrics("counter", "A counter", 2)
+
+    def test_report_metrics_2(self):
+        self.validate_metrics("counter", "Another counter", 3)
+
+    def test_report_metrics_3(self):
+        self.validate_metrics("requests", "Number of requests", 5)
+
+    def test_report_metrics_4(self):
+        self.validate_metrics("failed_requests", "Number of failed requests", 7)
