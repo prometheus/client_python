@@ -6,7 +6,7 @@ import os
 import socket
 import sys
 import threading
-from wsgiref.simple_server import make_server, WSGIRequestHandler
+from wsgiref.simple_server import make_server, WSGIServer, WSGIRequestHandler
 
 from .openmetrics import exposition as openmetrics
 from .registry import REGISTRY
@@ -31,20 +31,27 @@ CONTENT_TYPE_LATEST = str('text/plain; version=0.0.4; charset=utf-8')
 PYTHON26_OR_OLDER = sys.version_info < (2, 7)
 PYTHON376_OR_NEWER = sys.version_info > (3, 7, 5)
 
+
+def _bake_output(registry, accept_header, params):
+    """Bake output for metrics output."""
+    encoder, content_type = choose_encoder(accept_header)
+    if 'name[]' in params:
+        registry = registry.restricted_registry(params['name[]'])
+    output = encoder(registry)
+    return str('200 OK'), (str('Content-Type'), content_type), output
+
+
 def make_wsgi_app(registry=REGISTRY):
     """Create a WSGI app which serves the metrics from a registry."""
 
     def prometheus_app(environ, start_response):
+        # Prepare parameters
+        accept_header = environ.get('HTTP_ACCEPT')
         params = parse_qs(environ.get('QUERY_STRING', ''))
-        r = registry
-        encoder, content_type = choose_encoder(environ.get('HTTP_ACCEPT'))
-        if 'name[]' in params:
-            r = r.restricted_registry(params['name[]'])
-        output = encoder(r)
-
-        status = str('200 OK')
-        headers = [(str('Content-type'), content_type)]
-        start_response(status, headers)
+        # Bake output
+        status, header, output = _bake_output(registry, accept_header, params)
+        # Return output
+        start_response(status, [header])
         return [output]
 
     return prometheus_app
@@ -57,13 +64,24 @@ class _SilentHandler(WSGIRequestHandler):
         """Log nothing."""
 
 
+class ThreadingWSGIServer(ThreadingMixIn, WSGIServer):
+    """Thread per request HTTP server."""
+    # Make worker threads "fire and forget". Beginning with Python 3.7 this
+    # prevents a memory leak because ``ThreadingMixIn`` starts to gather all
+    # non-daemon threads in a list in order to join on them at server close.
+    daemon_threads = True
+
+
 def start_wsgi_server(port, addr='', registry=REGISTRY):
     """Starts a WSGI server for prometheus metrics as a daemon thread."""
     app = make_wsgi_app(registry)
-    httpd = make_server(addr, port, app, handler_class=_SilentHandler)
+    httpd = make_server(addr, port, app, ThreadingWSGIServer, handler_class=_SilentHandler)
     t = threading.Thread(target=httpd.serve_forever)
     t.daemon = True
     t.start()
+
+
+start_http_server = start_wsgi_server
 
 
 def generate_latest(registry=REGISTRY):
@@ -143,18 +161,15 @@ class MetricsHandler(BaseHTTPRequestHandler):
     registry = REGISTRY
 
     def do_GET(self):
+        # Prepare parameters
         registry = self.registry
+        accept_header = self.headers.get('Accept')
         params = parse_qs(urlparse(self.path).query)
-        encoder, content_type = choose_encoder(self.headers.get('Accept'))
-        if 'name[]' in params:
-            registry = registry.restricted_registry(params['name[]'])
-        try:
-            output = encoder(registry)
-        except:
-            self.send_error(500, 'error generating metric output')
-            raise
-        self.send_response(200)
-        self.send_header('Content-Type', content_type)
+        # Bake output
+        status, header, output = _bake_output(registry, accept_header, params)
+        # Return output
+        self.send_response(int(status.split(' ')[0]))
+        self.send_header(*header)
         self.end_headers()
         self.wfile.write(output)
 
@@ -175,25 +190,6 @@ class MetricsHandler(BaseHTTPRequestHandler):
         MyMetricsHandler = type(cls_name, (cls, object),
                                 {"registry": registry})
         return MyMetricsHandler
-
-
-class _ThreadingSimpleServer(ThreadingMixIn, HTTPServer):
-    """Thread per request HTTP server."""
-    # Make worker threads "fire and forget". Beginning with Python 3.7 this
-    # prevents a memory leak because ``ThreadingMixIn`` starts to gather all
-    # non-daemon threads in a list in order to join on them at server close.
-    # Enabling daemon threads virtually makes ``_ThreadingSimpleServer`` the
-    # same as Python 3.7's ``ThreadingHTTPServer``.
-    daemon_threads = True
-
-
-def start_http_server(port, addr='', registry=REGISTRY):
-    """Starts an HTTP server for prometheus metrics as a daemon thread"""
-    CustomMetricsHandler = MetricsHandler.factory(registry)
-    httpd = _ThreadingSimpleServer((addr, port), CustomMetricsHandler)
-    t = threading.Thread(target=httpd.serve_forever)
-    t.daemon = True
-    t.start()
 
 
 def write_to_textfile(path, registry):
@@ -378,3 +374,10 @@ def instance_ip_grouping_key():
     with closing(socket.socket(socket.AF_INET, socket.SOCK_DGRAM)) as s:
         s.connect(('localhost', 0))
         return {'instance': s.getsockname()[0]}
+
+
+try:
+    # Python >3.5 only
+    from .asgi import make_asgi_app
+except:
+    pass
