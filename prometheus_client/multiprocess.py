@@ -6,7 +6,7 @@ import json
 import os
 
 from .metrics_core import Metric
-from .mmap_dict import MmapedDict
+from .mmap_dict import MmapedDict, mmap_key
 from .samples import Sample
 from .utils import floatToGoString
 
@@ -156,4 +156,44 @@ def mark_process_dead(pid, path=None):
     for f in glob.glob(os.path.join(path, 'gauge_livesum_{0}.db'.format(pid))):
         os.remove(f)
     for f in glob.glob(os.path.join(path, 'gauge_liveall_{0}.db'.format(pid))):
+        os.remove(f)
+
+    # get associated db files with pid
+    files = glob.glob(os.path.join(path, '*_{0}.db'.format(pid)))
+    if not files:
+        return
+
+    # get merge file name
+    merge_files = []
+    for f in files:
+        file_prefix = os.path.basename(f).rsplit('_', 1)[0]
+        merge_file = os.path.join(path, '{0}_merge.db'.format(file_prefix))
+        if merge_file not in merge_files:
+            merge_files.append(merge_file)
+
+        # if not exist merge_file, create and init it
+        if not os.path.exists(merge_file):
+            MmapedDict(merge_file).close()
+
+    # do merge
+    metrics = MultiProcessCollector(None).merge(files + merge_files, accumulate=False)
+    typ_metrics_dict = defaultdict(list)
+    for metric in metrics:
+        typ_metrics_dict[metric.type].append(metric)
+
+    # write data to correct merge_file
+    for merge_file in merge_files:
+        typ = os.path.basename(merge_file).split('_')[0]
+        d = MmapedDict(merge_file)
+        for metric in typ_metrics_dict[typ]:
+            for sample in metric.samples:
+                labels = values = []
+                if sample.labels:
+                    labels, values = zip(*sample.labels.items())
+                key = mmap_key(metric.name, sample.name, labels, values)
+                d.write_value(key, sample.value)
+        d.close()
+
+    # remove the old db file
+    for f in files:
         os.remove(f)
