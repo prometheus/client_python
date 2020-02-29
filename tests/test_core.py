@@ -428,6 +428,7 @@ class TestEnum(unittest.TestCase):
         self.assertEqual(0, self.registry.get_sample_value('el', {'l': 'a', 'el': 'a'}))
         self.assertEqual(0, self.registry.get_sample_value('el', {'l': 'a', 'el': 'b'}))
         self.assertEqual(1, self.registry.get_sample_value('el', {'l': 'a', 'el': 'c'}))
+        self.assertRaises(ValueError, self.labels.state, 'a')
 
     def test_overlapping_labels(self):
         with pytest.raises(ValueError):
