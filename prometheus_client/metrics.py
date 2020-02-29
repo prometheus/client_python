@@ -656,6 +656,7 @@ class Enum(MetricWrapperBase):
 
     def state(self, state):
         """Set enum metric state."""
+        self._raise_if_not_observable()
         with self._lock:
             self._value = self._states.index(state)
 
