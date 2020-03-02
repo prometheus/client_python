@@ -31,6 +31,8 @@ class ProcessCollector(object):
         except (ValueError, TypeError, AttributeError, OSError):
             pass
 
+        self._pagesize = _PAGESIZE
+
         # This is used to test if we can access /proc.
         self._btime = 0
         try:
@@ -60,7 +62,7 @@ class ProcessCollector(object):
             vmem = GaugeMetricFamily(self._prefix + 'virtual_memory_bytes',
                                      'Virtual memory size in bytes.', value=float(parts[20]))
             rss = GaugeMetricFamily(self._prefix + 'resident_memory_bytes', 'Resident memory size in bytes.',
-                                    value=float(parts[21]) * _PAGESIZE)
+                                    value=float(parts[21]) * self._pagesize)
             start_time_secs = float(parts[19]) / self._ticks
             start_time = GaugeMetricFamily(self._prefix + 'start_time_seconds',
                                            'Start time of the process since unix epoch in seconds.',

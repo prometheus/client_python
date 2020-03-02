@@ -14,6 +14,7 @@ class TestProcessCollector(unittest.TestCase):
     def test_working(self):
         collector = ProcessCollector(proc=self.test_proc, pid=lambda: 26231, registry=self.registry)
         collector._ticks = 100
+        collector._pagesize = 4096
 
         self.assertEqual(17.21, self.registry.get_sample_value('process_cpu_seconds_total'))
         self.assertEqual(56274944.0, self.registry.get_sample_value('process_virtual_memory_bytes'))
@@ -26,6 +27,7 @@ class TestProcessCollector(unittest.TestCase):
     def test_namespace(self):
         collector = ProcessCollector(proc=self.test_proc, pid=lambda: 26231, registry=self.registry, namespace='n')
         collector._ticks = 100
+        collector._pagesize = 4096
 
         self.assertEqual(17.21, self.registry.get_sample_value('n_process_cpu_seconds_total'))
         self.assertEqual(56274944.0, self.registry.get_sample_value('n_process_virtual_memory_bytes'))
@@ -38,6 +40,7 @@ class TestProcessCollector(unittest.TestCase):
     def test_working_584(self):
         collector = ProcessCollector(proc=self.test_proc, pid=lambda: "584\n", registry=self.registry)
         collector._ticks = 100
+        collector._pagesize = 4096
 
         self.assertEqual(0.0, self.registry.get_sample_value('process_cpu_seconds_total'))
         self.assertEqual(10395648.0, self.registry.get_sample_value('process_virtual_memory_bytes'))
@@ -49,6 +52,7 @@ class TestProcessCollector(unittest.TestCase):
     def test_working_fake_pid(self):
         collector = ProcessCollector(proc=self.test_proc, pid=lambda: 123, registry=self.registry)
         collector._ticks = 100
+        collector._pagesize = 4096
 
         self.assertEqual(None, self.registry.get_sample_value('process_cpu_seconds_total'))
         self.assertEqual(None, self.registry.get_sample_value('process_virtual_memory_bytes'))
