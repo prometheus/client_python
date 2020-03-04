@@ -495,13 +495,13 @@ The `prometheus_multiproc_dir` environment variable must be set to a directory
 that the client library can use for metrics. This directory must be wiped
 between Gunicorn runs (before startup is recommended).
 
-This environment variable must be set **from a start-up shell script**,
-and not directly from Python (otherwise it will not propagate to child processes).
+This environment variable should be set from a start-up shell script,
+and not directly from Python (otherwise it may not propagate to child processes).
 
 **2. Metrics collector**:
 
-The application must initialize a new metrics `CollectorRegistry`,
-and save it within the multi-process collector.
+The application must initialize a new `CollectorRegistry`,
+and store the multi-process collector inside.
 
 ```python
 from prometheus_client import multiprocess
@@ -521,10 +521,9 @@ def app(environ, start_response):
     return iter([data])
 ```
 
-**3. Metrics mode and configuration (Gauge)**:
+**3. Gunicorn configuration**:
 
-When `Gauge` metrics are used, additional tuning needs to be performed.
-First of all, the `gunicorn` configuration file need to include the following function:
+The `gunicorn` configuration file needs to include the following function:
 
 ```python
 from prometheus_client import multiprocess
@@ -533,8 +532,10 @@ def child_exit(server, worker):
     multiprocess.mark_process_dead(worker.pid)
 ```
 
-Second of, metrics instrumentation. Gauges have several modes they can run in,
-which can be selected with the `multiprocess_mode` parameter.
+**4. Metrics tuning (Gauge)**:
+
+When `Gauge` metrics are used, additional tuning needs to be performed.
+Gauges have several modes they can run in, which can be selected with the `multiprocess_mode` parameter.
 
 - 'all': Default. Return a timeseries per process alive or dead.
 - 'liveall': Return a timeseries per process that is still alive.
@@ -542,28 +543,11 @@ which can be selected with the `multiprocess_mode` parameter.
 - 'max': Return a single timeseries that is the maximum of the values of all processes, alive or dead.
 - 'min': Return a single timeseries that is the minimum of the values of all processes, alive or dead.
 
-Complete example:
 ```python
-from prometheus_client import multiprocess
-from prometheus_client import generate_latest, CollectorRegistry, CONTENT_TYPE_LATEST, Gauge
+from prometheus_client import Gauge
 
-# Example gauge.
+# Example gauge
 IN_PROGRESS = Gauge("inprogress_requests", "help", multiprocess_mode='livesum')
-
-
-# Expose metrics.
-@IN_PROGRESS.track_inprogress()
-def app(environ, start_response):
-    registry = CollectorRegistry()
-    multiprocess.MultiProcessCollector(registry)
-    data = generate_latest(registry)
-    status = '200 OK'
-    response_headers = [
-        ('Content-type', CONTENT_TYPE_LATEST),
-        ('Content-Length', str(len(data)))
-    ]
-    start_response(status, response_headers)
-    return iter([data])
 ```
 
 
