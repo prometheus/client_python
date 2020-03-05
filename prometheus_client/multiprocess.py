@@ -1,10 +1,12 @@
 from __future__ import unicode_literals
 
 from collections import defaultdict
+from functools import wraps
 import glob
 import json
 import os
 
+from .process_lock import lock, unlock, LOCK_EX
 from .metrics_core import Metric
 from .mmap_dict import MmapedDict, mmap_key
 from .samples import Sample
@@ -16,6 +18,21 @@ except NameError:  # Python >= 2.5
     FileNotFoundError = IOError
 
 MP_METRIC_HELP = 'Multiprocess metric'
+
+
+def require_metrics_lock(func):
+    @wraps(func)
+    def _wrap(*args, **kwargs):
+        path = os.environ.get('prometheus_multiproc_dir')
+        f = open(os.path.join(path, 'metrics.lock'), 'w')
+        try:
+            lock(f, LOCK_EX)
+            return func(*args, **kwargs)
+        finally:
+            unlock(f)
+            f.close()
+
+    return _wrap
 
 
 class MultiProcessCollector(object):
@@ -31,6 +48,7 @@ class MultiProcessCollector(object):
             registry.register(self)
 
     @staticmethod
+    @require_metrics_lock
     def merge(files, accumulate=True):
         """Merge metrics from given mmap files.
 
@@ -149,6 +167,7 @@ class MultiProcessCollector(object):
         return self.merge(files, accumulate=True)
 
 
+@require_metrics_lock
 def mark_process_dead(pid, path=None):
     """Do bookkeeping for when one process dies in a multi-process setup."""
     if path is None:
@@ -175,8 +194,8 @@ def mark_process_dead(pid, path=None):
         if not os.path.exists(merge_file):
             MmapedDict(merge_file).close()
 
-    # do merge
-    metrics = MultiProcessCollector(None).merge(files + merge_files, accumulate=False)
+    # do merge, here we use the same method to merge
+    metrics = MultiProcessCollector.merge(files + merge_files, accumulate=False)
     typ_metrics_dict = defaultdict(list)
     for metric in metrics:
         typ_metrics_dict[metric.type].append(metric)
