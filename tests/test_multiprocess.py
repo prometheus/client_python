@@ -296,6 +296,17 @@ class TestMultiProcess(unittest.TestCase):
         self.assertEqual(metrics['h'].samples, expected_histogram)
 
 
+    def test_missing_gauge_file_during_merge(self):
+        # These files don't exist, just like if mark_process_dead(9999999) had been
+        # called during self.collector.collect(), after the glob found it
+        # but before the merge actually happened.
+        # This should not raise and return no metrics
+        self.assertFalse(self.collector.merge([
+            os.path.join(self.tempdir, 'gauge_liveall_9999999.db'),
+            os.path.join(self.tempdir, 'gauge_livesum_9999999.db'),
+        ]))
+
+
 class TestMmapedDict(unittest.TestCase):
     def setUp(self):
         fd, self.tempfile = tempfile.mkstemp()

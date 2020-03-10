@@ -49,7 +49,22 @@ class MultiProcessCollector(object):
             typ = parts[0]
             multiprocess_mode = parts[1] if typ == Gauge._type else None
             pid = parts[2] if multiprocess_mode and len(parts) > 2 else None
-            d = MmapedDict(f, read_mode=True)
+            try:
+                d = MmapedDict(f, read_mode=True)
+            except EnvironmentError:
+                # The liveall and livesum gauge metrics, which only track
+                # metrics from live processes, are deleted when the worker
+                # process dies (mark_process_dead and, in postal-main,
+                # boot.gunicornconf.child_exit).
+                # Additionally, we have a single thread which will collect
+                # metrics files from dead workers, and merge them into a set of
+                # archive files at regular interviews (see
+                # multiprocess_exporter).
+                # Since collecting the files to
+                # merge and reading those files are non-atomic, it's very
+                # possible, and expected, that these files will not exist at
+                # this point
+                continue
             for key, value, timestamp in d.read_all_values():
                 metric_name, name, labels = json.loads(key)
                 if pid:
@@ -199,7 +214,7 @@ def cleanup_process(pid, prom_dir=None):
 def _safe_remove(p):
     try:
         os.unlink(p)
-    except OSError, e:
+    except OSError as e:
         if e.errno != errno.ENOENT:
             raise
 
