@@ -3,6 +3,8 @@
 from __future__ import unicode_literals
 
 from collections import defaultdict
+from fcntl import flock, LOCK_UN, LOCK_SH
+from contextlib import contextmanager
 import errno
 import glob
 import json
@@ -156,8 +158,9 @@ class MultiProcessCollector(object):
         return metrics.values()
 
     def collect(self):
-        files = glob.glob(os.path.join(self._path, '*.db'))
-        return self.merge(files, accumulate=True)
+        with advisory_lock(LOCK_SH):
+            files = glob.glob(os.path.join(self._path, '*.db'))
+            return self.merge(files, accumulate=True)
 
 
 def mark_process_dead(pid, path=None):
@@ -275,6 +278,32 @@ def cleanup_dead_processes(root=None):
             pid = int(pid)
             if pid not in to_clean and not _is_alive(pid):
                 to_clean.add(pid)
-    for pid in to_clean:
-        logging.info("cleaning up worker %r", pid)
-        cleanup_process(pid)
+    with advisory_lock(LOCK_EX):
+        for pid in to_clean:
+            logging.info("cleaning up worker %r", pid)
+            cleanup_process(pid)
+
+
+@contextmanager
+def advisory_lock(lock_type, filename="lockfile", path=None):
+    """
+    Wrapper around flock.
+    The cleanup thread acquires an LOCK_EX
+    The metrics collectors acquire LOCK_SH
+
+    The flock interface in python makes it difficult to properly time out lock
+    acquisition, and lock acquisition is blocking (a non-blocking lock
+    acquisition will immediately fail with an IOError). This should be fine, as
+    metrics are not exposed to the wider internet, and gets a predictable, and
+    low, request volume. Since they only acquire shared locks, the only
+    contention is with the exclusive lock acquired by the cleanup operation,
+    which only runs once a minute
+    """
+    prom_dir = _multiproc_dir() if prom_dir is None else prom_dir
+    path = os.path.join(prom_dir, filename)
+    with open(path, 'w') as fd:
+        flock(fd, lock_type)
+        try:
+            yield
+        finally:
+            flock(fd, LOCK_UN)

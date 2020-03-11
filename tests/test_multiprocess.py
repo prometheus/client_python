@@ -369,3 +369,8 @@ class TestUnsetEnv(unittest.TestCase):
 
     def tearDown(self):
         os.remove(self.tmpfl)
+
+
+class TestAdvisoryLock(unittest.TestCase):
+    def setUp(self):
+        pass
