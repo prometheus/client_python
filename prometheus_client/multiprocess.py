@@ -54,19 +54,29 @@ class MultiProcessCollector(object):
             try:
                 d = MmapedDict(f, read_mode=True)
             except EnvironmentError:
-                # The liveall and livesum gauge metrics, which only track
-                # metrics from live processes, are deleted when the worker
-                # process dies (mark_process_dead and, in postal-main,
-                # boot.gunicornconf.child_exit).
+                # The liveall and livesum gauge metrics
+                # are deleted when the gunicorn/celery worker process dies
+                # (mark_process_dead and, in postal-main, boot.gunicornconf.child_exit).
+                # Since these are deleted without acquiring a lock, they may
+                # not be present in between collecting the metrics files and
+                # merging them, resulting in a FileNotFoundError/IOError.
+                # However, since these gauges only care about live processes,
+                # we wouldn't merge them anyway.
+                # 
                 # Additionally, we have a single thread which will collect
                 # metrics files from dead workers, and merge them into a set of
                 # archive files at regular interviews (see
-                # multiprocess_exporter).
-                # Since collecting the files to
-                # merge and reading those files are non-atomic, it's very
-                # possible, and expected, that these files will not exist at
-                # this point
-                continue
+                # multiprocess_exporter). This operation is protected by a
+                # mutex, ensuring that no collectors are run during cleanup. We
+                # must do so because other metrics are sensitive to partial
+                # collection; prometheus counters cannot be decremented, as
+                # prometheus assumes that, in the time since the last scrape,
+                # the counter reset to 0 and incremented back up to the
+                # collected value, manifesting itself as a huge rate spike
+                if typ == 'gauge' and parts[1] in (Gauge.LIVESUM, Gauge.LIVEALL):
+                    continue
+                raise
+
             for key, value, timestamp in d.read_all_values():
                 metric_name, name, labels = json.loads(key)
                 if pid:
