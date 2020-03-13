@@ -411,6 +411,13 @@ class TestAdvisoryLock(unittest.TestCase):
             with advisory_lock(LOCK_EX):
                 self.collector.collect(blocking=False)
 
+    def test_exceptions_release_lock(self):
+        with self.assertRaises(ValueError):
+            with advisory_lock(LOCK_EX):
+                raise ValueError
+        # Do an operation which requires acquiring the lock
+        cleanup_dead_processes(blocking=False)
+
     def tearDown(self):
         del os.environ['prometheus_multiproc_dir']
         shutil.rmtree(self.tempdir)
