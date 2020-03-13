@@ -3,9 +3,9 @@
 from __future__ import unicode_literals
 
 from collections import defaultdict
-from fcntl import flock, LOCK_UN, LOCK_SH
 from contextlib import contextmanager
 import errno
+from fcntl import flock, LOCK_EX, LOCK_NB, LOCK_SH, LOCK_UN
 import glob
 import json
 import logging
@@ -157,8 +157,10 @@ class MultiProcessCollector(object):
             metric.samples = [Sample(name_, dict(labels), value) for (name_, labels), value in samples.items()]
         return metrics.values()
 
-    def collect(self):
-        with advisory_lock(LOCK_SH):
+    def collect(self, blocking=True):
+        # blocking is used for testing purposes
+        lock_type = LOCK_SH if blocking else LOCK_SH | LOCK_NB
+        with advisory_lock(lock_type):
             files = glob.glob(os.path.join(self._path, '*.db'))
             return self.merge(files, accumulate=True)
 
@@ -260,11 +262,15 @@ def _is_alive(pid):
         return True
 
 
-def cleanup_dead_processes(root=None):
+def cleanup_dead_processes(root=None, blocking=True):
     """Cleanup/merge database files from dead processes
 
     This is not threadsafe and should only be called from one thread/process at
     a time (e.g. a single thread on the multiprocess exporter)
+
+    The blocking argument is mainly used for test purposes. The default
+    behavior is to block indefinitely, until lock acquisition. Setting
+    blocking=False will immediately raise an exception when acquisition fails
     """
     if root is None:
         root = os.environ[PROMETHEUS_MULTIPROC_DIR]
@@ -278,14 +284,15 @@ def cleanup_dead_processes(root=None):
             pid = int(pid)
             if pid not in to_clean and not _is_alive(pid):
                 to_clean.add(pid)
-    with advisory_lock(LOCK_EX):
+    lock_type = LOCK_EX if blocking else LOCK_EX | LOCK_NB
+    with advisory_lock(lock_type):
         for pid in to_clean:
             logging.info("cleaning up worker %r", pid)
             cleanup_process(pid)
 
 
 @contextmanager
-def advisory_lock(lock_type, filename="lockfile", path=None):
+def advisory_lock(lock_type, filename="lockfile", prom_dir=None):
     """
     Wrapper around flock.
     The cleanup thread acquires an LOCK_EX
