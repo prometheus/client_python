@@ -3,7 +3,9 @@
 from __future__ import unicode_literals
 
 from collections import defaultdict
+from contextlib import contextmanager
 import errno
+from fcntl import flock, LOCK_EX, LOCK_NB, LOCK_SH, LOCK_UN
 import glob
 import json
 import logging
@@ -52,19 +54,29 @@ class MultiProcessCollector(object):
             try:
                 d = MmapedDict(f, read_mode=True)
             except EnvironmentError:
-                # The liveall and livesum gauge metrics, which only track
-                # metrics from live processes, are deleted when the worker
-                # process dies (mark_process_dead and, in postal-main,
-                # boot.gunicornconf.child_exit).
+                # The liveall and livesum gauge metrics
+                # are deleted when the gunicorn/celery worker process dies
+                # (mark_process_dead and, in postal-main, boot.gunicornconf.child_exit).
+                # Since these are deleted without acquiring a lock, they may
+                # not be present in between collecting the metrics files and
+                # merging them, resulting in a FileNotFoundError/IOError.
+                # However, since these gauges only care about live processes,
+                # we wouldn't merge them anyway.
+                # 
                 # Additionally, we have a single thread which will collect
                 # metrics files from dead workers, and merge them into a set of
                 # archive files at regular interviews (see
-                # multiprocess_exporter).
-                # Since collecting the files to
-                # merge and reading those files are non-atomic, it's very
-                # possible, and expected, that these files will not exist at
-                # this point
-                continue
+                # multiprocess_exporter). This operation is protected by a
+                # mutex, ensuring that no collectors are run during cleanup. We
+                # must do so because other metrics are sensitive to partial
+                # collection; prometheus counters cannot be decremented, as
+                # prometheus assumes that, in the time since the last scrape,
+                # the counter reset to 0 and incremented back up to the
+                # collected value, manifesting itself as a huge rate spike
+                if typ == 'gauge' and parts[1] in (Gauge.LIVESUM, Gauge.LIVEALL):
+                    continue
+                raise
+
             for key, value, timestamp in d.read_all_values():
                 metric_name, name, labels = json.loads(key)
                 if pid:
@@ -155,9 +167,12 @@ class MultiProcessCollector(object):
             metric.samples = [Sample(name_, dict(labels), value) for (name_, labels), value in samples.items()]
         return metrics.values()
 
-    def collect(self):
-        files = glob.glob(os.path.join(self._path, '*.db'))
-        return self.merge(files, accumulate=True)
+    def collect(self, blocking=True):
+        # blocking is used for testing purposes
+        lock_type = LOCK_SH if blocking else LOCK_SH | LOCK_NB
+        with advisory_lock(lock_type):
+            files = glob.glob(os.path.join(self._path, '*.db'))
+            return self.merge(files, accumulate=True)
 
 
 def mark_process_dead(pid, path=None):
@@ -257,11 +272,15 @@ def _is_alive(pid):
         return True
 
 
-def cleanup_dead_processes(root=None):
+def cleanup_dead_processes(root=None, blocking=True):
     """Cleanup/merge database files from dead processes
 
     This is not threadsafe and should only be called from one thread/process at
     a time (e.g. a single thread on the multiprocess exporter)
+
+    The blocking argument is mainly used for test purposes. The default
+    behavior is to block indefinitely, until lock acquisition. Setting
+    blocking=False will immediately raise an exception when acquisition fails
     """
     if root is None:
         root = os.environ[PROMETHEUS_MULTIPROC_DIR]
@@ -275,6 +294,33 @@ def cleanup_dead_processes(root=None):
             pid = int(pid)
             if pid not in to_clean and not _is_alive(pid):
                 to_clean.add(pid)
-    for pid in to_clean:
-        logging.info("cleaning up worker %r", pid)
-        cleanup_process(pid)
+    lock_type = LOCK_EX if blocking else LOCK_EX | LOCK_NB
+    with advisory_lock(lock_type):
+        for pid in to_clean:
+            logging.info("cleaning up worker %r", pid)
+            cleanup_process(pid)
+
+
+@contextmanager
+def advisory_lock(lock_type, filename="lockfile", prom_dir=None):
+    """
+    Wrapper around flock.
+    The cleanup thread acquires an LOCK_EX
+    The metrics collectors acquire LOCK_SH
+
+    The flock interface in python makes it difficult to properly time out lock
+    acquisition, and lock acquisition is blocking (a non-blocking lock
+    acquisition will immediately fail with an IOError). This should be fine, as
+    metrics are not exposed to the wider internet, and gets a predictable, and
+    low, request volume. Since they only acquire shared locks, the only
+    contention is with the exclusive lock acquired by the cleanup operation,
+    which only runs once a minute
+    """
+    prom_dir = _multiproc_dir() if prom_dir is None else prom_dir
+    path = os.path.join(prom_dir, filename)
+    with open(path, 'w') as fd:
+        flock(fd, lock_type)
+        try:
+            yield
+        finally:
+            flock(fd, LOCK_UN)

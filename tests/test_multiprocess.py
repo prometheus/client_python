@@ -1,5 +1,6 @@
 from __future__ import unicode_literals
 
+from fcntl import LOCK_EX, LOCK_SH
 import glob
 import os
 import shutil
@@ -12,7 +13,7 @@ from prometheus_client.core import (
     CollectorRegistry, Counter, Gauge, Histogram, Sample, Summary,
 )
 from prometheus_client.multiprocess import (
-    cleanup_dead_processes, mark_process_dead, MultiProcessCollector
+    advisory_lock, cleanup_dead_processes, mark_process_dead, MultiProcessCollector
 )
 from prometheus_client.values import MultiProcessValue, MutexValue
 
@@ -369,3 +370,55 @@ class TestUnsetEnv(unittest.TestCase):
 
     def tearDown(self):
         os.remove(self.tmpfl)
+
+
+class TestAdvisoryLock(unittest.TestCase):
+    """
+    These tests use lock aqusition as a proxy for cleanup/collect operations,
+    the former using exclusive locks, the latter shared locks
+    """
+    def setUp(self):
+        self.tempdir = tempfile.mkdtemp()
+        os.environ['prometheus_multiproc_dir'] = self.tempdir
+        values.ValueClass = MultiProcessValue(lambda: 123)
+        self.registry = CollectorRegistry()
+        self.collector = MultiProcessCollector(self.registry, self.tempdir)
+
+    def test_cleanup_waits_for_collectors(self):
+        # IOError in python2, OSError in python3
+        with self.assertRaises(EnvironmentError):
+            with advisory_lock(LOCK_SH):
+                cleanup_dead_processes(blocking=False)
+
+    def test_collect_doesnt_block_other_collects(self):
+        values.ValueClass = MultiProcessValue(lambda: 0)
+        labels = dict((i, i) for i in 'abcd')
+        c = Counter('c', 'help', labelnames=labels.keys(), registry=None)
+        c.labels(**labels).inc(1)
+
+        with advisory_lock(LOCK_SH):
+            metrics = dict((m.name, m) for m in self.collector.collect(blocking=False))
+            self.assertEqual(
+                metrics['c'].samples, [Sample('c_total', labels, 1.0)]
+            )
+
+    def test_collect_waits_for_cleanup(self):
+        values.ValueClass = MultiProcessValue(lambda: 0)
+        labels = dict((i, i) for i in 'abcd')
+        c = Counter('c', 'help', labelnames=labels.keys(), registry=None)
+        c.labels(**labels).inc(1)
+        with self.assertRaises(EnvironmentError):
+            with advisory_lock(LOCK_EX):
+                self.collector.collect(blocking=False)
+
+    def test_exceptions_release_lock(self):
+        with self.assertRaises(ValueError):
+            with advisory_lock(LOCK_EX):
+                raise ValueError
+        # Do an operation which requires acquiring the lock
+        cleanup_dead_processes(blocking=False)
+
+    def tearDown(self):
+        del os.environ['prometheus_multiproc_dir']
+        shutil.rmtree(self.tempdir)
+        values.ValueClass = MutexValue
