@@ -122,11 +122,11 @@ hh_created 123.456
         self.registry.register(MyCollector())
         self.assertEqual(b"""# HELP hh help
 # TYPE hh histogram
-hh_bucket{le="1"} 0.0 # {a="b"} 0.5
-hh_bucket{le="2"} 0.0 # {le="7"} 0.5 12
-hh_bucket{le="3"} 0.0 123 # {a="b"} 2.5 12
-hh_bucket{le="4"} 0.0 # {a="\\n\\"\\\\"} 3.5
-hh_bucket{le="+Inf"} 0.0
+hh_bucket{le="1"} 0 # {a="b"} 0.5
+hh_bucket{le="2"} 0 # {le="7"} 0.5 12
+hh_bucket{le="3"} 0 123 # {a="b"} 2.5 12
+hh_bucket{le="4"} 0 # {a="\\n\\"\\\\"} 3.5
+hh_bucket{le="+Inf"} 0
 # EOF
 """, generate_latest(self.registry))
 
@@ -159,10 +159,10 @@ hh_bucket{le="+Inf"} 0.0
             GaugeHistogramMetricFamily('gh', 'help', buckets=[('1.0', 4), ('+Inf', (5))], gsum_value=7))
         self.assertEqual(b"""# HELP gh help
 # TYPE gh gaugehistogram
-gh_bucket{le="1.0"} 4.0
-gh_bucket{le="+Inf"} 5.0
-gh_gcount 5.0
-gh_gsum 7.0
+gh_bucket{le="1.0"} 4
+gh_bucket{le="+Inf"} 5
+gh_gcount 5
+gh_gsum 7
 # EOF
 """, generate_latest(self.registry))
 
@@ -171,10 +171,10 @@ gh_gsum 7.0
             GaugeHistogramMetricFamily('gh', 'help', buckets=[('-1.0', 4), ('+Inf', (5))], gsum_value=-7))
         self.assertEqual(b"""# HELP gh help
 # TYPE gh gaugehistogram
-gh_bucket{le="-1.0"} 4.0
-gh_bucket{le="+Inf"} 5.0
-gh_gcount 5.0
-gh_gsum -7.0
+gh_bucket{le="-1.0"} 4
+gh_bucket{le="+Inf"} 5
+gh_gcount 5
+gh_gsum -7
 # EOF
 """, generate_latest(self.registry))
 
@@ -192,8 +192,8 @@ ii_info{a="c",b="d",foo="bar"} 1.0
         i.labels('c', 'd').state('bar')
         self.assertEqual(b"""# HELP ee An enum
 # TYPE ee stateset
-ee{a="c",b="d",ee="foo"} 0.0
-ee{a="c",b="d",ee="bar"} 1.0
+ee{a="c",b="d",ee="foo"} 0
+ee{a="c",b="d",ee="bar"} 1
 # EOF
 """, generate_latest(self.registry))
 
@@ -250,12 +250,12 @@ cc_created{a="\\\\x\\n\\""} 123.456
         self.registry.register(MyCollector())
         self.assertEqual(b"""# HELP ts help
 # TYPE ts unknown
-ts{foo="a"} 0.0 123.456
-ts{foo="b"} 0.0 -123.456
-ts{foo="c"} 0.0 123
-ts{foo="d"} 0.0 123.456000000
-ts{foo="e"} 0.0 123.000456000
-ts{foo="f"} 0.0 123.000000456
+ts{foo="a"} 0 123.456
+ts{foo="b"} 0 -123.456
+ts{foo="c"} 0 123
+ts{foo="d"} 0 123.456000000
+ts{foo="e"} 0 123.000456000
+ts{foo="f"} 0 123.000000456
 # EOF
 """, generate_latest(self.registry))
 
