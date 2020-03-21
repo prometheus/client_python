@@ -36,8 +36,17 @@ class Timestamp(object):
 # Timestamp can be a float containing a unixtime in seconds,
 # a Timestamp object, or None.
 # Exemplar can be an Exemplar object, or None.
-Sample = namedtuple('Sample', ['name', 'labels', 'value', 'timestamp', 'exemplar'])
-Sample.__new__.__defaults__ = (None, None)
+sample = namedtuple('Sample', ['name', 'labels', 'value', 'timestamp', 'exemplar'])
+
+
+# Wrap the namedtuple to provide eager type-checking that value is a float.
+def Sample(name, labels, value, timestamp=None, exemplar=None):
+    # Preserve ints, convert anything else to float.
+    if type(value) != int:
+        value = float(value)
+
+    return sample(name, labels, value, timestamp, exemplar)
+
 
 Exemplar = namedtuple('Exemplar', ['labels', 'value', 'timestamp'])
 Exemplar.__new__.__defaults__ = (None,)
