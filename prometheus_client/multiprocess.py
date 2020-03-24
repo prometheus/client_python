@@ -13,6 +13,8 @@ import os
 import re
 import shutil
 import tempfile
+from threading import RLock
+import time
 
 from .metrics import Counter, Gauge, Histogram
 from .metrics_core import Metric
@@ -23,6 +25,41 @@ from .utils import floatToGoString
 
 PROMETHEUS_MULTIPROC_DIR = "prometheus_multiproc_dir"
 _db_pattern = re.compile(r"(\w+)_(\d+)\.db")
+
+
+class MetricsCache(object):
+    def __init__(self):
+        self.metrics = []
+        self.last_scrape_time = None
+        self.lock = RLock()
+
+    def retrieve_metrics(self):
+        logging.info("Retrieving metrics from: {}".format(self.last_scrape_time))
+        with self.lock:
+            return self.metrics
+
+    def write_metrics(self, metrics, time_elapsed=None):
+        logging.info("Time to build metrics: {}".format(time_elapsed))
+        with self.lock:
+            self.last_scrape_time = time.time()
+            self.metrics = metrics
+
+
+_metrics_cache = MetricsCache()
+
+
+class InMemoryCollector(object):
+    """
+    A Collector which simply serves statistics collected by the archiver
+    (cleanup_dead_processes())
+    """
+
+    def __init__(self, registry):
+        if registry:
+            registry.register(self)
+
+    def collect(self):
+        return _metrics_cache.retrieve_metrics()
 
 
 class MultiProcessCollector(object):
@@ -37,142 +74,145 @@ class MultiProcessCollector(object):
         if registry:
             registry.register(self)
 
-    @staticmethod
-    def merge(files, accumulate=True):
-        """Merge metrics from given mmap files.
-
-        By default, histograms are accumulated, as per prometheus wire format.
-        But if writing the merged data back to mmap files, use
-        accumulate=False to avoid compound accumulation.
-        """
-        metrics = {}
-        for f in files:
-            parts = os.path.splitext(os.path.basename(f))[0].split('_')
-            typ = parts[0]
-            multiprocess_mode = parts[1] if typ == Gauge._type else None
-            pid = parts[2] if multiprocess_mode and len(parts) > 2 else None
-            try:
-                d = MmapedDict(f, read_mode=True)
-            except EnvironmentError:
-                # The liveall and livesum gauge metrics
-                # are deleted when the gunicorn/celery worker process dies
-                # (mark_process_dead and, in postal-main, boot.gunicornconf.child_exit).
-                # Since these are deleted without acquiring a lock, they may
-                # not be present in between collecting the metrics files and
-                # merging them, resulting in a FileNotFoundError/IOError.
-                # However, since these gauges only care about live processes,
-                # we wouldn't merge them anyway.
-                # 
-                # Additionally, we have a single thread which will collect
-                # metrics files from dead workers, and merge them into a set of
-                # archive files at regular interviews (see
-                # multiprocess_exporter). This operation is protected by a
-                # mutex, ensuring that no collectors are run during cleanup. We
-                # must do so because other metrics are sensitive to partial
-                # collection; prometheus counters cannot be decremented, as
-                # prometheus assumes that, in the time since the last scrape,
-                # the counter reset to 0 and incremented back up to the
-                # collected value, manifesting itself as a huge rate spike
-                if typ == 'gauge' and parts[1] in (Gauge.LIVESUM, Gauge.LIVEALL):
-                    continue
-                raise
-
-            for key, value, timestamp in d.read_all_values():
-                metric_name, name, labels = json.loads(key)
-                if pid:
-                    labels["pid"] = pid
-                labels_key = tuple(sorted(labels.items()))
-
-                metric = metrics.get(metric_name)
-                if metric is None:
-                    metric = Metric(metric_name, 'Multiprocess metric', typ)
-                    metrics[metric_name] = metric
-                if multiprocess_mode:
-                    metric._multiprocess_mode = multiprocess_mode
-                metric.add_sample(name, labels_key, value, timestamp=timestamp)
-            d.close()
-
-        for metric in metrics.itervalues():
-            # Handle the Gauge "latest" multiprocess mode type:
-            if metric.type == Gauge._type and metric._multiprocess_mode == Gauge.LATEST:
-                s = max(metric.samples, key=lambda i: i.timestamp)
-                # Group samples by name, labels:
-                grouped_samples = defaultdict(list)
-                for s in metric.samples:
-                    labels = dict(s.labels)
-                    if "pid" in labels:
-                        del labels["pid"]
-                    grouped_samples[s.name, tuple(sorted(labels.items()))].append(s)
-                metric.samples = []
-                for (name, labels), sample_group in grouped_samples.iteritems():
-                    s = max(sample_group, key=lambda i: i.timestamp)
-                    metric.samples.append(Sample(name,
-                                                 dict(labels),
-                                                 value=s.value,
-                                                 timestamp=s.timestamp))
-                continue
-
-            samples = defaultdict(float)
-            buckets = {}
-            for s in metric.samples:
-                name, labels, value = s.name, s.labels, s.value
-                if metric.type == Gauge._type:
-                    without_pid = tuple(l for l in labels if l[0] != 'pid')
-                    if metric._multiprocess_mode == Gauge.MIN:
-                        current = samples.setdefault((name, without_pid), value)
-                        if value < current:
-                            samples[(s.name, without_pid)] = value
-                    elif metric._multiprocess_mode == Gauge.MAX:
-                        current = samples.setdefault((name, without_pid), value)
-                        if value > current:
-                            samples[(s.name, without_pid)] = value
-                    elif metric._multiprocess_mode == Gauge.LIVESUM:
-                        samples[(name, without_pid)] += value
-                    else:  # all/liveall
-                        samples[(name, labels)] = value
-
-                elif metric.type == 'histogram':
-                    bucket = tuple(float(l[1]) for l in labels if l[0] == 'le')
-                    if bucket:
-                        # _bucket
-                        without_le = tuple(l for l in labels if l[0] != 'le')
-                        buckets.setdefault(without_le, {})
-                        buckets[without_le].setdefault(bucket[0], 0.0)
-                        buckets[without_le][bucket[0]] += value
-                    else:
-                        # _sum/_count
-                        samples[(s.name, labels)] += value
-                else:
-                    # Counter and Summary.
-                    samples[(s.name, labels)] += value
-
-
-            # Accumulate bucket values.
-            if metric.type == 'histogram':
-                for labels, values in buckets.items():
-                    acc = 0.0
-                    for bucket, value in sorted(values.items()):
-                        sample_key = (
-                            metric.name + '_bucket',
-                            labels + (('le', floatToGoString(bucket)),),
-                        )
-                        if accumulate:
-                            acc += value
-                            samples[sample_key] = acc
-                        else:
-                            samples[sample_key] = value
-                    if accumulate:
-                        samples[(metric.name + '_count', labels)] = acc
-            # Convert to correct sample format.
-            metric.samples = [Sample(name_, dict(labels), value) for (name_, labels), value in samples.items()]
-        return metrics.values()
 
     def collect(self, blocking=True):
         # blocking is used for testing purposes
         lock_type = LOCK_SH if blocking else LOCK_SH | LOCK_NB
         with advisory_lock(lock_type):
             files = glob.glob(os.path.join(self._path, '*.db'))
-            return self.merge(files, accumulate=True)
+            return merge(files, accumulate=True)
+
+
+def merge(files, accumulate=True):
+    """Merge metrics from given mmap files.
+
+    By default, histograms are accumulated, as per prometheus wire format.
+    But if writing the merged data back to mmap files, use
+    accumulate=False to avoid compound accumulation.
+    """
+
+    # TODO: read from 
+    metrics = {}
+    for f in files:
+        parts = os.path.splitext(os.path.basename(f))[0].split('_')
+        typ = parts[0]
+        multiprocess_mode = parts[1] if typ == Gauge._type else None
+        pid = parts[2] if multiprocess_mode and len(parts) > 2 else None
+        try:
+            d = MmapedDict(f, read_mode=True)
+        except EnvironmentError:
+            # The liveall and livesum gauge metrics
+            # are deleted when the gunicorn/celery worker process dies
+            # (mark_process_dead and, in postal-main, boot.gunicornconf.child_exit).
+            # Since these are deleted without acquiring a lock, they may
+            # not be present in between collecting the metrics files and
+            # merging them, resulting in a FileNotFoundError/IOError.
+            # However, since these gauges only care about live processes,
+            # we wouldn't merge them anyway.
+            # 
+            # Additionally, we have a single thread which will collect
+            # metrics files from dead workers, and merge them into a set of
+            # archive files at regular interviews (see
+            # multiprocess_exporter). This operation is protected by a
+            # mutex, ensuring that no collectors are run during cleanup. We
+            # must do so because other metrics are sensitive to partial
+            # collection; prometheus counters cannot be decremented, as
+            # prometheus assumes that, in the time since the last scrape,
+            # the counter reset to 0 and incremented back up to the
+            # collected value, manifesting itself as a huge rate spike
+            if typ == 'gauge' and parts[1] in (Gauge.LIVESUM, Gauge.LIVEALL):
+                continue
+            raise
+
+        for key, value, timestamp in d.read_all_values():
+            metric_name, name, labels = json.loads(key)
+            if pid:
+                labels["pid"] = pid
+            labels_key = tuple(sorted(labels.items()))
+
+            metric = metrics.get(metric_name)
+            if metric is None:
+                metric = Metric(metric_name, 'Multiprocess metric', typ)
+                metrics[metric_name] = metric
+            if multiprocess_mode:
+                metric._multiprocess_mode = multiprocess_mode
+            metric.add_sample(name, labels_key, value, timestamp=timestamp)
+        d.close()
+
+    for metric in metrics.itervalues():
+        # Handle the Gauge "latest" multiprocess mode type:
+        if metric.type == Gauge._type and metric._multiprocess_mode == Gauge.LATEST:
+            s = max(metric.samples, key=lambda i: i.timestamp)
+            # Group samples by name, labels:
+            grouped_samples = defaultdict(list)
+            for s in metric.samples:
+                labels = dict(s.labels)
+                if "pid" in labels:
+                    del labels["pid"]
+                grouped_samples[s.name, tuple(sorted(labels.items()))].append(s)
+            metric.samples = []
+            for (name, labels), sample_group in grouped_samples.iteritems():
+                s = max(sample_group, key=lambda i: i.timestamp)
+                metric.samples.append(Sample(name,
+                                             dict(labels),
+                                             value=s.value,
+                                             timestamp=s.timestamp))
+            continue
+
+        samples = defaultdict(float)
+        buckets = {}
+        for s in metric.samples:
+            name, labels, value = s.name, s.labels, s.value
+            if metric.type == Gauge._type:
+                without_pid = tuple(l for l in labels if l[0] != 'pid')
+                if metric._multiprocess_mode == Gauge.MIN:
+                    current = samples.setdefault((name, without_pid), value)
+                    if value < current:
+                        samples[(s.name, without_pid)] = value
+                elif metric._multiprocess_mode == Gauge.MAX:
+                    current = samples.setdefault((name, without_pid), value)
+                    if value > current:
+                        samples[(s.name, without_pid)] = value
+                elif metric._multiprocess_mode == Gauge.LIVESUM:
+                    samples[(name, without_pid)] += value
+                else:  # all/liveall
+                    samples[(name, labels)] = value
+
+            elif metric.type == 'histogram':
+                bucket = tuple(float(l[1]) for l in labels if l[0] == 'le')
+                if bucket:
+                    # _bucket
+                    without_le = tuple(l for l in labels if l[0] != 'le')
+                    buckets.setdefault(without_le, {})
+                    buckets[without_le].setdefault(bucket[0], 0.0)
+                    buckets[without_le][bucket[0]] += value
+                else:
+                    # _sum/_count
+                    samples[(s.name, labels)] += value
+            else:
+                # Counter and Summary.
+                samples[(s.name, labels)] += value
+
+
+        # Accumulate bucket values.
+        if metric.type == 'histogram':
+            for labels, values in buckets.items():
+                acc = 0.0
+                for bucket, value in sorted(values.items()):
+                    sample_key = (
+                        metric.name + '_bucket',
+                        labels + (('le', floatToGoString(bucket)),),
+                    )
+                    if accumulate:
+                        acc += value
+                        samples[sample_key] = acc
+                    else:
+                        samples[sample_key] = value
+                if accumulate:
+                    samples[(metric.name + '_count', labels)] = acc
+        # Convert to correct sample format.
+        metric.samples = [Sample(name_, dict(labels), value) for (name_, labels), value in samples.items()]
+    return metrics.values()
 
 
 def mark_process_dead(pid, path=None):
@@ -190,18 +230,8 @@ def _multiproc_dir():
     return os.environ[PROMETHEUS_MULTIPROC_DIR]
 
 
-def cleanup_process(pid, prom_dir=None):
-    """Aggregate dead worker's metrics into a single archive file."""
+def _get_archive_paths(prom_dir=None):
     prom_dir = _multiproc_dir() if prom_dir is None else prom_dir
-
-    worker_paths = [
-        "counter_{}.db".format(pid),
-        "gauge_{}_{}.db".format(Gauge.LATEST, pid),
-        "gauge_{}_{}.db".format(Gauge.MAX, pid),
-        "gauge_{}_{}.db".format(Gauge.MIN, pid),
-        "histogram_{}.db".format(pid),
-    ]
-
     merged_paths = {
         (Histogram._type, None): "histogram.db",
         (Counter._type, None): "counter.db",
@@ -209,17 +239,29 @@ def cleanup_process(pid, prom_dir=None):
         (Gauge._type, Gauge.MAX): "gauge_{}.db".format(Gauge.MAX),
         (Gauge._type, Gauge.MIN): "gauge_{}.db".format(Gauge.MIN),
     }
-
     merged_paths = {
         k: os.path.join(prom_dir, f) for k, f in merged_paths.iteritems()
     }
+    return merged_paths
 
+
+def cleanup_process(pid, prom_dir=None):
+    """Aggregate dead worker's metrics into a single archive file."""
+    prom_dir = _multiproc_dir() if prom_dir is None else prom_dir
+
+    merged_paths = _get_archive_paths(prom_dir)
+    worker_paths = [
+        "counter_{}.db".format(pid),
+        "gauge_{}_{}.db".format(Gauge.LATEST, pid),
+        "gauge_{}_{}.db".format(Gauge.MAX, pid),
+        "gauge_{}_{}.db".format(Gauge.MIN, pid),
+        "histogram_{}.db".format(pid),
+    ]
     worker_paths = (os.path.join(prom_dir, f) for f in worker_paths)
     worker_paths = filter(os.path.exists, worker_paths)
     if worker_paths:
         all_paths = worker_paths + filter(os.path.exists, merged_paths.values())
-        collector = MultiProcessCollector(None, path=prom_dir)
-        metrics = collector.merge(all_paths, accumulate=False)
+        metrics = merge(all_paths, accumulate=False)
         _write_metrics(metrics, merged_paths)
     for worker_path in worker_paths:
         _safe_remove(worker_path)
@@ -282,9 +324,13 @@ def cleanup_dead_processes(root=None, blocking=True):
     behavior is to block indefinitely, until lock acquisition. Setting
     blocking=False will immediately raise an exception when acquisition fails
     """
+    start_time = time.time()
     if root is None:
-        root = os.environ[PROMETHEUS_MULTIPROC_DIR]
-    to_clean = set()
+        root = _multiproc_dir()
+    pids_to_clean = set()
+    live_metrics_paths = []
+
+    # Collect all files which belonged to dead workers
     for dirname, _, filenames in os.walk(root):
         for fname in filenames:
             m = _db_pattern.match(fname)
@@ -292,13 +338,23 @@ def cleanup_dead_processes(root=None, blocking=True):
                 continue
             name, pid = m.groups()
             pid = int(pid)
-            if pid not in to_clean and not _is_alive(pid):
-                to_clean.add(pid)
+            pid_is_alive = _is_alive(pid)
+            if pid not in pids_to_clean and not pid_is_alive:
+                pids_to_clean.add(pid)
+            if pid_is_alive:
+                live_metrics_paths.append(os.path.join(dirname, fname))
     lock_type = LOCK_EX if blocking else LOCK_EX | LOCK_NB
     with advisory_lock(lock_type):
-        for pid in to_clean:
+        for pid in pids_to_clean:
             logging.info("cleaning up worker %r", pid)
             cleanup_process(pid)
+    # TODO: Skip this step if we're using a MultiprocessCollector
+    # Merge metrics and cache the results
+    archive_paths = filter(os.path.exists, _get_archive_paths(root).values())
+    metrics = merge(archive_paths + live_metrics_paths, accumulate=True)
+    # TODO: Write time_elapsed into a gauge
+    time_elapsed = time.time() - start_time
+    _metrics_cache.write_metrics(metrics, time_elapsed)
 
 
 @contextmanager

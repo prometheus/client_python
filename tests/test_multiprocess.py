@@ -13,7 +13,8 @@ from prometheus_client.core import (
     CollectorRegistry, Counter, Gauge, Histogram, Sample, Summary,
 )
 from prometheus_client.multiprocess import (
-    advisory_lock, cleanup_dead_processes, mark_process_dead, MultiProcessCollector
+    advisory_lock, cleanup_dead_processes, mark_process_dead, merge,
+    MultiProcessCollector
 )
 from prometheus_client.values import MultiProcessValue, MutexValue
 
@@ -269,7 +270,7 @@ class TestMultiProcess(unittest.TestCase):
         path = os.path.join(os.environ['prometheus_multiproc_dir'], '*.db')
         files = glob.glob(path)
         metrics = dict(
-            (m.name, m) for m in self.collector.merge(files, accumulate=False)
+            (m.name, m) for m in merge(files, accumulate=False)
         )
 
         metrics['h'].samples.sort(
@@ -302,7 +303,7 @@ class TestMultiProcess(unittest.TestCase):
         # called during self.collector.collect(), after the glob found it
         # but before the merge actually happened.
         # This should not raise and return no metrics
-        self.assertFalse(self.collector.merge([
+        self.assertFalse(merge([
             os.path.join(self.tempdir, 'gauge_liveall_9999999.db'),
             os.path.join(self.tempdir, 'gauge_livesum_9999999.db'),
         ]))
