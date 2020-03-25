@@ -15,7 +15,7 @@ from prometheus_client.core import (
 from prometheus_client.exposition import generate_latest
 import prometheus_client.multiprocess
 from prometheus_client.multiprocess import (
-    advisory_lock, cleanup_dead_processes, InMemoryCollector, mark_process_dead,
+    advisory_lock, archive_metrics, InMemoryCollector, mark_process_dead,
     merge, MultiProcessCollector
 )
 from prometheus_client.values import MultiProcessValue, MutexValue
@@ -86,7 +86,7 @@ class TestMultiProcess(unittest.TestCase):
         self.assertEqual(0, self.registry.get_sample_value('g', {'pid': '456'}))
         g1.set(1)
         g2.set(2)
-        cleanup_dead_processes()
+        archive_metrics()
         mark_process_dead(123, os.environ['prometheus_multiproc_dir'])
         self.assertEqual(1, self.registry.get_sample_value('g', {'pid': '123'}))
         self.assertEqual(2, self.registry.get_sample_value('g', {'pid': '456'}))
@@ -117,14 +117,14 @@ class TestMultiProcess(unittest.TestCase):
         t0 = time.time()
         g1.set(1, timestamp=t0)
         self.assertEqual(1, self.registry.get_sample_value('g'))
-        cleanup_dead_processes()
+        archive_metrics()
         self.assertEqual(1, self.registry.get_sample_value('g'))
         values.ValueClass = MultiProcessValue(lambda: '456789')
         g2 = Gauge('g', 'G', registry=None, multiprocess_mode=Gauge.LATEST)
         t1 = t0 - time.time()
         g2.set(2, timestamp=t1)
         self.assertEqual(1, self.registry.get_sample_value('g'))
-        cleanup_dead_processes()
+        archive_metrics()
         self.assertEqual(1, self.registry.get_sample_value('g'))
 
     def test_gauge_min(self):
@@ -392,7 +392,7 @@ class TestAdvisoryLock(unittest.TestCase):
         # IOError in python2, OSError in python3
         with self.assertRaises(EnvironmentError):
             with advisory_lock(LOCK_SH):
-                cleanup_dead_processes(blocking=False)
+                archive_metrics(blocking=False)
 
     def test_collect_doesnt_block_other_collects(self):
         values.ValueClass = MultiProcessValue(lambda: 0)
@@ -420,7 +420,7 @@ class TestAdvisoryLock(unittest.TestCase):
             with advisory_lock(LOCK_EX):
                 raise ValueError
         # Do an operation which requires acquiring the lock
-        cleanup_dead_processes(blocking=False)
+        archive_metrics(blocking=False)
 
     def tearDown(self):
         del os.environ['prometheus_multiproc_dir']
@@ -458,7 +458,7 @@ class TestInMemoryCollector(unittest.TestCase):
         c = Counter('c', 'help', labelnames=labels.keys(), registry=None)
         c.labels(**labels).inc(1)
         self.assertEqual(None, self.registry.get_sample_value('c_total', labels))
-        cleanup_dead_processes()
+        archive_metrics()
         self.assertEqual(self.collector.collect()[0].samples, [Sample('c_total', labels, 1.0)])
 
     def test_displays_archive_stats(self):
@@ -477,7 +477,7 @@ class TestInMemoryCollector(unittest.TestCase):
         c1.inc(1)
         self.assertIn('counter_456.db', files())
 
-        cleanup_dead_processes()
+        archive_metrics()
         self.assertNotIn('counter_456.db', files())
         self.assertEqual(1, self.registry.get_sample_value('c1_total'))
 
@@ -489,7 +489,7 @@ class TestInMemoryCollector(unittest.TestCase):
         g1.set(5)
         self.assertIn('counter_789.db', files())
         # Pretend that pid 789 is live
-        cleanup_dead_processes(aggregate_only=True)
+        archive_metrics(aggregate_only=True)
 
         # The live counter should be merged with the archived counter, and the
         # liveall gauge should be included
@@ -498,7 +498,7 @@ class TestInMemoryCollector(unittest.TestCase):
         self.assertEqual(3, self.registry.get_sample_value('c1_total'))
         self.assertEqual(5, self.registry.get_sample_value('g1', labels={u'pid': u'789'}))
         # Now pid 789 is dead
-        cleanup_dead_processes()
+        archive_metrics()
 
         # The formerly live counter's value should be archived, and the
         # liveall gauge should be removed completely

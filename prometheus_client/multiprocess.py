@@ -28,6 +28,13 @@ _db_pattern = re.compile(r"(\w+)_(\d+)\.db")
 
 
 class MetricsCache(object):
+    """
+    A singleton which, in conjunction with the archiver thread, maintains
+    the last collected set of metrics.
+
+    The MetricsCache can also be registered as a collector, providing
+    information about the duration of the last archive attempt
+    """
     def __init__(self):
         self.metrics = []
         self.last_archive_duration = 0
@@ -44,10 +51,9 @@ class MetricsCache(object):
 
     def collect(self):
         yield GaugeMetricFamily(
-            "archive_duration_seconds",
+            "prom_client_archive_duration_seconds",
             "Time taken to collect the latest batch of metrics",
             value=self.last_archive_duration)
-
 
 
 _metrics_cache = MetricsCache()
@@ -56,7 +62,7 @@ _metrics_cache = MetricsCache()
 class InMemoryCollector(object):
     """
     A Collector which simply serves statistics collected by the archiver
-    (cleanup_dead_processes())
+    and stored in the MetricsCache
     """
 
     def __init__(self, registry):
@@ -82,7 +88,7 @@ class MultiProcessCollector(object):
 
 
     def collect(self, blocking=True):
-        # blocking is used for testing purposes
+        # blocking=False is used for testing purposes
         lock_type = LOCK_SH if blocking else LOCK_SH | LOCK_NB
         with advisory_lock(lock_type):
             files = glob.glob(os.path.join(self._path, '*.db'))
@@ -97,53 +103,7 @@ def merge(files, accumulate=True):
     accumulate=False to avoid compound accumulation.
     """
 
-    # TODO: read from 
-    metrics = {}
-    for f in files:
-        parts = os.path.splitext(os.path.basename(f))[0].split('_')
-        typ = parts[0]
-        multiprocess_mode = parts[1] if typ == Gauge._type else None
-        pid = parts[2] if multiprocess_mode and len(parts) > 2 else None
-        try:
-            d = MmapedDict(f, read_mode=True)
-        except EnvironmentError:
-            # The liveall and livesum gauge metrics
-            # are deleted when the gunicorn/celery worker process dies
-            # (mark_process_dead and, in postal-main, boot.gunicornconf.child_exit).
-            # Since these are deleted without acquiring a lock, they may
-            # not be present in between collecting the metrics files and
-            # merging them, resulting in a FileNotFoundError/IOError.
-            # However, since these gauges only care about live processes,
-            # we wouldn't merge them anyway.
-            # 
-            # Additionally, we have a single thread which will collect
-            # metrics files from dead workers, and merge them into a set of
-            # archive files at regular interviews (see
-            # multiprocess_exporter). This operation is protected by a
-            # mutex, ensuring that no collectors are run during cleanup. We
-            # must do so because other metrics are sensitive to partial
-            # collection; prometheus counters cannot be decremented, as
-            # prometheus assumes that, in the time since the last scrape,
-            # the counter reset to 0 and incremented back up to the
-            # collected value, manifesting itself as a huge rate spike
-            if typ == 'gauge' and parts[1] in (Gauge.LIVESUM, Gauge.LIVEALL):
-                continue
-            raise
-
-        for key, value, timestamp in d.read_all_values():
-            metric_name, name, labels = json.loads(key)
-            if pid:
-                labels["pid"] = pid
-            labels_key = tuple(sorted(labels.items()))
-
-            metric = metrics.get(metric_name)
-            if metric is None:
-                metric = Metric(metric_name, 'Multiprocess metric', typ)
-                metrics[metric_name] = metric
-            if multiprocess_mode:
-                metric._multiprocess_mode = multiprocess_mode
-            metric.add_sample(name, labels_key, value, timestamp=timestamp)
-        d.close()
+    metrics = load_metrics_from_files(files)
 
     for metric in metrics.itervalues():
         # Handle the Gauge "latest" multiprocess mode type:
@@ -219,6 +179,57 @@ def merge(files, accumulate=True):
         # Convert to correct sample format.
         metric.samples = [Sample(name_, dict(labels), value) for (name_, labels), value in samples.items()]
     return metrics.values()
+
+
+def load_metrics_from_files(files):
+    # TODO: read from
+    metrics = {}
+    for f in files:
+        parts = os.path.splitext(os.path.basename(f))[0].split('_')
+        typ = parts[0]
+        multiprocess_mode = parts[1] if typ == Gauge._type else None
+        pid = parts[2] if multiprocess_mode and len(parts) > 2 else None
+        try:
+            d = MmapedDict(f, read_mode=True)
+        except EnvironmentError:
+            # The liveall and livesum gauge metrics
+            # are deleted when the gunicorn/celery worker process dies
+            # (mark_process_dead and, in postal-main, boot.gunicornconf.child_exit).
+            # Since these are deleted without acquiring a lock, they may
+            # not be present in between collecting the metrics files and
+            # merging them, resulting in a FileNotFoundError/IOError.
+            # However, since these gauges only care about live processes,
+            # we wouldn't merge them anyway.
+            #
+            # Additionally, we have a single thread which will collect
+            # metrics files from dead workers, and merge them into a set of
+            # archive files at regular interviews (see
+            # multiprocess_exporter). This operation is protected by a
+            # mutex, ensuring that no collectors are run during cleanup. We
+            # must do so because other metrics are sensitive to partial
+            # collection; prometheus counters cannot be decremented, as
+            # prometheus assumes that, in the time since the last scrape,
+            # the counter reset to 0 and incremented back up to the
+            # collected value, manifesting itself as a huge rate spike
+            if typ == 'gauge' and parts[1] in (Gauge.LIVESUM, Gauge.LIVEALL):
+                continue
+            raise
+
+        for key, value, timestamp in d.read_all_values():
+            metric_name, name, labels = json.loads(key)
+            if pid:
+                labels["pid"] = pid
+            labels_key = tuple(sorted(labels.items()))
+
+            metric = metrics.get(metric_name)
+            if metric is None:
+                metric = Metric(metric_name, 'Multiprocess metric', typ)
+                metrics[metric_name] = metric
+            if multiprocess_mode:
+                metric._multiprocess_mode = multiprocess_mode
+            metric.add_sample(name, labels_key, value, timestamp=timestamp)
+        d.close()
+    return metrics
 
 
 def mark_process_dead(pid, path=None):
@@ -320,24 +331,26 @@ def _is_alive(pid):
         return True
 
 
-def cleanup_dead_processes(root=None, blocking=True, aggregate_only=False):
+def archive_metrics(root=None, blocking=True, aggregate_only=False):
     """Cleanup/merge database files from dead processes
 
     This is not threadsafe and should only be called from one thread/process at
     a time (e.g. a single thread on the multiprocess exporter)
 
+    Merges non-live metrics files from dead processes into a single file for each metric.
+
+    In addition to merging files from dead processes, this task will collect
+    metrics from live metrics files, and merge them with the archived metrics,
+    storing the results in memory (i.e. doing the same thing as the collect() of a MultiProcessCollector.
+    This is value is read by the InMemoryCollector, an
+    alternative implementation which serves cached metrics, as opposed to
+    calculating them on demand, trading performance for responsiveness
+
     The blocking argument is mainly used for test purposes. The default
     behavior is to block indefinitely, until lock acquisition. Setting
     blocking=False will immediately raise an exception when acquisition fails
 
-    In addition to merging files from dead processes, this task will collect
-    metrics from live metrics files, and merge them with the archived metrics,
-    storing the results in memory. This is used by the InMemoryCollector, an
-    alternative implementation which serves cached metrics, as opposed to
-    calculating them on demand, trading performance for responsiveness
-
-    blocking=False is used for test purposes
-    aggregate_only is also used for test purposes only, skipping the
+    The aggregate_only argument is also used for test purposes only, skipping the
     merging-and-deleting process. Although it would be better to mock
     _is_alive, mock is only built into python in versions 3.3 and up, and we'd
     like to avoid introducing additional dependencies to this library

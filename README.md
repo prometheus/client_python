@@ -512,7 +512,7 @@ Add the following to your Gunicorn config file:
 from prometheus_client import multiprocess_exporter
 
 def on_starting(server):
-    multiprocess.start_cleanup_thread()
+    multiprocess.start_archiver_thread()
 ```
 
 Add the Prometheus Exporter WSGI handler to your existing WSGI handler
