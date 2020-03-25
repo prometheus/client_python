@@ -12,8 +12,11 @@ from prometheus_client import mmap_dict, values
 from prometheus_client.core import (
     CollectorRegistry, Counter, Gauge, Histogram, Sample, Summary,
 )
+from prometheus_client.exposition import generate_latest
+import prometheus_client.multiprocess
 from prometheus_client.multiprocess import (
-    advisory_lock, cleanup_dead_processes, mark_process_dead, MultiProcessCollector
+    advisory_lock, archive_metrics, InMemoryCollector, mark_process_dead,
+    merge, MultiProcessCollector
 )
 from prometheus_client.values import MultiProcessValue, MutexValue
 
@@ -76,14 +79,14 @@ class TestMultiProcess(unittest.TestCase):
 
     def test_gauge_all(self):
         values.ValueClass = MultiProcessValue(lambda: 123)
-        g1 = Gauge('g', 'help', registry=None)
+        g1 = Gauge('g', 'help', registry=None, multiprocess_mode='all')
         values.ValueClass = MultiProcessValue(lambda: 456)
-        g2 = Gauge('g', 'help', registry=None)
+        g2 = Gauge('g', 'help', registry=None, multiprocess_mode='all')
         self.assertEqual(0, self.registry.get_sample_value('g', {'pid': '123'}))
         self.assertEqual(0, self.registry.get_sample_value('g', {'pid': '456'}))
         g1.set(1)
         g2.set(2)
-        cleanup_dead_processes()
+        archive_metrics()
         mark_process_dead(123, os.environ['prometheus_multiproc_dir'])
         self.assertEqual(1, self.registry.get_sample_value('g', {'pid': '123'}))
         self.assertEqual(2, self.registry.get_sample_value('g', {'pid': '456'}))
@@ -114,14 +117,14 @@ class TestMultiProcess(unittest.TestCase):
         t0 = time.time()
         g1.set(1, timestamp=t0)
         self.assertEqual(1, self.registry.get_sample_value('g'))
-        cleanup_dead_processes()
+        archive_metrics()
         self.assertEqual(1, self.registry.get_sample_value('g'))
         values.ValueClass = MultiProcessValue(lambda: '456789')
         g2 = Gauge('g', 'G', registry=None, multiprocess_mode=Gauge.LATEST)
         t1 = t0 - time.time()
         g2.set(2, timestamp=t1)
         self.assertEqual(1, self.registry.get_sample_value('g'))
-        cleanup_dead_processes()
+        archive_metrics()
         self.assertEqual(1, self.registry.get_sample_value('g'))
 
     def test_gauge_min(self):
@@ -201,7 +204,8 @@ class TestMultiProcess(unittest.TestCase):
             return l
 
         c = Counter('c', 'help', labelnames=labels.keys(), registry=None)
-        g = Gauge('g', 'help', labelnames=labels.keys(), registry=None)
+        g = Gauge('g', 'help', labelnames=labels.keys(), registry=None,
+                  multiprocess_mode='all')
         h = Histogram('h', 'help', labelnames=labels.keys(), registry=None)
 
         c.labels(**labels).inc(1)
@@ -269,7 +273,7 @@ class TestMultiProcess(unittest.TestCase):
         path = os.path.join(os.environ['prometheus_multiproc_dir'], '*.db')
         files = glob.glob(path)
         metrics = dict(
-            (m.name, m) for m in self.collector.merge(files, accumulate=False)
+            (m.name, m) for m in merge(files, accumulate=False)
         )
 
         metrics['h'].samples.sort(
@@ -302,7 +306,7 @@ class TestMultiProcess(unittest.TestCase):
         # called during self.collector.collect(), after the glob found it
         # but before the merge actually happened.
         # This should not raise and return no metrics
-        self.assertFalse(self.collector.merge([
+        self.assertFalse(merge([
             os.path.join(self.tempdir, 'gauge_liveall_9999999.db'),
             os.path.join(self.tempdir, 'gauge_livesum_9999999.db'),
         ]))
@@ -388,7 +392,7 @@ class TestAdvisoryLock(unittest.TestCase):
         # IOError in python2, OSError in python3
         with self.assertRaises(EnvironmentError):
             with advisory_lock(LOCK_SH):
-                cleanup_dead_processes(blocking=False)
+                archive_metrics(blocking=False)
 
     def test_collect_doesnt_block_other_collects(self):
         values.ValueClass = MultiProcessValue(lambda: 0)
@@ -416,9 +420,89 @@ class TestAdvisoryLock(unittest.TestCase):
             with advisory_lock(LOCK_EX):
                 raise ValueError
         # Do an operation which requires acquiring the lock
-        cleanup_dead_processes(blocking=False)
+        archive_metrics(blocking=False)
 
     def tearDown(self):
         del os.environ['prometheus_multiproc_dir']
         shutil.rmtree(self.tempdir)
         values.ValueClass = MutexValue
+
+
+class TestInMemoryCollector(unittest.TestCase):
+    def setUp(self):
+        self.tempdir = tempfile.mkdtemp()
+        os.environ['prometheus_multiproc_dir'] = self.tempdir
+        values.ValueClass = MultiProcessValue(lambda: 123)
+        self.registry = CollectorRegistry()
+        self.collector = InMemoryCollector(self.registry)
+
+    def tearDown(self):
+        del os.environ['prometheus_multiproc_dir']
+        shutil.rmtree(self.tempdir)
+        values.ValueClass = MutexValue
+        prometheus_client.multiprocess._metrics_cache = prometheus_client.multiprocess.MetricsCache()
+
+    def test_serves_empty_metrics_if_no_metrics_written(self):
+        self.assertEqual(self.collector.collect(), [])
+
+    def test_serves_empty_metrics_if_not_processed(self):
+        c1 = Counter('c', 'help', registry=None)
+        # The cleanup/archiver task hasn't run yet, no metrics
+        self.assertEqual(None, self.registry.get_sample_value('c_total'))
+        c1.inc(1)
+        # Still no metrics
+        self.assertEqual(self.collector.collect(), [])
+
+    def test_serves_metrics(self):
+        labels = dict((i, i) for i in 'abcd')
+        c = Counter('c', 'help', labelnames=labels.keys(), registry=None)
+        c.labels(**labels).inc(1)
+        self.assertEqual(None, self.registry.get_sample_value('c_total', labels))
+        archive_metrics()
+        self.assertEqual(self.collector.collect()[0].samples, [Sample('c_total', labels, 1.0)])
+
+    def test_displays_archive_stats(self):
+        output = generate_latest(self.registry)
+        self.assertIn("archive_duration_seconds", output)
+
+    def test_aggregates_live_and_archived_metrics(self):
+        pid = 456 
+        values.ValueClass = MultiProcessValue(lambda: pid)
+
+        def files():
+            fs = os.listdir(os.environ['prometheus_multiproc_dir'])
+            fs.sort()
+            return fs
+        c1 = Counter('c1', 'c1', registry=None)
+        c1.inc(1)
+        self.assertIn('counter_456.db', files())
+
+        archive_metrics()
+        self.assertNotIn('counter_456.db', files())
+        self.assertEqual(1, self.registry.get_sample_value('c1_total'))
+
+        pid = 789
+        values.ValueClass = MultiProcessValue(lambda: pid)
+        c1 = Counter('c1', 'c1', registry=None)
+        c1.inc(2)
+        g1 = Gauge('g1', 'g1', registry=None, multiprocess_mode="liveall")
+        g1.set(5)
+        self.assertIn('counter_789.db', files())
+        # Pretend that pid 789 is live
+        archive_metrics(aggregate_only=True)
+
+        # The live counter should be merged with the archived counter, and the
+        # liveall gauge should be included
+        self.assertIn('counter_789.db', files())
+        self.assertIn('gauge_liveall_789.db', files())
+        self.assertEqual(3, self.registry.get_sample_value('c1_total'))
+        self.assertEqual(5, self.registry.get_sample_value('g1', labels={u'pid': u'789'}))
+        # Now pid 789 is dead
+        archive_metrics()
+
+        # The formerly live counter's value should be archived, and the
+        # liveall gauge should be removed completely
+        self.assertNotIn('counter_789.db', files())
+        self.assertNotIn('gauge_liveall_789.db', files())
+        self.assertEqual(3, self.registry.get_sample_value('c1_total'))
+        self.assertEqual(None, self.registry.get_sample_value('g1', labels={u'pid': u'789'}))

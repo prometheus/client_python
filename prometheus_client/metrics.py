@@ -312,7 +312,7 @@ class Gauge(MetricWrapperBase):
                  unit='',
                  registry=REGISTRY,
                  labelvalues=None,
-                 multiprocess_mode='all',
+                 multiprocess_mode='latest',
                  ):
         self._multiprocess_mode = multiprocess_mode
         self._f = None

@@ -71,7 +71,8 @@ cc_created 123.456
 """, generate_latest(self.registry))
 
     def test_gauge(self):
-        g = Gauge('gg', 'A gauge', registry=self.registry)
+        g = Gauge('gg', 'A gauge', registry=self.registry,
+                  multiprocess_mode='all')
         g.set(17)
         self.assertEqual(b'# HELP gg A gauge\n# TYPE gg gauge\ngg 17.0\n', generate_latest(self.registry))
 
@@ -139,13 +140,15 @@ gh_gsum 7.0
             generate_latest(self.registry))
 
     def test_unicode(self):
-        c = Gauge('cc', '\u4500', ['l'], registry=self.registry)
+        c = Gauge('cc', '\u4500', ['l'], registry=self.registry,
+                  multiprocess_mode='all')
         c.labels('\u4500').inc()
         self.assertEqual(b'# HELP cc \xe4\x94\x80\n# TYPE cc gauge\ncc{l="\xe4\x94\x80"} 1.0\n',
                          generate_latest(self.registry))
 
     def test_escaping(self):
-        g = Gauge('cc', 'A\ngaug\\e', ['a'], registry=self.registry)
+        g = Gauge('cc', 'A\ngaug\\e', ['a'], registry=self.registry,
+                  multiprocess_mode='all')
         g.labels('\\x\n"').inc(1)
         self.assertEqual(b'# HELP cc A\\ngaug\\\\e\n# TYPE cc gauge\ncc{a="\\\\x\\n\\""} 1.0\n',
                          generate_latest(self.registry))

@@ -49,7 +49,7 @@ class TestGenerateText(unittest.TestCase):
                          generate_latest(self.registry))
 
     def test_gauge(self):
-        g = Gauge('gg', 'A gauge', registry=self.registry)
+        g = Gauge('gg', 'A gauge', registry=self.registry, multiprocess_mode='all')
         g.set(17)
         self.assertEqual(b'# HELP gg A gauge\n# TYPE gg gauge\ngg 17.0\n# EOF\n', generate_latest(self.registry))
 
