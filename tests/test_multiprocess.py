@@ -79,9 +79,9 @@ class TestMultiProcess(unittest.TestCase):
 
     def test_gauge_all(self):
         values.ValueClass = MultiProcessValue(lambda: 123)
-        g1 = Gauge('g', 'help', registry=None)
+        g1 = Gauge('g', 'help', registry=None, multiprocess_mode='all')
         values.ValueClass = MultiProcessValue(lambda: 456)
-        g2 = Gauge('g', 'help', registry=None)
+        g2 = Gauge('g', 'help', registry=None, multiprocess_mode='all')
         self.assertEqual(0, self.registry.get_sample_value('g', {'pid': '123'}))
         self.assertEqual(0, self.registry.get_sample_value('g', {'pid': '456'}))
         g1.set(1)
@@ -204,7 +204,8 @@ class TestMultiProcess(unittest.TestCase):
             return l
 
         c = Counter('c', 'help', labelnames=labels.keys(), registry=None)
-        g = Gauge('g', 'help', labelnames=labels.keys(), registry=None)
+        g = Gauge('g', 'help', labelnames=labels.keys(), registry=None,
+                  multiprocess_mode='all')
         h = Histogram('h', 'help', labelnames=labels.keys(), registry=None)
 
         c.labels(**labels).inc(1)
