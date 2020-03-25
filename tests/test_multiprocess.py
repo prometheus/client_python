@@ -12,9 +12,11 @@ from prometheus_client import mmap_dict, values
 from prometheus_client.core import (
     CollectorRegistry, Counter, Gauge, Histogram, Sample, Summary,
 )
+from prometheus_client.exposition import generate_latest
+import prometheus_client.multiprocess
 from prometheus_client.multiprocess import (
-    advisory_lock, cleanup_dead_processes, mark_process_dead, merge,
-    MultiProcessCollector
+    advisory_lock, cleanup_dead_processes, InMemoryCollector, mark_process_dead,
+    merge, MultiProcessCollector
 )
 from prometheus_client.values import MultiProcessValue, MutexValue
 
@@ -423,3 +425,83 @@ class TestAdvisoryLock(unittest.TestCase):
         del os.environ['prometheus_multiproc_dir']
         shutil.rmtree(self.tempdir)
         values.ValueClass = MutexValue
+
+
+class TestInMemoryCollector(unittest.TestCase):
+    def setUp(self):
+        self.tempdir = tempfile.mkdtemp()
+        os.environ['prometheus_multiproc_dir'] = self.tempdir
+        values.ValueClass = MultiProcessValue(lambda: 123)
+        self.registry = CollectorRegistry()
+        self.collector = InMemoryCollector(self.registry)
+
+    def tearDown(self):
+        del os.environ['prometheus_multiproc_dir']
+        shutil.rmtree(self.tempdir)
+        values.ValueClass = MutexValue
+        prometheus_client.multiprocess._metrics_cache = prometheus_client.multiprocess.MetricsCache()
+
+    def test_serves_empty_metrics_if_no_metrics_written(self):
+        self.assertEqual(self.collector.collect(), [])
+
+    def test_serves_empty_metrics_if_not_processed(self):
+        c1 = Counter('c', 'help', registry=None)
+        # The cleanup/archiver task hasn't run yet, no metrics
+        self.assertEqual(None, self.registry.get_sample_value('c_total'))
+        c1.inc(1)
+        # Still no metrics
+        self.assertEqual(self.collector.collect(), [])
+
+    def test_serves_metrics(self):
+        labels = dict((i, i) for i in 'abcd')
+        c = Counter('c', 'help', labelnames=labels.keys(), registry=None)
+        c.labels(**labels).inc(1)
+        self.assertEqual(None, self.registry.get_sample_value('c_total', labels))
+        cleanup_dead_processes()
+        self.assertEqual(self.collector.collect()[0].samples, [Sample('c_total', labels, 1.0)])
+
+    def test_displays_archive_stats(self):
+        output = generate_latest(self.registry)
+        self.assertIn("archive_duration_seconds", output)
+
+    def test_aggregates_live_and_archived_metrics(self):
+        pid = 456 
+        values.ValueClass = MultiProcessValue(lambda: pid)
+
+        def files():
+            fs = os.listdir(os.environ['prometheus_multiproc_dir'])
+            fs.sort()
+            return fs
+        c1 = Counter('c1', 'c1', registry=None)
+        c1.inc(1)
+        self.assertIn('counter_456.db', files())
+
+        cleanup_dead_processes()
+        self.assertNotIn('counter_456.db', files())
+        self.assertEqual(1, self.registry.get_sample_value('c1_total'))
+
+        pid = 789
+        values.ValueClass = MultiProcessValue(lambda: pid)
+        c1 = Counter('c1', 'c1', registry=None)
+        c1.inc(2)
+        g1 = Gauge('g1', 'g1', registry=None, multiprocess_mode="liveall")
+        g1.set(5)
+        self.assertIn('counter_789.db', files())
+        # Pretend that pid 789 is live
+        cleanup_dead_processes(aggregate_only=True)
+
+        # The live counter should be merged with the archived counter, and the
+        # liveall gauge should be included
+        self.assertIn('counter_789.db', files())
+        self.assertIn('gauge_liveall_789.db', files())
+        self.assertEqual(3, self.registry.get_sample_value('c1_total'))
+        self.assertEqual(5, self.registry.get_sample_value('g1', labels={u'pid': u'789'}))
+        # Now pid 789 is dead
+        cleanup_dead_processes()
+
+        # The formerly live counter's value should be archived, and the
+        # liveall gauge should be removed completely
+        self.assertNotIn('counter_789.db', files())
+        self.assertNotIn('gauge_liveall_789.db', files())
+        self.assertEqual(3, self.registry.get_sample_value('c1_total'))
+        self.assertEqual(None, self.registry.get_sample_value('g1', labels={u'pid': u'789'}))

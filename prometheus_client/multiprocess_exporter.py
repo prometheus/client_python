@@ -8,8 +8,6 @@ from .exposition import make_wsgi_app
 from .multiprocess import cleanup_dead_processes
 
 
-# TODO: Rename to archive_interval, and all that jazz
-# TODO: Configure PM to lower log level to info
 CLEANUP_INTERVAL = 5.0
 
 registry = CollectorRegistry()

@@ -17,7 +17,7 @@ from threading import RLock
 import time
 
 from .metrics import Counter, Gauge, Histogram
-from .metrics_core import Metric
+from .metrics_core import GaugeMetricFamily, Metric
 from .mmap_dict import mmap_key, MmapedDict
 from .samples import Sample
 from .utils import floatToGoString
@@ -30,19 +30,24 @@ _db_pattern = re.compile(r"(\w+)_(\d+)\.db")
 class MetricsCache(object):
     def __init__(self):
         self.metrics = []
-        self.last_scrape_time = None
+        self.last_archive_duration = 0
         self.lock = RLock()
 
     def retrieve_metrics(self):
-        logging.info("Retrieving metrics from: {}".format(self.last_scrape_time))
         with self.lock:
             return self.metrics
 
     def write_metrics(self, metrics, time_elapsed=None):
-        logging.info("Time to build metrics: {}".format(time_elapsed))
         with self.lock:
-            self.last_scrape_time = time.time()
+            self.last_archive_duration = time_elapsed
             self.metrics = metrics
+
+    def collect(self):
+        yield GaugeMetricFamily(
+            "archive_duration_seconds",
+            "Time taken to collect the latest batch of metrics",
+            value=self.last_archive_duration)
+
 
 
 _metrics_cache = MetricsCache()
@@ -57,6 +62,7 @@ class InMemoryCollector(object):
     def __init__(self, registry):
         if registry:
             registry.register(self)
+            registry.register(_metrics_cache)
 
     def collect(self):
         return _metrics_cache.retrieve_metrics()
@@ -314,7 +320,7 @@ def _is_alive(pid):
         return True
 
 
-def cleanup_dead_processes(root=None, blocking=True):
+def cleanup_dead_processes(root=None, blocking=True, aggregate_only=False):
     """Cleanup/merge database files from dead processes
 
     This is not threadsafe and should only be called from one thread/process at
@@ -323,6 +329,18 @@ def cleanup_dead_processes(root=None, blocking=True):
     The blocking argument is mainly used for test purposes. The default
     behavior is to block indefinitely, until lock acquisition. Setting
     blocking=False will immediately raise an exception when acquisition fails
+
+    In addition to merging files from dead processes, this task will collect
+    metrics from live metrics files, and merge them with the archived metrics,
+    storing the results in memory. This is used by the InMemoryCollector, an
+    alternative implementation which serves cached metrics, as opposed to
+    calculating them on demand, trading performance for responsiveness
+
+    blocking=False is used for test purposes
+    aggregate_only is also used for test purposes only, skipping the
+    merging-and-deleting process. Although it would be better to mock
+    _is_alive, mock is only built into python in versions 3.3 and up, and we'd
+    like to avoid introducing additional dependencies to this library
     """
     start_time = time.time()
     if root is None:
@@ -341,18 +359,19 @@ def cleanup_dead_processes(root=None, blocking=True):
             pid_is_alive = _is_alive(pid)
             if pid not in pids_to_clean and not pid_is_alive:
                 pids_to_clean.add(pid)
-            if pid_is_alive:
+            if pid_is_alive or aggregate_only:
                 live_metrics_paths.append(os.path.join(dirname, fname))
     lock_type = LOCK_EX if blocking else LOCK_EX | LOCK_NB
     with advisory_lock(lock_type):
         for pid in pids_to_clean:
             logging.info("cleaning up worker %r", pid)
-            cleanup_process(pid)
+            if not aggregate_only:
+                cleanup_process(pid)
     # TODO: Skip this step if we're using a MultiprocessCollector
+
     # Merge metrics and cache the results
     archive_paths = filter(os.path.exists, _get_archive_paths(root).values())
     metrics = merge(archive_paths + live_metrics_paths, accumulate=True)
-    # TODO: Write time_elapsed into a gauge
     time_elapsed = time.time() - start_time
     _metrics_cache.write_metrics(metrics, time_elapsed)
 
