@@ -50,10 +50,11 @@ class MetricsCache(object):
             self.metrics = metrics
 
     def collect(self):
-        yield GaugeMetricFamily(
-            "prom_client_archive_duration_seconds",
-            "Time taken to collect the latest batch of metrics",
-            value=self.last_archive_duration)
+        with self.lock:
+            return [GaugeMetricFamily(
+                "prom_client_archive_duration_seconds",
+                "Time taken to collect the latest batch of metrics",
+                value=self.last_archive_duration), ]
 
 
 _metrics_cache = MetricsCache()
@@ -61,7 +62,7 @@ _metrics_cache = MetricsCache()
 
 class InMemoryCollector(object):
     """
-    A Collector which simply serves statistics collected by the archiver
+    A Collector which simply serves metrics collected by the archiver
     and stored in the MetricsCache
     """
 
@@ -208,9 +209,9 @@ def load_metrics_from_files(files):
             # mutex, ensuring that no collectors are run during cleanup. We
             # must do so because other metrics are sensitive to partial
             # collection; prometheus counters cannot be decremented, as
-            # prometheus assumes that, in the time since the last scrape,
+            # prometheus will assume that, in the time since the last scrape,
             # the counter reset to 0 and incremented back up to the
-            # collected value, manifesting itself as a huge rate spike
+            # collected value, manifesting as a huge rate spike
             if typ == 'gauge' and parts[1] in (Gauge.LIVESUM, Gauge.LIVEALL):
                 continue
             raise
@@ -294,6 +295,7 @@ def _safe_remove(p):
 
 
 def _write_metrics(metrics, metric_type_to_dst_path):
+    # TODO: use of mktemp is discouraged
     mmaped_dicts = defaultdict(lambda: MmapedDict(tempfile.mktemp()))
     for metric in metrics:
         if metric.type not in [Histogram._type, Counter._type, Gauge._type]:

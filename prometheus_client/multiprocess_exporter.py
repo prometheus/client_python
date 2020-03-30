@@ -31,5 +31,6 @@ def start_archiver_thread():
     thread.start_new_thread(archive_thread, (), {})
 
 
+# on_starting is a gunicorn-specific server hook
 def on_starting(server):
     start_archiver_thread()
