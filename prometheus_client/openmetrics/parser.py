@@ -15,7 +15,6 @@ except ImportError:
     # Python 3
     import io as StringIO
 
-
 def text_string_to_metric_families(text):
     """Parse Openmetrics text format from a unicode string.
 
@@ -23,6 +22,16 @@ def text_string_to_metric_families(text):
     """
     for metric_family in text_fd_to_metric_families(StringIO.StringIO(text)):
         yield metric_family
+
+
+_CANONICAL_NUMBERS = set([i / 1000.0 for i in range(10000)] + [10.0**i for i in range(-10, 11)] + [float("inf")])
+
+
+def _isUncanonicalNumber(s):
+    f = float(s)
+    if f not in _CANONICAL_NUMBERS:
+        return False  # Only the canonical numbers are required to be canonical.
+    return s != floatToGoString(f)
 
 
 ESCAPE_SEQUENCES = {
@@ -544,11 +553,11 @@ def text_fd_to_metric_families(fd):
                 raise ValueError("Stateset missing label: " + line)
             if (typ in ['histogram', 'gaugehistogram'] and name + '_bucket' == sample.name
                     and (sample.labels.get('le', "NaN") == "NaN"
-                         or sample.labels['le'] != floatToGoString(sample.labels['le']))):
+                         or _isUncanonicalNumber(sample.labels['le']))):
                 raise ValueError("Invalid le label: " + line)
             if (typ == 'summary' and name == sample.name
                     and (not (0 <= float(sample.labels.get('quantile', -1)) <= 1)
-                         or sample.labels['quantile'] != floatToGoString(sample.labels['quantile']))):
+                          or _isUncanonicalNumber(sample.labels['quantile']))):
                 raise ValueError("Invalid quantile label: " + line)
 
             g = tuple(sorted(_group_for_sample(sample, name, typ).items()))

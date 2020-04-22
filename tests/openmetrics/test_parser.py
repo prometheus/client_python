@@ -122,6 +122,20 @@ a_sum 2
         self.assertEqual([HistogramMetricFamily("a", "help", sum_value=2, buckets=[("1.0", 0.0), ("+Inf", 3.0)])],
                          list(families))
 
+    def test_histogram_noncanonical(self):
+        families = text_string_to_metric_families("""# TYPE a histogram
+# HELP a help
+a_bucket{le="0.00000000001"} 0
+a_bucket{le="1.1e-4"} 0
+a_bucket{le="1.1e-3"} 0
+a_bucket{le="100000000000.0"} 0
+a_bucket{le="+Inf"} 3
+a_count 3
+a_sum 2
+# EOF
+""")
+        list(families)
+
     def test_negative_bucket_histogram(self):
         families = text_string_to_metric_families("""# TYPE a histogram
 # HELP a help
@@ -731,9 +745,13 @@ foo_created 1.520430000123e+09
             ('# TYPE a gaugehistogram\na_gsum 1\n# EOF\n'),
             ('# TYPE a histogram\na_count 1\na_bucket{le="+Inf"} 0\n# EOF\n'),
             ('# TYPE a histogram\na_bucket{le="+Inf"} 0\na_count 1\n# EOF\n'),
+            ('# TYPE a histogram\na_bucket{le="0"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
             ('# TYPE a histogram\na_bucket{le="1"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
+            ('# TYPE a histogram\na_bucket{le="0.0000000001"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
+            ('# TYPE a histogram\na_bucket{le="1.1e-2"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
             ('# TYPE a histogram\na_bucket{le="1e-04"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
             ('# TYPE a histogram\na_bucket{le="1e+05"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
+            ('# TYPE a histogram\na_bucket{le="10000000000"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
             ('# TYPE a histogram\na_bucket{le="+INF"} 0\n# EOF\n'),
             ('# TYPE a histogram\na_bucket{le="2"} 0\na_bucket{le="1"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
             ('# TYPE a histogram\na_bucket{le="1"} 1\na_bucket{le="2"} 1\na_bucket{le="+Inf"} 0\n# EOF\n'),
@@ -752,16 +770,6 @@ foo_created 1.520430000123e+09
             ('# TYPE a gauge\na 0 0\na 0\n# EOF\n'),
         ]:
             with self.assertRaises(ValueError, msg=case):
-                list(text_string_to_metric_families(case))
-
-    @unittest.skipIf(sys.version_info < (2, 7), "float repr changed from 2.6 to 2.7")
-    def test_invalid_float_input(self):
-        for case in [
-            # Bad histograms.
-            ('# TYPE a histogram\na_bucket{le="9.999999999999999e+22"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
-            ('# TYPE a histogram\na_bucket{le="1.5555555555555201e+06"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
-        ]:
-            with self.assertRaises(ValueError):
                 list(text_string_to_metric_families(case))
 
 
