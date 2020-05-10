@@ -349,6 +349,21 @@ uwsgi --http 127.0.0.1:8000 --wsgi-file myapp.py --callable app_dispatch
 
 Visit http://localhost:8000/metrics to see the metrics
 
+#### Bottle
+
+To use Prometheus with [Bottle](https://bottlepy.org/) we need to serve metrics through a Prometheus WSGI application. This can be achieved using [Bottle's `mount` API](https://bottlepy.org/docs/dev/api.html#bottle.Bottle.mount). Below is a working example.
+
+```python
+from bottle import Bottle
+from prometheus_client import make_wsgi_app
+
+app = Bottle()
+app.mount("/metrics", make_wsgi_app())
+app.run(host='localhost', port=8000)
+```
+
+Visit http://localhost:8000/metrics to see the metrics.
+
 ### Node exporter textfile collector
 
 The [textfile collector](https://github.com/prometheus/node_exporter#textfile-collector)
