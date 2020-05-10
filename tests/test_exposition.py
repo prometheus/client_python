@@ -61,6 +61,17 @@ cc_total 1.0
 cc_created 123.456
 """, generate_latest(self.registry))
 
+    def test_counter_name_unit_append(self):
+        c = Counter('requests', 'Request counter', unit="total", registry=self.registry)
+        c.inc()
+        self.assertEqual(b"""# HELP requests_total_total Request counter
+# TYPE requests_total_total counter
+requests_total_total 1.0
+# HELP requests_total_created Request counter
+# TYPE requests_total_created gauge
+requests_total_created 123.456
+""", generate_latest(self.registry))
+
     def test_counter_total(self):
         c = Counter('cc_total', 'A counter', registry=self.registry)
         c.inc()

@@ -527,6 +527,11 @@ class TestMetricWrapper(unittest.TestCase):
         self.assertRaises(ValueError, Info, 'foo', 'help', unit="x")
         self.assertRaises(ValueError, Enum, 'foo', 'help', unit="x")
 
+    def test_name_cleanup_before_unit_append(self):
+        self.assertEqual(self.counter._name, 'c')
+        self.c = Counter('c_total', 'help', unit="total", labelnames=['l'], registry=self.registry)
+        self.assertEqual(self.c._name, 'c_total')
+
 
 class TestMetricFamilies(unittest.TestCase):
     def setUp(self):
