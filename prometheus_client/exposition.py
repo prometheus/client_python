@@ -362,7 +362,10 @@ def _use_gateway(method, gateway, job, registry, grouping_key, timeout, handler)
 
 
 def _escape_grouping_key(k, v):
-    if '/' in v:
+    if v == "" :
+        # Per https://github.com/prometheus/pushgateway/pull/346.
+        return k + "@base64", "="
+    elif '/' in v:
         # Added in Pushgateway 0.9.0.
         return k + "@base64", base64.urlsafe_b64encode(v.encode("utf-8")).decode("utf-8")
     else:
