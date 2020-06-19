@@ -6,6 +6,7 @@ import os
 import socket
 import sys
 import threading
+import time
 from wsgiref.simple_server import make_server, WSGIServer, WSGIRequestHandler
 
 from .openmetrics import exposition as openmetrics
@@ -103,7 +104,15 @@ def generate_latest(registry=REGISTRY):
             line.name, labelstr, floatToGoString(line.value), timestamp)
 
     output = []
+    yield_counter = 0
+
     for metric in registry.collect():
+
+        yield_counter += 1
+        if yield_counter == 10:
+            yield_counter = 0
+            time.sleep(0)  # to periodically release the GIL
+
         try:
             mname = metric.name
             mtype = metric.type
@@ -140,7 +149,7 @@ def generate_latest(registry=REGISTRY):
             raise
 
         for suffix, lines in sorted(om_samples.items()):
-            output.append('# HELP {0}{1} {2}\n'.format(metric.name, suffix, 
+            output.append('# HELP {0}{1} {2}\n'.format(metric.name, suffix,
                                                        metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
             output.append('# TYPE {0}{1} gauge\n'.format(metric.name, suffix))
             output.extend(lines)
