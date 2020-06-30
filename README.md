@@ -334,7 +334,7 @@ from prometheus_client import make_wsgi_app
 app = Flask(__name__)
 
 # Add prometheus wsgi middleware to route /metrics requests
-app_dispatch = DispatcherMiddleware(app, {
+app.wsgi_app = DispatcherMiddleware(app.wsgi_app, {
     '/metrics': make_wsgi_app()
 })
 ```
@@ -344,7 +344,7 @@ Run the example web application like this
 ```bash
 # Install uwsgi if you do not have it
 pip install uwsgi
-uwsgi --http 127.0.0.1:8000 --wsgi-file myapp.py --callable app_dispatch
+uwsgi --http 127.0.0.1:8000 --wsgi-file myapp.py --callable app
 ```
 
 Visit http://localhost:8000/metrics to see the metrics
