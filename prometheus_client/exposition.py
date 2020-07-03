@@ -144,7 +144,7 @@ def generate_latest(registry=REGISTRY):
                                                        metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
             output.append('# TYPE {0}{1} gauge\n'.format(metric.name, suffix))
             output.extend(lines)
-    return ''.join(output).encode('utf-8')
+    return ''.join(output).encode('utf-8', errors='ignore')
 
 
 def choose_encoder(accept_header):
