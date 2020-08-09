@@ -550,6 +550,44 @@ from prometheus_client import Gauge
 IN_PROGRESS = Gauge("inprogress_requests", "help", multiprocess_mode='livesum')
 ```
 
+**5. Multi-container configuration with Docker**:
+
+Given the docker-compose configuration assumed to deploy with `docker-compose up --scale worker=5`:
+
+```
+version: "3"
+services:
+  flask-api:
+    environment:
+      - prometheus_multiproc_dir=/tmp
+    volumes:
+      - ./prometheus_tmp:/tmp
+    command: gunicorn -c gunicorn_cfg.py app:app
+  worker:
+    environment:
+      - prometheus_multiproc_dir=/tmp
+    volumes:
+      - ./prometheus_tmp:/tmp
+    command: python app.py
+```
+
+Update pid identifiers to avoid collisions in <metric>_{pid}.db files shared across containers.
+
+```
+from prometheus_client import Summary, values
+from prometheus_client.values import MultiProcessValue
+
+def generate_uid() -> str:
+    """Generated a unique process ID across containers"""
+    pid = os.getpid()
+    docker_host = socket.gethostname()
+    return f"{docker_host}_{pid}"
+
+def init_docker_multiproc():
+    values.ValueClass = MultiProcessValue(generate_uid)
+
+init_docker_multiproc()
+```
 
 ## Parser
 
