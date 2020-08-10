@@ -3,6 +3,7 @@ from __future__ import unicode_literals
 import glob
 import os
 import shutil
+import socket
 import sys
 import tempfile
 
@@ -147,21 +148,22 @@ class TestMultiProcess(unittest.TestCase):
     def test_initialization_detects_pid_change(self):
         pid = 0
         values.ValueClass = MultiProcessValue(lambda: pid)
-
+        hostname = socket.gethostname()
         # can not inspect the files cache directly, as it's a closure, so we
         # check for the actual files themselves
         def files():
             fs = os.listdir(os.environ['prometheus_multiproc_dir'])
             fs.sort()
             return fs
-
+        expected_file_0 = 'counter_{0}_0.db'.format(hostname)
         c1 = Counter('c1', 'c1', registry=None)
-        self.assertEqual(files(), ['counter_0.db'])
+        self.assertEqual(files(), [expected_file_0])
         c2 = Counter('c2', 'c2', registry=None)
-        self.assertEqual(files(), ['counter_0.db'])
+        self.assertEqual(files(), [expected_file_0])
         pid = 1
+        expected_file_1 = 'counter_{0}_1.db'.format(hostname)
         c3 = Counter('c3', 'c3', registry=None)
-        self.assertEqual(files(), ['counter_0.db', 'counter_1.db'])
+        self.assertEqual(files(), [expected_file_0, expected_file_1])
 
     @unittest.skipIf(sys.version_info < (2, 7), "Test requires Python 2.7+.")
     def test_collect(self):
