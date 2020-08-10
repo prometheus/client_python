@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
 
 import os
+import socket
 from threading import Lock
 
 from .mmap_dict import mmap_key, MmapedDict
@@ -65,7 +66,7 @@ def MultiProcessValue(process_identifier=os.getpid):
             if file_prefix not in files:
                 filename = os.path.join(
                     os.environ['prometheus_multiproc_dir'],
-                    '{0}_{1}.db'.format(file_prefix, pid['value']))
+                    '{0}_{1}_{2}.db'.format(file_prefix, socket.gethostname, pid['value']))
 
                 files[file_prefix] = MmapedDict(filename)
             self._file = files[file_prefix]
