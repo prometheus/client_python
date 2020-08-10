@@ -574,19 +574,17 @@ services:
 Update pid identifiers to avoid collisions in <metric>_{pid}.db files shared across containers.
 
 ```
-from prometheus_client import Summary, values
+from prometheus_client import values
 from prometheus_client.values import MultiProcessValue
 
-def generate_uid() -> str:
+def generate_uid():
     """Generated a unique process ID across containers"""
     pid = os.getpid()
     docker_host = socket.gethostname()
-    return f"{docker_host}_{pid}"
+    return "{0}_{1}".format(docker_hodt, pid)
 
-def init_docker_multiproc():
-    values.ValueClass = MultiProcessValue(generate_uid)
+values.ValueClass = MultiProcessValue(generate_uid)
 
-init_docker_multiproc()
 ```
 
 ## Parser
