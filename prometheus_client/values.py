@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
 
 import os
+import psutil
 from threading import Lock
 
 from .mmap_dict import mmap_key, MmapedDict
@@ -28,7 +29,17 @@ class MutexValue(object):
             return self._value
 
 
-def MultiProcessValue(process_identifier=os.getpid):
+def default_process_identifier():
+    """
+    2 process may have same identifier by using os.getpid only,
+    so here we add the process create time to identifier
+    """
+    pid = os.getpid()
+    p = psutil.Process(pid)
+    return "{}_{}".format(pid, int(p.create_time()))
+
+
+def MultiProcessValue(process_identifier=default_process_identifier):
     """Returns a MmapedValue class based on a process_identifier function.
 
     The 'process_identifier' function MUST comply with this simple rule:
