@@ -80,6 +80,8 @@ def start_wsgi_server(port, addr='', registry=REGISTRY):
     t.daemon = True
     t.start()
 
+    return httpd.server_address
+
 
 start_http_server = start_wsgi_server
 
@@ -140,7 +142,7 @@ def generate_latest(registry=REGISTRY):
             raise
 
         for suffix, lines in sorted(om_samples.items()):
-            output.append('# HELP {0}{1} {2}\n'.format(metric.name, suffix, 
+            output.append('# HELP {0}{1} {2}\n'.format(metric.name, suffix,
                                                        metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
             output.append('# TYPE {0}{1} gauge\n'.format(metric.name, suffix))
             output.extend(lines)
