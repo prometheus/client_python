@@ -598,6 +598,8 @@ foo_created 1.520430000123e+09
         for case in [
             # No EOF.
             (''),
+            # Blank line
+            ('a 1\n\n# EOF\n'),
             # Text after EOF.
             ('a 1\n# EOF\nblah'),
             ('a 1\n# EOFblah'),
