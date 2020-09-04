@@ -482,6 +482,9 @@ def text_fd_to_metric_families(fd):
         if eof:
             raise ValueError("Received line after # EOF: " + line)
 
+        if not line:
+            raise ValueError("Received blank line")
+
         if line == '# EOF':
             eof = True
         elif line.startswith('#'):
