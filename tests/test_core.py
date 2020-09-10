@@ -528,9 +528,8 @@ class TestMetricWrapper(unittest.TestCase):
         self.assertRaises(ValueError, Enum, 'foo', 'help', unit="x")
 
     def test_name_cleanup_before_unit_append(self):
-        self.assertEqual(self.counter._name, 'c')
-        self.c = Counter('c_total', 'help', unit="total", labelnames=['l'], registry=self.registry)
-        self.assertEqual(self.c._name, 'c_total')
+        c = Counter('b_total', 'help', unit="total", labelnames=['l'], registry=self.registry)
+        self.assertEqual(c._name, 'b_total')
 
 
 class TestMetricFamilies(unittest.TestCase):
@@ -717,8 +716,8 @@ class TestCollectorRegistry(unittest.TestCase):
         self.assertRaises(ValueError, Gauge, 'h_sum', 'help', registry=registry)
         self.assertRaises(ValueError, Gauge, 'h_bucket', 'help', registry=registry)
         self.assertRaises(ValueError, Gauge, 'h_created', 'help', registry=registry)
-        # The name of the histogram itself isn't taken.
-        Gauge('h', 'help', registry=registry)
+        # The name of the histogram itself is also taken.
+        self.assertRaises(ValueError, Gauge, 'h', 'help', registry=registry)
 
         Info('i', 'help', registry=registry)
         self.assertRaises(ValueError, Gauge, 'i_info', 'help', registry=registry)

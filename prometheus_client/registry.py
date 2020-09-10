@@ -41,7 +41,7 @@ class CollectorRegistry(object):
             del self._collector_to_names[collector]
 
     def _get_names(self, collector):
-        """Get names of timeseries the collector produces."""
+        """Get names of timeseries the collector produces and clashes with."""
         desc_func = None
         # If there's a describe function, use it.
         try:
@@ -58,13 +58,14 @@ class CollectorRegistry(object):
         result = []
         type_suffixes = {
             'counter': ['_total', '_created'],
-            'summary': ['', '_sum', '_count', '_created'],
+            'summary': ['_sum', '_count', '_created'],
             'histogram': ['_bucket', '_sum', '_count', '_created'],
             'gaugehistogram': ['_bucket', '_gsum', '_gcount'],
             'info': ['_info'],
         }
         for metric in desc_func():
-            for suffix in type_suffixes.get(metric.type, ['']):
+            result.append(metric.name)
+            for suffix in type_suffixes.get(metric.type, []):
                 result.append(metric.name + suffix)
         return result
 

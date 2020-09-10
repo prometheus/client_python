@@ -771,6 +771,10 @@ foo_created 1.520430000123e+09
             ('# TYPE a gauge\na 0 1\na 0 0\n# EOF\n'),
             ('# TYPE a gauge\na 0\na 0 0\n# EOF\n'),
             ('# TYPE a gauge\na 0 0\na 0\n# EOF\n'),
+            # Clashing names.
+            ('# TYPE a counter\n# TYPE a counter\n# EOF\n'),
+            ('# TYPE a info\n# TYPE a counter\n# EOF\n'),
+            ('# TYPE a_created gauge\n# TYPE a counter\n# EOF\n'),
         ]:
             with self.assertRaises(ValueError, msg=case):
                 list(text_string_to_metric_families(case))
