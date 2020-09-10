@@ -453,14 +453,22 @@ def text_fd_to_metric_families(fd):
     allowed_names = []
     eof = False
 
-    seen_metrics = set()
+    seen_names = set()
+    type_suffixes = {
+        'counter': ['_total', '_created'],
+        'summary': ['', '_count', '_sum', '_created'],
+        'histogram': ['_count', '_sum', '_bucket', '_created'],
+        'gaugehistogram': ['_gcount', '_gsum', '_bucket'],
+        'info': ['_info'],
+    }
 
     def build_metric(name, documentation, typ, unit, samples):
-        if name in seen_metrics:
-            raise ValueError("Duplicate metric: " + name)
-        seen_metrics.add(name)
         if typ is None:
             typ = 'unknown'
+        for suffix in set(type_suffixes.get(typ, []) + [""]):
+            if name + suffix in seen_names:
+                raise ValueError("Clashing name: " + name + suffix)
+            seen_names.add(name + suffix)
         if documentation is None:
             documentation = ''
         if unit is None:
@@ -522,14 +530,7 @@ def text_fd_to_metric_families(fd):
                 typ = parts[3]
                 if typ == 'untyped':
                     raise ValueError("Invalid TYPE for metric: " + line)
-                allowed_names = {
-                    'counter': ['_total', '_created'],
-                    'summary': ['_count', '_sum', '', '_created'],
-                    'histogram': ['_count', '_sum', '_bucket', '_created'],
-                    'gaugehistogram': ['_gcount', '_gsum', '_bucket'],
-                    'info': ['_info'],
-                }.get(typ, [''])
-                allowed_names = [name + n for n in allowed_names]
+                allowed_names = [name + n for n in type_suffixes.get(typ, [''])]
             elif parts[1] == 'UNIT':
                 if unit is not None:
                     raise ValueError("More than one UNIT for metric: " + line)
