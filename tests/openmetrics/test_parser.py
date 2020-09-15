@@ -142,7 +142,6 @@ a_sum 2
 a_bucket{le="-1.0"} 0
 a_bucket{le="1.0"} 1
 a_bucket{le="+Inf"} 3
-a_count 3
 # EOF
 """)
         self.assertEqual([HistogramMetricFamily("a", "help", buckets=[("-1.0", 0.0), ("1.0", 1.0), ("+Inf", 3.0)])],
@@ -745,7 +744,11 @@ foo_created 1.520430000123e+09
             ('# TYPE a summary\na{quantile="0.5"} -1\n# EOF\n'),
             # Bad histograms.
             ('# TYPE a histogram\na_sum 1\n# EOF\n'),
+            ('# TYPE a histogram\na_bucket{le="+Inf"} 0\n#a_sum 0\n# EOF\n'),
+            ('# TYPE a histogram\na_bucket{le="+Inf"} 0\n#a_count 0\n# EOF\n'),
             ('# TYPE a gaugehistogram\na_gsum 1\n# EOF\n'),
+            ('# TYPE a gaugehistogram\na_bucket{le="+Inf"} 0\na_gsum 0\n# EOF\n'),
+            ('# TYPE a gaugehistogram\na_bucket{le="+Inf"} 0\na_gcount 0\n# EOF\n'),
             ('# TYPE a histogram\na_count 1\na_bucket{le="+Inf"} 0\n# EOF\n'),
             ('# TYPE a histogram\na_bucket{le="+Inf"} 0\na_count 1\n# EOF\n'),
             ('# TYPE a histogram\na_bucket{le="0"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),

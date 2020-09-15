@@ -399,6 +399,12 @@ def _check_histogram(samples, name):
             raise ValueError("+Inf bucket missing: " + name)
         if count is not None and value != count:
             raise ValueError("Count does not match +Inf value: " + name)
+        if has_sum and count is None:
+            raise ValueError("_count must be present if _sum is present: " + name)
+        if has_gsum and count is None:
+            raise ValueError("_gcount must be present if _gsum is present: " + name)
+        if not (has_sum or has_gsum) and count is not None:
+            raise ValueError("_sum/_gsum must be present if _count is present: " + name)
         if has_negative_buckets and has_sum:
             raise ValueError("Cannot have _sum with negative buckets: " + name)
         if not has_negative_buckets and has_negative_gsum:
@@ -414,6 +420,7 @@ def _check_histogram(samples, name):
             bucket = None
             has_negative_buckets = False
             has_sum = False
+            has_gsum = False
             has_negative_gsum = False
             value = 0
         group = g
@@ -433,8 +440,10 @@ def _check_histogram(samples, name):
             count = s.value
         elif suffix in ['_sum']:
             has_sum = True
-        elif suffix in ['_gsum'] and s.value < 0:
-            has_negative_gsum = True
+        elif suffix in ['_gsum']:
+            has_gsum = True
+            if s.value < 0:
+                has_negative_gsum = True
 
     if group is not None:
         do_checks()
