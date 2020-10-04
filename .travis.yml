@@ -1,5 +1,4 @@
 dist: xenial
-sudo: false
 cache:
   directories:
     - $HOME/.cache/pip
@@ -32,15 +31,12 @@ jobs:
     - stage: test
       python: "3.7"
       env: TOXENV=py37
-      sudo: true
     - stage: test
       python: "3.8"
       env: TOXENV=py38
-      sudo: true
     - stage: test
       python: "3.8"
       env: TOXENV=py38-nooptionals
-      sudo: true
     - stage: test
       python: "pypy"
       env: TOXENV=pypy
