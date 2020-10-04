@@ -3,7 +3,6 @@ import sys
 
 from setuptools import setup
 
-
 if sys.version_info >= (2, 7):
     with open(path.join(path.abspath(path.dirname(__file__)), 'README.md')) as f:
         long_description = f.read()

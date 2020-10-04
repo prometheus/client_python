@@ -468,6 +468,7 @@ a_bucket{le="+Inf",foo="bar # "} 3 # {a="d",foo="bar # bar"} 4
     @unittest.skipIf(sys.version_info < (3, 3), "Test requires Python 3.3+.")
     def test_fallback_to_state_machine_label_parsing(self):
         from unittest.mock import patch
+
         from prometheus_client.openmetrics.parser import _parse_sample
 
         parse_sample_function = "prometheus_client.openmetrics.parser._parse_sample"

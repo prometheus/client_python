@@ -3,7 +3,7 @@ from __future__ import absolute_import, unicode_literals
 import sys
 from unittest import TestCase
 
-from prometheus_client import CollectorRegistry, Counter, generate_latest
+from prometheus_client import CollectorRegistry, Counter
 from prometheus_client.exposition import CONTENT_TYPE_LATEST
 
 if sys.version_info < (2, 7):
@@ -13,9 +13,11 @@ else:
 
 try:
     # Python >3.5 only
-    from prometheus_client import make_asgi_app
     import asyncio
+
     from asgiref.testing import ApplicationCommunicator
+
+    from prometheus_client import make_asgi_app
     HAVE_ASYNCIO_AND_ASGI = True
 except ImportError:
     HAVE_ASYNCIO_AND_ASGI = False

@@ -1,7 +1,7 @@
 from __future__ import absolute_import, unicode_literals
 
-from twisted.web.wsgi import WSGIResource
 from twisted.internet import reactor
+from twisted.web.wsgi import WSGIResource
 
 from .. import exposition, REGISTRY
 

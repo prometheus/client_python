@@ -1,12 +1,9 @@
 #!/usr/bin/python
 
-from . import exposition
-from . import gc_collector
-from . import metrics
-from . import metrics_core
-from . import platform_collector
-from . import process_collector
-from . import registry
+from . import (
+    exposition, gc_collector, metrics, metrics_core, platform_collector,
+    process_collector, registry,
+)
 
 __all__ = ['Counter', 'Gauge', 'Summary', 'Histogram', 'Info', 'Enum']
 

@@ -1,11 +1,9 @@
 from __future__ import absolute_import, unicode_literals
 
-import sys
 from unittest import TestCase
 from wsgiref.util import setup_testing_defaults
-from prometheus_client import make_wsgi_app
 
-from prometheus_client import CollectorRegistry, Counter, generate_latest
+from prometheus_client import CollectorRegistry, Counter, make_wsgi_app
 from prometheus_client.exposition import CONTENT_TYPE_LATEST
 
 
