@@ -42,12 +42,12 @@ class Metric(object):
         self.samples.append(Sample(name, labels, value, timestamp, exemplar))
 
     def __eq__(self, other):
-        return (isinstance(other, Metric) and
-                self.name == other.name and
-                self.documentation == other.documentation and
-                self.type == other.type and
-                self.unit == other.unit and
-                self.samples == other.samples)
+        return (isinstance(other, Metric)
+                and self.name == other.name 
+                and self.documentation == other.documentation
+                and self.type == other.type
+                and self.unit == other.unit
+                and self.samples == other.samples)
 
     def __repr__(self):
         return "Metric(%s, %s, %s, %s, %s)" % (
