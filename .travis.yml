@@ -10,6 +10,8 @@ jobs:
   include:
     - stage: lint
       script: tox -e flake8
+    - stage: isort
+      script: tox -e isort
     - stage: test
       python: "2.6"
       env: TOXENV=py26
