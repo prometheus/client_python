@@ -362,7 +362,7 @@ def _use_gateway(method, gateway, job, registry, grouping_key, timeout, handler)
 
 
 def _escape_grouping_key(k, v):
-    if v == "" :
+    if v == "":
         # Per https://github.com/prometheus/pushgateway/pull/346.
         return k + "@base64", "="
     elif '/' in v:

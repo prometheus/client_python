@@ -15,6 +15,7 @@ except ImportError:
     # Python 3
     import io as StringIO
 
+
 def text_string_to_metric_families(text):
     """Parse Openmetrics text format from a unicode string.
 
@@ -560,7 +561,7 @@ def text_fd_to_metric_families(fd):
                 raise ValueError("Invalid le label: " + line)
             if (typ == 'summary' and name == sample.name
                     and (not (0 <= float(sample.labels.get('quantile', -1)) <= 1)
-                          or _isUncanonicalNumber(sample.labels['quantile']))):
+                         or _isUncanonicalNumber(sample.labels['quantile']))):
                 raise ValueError("Invalid quantile label: " + line)
 
             g = tuple(sorted(_group_for_sample(sample, name, typ).items()))

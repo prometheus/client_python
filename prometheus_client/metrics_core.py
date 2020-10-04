@@ -218,11 +218,11 @@ class HistogramMetricFamily(Metric):
             ))
         # +Inf is last and provides the count value.
         self.samples.append(
-                Sample(self.name + '_count', dict(zip(self._labelnames, labels)), buckets[-1][1], timestamp))
+            Sample(self.name + '_count', dict(zip(self._labelnames, labels)), buckets[-1][1], timestamp))
         # Don't iunclude sum if there's negative buckets.
         if float(buckets[0][0]) >= 0 and sum_value is not None:
             self.samples.append(
-                    Sample(self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value, timestamp))
+                Sample(self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value, timestamp))
 
 
 

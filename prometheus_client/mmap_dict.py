@@ -37,7 +37,7 @@ def _read_all_values(data, used=0):
         if encoded_len + pos > used:
             raise RuntimeError('Read beyond file size detected, file is corrupted.')
         pos += 4
-        encoded_key = data[pos : pos + encoded_len]
+        encoded_key = data[pos:pos + encoded_len]
         padded_len = encoded_len + (8 - (encoded_len + 4) % 8)
         pos += padded_len
         value = _unpack_double(data, pos)[0]
