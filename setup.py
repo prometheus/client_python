@@ -1,11 +1,12 @@
-from setuptools import setup
-import sys
 from os import path
+import sys
+
+from setuptools import setup
 
 if sys.version_info >= (2, 7):
     with open(path.join(path.abspath(path.dirname(__file__)), 'README.md')) as f:
         long_description = f.read()
-else: # Assuming we don't run setup in order to publish under python 2.6
+else:  # Assuming we don't run setup in order to publish under python 2.6
     long_description = "NA"
 
 

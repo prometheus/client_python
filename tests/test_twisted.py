@@ -10,14 +10,13 @@ else:
     from unittest import skipUnless
 
 try:
-    from prometheus_client.twisted import MetricsResource
-
-    from twisted.trial.unittest import TestCase
-    from twisted.web.server import Site
-    from twisted.web.resource import Resource
     from twisted.internet import reactor
-    from twisted.web.client import Agent
-    from twisted.web.client import readBody
+    from twisted.trial.unittest import TestCase
+    from twisted.web.client import Agent, readBody
+    from twisted.web.resource import Resource
+    from twisted.web.server import Site
+
+    from prometheus_client.twisted import MetricsResource
 
     HAVE_TWISTED = True
 except ImportError:

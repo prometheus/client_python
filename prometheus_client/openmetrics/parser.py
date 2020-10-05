@@ -15,6 +15,7 @@ except ImportError:
     # Python 3
     import io as StringIO
 
+
 def text_string_to_metric_families(text):
     """Parse Openmetrics text format from a unicode string.
 
@@ -113,8 +114,8 @@ def _parse_timestamp(timestamp):
 
 def _is_character_escaped(s, charpos):
     num_bslashes = 0
-    while (charpos > num_bslashes and
-           s[charpos - 1 - num_bslashes] == '\\'):
+    while (charpos > num_bslashes
+           and s[charpos - 1 - num_bslashes] == '\\'):
         num_bslashes += 1
     return num_bslashes % 2 == 1
 
@@ -560,7 +561,7 @@ def text_fd_to_metric_families(fd):
                 raise ValueError("Invalid le label: " + line)
             if (typ == 'summary' and name == sample.name
                     and (not (0 <= float(sample.labels.get('quantile', -1)) <= 1)
-                          or _isUncanonicalNumber(sample.labels['quantile']))):
+                         or _isUncanonicalNumber(sample.labels['quantile']))):
                 raise ValueError("Invalid quantile label: " + line)
 
             g = tuple(sorted(_group_for_sample(sample, name, typ).items()))

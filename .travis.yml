@@ -1,38 +1,54 @@
+os: linux
 dist: xenial
-sudo: false
 cache:
   directories:
     - $HOME/.cache/pip
 
 language: python
 
-matrix:
+jobs:
   include:
-    - python: "2.6"
+    - stage: lint
+      name: flake8_lint
+      script: 
+        - tox -e flake8 
+    - stage: lint
+      name: isort_lint
+      script: 
+        - tox -e isort
+    - stage: test
+      python: "2.6"
       env: TOXENV=py26
       dist: trusty
-    - python: "2.7"
+    - stage: test
+      python: "2.7"
       env: TOXENV=py27
-    - python: "2.7"
+    - stage: test
+      python: "2.7"
       env: TOXENV=py27-nooptionals
-    - python: "3.4"
+    - stage: test
+      python: "3.4"
       env: TOXENV=py34
-    - python: "3.5"
+    - stage: test
+      python: "3.5"
       env: TOXENV=py35
-    - python: "3.6"
+    - stage: test
+      python: "3.6"
       env: TOXENV=py36
-    - python: "3.7"
+    - stage: test
+      python: "3.7"
       env: TOXENV=py37
-      sudo: true
-    - python: "3.8"
+    - stage: test
+      python: "3.8"
       env: TOXENV=py38
-      sudo: true
-    - python: "3.8"
+    - stage: test
+      python: "3.8"
       env: TOXENV=py38-nooptionals
-      sudo: true
-    - python: "pypy"
+    - stage: test
+      python: "pypy"
       env: TOXENV=pypy
-    - python: "pypy3"
+    - stage: test
+      python: "pypy3"
       env: TOXENV=pypy3
 
 install:

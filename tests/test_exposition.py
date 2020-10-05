@@ -7,14 +7,13 @@ import time
 import pytest
 
 from prometheus_client import (
-    CollectorRegistry, CONTENT_TYPE_LATEST, Counter, delete_from_gateway, Enum,
-    Gauge, generate_latest, Histogram, Info, instance_ip_grouping_key, Metric,
-    push_to_gateway, pushadd_to_gateway, Summary,
+    CollectorRegistry, CONTENT_TYPE_LATEST, core, Counter, delete_from_gateway,
+    Enum, Gauge, generate_latest, Histogram, Info, instance_ip_grouping_key,
+    Metric, push_to_gateway, pushadd_to_gateway, Summary,
 )
-from prometheus_client import core
 from prometheus_client.core import GaugeHistogramMetricFamily, Timestamp
 from prometheus_client.exposition import (
-    basic_auth_handler, default_handler, MetricsHandler
+    basic_auth_handler, default_handler, MetricsHandler,
 )
 
 if sys.version_info < (2, 7):
@@ -24,12 +23,10 @@ else:
     import unittest
 
 try:
-    from BaseHTTPServer import BaseHTTPRequestHandler
-    from BaseHTTPServer import HTTPServer
+    from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 except ImportError:
     # Python 3
-    from http.server import BaseHTTPRequestHandler
-    from http.server import HTTPServer
+    from http.server import BaseHTTPRequestHandler, HTTPServer
 
 
 class TestGenerateText(unittest.TestCase):

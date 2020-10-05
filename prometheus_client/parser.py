@@ -46,8 +46,8 @@ def _replace_escaping(s):
 
 def _is_character_escaped(s, charpos):
     num_bslashes = 0
-    while (charpos > num_bslashes and
-           s[charpos - 1 - num_bslashes] == '\\'):
+    while (charpos > num_bslashes
+           and s[charpos - 1 - num_bslashes] == '\\'):
         num_bslashes += 1
     return num_bslashes % 2 == 1
 
@@ -112,7 +112,7 @@ def _parse_value_and_timestamp(s):
     if not values:
         return float(s), None
     value = float(values[0])
-    timestamp = (float(values[-1])/1000) if len(values) > 1 else None
+    timestamp = (float(values[-1]) / 1000) if len(values) > 1 else None
     return value, timestamp
 
 

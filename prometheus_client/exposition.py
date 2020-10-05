@@ -6,24 +6,25 @@ import os
 import socket
 import sys
 import threading
-from wsgiref.simple_server import make_server, WSGIServer, WSGIRequestHandler
+from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
 
 from .openmetrics import exposition as openmetrics
 from .registry import REGISTRY
 from .utils import floatToGoString
 
 try:
-    from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
-    from SocketServer import ThreadingMixIn
-    from urllib2 import build_opener, Request, HTTPHandler
     from urllib import quote_plus
+
+    from BaseHTTPServer import BaseHTTPRequestHandler
+    from SocketServer import ThreadingMixIn
+    from urllib2 import build_opener, HTTPHandler, Request
     from urlparse import parse_qs, urlparse
 except ImportError:
     # Python 3
-    from http.server import BaseHTTPRequestHandler, HTTPServer
+    from http.server import BaseHTTPRequestHandler
     from socketserver import ThreadingMixIn
-    from urllib.request import build_opener, Request, HTTPHandler
-    from urllib.parse import quote_plus, parse_qs, urlparse
+    from urllib.parse import parse_qs, quote_plus, urlparse
+    from urllib.request import build_opener, HTTPHandler, Request
 
 CONTENT_TYPE_LATEST = str('text/plain; version=0.0.4; charset=utf-8')
 """Content type of the latest text format"""
@@ -362,7 +363,7 @@ def _use_gateway(method, gateway, job, registry, grouping_key, timeout, handler)
 
 
 def _escape_grouping_key(k, v):
-    if v == "" :
+    if v == "":
         # Per https://github.com/prometheus/pushgateway/pull/346.
         return k + "@base64", "="
     elif '/' in v:
@@ -381,6 +382,6 @@ def instance_ip_grouping_key():
 
 try:
     # Python >3.5 only
-    from .asgi import make_asgi_app
+    from .asgi import make_asgi_app  # noqa
 except:
     pass
