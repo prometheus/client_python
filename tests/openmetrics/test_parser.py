@@ -152,14 +152,14 @@ a_bucket{le="+Inf"} 3
 # HELP a help
 a_bucket{le="1.0"} 0 # {a="b"} 0.5
 a_bucket{le="2.0"} 2 # {a="c"} 0.5
-a_bucket{le="+Inf"} 3 # {a="1234567890123456789012345678901234567890123456789012345678"} 4 123
+a_bucket{le="+Inf"} 3 # {a="2345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678"} 4 123
 # EOF
 """)
         hfm = HistogramMetricFamily("a", "help")
         hfm.add_sample("a_bucket", {"le": "1.0"}, 0.0, None, Exemplar({"a": "b"}, 0.5))
         hfm.add_sample("a_bucket", {"le": "2.0"}, 2.0, None, Exemplar({"a": "c"}, 0.5)),
         hfm.add_sample("a_bucket", {"le": "+Inf"}, 3.0, None,
-                       Exemplar({"a": "1234567890123456789012345678901234567890123456789012345678"}, 4,
+                       Exemplar({"a": "2345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678"}, 4,
                                 Timestamp(123, 0)))
         self.assertEqual([hfm], list(families))
 
@@ -694,7 +694,7 @@ foo_created 1.520430000123e+09
             ('# TYPE a histogram\na_bucket{le="+Inf"} 1 # {} 1 \n# EOF\n'),
             ('# TYPE a histogram\na_bucket{le="+Inf"} 1 # {} 1 1 \n# EOF\n'),
             ('# TYPE a histogram\na_bucket{le="+Inf"} 1 # '
-             '{a="2345678901234567890123456789012345678901234567890123456789012345"} 1 1\n# EOF\n'),
+             '{a="23456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789"} 1 1\n# EOF\n'),
             ('# TYPE a histogram\na_bucket{le="+Inf"} 1 # {} 0x1p-3\n# EOF\n'),
             ('# TYPE a histogram\na_bucket{le="+Inf"} 1 # {} 1 0x1p-3\n# EOF\n'),
             # Exemplars on unallowed samples.
