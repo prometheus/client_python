@@ -360,7 +360,7 @@ def _parse_remaining_text(text):
     exemplar = None
     if exemplar_labels is not None:
         exemplar_length = sum([len(k) + len(v) for k, v in exemplar_labels.items()])
-        if exemplar_length > 64:
+        if exemplar_length > 128:
             raise ValueError("Exmplar labels are too long: " + text)
         exemplar = Exemplar(
             exemplar_labels,
