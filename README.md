@@ -207,11 +207,6 @@ Taking a counter as an example:
 ```python
 from prometheus_client import Counter
 c = Counter('my_requests_total', 'HTTP Failures', ['method', 'endpoint'])
-# when using labels, metrics are not initialized at creation
-# to initialize them (highly reccommended) use .labels() without e.g. .inc()
-c.labels('get', '/')
-c.labels('post', '/submit')
-# then use the metrics as normal
 c.labels('get', '/').inc()
 c.labels('post', '/submit').inc()
 ```
@@ -223,6 +218,21 @@ from prometheus_client import Counter
 c = Counter('my_requests_total', 'HTTP Failures', ['method', 'endpoint'])
 c.labels(method='get', endpoint='/').inc()
 c.labels(method='post', endpoint='/submit').inc()
+```
+
+Metrics with labels are not initialized when declared, because the client can't
+know what values the label can have. It is reccommended to initialize the label
+values by calling the `.label()` method alone:
+
+```python
+from prometheus_client import Counter
+c = Counter('my_requests_total', 'HTTP Failures', ['method', 'endpoint'])
+# initialize the label values
+c.labels('get', '/')
+c.labels('post', '/submit')
+# then use the metrics as normal
+c.labels('get', '/').inc()
+c.labels('post', '/submit').inc()
 ```
 
 ### Process Collector
