@@ -220,6 +220,17 @@ c.labels(method='get', endpoint='/').inc()
 c.labels(method='post', endpoint='/submit').inc()
 ```
 
+Metrics with labels are not initialized when declared, because the client can't
+know what values the label can have. It is recommended to initialize the label
+values by calling the `.labels()` method alone:
+
+```python
+from prometheus_client import Counter
+c = Counter('my_requests_total', 'HTTP Failures', ['method', 'endpoint'])
+c.labels('get', '/')
+c.labels('post', '/submit')
+```
+
 ### Process Collector
 
 The Python client automatically exports metrics about process CPU usage, RAM,
