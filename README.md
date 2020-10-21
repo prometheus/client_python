@@ -222,17 +222,13 @@ c.labels(method='post', endpoint='/submit').inc()
 
 Metrics with labels are not initialized when declared, because the client can't
 know what values the label can have. It is recommended to initialize the label
-values by calling the `.label()` method alone:
+values by calling the `.labels()` method alone:
 
 ```python
 from prometheus_client import Counter
 c = Counter('my_requests_total', 'HTTP Failures', ['method', 'endpoint'])
-# initialize the label values
 c.labels('get', '/')
 c.labels('post', '/submit')
-# then use the metrics as normal
-c.labels('get', '/').inc()
-c.labels('post', '/submit').inc()
 ```
 
 ### Process Collector
