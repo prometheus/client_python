@@ -207,6 +207,11 @@ Taking a counter as an example:
 ```python
 from prometheus_client import Counter
 c = Counter('my_requests_total', 'HTTP Failures', ['method', 'endpoint'])
+# when using labels, metrics are not initialized at creation
+# to initialize them (highly reccommended) use .labels() without e.g. .inc()
+c.labels('get', '/')
+c.labels('post', '/submit')
+# then use the metrics as normal
 c.labels('get', '/').inc()
 c.labels('post', '/submit').inc()
 ```
