@@ -221,7 +221,7 @@ c.labels(method='post', endpoint='/submit').inc()
 ```
 
 Metrics with labels are not initialized when declared, because the client can't
-know what values the label can have. It is reccommended to initialize the label
+know what values the label can have. It is recommended to initialize the label
 values by calling the `.label()` method alone:
 
 ```python
