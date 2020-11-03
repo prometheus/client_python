@@ -45,7 +45,7 @@ class _RegularPush(threading.Thread):
                 logging.exception("Push failed")
 
 
-class GraphiteBridge(object):
+class GraphiteBridge():
     def __init__(self, address, registry=REGISTRY, timeout_seconds=30, _timer=time.time):
         self._address = address
         self._registry = registry

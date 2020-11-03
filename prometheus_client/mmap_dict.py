@@ -45,7 +45,7 @@ def _read_all_values(data, used=0):
         pos += 8
 
 
-class MmapedDict(object):
+class MmapedDict():
     """A dict of doubles, backed by an mmapped file.
 
     The file starts with a 4 byte int, indicating how much of it is used.

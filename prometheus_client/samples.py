@@ -1,7 +1,7 @@
 from collections import namedtuple
 
 
-class Timestamp(object):
+class Timestamp():
     """A nanosecond-resolution timestamp."""
 
     def __init__(self, sec, nsec):

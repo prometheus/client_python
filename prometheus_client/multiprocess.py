@@ -18,7 +18,7 @@ except NameError:  # Python >= 2.5
 MP_METRIC_HELP = 'Multiprocess metric'
 
 
-class MultiProcessCollector(object):
+class MultiProcessCollector():
     """Collector for files for multi-process mode."""
 
     def __init__(self, registry, path=None):

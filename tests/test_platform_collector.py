@@ -44,7 +44,7 @@ class TestPlatformCollector(unittest.TestCase):
         assert False
 
 
-class _MockPlatform(object):
+class _MockPlatform():
     def __init__(self):
         self._system = "system"
 

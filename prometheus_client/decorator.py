@@ -49,7 +49,7 @@ if sys.version_info >= (3,):
     def get_init(cls):
         return cls.__init__
 else:
-    class getfullargspec(object):
+    class getfullargspec():
         "A quick and dirty replacement for getfullargspec for Python 2.X"
 
         def __init__(self, f):
@@ -85,7 +85,7 @@ DEF = re.compile(r'\s*def\s*([_\w][_\w\d]*)\s*\(')
 
 
 # basic functionality
-class FunctionMaker(object):
+class FunctionMaker():
     """
     An object with the ability to create functions with a given signature.
     It has attributes name, doc, module, signature, defaults, dict and

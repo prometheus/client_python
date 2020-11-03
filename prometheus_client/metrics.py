@@ -48,7 +48,7 @@ def _validate_labelnames(cls, labelnames):
     return labelnames
 
 
-class MetricWrapperBase(object):
+class MetricWrapperBase():
     _type = None
     _reserved_labelnames = ()
 

@@ -11,7 +11,7 @@ METRIC_LABEL_NAME_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
 RESERVED_METRIC_LABEL_NAME_RE = re.compile(r'^__.*$')
 
 
-class Metric(object):
+class Metric():
     """A single metric family and its samples.
 
     This is intended only for internal use by the instrumentation client.

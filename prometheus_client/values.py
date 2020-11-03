@@ -6,7 +6,7 @@ from threading import Lock
 from .mmap_dict import mmap_key, MmapedDict
 
 
-class MutexValue(object):
+class MutexValue():
     """A float protected by a mutex."""
 
     _multiprocess = False
@@ -44,7 +44,7 @@ def MultiProcessValue(process_identifier=os.getpid):
     # This avoids the need to also have mutexes in __MmapDict.
     lock = Lock()
 
-    class MmapedValue(object):
+    class MmapedValue():
         """A float protected by a mutex backed by a per-process mmaped file."""
 
         _multiprocess = True

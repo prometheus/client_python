@@ -5,7 +5,7 @@ from timeit import default_timer
 from .decorator import decorate
 
 
-class ExceptionCounter(object):
+class ExceptionCounter():
     def __init__(self, counter, exception):
         self._counter = counter
         self._exception = exception
@@ -25,7 +25,7 @@ class ExceptionCounter(object):
         return decorate(f, wrapped)
 
 
-class InprogressTracker(object):
+class InprogressTracker():
     def __init__(self, gauge):
         self._gauge = gauge
 
@@ -43,7 +43,7 @@ class InprogressTracker(object):
         return decorate(f, wrapped)
 
 
-class Timer(object):
+class Timer():
     def __init__(self, callback):
         self._callback = callback
 

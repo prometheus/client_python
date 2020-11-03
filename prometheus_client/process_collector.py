@@ -14,7 +14,7 @@ except ImportError:
     _PAGESIZE = 4096
 
 
-class ProcessCollector(object):
+class ProcessCollector():
     """Collector for Standard Exports such as cpu and memory."""
 
     def __init__(self, namespace='', pid=lambda: 'self', proc='/proc', registry=REGISTRY):

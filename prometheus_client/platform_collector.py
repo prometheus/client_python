@@ -7,7 +7,7 @@ from .metrics_core import GaugeMetricFamily
 from .registry import REGISTRY
 
 
-class PlatformCollector(object):
+class PlatformCollector():
     """Collector for python platform information"""
 
     def __init__(self, registry=REGISTRY, platform=None):

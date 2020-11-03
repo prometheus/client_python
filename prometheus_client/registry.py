@@ -4,7 +4,7 @@ from threading import Lock
 from .metrics_core import Metric
 
 
-class CollectorRegistry(object):
+class CollectorRegistry():
     """Metric collector registry.
 
     Collectors must have a no-argument method 'collect' that returns a list of
@@ -110,7 +110,7 @@ class CollectorRegistry(object):
                     m.samples = samples
                     metrics.append(m)
 
-        class RestrictedRegistry(object):
+        class RestrictedRegistry():
             def collect(self):
                 return metrics
 

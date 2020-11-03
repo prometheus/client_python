@@ -7,7 +7,7 @@ from .metrics_core import CounterMetricFamily
 from .registry import REGISTRY
 
 
-class GCCollector(object):
+class GCCollector():
     """Collector for Garbage collection statistics."""
 
     def __init__(self, registry=REGISTRY):
