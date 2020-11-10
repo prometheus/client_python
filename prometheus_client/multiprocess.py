@@ -21,7 +21,7 @@ from .metrics_core import GaugeMetricFamily, Metric
 from .mmap_dict import mmap_key, MmapedDict
 from .samples import Sample
 from .utils import floatToGoString
-
+from .vendor import six
 
 PROMETHEUS_MULTIPROC_DIR = "prometheus_multiproc_dir"
 _db_pattern = re.compile(r"(\w+)_(\d+)\.db")
@@ -106,7 +106,7 @@ def merge(files, accumulate=True):
 
     metrics = load_metrics_from_files(files)
 
-    for metric in metrics.itervalues():
+    for metric in six.itervalues(metrics):
         # Handle the Gauge "latest" multiprocess mode type:
         if metric.type == Gauge._type and metric._multiprocess_mode == Gauge.LATEST:
             s = max(metric.samples, key=lambda i: i.timestamp)
@@ -118,7 +118,7 @@ def merge(files, accumulate=True):
                     del labels["pid"]
                 grouped_samples[s.name, tuple(sorted(labels.items()))].append(s)
             metric.samples = []
-            for (name, labels), sample_group in grouped_samples.iteritems():
+            for (name, labels), sample_group in six.iteritems(grouped_samples):
                 s = max(sample_group, key=lambda i: i.timestamp)
                 metric.samples.append(Sample(name,
                                              dict(labels),
@@ -258,7 +258,7 @@ def _get_archive_paths(prom_dir=None):
         (Gauge._type, Gauge.MIN): "gauge_{}.db".format(Gauge.MIN),
     }
     merged_paths = {
-        k: os.path.join(prom_dir, f) for k, f in merged_paths.iteritems()
+        k: os.path.join(prom_dir, f) for k, f in six.iteritems(merged_paths)
     }
     return merged_paths
 
@@ -316,7 +316,7 @@ def _write_metrics(metrics, metric_type_to_dst_path):
                 tuple(sample.labels.values()),
             )
             sink.write_value(key, sample.value, timestamp=sample.timestamp)
-    for k, mmaped_dict in mmaped_dicts.iteritems():
+    for k, mmaped_dict in six.iteritems(mmaped_dicts):
         mmaped_dict.close()
         dst_path = metric_type_to_dst_path[k]
         # Replace existing file:
