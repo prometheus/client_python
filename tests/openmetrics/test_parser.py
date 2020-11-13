@@ -102,12 +102,14 @@ a_sum 2
 a_count 1
 a_sum 2
 a{quantile="0.5"} 0.7
+a{quantile="1"} 0.8
 # EOF
 """)
         # The Python client doesn't support quantiles, but we
         # still need to be able to parse them.
         metric_family = SummaryMetricFamily("a", "help", count_value=1, sum_value=2)
         metric_family.add_sample("a", {"quantile": "0.5"}, 0.7)
+        metric_family.add_sample("a", {"quantile": "1"}, 0.8)
         self.assertEqual([metric_family], list(families))
 
     def test_simple_histogram(self):
@@ -125,9 +127,16 @@ a_sum 2
     def test_histogram_noncanonical(self):
         families = text_string_to_metric_families("""# TYPE a histogram
 # HELP a help
+a_bucket{le="0"} 0
 a_bucket{le="0.00000000001"} 0
+a_bucket{le="0.0000000001"} 0
+a_bucket{le="1e-04"} 0
 a_bucket{le="1.1e-4"} 0
 a_bucket{le="1.1e-3"} 0
+a_bucket{le="1.1e-2"} 0
+a_bucket{le="1"} 0
+a_bucket{le="1e+05"} 0
+a_bucket{le="10000000000"} 0
 a_bucket{le="100000000000.0"} 0
 a_bucket{le="+Inf"} 3
 a_count 3
@@ -717,7 +726,6 @@ foo_created 1.520430000123e+09
             ('# TYPE a summary\na{quantile="foo"} 0\n# EOF\n'),
             ('# TYPE a summary\na{quantile="1.01"} 0\n# EOF\n'),
             ('# TYPE a summary\na{quantile="NaN"} 0\n# EOF\n'),
-            ('# TYPE a summary\na{quantile="1"} 0\n# EOF\n'),
             ('# TYPE a histogram\na_bucket 0\n# EOF\n'),
             ('# TYPE a gaugehistogram\na_bucket 0\n# EOF\n'),
             ('# TYPE a stateset\na 0\n# EOF\n'),
@@ -751,13 +759,6 @@ foo_created 1.520430000123e+09
             ('# TYPE a gaugehistogram\na_bucket{le="+Inf"} 0\na_gcount 0\n# EOF\n'),
             ('# TYPE a histogram\na_count 1\na_bucket{le="+Inf"} 0\n# EOF\n'),
             ('# TYPE a histogram\na_bucket{le="+Inf"} 0\na_count 1\n# EOF\n'),
-            ('# TYPE a histogram\na_bucket{le="0"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
-            ('# TYPE a histogram\na_bucket{le="1"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
-            ('# TYPE a histogram\na_bucket{le="0.0000000001"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
-            ('# TYPE a histogram\na_bucket{le="1.1e-2"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
-            ('# TYPE a histogram\na_bucket{le="1e-04"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
-            ('# TYPE a histogram\na_bucket{le="1e+05"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
-            ('# TYPE a histogram\na_bucket{le="10000000000"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
             ('# TYPE a histogram\na_bucket{le="+INF"} 0\n# EOF\n'),
             ('# TYPE a histogram\na_bucket{le="2"} 0\na_bucket{le="1"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
             ('# TYPE a histogram\na_bucket{le="1"} 1\na_bucket{le="2"} 1\na_bucket{le="+Inf"} 0\n# EOF\n'),

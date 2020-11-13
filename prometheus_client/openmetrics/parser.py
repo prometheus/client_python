@@ -25,7 +25,7 @@ def text_string_to_metric_families(text):
         yield metric_family
 
 
-_CANONICAL_NUMBERS = set([i / 1000.0 for i in range(10000)] + [10.0**i for i in range(-10, 11)] + [float("inf")])
+_CANONICAL_NUMBERS = set([float("inf")])
 
 
 def _isUncanonicalNumber(s):
