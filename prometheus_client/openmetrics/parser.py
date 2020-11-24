@@ -529,10 +529,7 @@ def text_fd_to_metric_families(fd):
             if parts[1] == 'HELP':
                 if documentation is not None:
                     raise ValueError("More than one HELP for metric: " + line)
-                if len(parts) == 4:
-                    documentation = _unescape_help(parts[3])
-                elif len(parts) == 3:
-                    raise ValueError("Invalid line: " + line)
+                documentation = _unescape_help(parts[3])
             elif parts[1] == 'TYPE':
                 if typ is not None:
                     raise ValueError("More than one TYPE for metric: " + line)

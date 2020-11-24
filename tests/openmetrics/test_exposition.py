@@ -48,6 +48,12 @@ class TestGenerateText(unittest.TestCase):
         self.assertEqual(b'# HELP cc A counter\n# TYPE cc counter\ncc_total 1.0\ncc_created 123.456\n# EOF\n',
                          generate_latest(self.registry))
 
+    def test_counter_unit(self):
+        c = Counter('cc_seconds', 'A counter', registry=self.registry, unit="seconds")
+        c.inc()
+        self.assertEqual(b'# HELP cc_seconds A counter\n# TYPE cc_seconds counter\n# UNIT cc_seconds seconds\ncc_seconds_total 1.0\ncc_seconds_created 123.456\n# EOF\n',
+                         generate_latest(self.registry))
+
     def test_gauge(self):
         g = Gauge('gg', 'A gauge', registry=self.registry)
         g.set(17)
