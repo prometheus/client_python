@@ -6,7 +6,7 @@ The official Python 2 and 3 client for [Prometheus](http://prometheus.io).
 
 **One**: Install the client:
 ```
-pip install prometheus_client
+pip install prometheus-client
 ```
 
 **Two**: Paste the following into a Python interpreter:
