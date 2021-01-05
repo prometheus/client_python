@@ -7,8 +7,8 @@ import socket
 import sys
 import threading
 from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
-from wsgi_basic_auth import BasicAuth
 
+from wsgi_basic_auth import BasicAuth
 
 from .openmetrics import exposition as openmetrics
 from .registry import REGISTRY
