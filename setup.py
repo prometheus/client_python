@@ -30,6 +30,7 @@ setup(
     extras_require={
         'twisted': ['twisted'],
     },
+    install_requires=['wsgi_basic_auth'],
     test_suite="tests",
     python_requires=">=2.6, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*",
     classifiers=[
@@ -53,5 +54,5 @@ setup(
         "Topic :: System :: Monitoring",
         "License :: OSI Approved :: Apache Software License",
     ],
-    options={'bdist_wheel': {'universal': '1'}},
+    options={'bdist_wheel': {'universal': '1'}}
 )

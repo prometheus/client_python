@@ -266,12 +266,21 @@ from prometheus_client import start_http_server
 
 start_http_server(8000)
 ```
-
 Visit [http://localhost:8000/](http://localhost:8000/) to view the metrics.
 
 To add Prometheus exposition to an existing HTTP server, see the `MetricsHandler` class
 which provides a `BaseHTTPRequestHandler`. It also serves as a simple example of how
 to write a custom endpoint.
+
+#### HTTP with basic authentication
+To secure your metrics endpoint with basic authentication, use the following arguments in a start_http_method:
+
+```python
+from prometheus_client import start_http_server
+
+start_http_server(8000, basic_auth = True, users={"username": "password"})
+```
+replace username and password with desired values. Please keep in mind not to store credentials in plain text.
 
 #### Twisted
 

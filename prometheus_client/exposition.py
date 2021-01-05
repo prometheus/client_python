@@ -7,6 +7,8 @@ import socket
 import sys
 import threading
 from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
+from wsgi_basic_auth import BasicAuth
+
 
 from .openmetrics import exposition as openmetrics
 from .registry import REGISTRY
@@ -73,9 +75,13 @@ class ThreadingWSGIServer(ThreadingMixIn, WSGIServer):
     daemon_threads = True
 
 
-def start_wsgi_server(port, addr='', registry=REGISTRY):
+def start_wsgi_server(port, addr='', basic_auth=False, users=None, registry=REGISTRY):
     """Starts a WSGI server for prometheus metrics as a daemon thread."""
     app = make_wsgi_app(registry)
+
+    if basic_auth:
+        app = BasicAuth(app, users=users)
+    
     httpd = make_server(addr, port, app, ThreadingWSGIServer, handler_class=_SilentHandler)
     t = threading.Thread(target=httpd.serve_forever)
     t.daemon = True
