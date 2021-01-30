@@ -64,9 +64,9 @@ class CollectorRegistry(object):
             'info': ['_info'],
         }
         for metric in desc_func():
-            result.append(metric.name)
-            for suffix in type_suffixes.get(metric.type, []):
-                result.append(metric.name + suffix)
+            result.append(metric._name)
+            for suffix in type_suffixes.get(metric._type, []):
+                result.append(metric._name + suffix)
         return result
 
     def collect(self):
@@ -105,10 +105,10 @@ class CollectorRegistry(object):
                     collectors.add(self._names_to_collectors[name])
         for collector in collectors:
             for metric in collector.collect():
-                samples = [s for s in metric.samples if s[0] in names]
+                samples = [s for s in metric._samples if s[0] in names]
                 if samples:
-                    m = Metric(metric.name, metric.documentation, metric.type)
-                    m.samples = samples
+                    m = Metric(metric._name, metric._documentation, metric._type)
+                    m._samples = samples
                     metrics.append(m)
 
         class RestrictedRegistry(object):
@@ -144,7 +144,7 @@ class CollectorRegistry(object):
         if labels is None:
             labels = {}
         for metric in self.collect():
-            for s in metric.samples:
+            for s in metric._samples:
                 if s.name == name and s.labels == labels:
                     return s.value
         return None
