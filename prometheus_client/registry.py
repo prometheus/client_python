@@ -149,5 +149,11 @@ class CollectorRegistry(object):
                     return s.value
         return None
 
+    def lock(self):
+        self._lock.acquire()
+
+    def unlock(self):
+        self._lock.release()
+
 
 REGISTRY = CollectorRegistry(auto_describe=True)
