@@ -46,7 +46,7 @@ class _RegularPush(threading.Thread):
 
 
 class GraphiteBridge(object):
-    def __init__(self, address, registry=REGISTRY, tags=False, timeout_seconds=30, _timer=time.time):
+    def __init__(self, address, registry=REGISTRY, timeout_seconds=30, _timer=time.time, tags=False):
         self._address = address
         self._registry = registry
         self._tags = tags
