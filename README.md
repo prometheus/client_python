@@ -468,7 +468,7 @@ class CustomCollector(object):
 REGISTRY.register(CustomCollector())
 ```
 
-`SummaryMetricFamily` and `HistogramMetricFamily` work similarly.
+`SummaryMetricFamily`, `HistogramMetricFamily` and `InfoMetricFamily` work similarly.
 
 A collector may implement a `describe` method which returns metrics in the same
 format as `collect` (though you don't have to include the samples). This is
