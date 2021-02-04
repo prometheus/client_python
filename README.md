@@ -452,7 +452,7 @@ Graphite [tags](https://grafana.com/blog/2018/01/11/graphite-1.1-teaching-an-old
 ```python
 from prometheus_client.bridge.graphite import GraphiteBridge
 
-gb = GraphiteBridge(('graphite.your.org', 2003, tags=True))
+gb = GraphiteBridge(('graphite.your.org', 2003), tags=True)
 c = Counter('my_requests_total', 'HTTP Failures', ['method', 'endpoint'])
 c.labels('get', '/').inc()
 gb.push()
