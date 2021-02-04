@@ -35,8 +35,11 @@ class TestGraphiteBridge(unittest.TestCase):
         self.t.start()
 
         # Explicitly use localhost as the target host, since connecting to 0.0.0.0 fails on Windows
-        address = ('localhost', server.server_address[1])
-        self.gb = GraphiteBridge(address, self.registry, _timer=fake_timer)
+        self.address = ('localhost', server.server_address[1])
+        self.gb = GraphiteBridge(self.address, self.registry, _timer=fake_timer)
+
+    def _use_tags(self):
+        self.gb = GraphiteBridge(self.address, self.registry, tags=True, _timer=fake_timer)
 
     def test_nolabels(self):
         gauge = Gauge('g', 'help', registry=self.registry)
@@ -56,6 +59,16 @@ class TestGraphiteBridge(unittest.TestCase):
 
         self.assertEqual(b'labels.a.c.b.d 1.0 1434898897\n', self.data)
 
+    def test_labels_tags(self):
+        self._use_tags()
+        labels = Gauge('labels', 'help', ['a', 'b'], registry=self.registry)
+        labels.labels('c', 'd').inc()
+
+        self.gb.push()
+        self.t.join()
+
+        self.assertEqual(b'labels;a=c;b=d 1.0 1434898897\n', self.data)
+
     def test_prefix(self):
         labels = Gauge('labels', 'help', ['a', 'b'], registry=self.registry)
         labels.labels('c', 'd').inc()
@@ -65,6 +78,16 @@ class TestGraphiteBridge(unittest.TestCase):
 
         self.assertEqual(b'pre.fix.labels.a.c.b.d 1.0 1434898897\n', self.data)
 
+    def test_prefix_tags(self):
+        self._use_tags()
+        labels = Gauge('labels', 'help', ['a', 'b'], registry=self.registry)
+        labels.labels('c', 'd').inc()
+
+        self.gb.push(prefix='pre.fix')
+        self.t.join()
+
+        self.assertEqual(b'pre.fix.labels;a=c;b=d 1.0 1434898897\n', self.data)
+
     def test_sanitizing(self):
         labels = Gauge('labels', 'help', ['a'], registry=self.registry)
         labels.labels('c.:8').inc()
@@ -73,3 +96,13 @@ class TestGraphiteBridge(unittest.TestCase):
         self.t.join()
 
         self.assertEqual(b'labels.a.c__8 1.0 1434898897\n', self.data)
+
+    def test_sanitizing_tags(self):
+        self._use_tags()
+        labels = Gauge('labels', 'help', ['a'], registry=self.registry)
+        labels.labels('c.:8').inc()
+
+        self.gb.push()
+        self.t.join()
+
+        self.assertEqual(b'labels;a=c__8 1.0 1434898897\n', self.data)

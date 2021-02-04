@@ -447,6 +447,17 @@ gb.push()
 gb.start(10.0)
 ```
 
+Graphite [tags](https://grafana.com/blog/2018/01/11/graphite-1.1-teaching-an-old-dog-new-tricks/) are also supported.
+
+```python
+from prometheus_client.bridge.graphite import GraphiteBridge
+
+gb = GraphiteBridge(('graphite.your.org', 2003), tags=True)
+c = Counter('my_requests_total', 'HTTP Failures', ['method', 'endpoint'])
+c.labels('get', '/').inc()
+gb.push()
+```
+
 ## Custom Collectors
 
 Sometimes it is not possible to directly instrument code, as it is not
