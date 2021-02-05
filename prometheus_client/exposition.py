@@ -90,6 +90,8 @@ def generate_latest(registry=REGISTRY):
 
     def sample_line(line):
         if line.labels:
+            if 'method' in line.labels and line.labels['method'] is None:
+                line.labels['method'] = "GET request"
             labelstr = '{{{0}}}'.format(','.join(
                 ['{0}="{1}"'.format(
                     k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
