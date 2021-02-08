@@ -1,4 +1,5 @@
 import math
+import sys
 
 try:
     from urllib2 import HTTPError, HTTPRedirectHandler, Request
@@ -7,6 +8,7 @@ except ImportError:
     from urllib.error import HTTPError
     from urllib.request import HTTPRedirectHandler, Request
 
+PYTHON27_OR_OLDER = sys.version_info <= (2, 7)
 INF = float("inf")
 MINUS_INF = float("-inf")
 NaN = float("NaN")
@@ -75,11 +77,16 @@ class PrometheusRedirectHandler(HTTPRedirectHandler):
         if not (code in (301, 302, 303, 307) and m in ("GET", "HEAD")
                 or code in (301, 302, 303) and m in ("POST", "PUT")):
             raise HTTPError(req.full_url, code, msg, headers, fp)
-        return Request(
+        new_request = Request(
             newurl.replace(' ', '%20'),  # space escaping in new url if needed.
             headers=req.headers,
             origin_req_host=req.origin_req_host,
             unverifiable=True,
             data=req.data,
-            method=m
         )
+        if PYTHON27_OR_OLDER:
+            # the `method` attribute did not exist for Request in Python 2.7.
+            new_request.get_method = lambda: m
+        else:
+            new_request.method = m
+        return new_request
