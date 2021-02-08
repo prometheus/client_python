@@ -13,7 +13,7 @@ from prometheus_client import (
 )
 from prometheus_client.core import GaugeHistogramMetricFamily, Timestamp
 from prometheus_client.exposition import (
-    basic_auth_handler, default_handler, MetricsHandler,
+    basic_auth_handler, default_handler, MetricsHandler, passthrough_redirect_handler
 )
 
 if sys.version_info < (2, 7):
@@ -208,6 +208,7 @@ ts{foo="f"} 0.0 123000
 
 class TestPushGateway(unittest.TestCase):
     def setUp(self):
+        redirect_flag = 'testFlag'
         self.registry = CollectorRegistry()
         self.counter = Gauge('g', 'help', registry=self.registry)
         self.requests = requests = []
@@ -216,6 +217,11 @@ class TestPushGateway(unittest.TestCase):
             def do_PUT(self):
                 if 'with_basic_auth' in self.requestline and self.headers['authorization'] != 'Basic Zm9vOmJhcg==':
                     self.send_response(401)
+                elif 'redirect' in self.requestline and redirect_flag not in self.requestline:
+                    # checks for an initial test request with 'redirect' but without the redirect_flag,
+                    # and simulates a redirect to a url with the redirect_flag (which will produce a 201)
+                    self.send_response(301)
+                    self.send_header('Location', getattr(self, 'redirect_address', None))
                 else:
                     self.send_response(201)
                 length = int(self.headers['content-length'])
@@ -225,6 +231,22 @@ class TestPushGateway(unittest.TestCase):
             do_POST = do_PUT
             do_DELETE = do_PUT
 
+        # set up a separate server to serve a fake redirected request.
+        # the redirected URL will have `redirect_flag` added to it,
+        # which will cause the request handler to return 201.
+        httpd_redirect = HTTPServer(('localhost', 0), TestHandler)
+        self.redirect_address = TestHandler.redirect_address = \
+            'http://localhost:{0}/{1}'.format(httpd_redirect.server_address[1], redirect_flag)
+
+        class TestRedirectServer(threading.Thread):
+            def run(self):
+                httpd_redirect.handle_request()
+
+        self.redirect_server = TestRedirectServer()
+        self.redirect_server.daemon = True
+        self.redirect_server.start()
+
+        # set up the normal server to serve the example requests across test cases.
         httpd = HTTPServer(('localhost', 0), TestHandler)
         self.address = 'http://localhost:{0}'.format(httpd.server_address[1])
 
@@ -235,6 +257,7 @@ class TestPushGateway(unittest.TestCase):
         self.server = TestServer()
         self.server.daemon = True
         self.server.start()
+
 
     def test_push(self):
         push_to_gateway(self.address, "my_job", self.registry)
@@ -327,6 +350,16 @@ class TestPushGateway(unittest.TestCase):
         push_to_gateway(self.address, "my_job_with_basic_auth", self.registry, handler=my_auth_handler)
         self.assertEqual(self.requests[0][0].command, 'PUT')
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job_with_basic_auth')
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
+        self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
+
+    def test_push_with_redirect_handler(self):
+        def my_redirect_handler(url, method, timeout, headers, data):
+            return passthrough_redirect_handler(url, method, timeout, headers, data)
+
+        push_to_gateway(self.address, "my_job_with_redirect", self.registry, handler=my_redirect_handler)
+        self.assertEqual(self.requests[0][0].command, 'PUT')
+        self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job_with_redirect')
         self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 

@@ -10,7 +10,7 @@ from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
 
 from .openmetrics import exposition as openmetrics
 from .registry import REGISTRY
-from .utils import floatToGoString
+from .utils import floatToGoString, PrometheusRedirectHandler
 
 try:
     from urllib import quote_plus
@@ -141,7 +141,7 @@ def generate_latest(registry=REGISTRY):
             raise
 
         for suffix, lines in sorted(om_samples.items()):
-            output.append('# HELP {0}{1} {2}\n'.format(metric.name, suffix, 
+            output.append('# HELP {0}{1} {2}\n'.format(metric.name, suffix,
                                                        metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
             output.append('# TYPE {0}{1} gauge\n'.format(metric.name, suffix))
             output.extend(lines)
@@ -205,22 +205,41 @@ def write_to_textfile(path, registry):
     os.rename(tmppath, path)
 
 
-def default_handler(url, method, timeout, headers, data):
-    """Default handler that implements HTTP/HTTPS connections.
-
-    Used by the push_to_gateway functions. Can be re-used by other handlers."""
+def _make_handler(url, method, timeout, headers, data, base_handler):
 
     def handle():
         request = Request(url, data=data)
         request.get_method = lambda: method
         for k, v in headers:
             request.add_header(k, v)
-        resp = build_opener(HTTPHandler).open(request, timeout=timeout)
+        resp = build_opener(base_handler).open(request, timeout=timeout)
         if resp.code >= 400:
             raise IOError("error talking to pushgateway: {0} {1}".format(
                 resp.code, resp.msg))
 
     return handle
+
+
+def default_handler(url, method, timeout, headers, data):
+    """Default handler that implements HTTP/HTTPS connections.
+
+    Used by the push_to_gateway functions. Can be re-used by other handlers."""
+
+    return _make_handler(url, method, timeout, headers, data, HTTPHandler)
+
+
+def passthrough_redirect_handler(url, method, timeout, headers, data):
+    """
+    Handler that automatically trusts redirect responses for all HTTP methods.
+
+    Augments standard HTTPRedirectHandler capability by permitting PUT requests,
+    preserving the method upon redirect, and passing through all headers and
+    data from the original request. Only use this handler if you control or
+    trust the source of redirect responses you encounter when making requests
+    via the Prometheus client. This handler will simply repeat the identical
+    request, including same method and data, to the new redirect URL."""
+
+    return _make_handler(url, method, timeout, headers, data, PrometheusRedirectHandler)
 
 
 def basic_auth_handler(url, method, timeout, headers, data, username=None, password=None):
