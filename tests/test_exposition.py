@@ -13,7 +13,8 @@ from prometheus_client import (
 )
 from prometheus_client.core import GaugeHistogramMetricFamily, Timestamp
 from prometheus_client.exposition import (
-    basic_auth_handler, default_handler, MetricsHandler, passthrough_redirect_handler
+    basic_auth_handler, default_handler, MetricsHandler,
+    passthrough_redirect_handler,
 )
 
 if sys.version_info < (2, 7):
