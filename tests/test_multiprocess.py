@@ -14,7 +14,9 @@ from prometheus_client.core import (
 from prometheus_client.multiprocess import (
     mark_process_dead, MultiProcessCollector,
 )
-from prometheus_client.values import get_value_class, MultiProcessValue, MutexValue
+from prometheus_client.values import (
+    get_value_class, MultiProcessValue, MutexValue,
+)
 
 if sys.version_info < (2, 7):
     # We need the skip decorators from unittest2 on Python 2.6.
