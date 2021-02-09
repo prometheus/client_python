@@ -2,6 +2,7 @@ from __future__ import unicode_literals
 
 import os
 from threading import Lock
+import warnings
 
 from .mmap_dict import mmap_key, MmapedDict
 
@@ -64,7 +65,7 @@ def MultiProcessValue(process_identifier=os.getpid):
                 file_prefix = typ
             if file_prefix not in files:
                 filename = os.path.join(
-                    os.environ['prometheus_multiproc_dir'],
+                    os.environ.get('PROMETHEUS_MULTIPROC_DIR'),
                     '{0}_{1}.db'.format(file_prefix, pid['value']))
 
                 files[file_prefix] = MmapedDict(filename)
@@ -108,7 +109,10 @@ def get_value_class():
     # This needs to be chosen before the first metric is constructed,
     # and as that may be in some arbitrary library the user/admin has
     # no control over we use an environment variable.
-    if 'prometheus_multiproc_dir' in os.environ:
+    if 'prometheus_multiproc_dir' in os.environ and 'PROMETHEUS_MULTIPROC_DIR' not in os.environ:
+        os.environ['PROMETHEUS_MULTIPROC_DIR'] = os.environ['prometheus_multiproc_dir']
+        warnings.warn("You should declare the env variable in upper case PROMETHEUS_MULTIPROC_DIR'", DeprecationWarning)
+    if 'PROMETHEUS_MULTIPROC_DIR' in os.environ:
         return MultiProcessValue()
     else:
         return MutexValue
