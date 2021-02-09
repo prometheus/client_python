@@ -5,6 +5,7 @@ import os
 import shutil
 import sys
 import tempfile
+import warnings
 
 from prometheus_client import mmap_dict, values
 from prometheus_client.core import (
@@ -13,7 +14,7 @@ from prometheus_client.core import (
 from prometheus_client.multiprocess import (
     mark_process_dead, MultiProcessCollector,
 )
-from prometheus_client.values import MultiProcessValue, MutexValue
+from prometheus_client.values import MultiProcessValue, MutexValue, get_value_class
 
 if sys.version_info < (2, 7):
     # We need the skip decorators from unittest2 on Python 2.6.
@@ -22,10 +23,36 @@ else:
     import unittest
 
 
+class TestMultiProcessDeprecation(unittest.TestCase):
+    def setUp(self):
+        self.tempdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        del os.environ['prometheus_multiproc_dir']
+        del os.environ['PROMETHEUS_MULTIPROC_DIR']
+        shutil.rmtree(self.tempdir)
+
+    def test_deprecation_warning(self):
+        os.environ['prometheus_multiproc_dir'] = self.tempdir
+        with warnings.catch_warnings(record=True) as w:
+            get_value_class()
+            assert os.environ['PROMETHEUS_MULTIPROC_DIR'] == self.tempdir
+            assert len(w) == 1
+            assert issubclass(w[-1].category, DeprecationWarning)
+            assert "PROMETHEUS_MULTIPROC_DIR" in str(w[-1].message)
+
+    def test_both_variables_priority(self):
+        os.environ['prometheus_multiproc_dir'] = 'should not be picked'
+        os.environ['PROMETHEUS_MULTIPROC_DIR'] = self.tempdir
+        with warnings.catch_warnings(record=True) as w:
+            get_value_class()
+            assert len(w) == 0
+
+
 class TestMultiProcess(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
-        os.environ['prometheus_multiproc_dir'] = self.tempdir
+        os.environ['PROMETHEUS_MULTIPROC_DIR'] = self.tempdir
         values.ValueClass = MultiProcessValue(lambda: 123)
         self.registry = CollectorRegistry()
         self.collector = MultiProcessCollector(self.registry, self.tempdir)
@@ -35,7 +62,7 @@ class TestMultiProcess(unittest.TestCase):
         return
 
     def tearDown(self):
-        del os.environ['prometheus_multiproc_dir']
+        del os.environ['PROMETHEUS_MULTIPROC_DIR']
         shutil.rmtree(self.tempdir)
         values.ValueClass = MutexValue
 
@@ -80,7 +107,7 @@ class TestMultiProcess(unittest.TestCase):
         self.assertEqual(0, self.registry.get_sample_value('g', {'pid': '456'}))
         g1.set(1)
         g2.set(2)
-        mark_process_dead(123, os.environ['prometheus_multiproc_dir'])
+        mark_process_dead(123, os.environ['PROMETHEUS_MULTIPROC_DIR'])
         self.assertEqual(1, self.registry.get_sample_value('g', {'pid': '123'}))
         self.assertEqual(2, self.registry.get_sample_value('g', {'pid': '456'}))
 
@@ -94,7 +121,7 @@ class TestMultiProcess(unittest.TestCase):
         g2.set(2)
         self.assertEqual(1, self.registry.get_sample_value('g', {'pid': '123'}))
         self.assertEqual(2, self.registry.get_sample_value('g', {'pid': '456'}))
-        mark_process_dead(123, os.environ['prometheus_multiproc_dir'])
+        mark_process_dead(123, os.environ['PROMETHEUS_MULTIPROC_DIR'])
         self.assertEqual(None, self.registry.get_sample_value('g', {'pid': '123'}))
         self.assertEqual(2, self.registry.get_sample_value('g', {'pid': '456'}))
 
@@ -124,7 +151,7 @@ class TestMultiProcess(unittest.TestCase):
         g1.set(1)
         g2.set(2)
         self.assertEqual(3, self.registry.get_sample_value('g'))
-        mark_process_dead(123, os.environ['prometheus_multiproc_dir'])
+        mark_process_dead(123, os.environ['PROMETHEUS_MULTIPROC_DIR'])
         self.assertEqual(2, self.registry.get_sample_value('g'))
 
     def test_namespace_subsystem(self):
@@ -151,7 +178,7 @@ class TestMultiProcess(unittest.TestCase):
         # can not inspect the files cache directly, as it's a closure, so we
         # check for the actual files themselves
         def files():
-            fs = os.listdir(os.environ['prometheus_multiproc_dir'])
+            fs = os.listdir(os.environ['PROMETHEUS_MULTIPROC_DIR'])
             fs.sort()
             return fs
 
@@ -240,7 +267,7 @@ class TestMultiProcess(unittest.TestCase):
         pid = 1
         h.labels(**labels).observe(5)
 
-        path = os.path.join(os.environ['prometheus_multiproc_dir'], '*.db')
+        path = os.path.join(os.environ['PROMETHEUS_MULTIPROC_DIR'], '*.db')
         files = glob.glob(path)
         metrics = dict(
             (m.name, m) for m in self.collector.merge(files, accumulate=False)
