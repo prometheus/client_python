@@ -66,7 +66,7 @@ class MultiProcessCollector(object):
                     # the file is missing
                     continue
                 raise
-            for key, value, pos in file_values:
+            for key, value, _ in file_values:
                 metric_name, name, labels, labels_key = _parse_key(key)
 
                 metric = metrics.get(metric_name)
