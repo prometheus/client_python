@@ -17,7 +17,9 @@ try:
 
     from BaseHTTPServer import BaseHTTPRequestHandler
     from SocketServer import ThreadingMixIn
-    from urllib2 import build_opener, HTTPError, HTTPHandler, HTTPRedirectHandler, Request
+    from urllib2 import (
+        build_opener, HTTPError, HTTPHandler, HTTPRedirectHandler, Request,
+    )
     from urlparse import parse_qs, urlparse
 except ImportError:
     # Python 3
@@ -25,7 +27,9 @@ except ImportError:
     from socketserver import ThreadingMixIn
     from urllib.error import HTTPError
     from urllib.parse import parse_qs, quote_plus, urlparse
-    from urllib.request import build_opener, HTTPHandler, HTTPRedirectHandler, Request
+    from urllib.request import (
+        build_opener, HTTPHandler, HTTPRedirectHandler, Request,
+    )
 
 CONTENT_TYPE_LATEST = str('text/plain; version=0.0.4; charset=utf-8')
 """Content type of the latest text format"""
