@@ -210,6 +210,7 @@ ts{foo="f"} 0.0 123000
 class TestPushGateway(unittest.TestCase):
     def setUp(self):
         redirect_flag = 'testFlag'
+        self.redirect_flag = redirect_flag  # preserve a copy for downstream test assertions
         self.registry = CollectorRegistry()
         self.counter = Gauge('g', 'help', registry=self.registry)
         self.requests = requests = []
@@ -363,6 +364,17 @@ class TestPushGateway(unittest.TestCase):
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job_with_redirect')
         self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
+
+        # ensure the redirect preserved request settings from the initial request.
+        self.assertEqual(self.requests[0][0].command, self.requests[1][0].command)
+        self.assertEqual(
+            self.requests[0][0].headers.get('content-type'),
+            self.requests[1][0].headers.get('content-type')
+        )
+        self.assertEqual(self.requests[0][1], self.requests[1][1])
+
+        # ensure the redirect took place at the expected redirect location.
+        self.assertEqual(self.requests[1][0].path, "/" + self.redirect_flag)
 
     @unittest.skipIf(
         sys.platform == "darwin",
