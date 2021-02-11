@@ -33,7 +33,7 @@ except ImportError:
 
 CONTENT_TYPE_LATEST = str('text/plain; version=0.0.4; charset=utf-8')
 """Content type of the latest text format"""
-PYTHON27_OR_OLDER = sys.version_info <= (2, 7)
+PYTHON27_OR_OLDER = sys.version_info < (3, )
 PYTHON26_OR_OLDER = sys.version_info < (2, 7)
 PYTHON376_OR_NEWER = sys.version_info > (3, 7, 5)
 
