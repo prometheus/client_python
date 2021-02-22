@@ -52,6 +52,12 @@ def MultiProcessValue(process_identifier=os.getpid):
 
         def __init__(self, typ, metric_name, name, labelnames, labelvalues, multiprocess_mode='', **kwargs):
             self._params = typ, metric_name, name, labelnames, labelvalues, multiprocess_mode
+            # This deprecation warning can go away in a few releases when removing the compatibility
+            if 'prometheus_multiproc_dir' in os.environ and 'PROMETHEUS_MULTIPROC_DIR' in os.environ:
+                warnings.warn("You have declared both env variable in upper case and lower case, keep the upper case only PROMETHEUS_MULTIPROC_DIR'", DeprecationWarning)
+            if 'prometheus_multiproc_dir' in os.environ and 'PROMETHEUS_MULTIPROC_DIR' not in os.environ:
+                os.environ['PROMETHEUS_MULTIPROC_DIR'] = os.environ['prometheus_multiproc_dir']
+                warnings.warn("You should declare the env variable in upper case PROMETHEUS_MULTIPROC_DIR'", DeprecationWarning)
             with lock:
                 self.__check_for_pid_change()
                 self.__reset()
@@ -109,10 +115,7 @@ def get_value_class():
     # This needs to be chosen before the first metric is constructed,
     # and as that may be in some arbitrary library the user/admin has
     # no control over we use an environment variable.
-    if 'prometheus_multiproc_dir' in os.environ and 'PROMETHEUS_MULTIPROC_DIR' not in os.environ:
-        os.environ['PROMETHEUS_MULTIPROC_DIR'] = os.environ['prometheus_multiproc_dir']
-        warnings.warn("You should declare the env variable in upper case PROMETHEUS_MULTIPROC_DIR'", DeprecationWarning)
-    if 'PROMETHEUS_MULTIPROC_DIR' in os.environ:
+    if 'prometheus_multiproc_dir' in os.environ or 'PROMETHEUS_MULTIPROC_DIR' in os.environ:
         return MultiProcessValue()
     else:
         return MutexValue
