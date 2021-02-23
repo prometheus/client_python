@@ -49,8 +49,14 @@ def make_wsgi_app(registry=REGISTRY):
         # Prepare parameters
         accept_header = environ.get('HTTP_ACCEPT')
         params = parse_qs(environ.get('QUERY_STRING', ''))
-        # Bake output
-        status, header, output = _bake_output(registry, accept_header, params)
+        if environ['PATH_INFO'] == '/favicon.ico':
+            # Serve empty response for browsers
+            status = '200 OK'
+            header = ('', '')
+            output = b''
+        else:
+            # Bake output
+            status, header, output = _bake_output(registry, accept_header, params)
         # Return output
         start_response(status, [header])
         return [output]

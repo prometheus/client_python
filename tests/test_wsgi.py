@@ -1,10 +1,12 @@
 from __future__ import absolute_import, unicode_literals
 
+import sys
+import unittest
 from unittest import TestCase
 from wsgiref.util import setup_testing_defaults
 
 from prometheus_client import CollectorRegistry, Counter, make_wsgi_app
-from prometheus_client.exposition import CONTENT_TYPE_LATEST
+from prometheus_client.exposition import _bake_output, CONTENT_TYPE_LATEST
 
 
 class WSGITest(TestCase):
@@ -65,3 +67,22 @@ class WSGITest(TestCase):
 
     def test_report_metrics_4(self):
         self.validate_metrics("failed_requests", "Number of failed requests", 7)
+
+    @unittest.skipIf(sys.version_info < (3, 3), "Test requires Python 3.3+.")
+    def test_favicon_path(self):
+        from unittest.mock import patch
+
+        # Create mock to enable counting access of _bake_output
+        with patch("prometheus_client.exposition._bake_output", side_effect=_bake_output) as mock:
+            # Create and run WSGI app
+            app = make_wsgi_app(self.registry)
+            # Try accessing the favicon path
+            favicon_environ = dict(self.environ)
+            favicon_environ['PATH_INFO'] = '/favicon.ico'
+            outputs = app(favicon_environ, self.capture)
+            # Test empty response
+            self.assertEqual(outputs, [b''])
+            self.assertEqual(mock.call_count, 0)
+            # Try accessing normal paths
+            app(self.environ, self.capture)
+            self.assertEqual(mock.call_count, 1)
