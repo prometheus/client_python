@@ -48,19 +48,6 @@ class TestMultiProcessDeprecation(unittest.TestCase):
             assert issubclass(w[-1].category, DeprecationWarning)
             assert "PROMETHEUS_MULTIPROC_DIR" in str(w[-1].message)
 
-    def test_both_variables_priority(self):
-        os.environ['prometheus_multiproc_dir'] = 'should not be picked'
-        os.environ['PROMETHEUS_MULTIPROC_DIR'] = self.tempdir
-        with warnings.catch_warnings(record=True) as w:
-            values.ValueClass = get_value_class()
-            registry = CollectorRegistry()
-            collector = MultiProcessCollector(registry, self.tempdir)
-            Counter('c', 'help', registry=None)
-
-            assert len(w) == 1
-            assert issubclass(w[-1].category, DeprecationWarning)
-            assert "both" in str(w[-1].message)
-
 
 class TestMultiProcess(unittest.TestCase):
     def setUp(self):
