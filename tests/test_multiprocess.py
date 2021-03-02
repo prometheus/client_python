@@ -32,12 +32,17 @@ class TestMultiProcessDeprecation(unittest.TestCase):
     def tearDown(self):
         del os.environ['prometheus_multiproc_dir']
         del os.environ['PROMETHEUS_MULTIPROC_DIR']
+        values.ValueClass = MutexValue
         shutil.rmtree(self.tempdir)
 
     def test_deprecation_warning(self):
         os.environ['prometheus_multiproc_dir'] = self.tempdir
         with warnings.catch_warnings(record=True) as w:
-            get_value_class()
+            values.ValueClass = get_value_class()
+            registry = CollectorRegistry()
+            collector = MultiProcessCollector(registry, self.tempdir)
+            Counter('c', 'help', registry=None)
+
             assert os.environ['PROMETHEUS_MULTIPROC_DIR'] == self.tempdir
             assert len(w) == 1
             assert issubclass(w[-1].category, DeprecationWarning)
@@ -47,8 +52,14 @@ class TestMultiProcessDeprecation(unittest.TestCase):
         os.environ['prometheus_multiproc_dir'] = 'should not be picked'
         os.environ['PROMETHEUS_MULTIPROC_DIR'] = self.tempdir
         with warnings.catch_warnings(record=True) as w:
-            get_value_class()
-            assert len(w) == 0
+            values.ValueClass = get_value_class()
+            registry = CollectorRegistry()
+            collector = MultiProcessCollector(registry, self.tempdir)
+            Counter('c', 'help', registry=None)
+
+            assert len(w) == 1
+            assert issubclass(w[-1].category, DeprecationWarning)
+            assert "both" in str(w[-1].message)
 
 
 class TestMultiProcess(unittest.TestCase):
