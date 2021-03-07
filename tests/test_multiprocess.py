@@ -40,7 +40,7 @@ class TestMultiProcessDeprecation(unittest.TestCase):
         with warnings.catch_warnings(record=True) as w:
             values.ValueClass = get_value_class()
             registry = CollectorRegistry()
-            collector = MultiProcessCollector(registry, self.tempdir)
+            collector = MultiProcessCollector(registry)
             Counter('c', 'help', registry=None)
 
             assert os.environ['PROMETHEUS_MULTIPROC_DIR'] == self.tempdir
@@ -55,7 +55,7 @@ class TestMultiProcess(unittest.TestCase):
         os.environ['PROMETHEUS_MULTIPROC_DIR'] = self.tempdir
         values.ValueClass = MultiProcessValue(lambda: 123)
         self.registry = CollectorRegistry()
-        self.collector = MultiProcessCollector(self.registry, self.tempdir)
+        self.collector = MultiProcessCollector(self.registry)
 
     @property
     def _value_class(self):
@@ -107,7 +107,7 @@ class TestMultiProcess(unittest.TestCase):
         self.assertEqual(0, self.registry.get_sample_value('g', {'pid': '456'}))
         g1.set(1)
         g2.set(2)
-        mark_process_dead(123, os.environ['PROMETHEUS_MULTIPROC_DIR'])
+        mark_process_dead(123)
         self.assertEqual(1, self.registry.get_sample_value('g', {'pid': '123'}))
         self.assertEqual(2, self.registry.get_sample_value('g', {'pid': '456'}))
 
