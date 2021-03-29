@@ -4,6 +4,7 @@ from collections import defaultdict
 import glob
 import json
 import os
+import warnings
 
 from .metrics_core import Metric
 from .mmap_dict import MmapedDict
@@ -23,6 +24,10 @@ class MultiProcessCollector(object):
 
     def __init__(self, registry, path=None):
         if path is None:
+            # This deprecation warning can go away in a few releases when removing the compatibility
+            if 'prometheus_multiproc_dir' in os.environ and 'PROMETHEUS_MULTIPROC_DIR' not in os.environ:
+                os.environ['PROMETHEUS_MULTIPROC_DIR'] = os.environ['prometheus_multiproc_dir']
+                warnings.warn("prometheus_multiproc_dir variable has been deprecated in favor of the upper case naming PROMETHEUS_MULTIPROC_DIR", DeprecationWarning)
             path = os.environ.get('PROMETHEUS_MULTIPROC_DIR')
         if not path or not os.path.isdir(path):
             raise ValueError('env PROMETHEUS_MULTIPROC_DIR is not set or not a directory')
