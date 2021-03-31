@@ -1,11 +1,8 @@
----
 version: 2.1
-
 executors:
   python:
     docker:
       - image: cimg/python:3.9
-
 jobs:
   flake8_lint:
     executor: python
@@ -56,8 +53,6 @@ jobs:
       - checkout
       - run: pip install tox
       - run: tox
-   
-
 workflows:
   version: 2
   client_python:
@@ -67,23 +62,25 @@ workflows:
       - test:
           matrix:
             parameters:
-               python:
-                 - "2.7"
-                 - "3.4"
-                 - "3.5"
-                 - "3.6"
-                 - "3.7"
-                 - "3.8"
-                 - "3.9"
+              python:
+                - "2.7"
+                - "3.4"
+                - "3.5"
+                - "3.6"
+                - "3.7"
+                - "3.8"
+                - "3.9"
       - test_nooptionals:
           matrix:
             parameters:
-               python:
-                 - "2.7"
-                 - "3.9"
+              python:
+                - "2.7"
+                - "3.9"
       - test_pypy:
           matrix:
             parameters:
-               python:
-                 - "2.7"
-                 - "3.7"
+              python:
+                - "2.7"
+                - "3.7"
+orbs:
+  prometheus: prometheus/prometheus@0.11.0
