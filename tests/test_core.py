@@ -456,6 +456,15 @@ class TestMetricWrapper(unittest.TestCase):
         self.assertEqual(None, self.registry.get_sample_value('c_total', {'l': 'x'}))
         self.assertEqual(2, self.registry.get_sample_value('c_total', {'l': 'y'}))
 
+    def test_clear(self):
+        self.counter.labels('x').inc()
+        self.counter.labels('y').inc(2)
+        self.assertEqual(1, self.registry.get_sample_value('c_total', {'l': 'x'}))
+        self.assertEqual(2, self.registry.get_sample_value('c_total', {'l': 'y'}))
+        self.counter.clear()
+        self.assertEqual(None, self.registry.get_sample_value('c_total', {'l': 'x'}))
+        self.assertEqual(None, self.registry.get_sample_value('c_total', {'l': 'y'}))
+
     def test_incorrect_label_count_raises(self):
         self.assertRaises(ValueError, self.counter.labels)
         self.assertRaises(ValueError, self.counter.labels, 'a', 'b')

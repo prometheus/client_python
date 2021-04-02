@@ -186,6 +186,11 @@ class MetricWrapperBase(object):
         with self._lock:
             del self._metrics[labelvalues]
 
+    def clear(self):
+        """Remove all labelsets from the metric"""
+        with self._lock:
+            self._metrics = {}
+
     def _samples(self):
         if self._is_parent():
             return self._multi_samples()
