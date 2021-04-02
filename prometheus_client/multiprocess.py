@@ -4,6 +4,7 @@ from collections import defaultdict
 import glob
 import json
 import os
+import warnings
 
 from .metrics_core import Metric
 from .mmap_dict import MmapedDict
@@ -23,9 +24,13 @@ class MultiProcessCollector(object):
 
     def __init__(self, registry, path=None):
         if path is None:
-            path = os.environ.get('prometheus_multiproc_dir')
+            # This deprecation warning can go away in a few releases when removing the compatibility
+            if 'prometheus_multiproc_dir' in os.environ and 'PROMETHEUS_MULTIPROC_DIR' not in os.environ:
+                os.environ['PROMETHEUS_MULTIPROC_DIR'] = os.environ['prometheus_multiproc_dir']
+                warnings.warn("prometheus_multiproc_dir variable has been deprecated in favor of the upper case naming PROMETHEUS_MULTIPROC_DIR", DeprecationWarning)
+            path = os.environ.get('PROMETHEUS_MULTIPROC_DIR')
         if not path or not os.path.isdir(path):
-            raise ValueError('env prometheus_multiproc_dir is not set or not a directory')
+            raise ValueError('env PROMETHEUS_MULTIPROC_DIR is not set or not a directory')
         self._path = path
         if registry:
             registry.register(self)
@@ -66,7 +71,7 @@ class MultiProcessCollector(object):
                     # the file is missing
                     continue
                 raise
-            for key, value, pos in file_values:
+            for key, value, _ in file_values:
                 metric_name, name, labels, labels_key = _parse_key(key)
 
                 metric = metrics.get(metric_name)
@@ -152,7 +157,7 @@ class MultiProcessCollector(object):
 def mark_process_dead(pid, path=None):
     """Do bookkeeping for when one process dies in a multi-process setup."""
     if path is None:
-        path = os.environ.get('prometheus_multiproc_dir')
+        path = os.environ.get('PROMETHEUS_MULTIPROC_DIR')
     for f in glob.glob(os.path.join(path, 'gauge_livesum_{0}.db'.format(pid))):
         os.remove(f)
     for f in glob.glob(os.path.join(path, 'gauge_liveall_{0}.db'.format(pid))):
