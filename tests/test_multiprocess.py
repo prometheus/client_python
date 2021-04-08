@@ -30,8 +30,8 @@ class TestMultiProcessDeprecation(unittest.TestCase):
         self.tempdir = tempfile.mkdtemp()
 
     def tearDown(self):
-        del os.environ['prometheus_multiproc_dir']
-        del os.environ['PROMETHEUS_MULTIPROC_DIR']
+        os.environ.pop('prometheus_multiproc_dir', None)
+        os.environ.pop('PROMETHEUS_MULTIPROC_DIR', None)
         values.ValueClass = MutexValue
         shutil.rmtree(self.tempdir)
 
@@ -47,6 +47,12 @@ class TestMultiProcessDeprecation(unittest.TestCase):
             assert len(w) == 1
             assert issubclass(w[-1].category, DeprecationWarning)
             assert "PROMETHEUS_MULTIPROC_DIR" in str(w[-1].message)
+
+    def test_mark_process_dead_respects_lowercase(self):
+        os.environ['prometheus_multiproc_dir'] = self.tempdir
+        # Just test that this does not raise with a lowercase env var. The
+        # logic is tested elsewhere.
+        mark_process_dead(123)
 
 
 class TestMultiProcess(unittest.TestCase):
