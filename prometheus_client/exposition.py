@@ -271,8 +271,20 @@ def write_to_textfile(path, registry):
     tmppath = '%s.%s.%s' % (path, os.getpid(), threading.current_thread().ident)
     with open(tmppath, 'wb') as f:
         f.write(generate_latest(registry))
-    # rename(2) is atomic.
-    os.rename(tmppath, path)
+    
+    # rename(2) is atomic but fails on Windows if the destination file exists
+    if os.name == 'posix':
+        os.rename(tmppath, path)
+    else:
+        if sys.version_info <= (3,3):
+            # Unable to guarantee atomic rename on Windows and Python<3.3
+            # Remove and rename instead (risks losing the file)
+            os.remove(path)
+            os.rename(tmppath, path)
+        else:
+            # os.replace is introduced in Python 3.3 but there is some dispute whether
+            # it is a truly atomic file operation: https://bugs.python.org/issue8828
+            os.replace(tmppath, path)
 
 
 def _make_handler(url, method, timeout, headers, data, base_handler):
