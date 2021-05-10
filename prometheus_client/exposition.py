@@ -276,7 +276,7 @@ def write_to_textfile(path, registry):
     if os.name == 'posix':
         os.rename(tmppath, path)
     else:
-        if sys.version_info <= (3,3):
+        if sys.version_info <= (3, 3):
             # Unable to guarantee atomic rename on Windows and Python<3.3
             # Remove and rename instead (risks losing the file)
             os.remove(path)
