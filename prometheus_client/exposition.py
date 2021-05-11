@@ -277,7 +277,11 @@ def write_to_textfile(path, registry):
         if sys.version_info <= (3, 3):
             # Unable to guarantee atomic rename on Windows and Python<3.3
             # Remove and rename instead (risks losing the file)
-            os.remove(path)
+            try:
+                os.remove(path)
+            except FileNotFoundError:
+                pass
+
             os.rename(tmppath, path)
         else:
             # os.replace is introduced in Python 3.3 but there is some dispute whether
