@@ -494,7 +494,7 @@ implement a proper `describe`, or if that's not practical have `describe`
 return an empty list.
 
 
-## Multiprocess Mode (Gunicorn)
+## Multiprocess Mode (E.g. Gunicorn)
 
 Prometheus client libraries presume a threaded model, where metrics are shared
 across workers. This doesn't work so well for languages such as Python where
@@ -504,6 +504,8 @@ To handle this the client library can be put in multiprocess mode.
 This comes with a number of limitations:
 
 - Registries can not be used as normal, all instantiated metrics are exported
+  - Registering metrics to a registry later used by a `MultiProcessCollector`
+    may cause duplicate metrics to be exported
 - Custom collectors do not work (e.g. cpu and memory metrics)
 - Info and Enum metrics do not work
 - The pushgateway cannot be used
@@ -511,23 +513,29 @@ This comes with a number of limitations:
 
 There's several steps to getting this working:
 
-**1. Gunicorn deployment**:
+**1. Deployment**:
 
 The `PROMETHEUS_MULTIPROC_DIR` environment variable must be set to a directory
 that the client library can use for metrics. This directory must be wiped
-between Gunicorn runs (before startup is recommended).
+between process/Gunicorn runs (before startup is recommended).
 
 This environment variable should be set from a start-up shell script,
 and not directly from Python (otherwise it may not propagate to child processes).
 
 **2. Metrics collector**:
 
-The application must initialize a new `CollectorRegistry`,
-and store the multi-process collector inside.
+The application must initialize a new `CollectorRegistry`, and store the
+multi-process collector inside. It is a best practice to create this registry
+inside the context of a request to avoid metrics registering themselves to a
+collector used by a `MultiProcessCollector`. If a registry with metrics
+registered is used by a `MultiProcessCollector` duplicate metrics may be
+exported, one for multiprocess, and one for the process serving the request.
 
 ```python
 from prometheus_client import multiprocess
-from prometheus_client import generate_latest, CollectorRegistry, CONTENT_TYPE_LATEST
+from prometheus_client import generate_latest, CollectorRegistry, CONTENT_TYPE_LATEST, Counter
+
+MY_COUNTER = Counter('my_counter', 'Description of my counter')
 
 # Expose metrics.
 def app(environ, start_response):
