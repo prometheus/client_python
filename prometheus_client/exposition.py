@@ -138,10 +138,24 @@ class ThreadingWSGIServer(ThreadingMixIn, WSGIServer):
     daemon_threads = True
 
 
-def start_wsgi_server(port, addr='', registry=REGISTRY):
+def _get_best_family(address, port):
+    """Automatically select address family depending on address"""
+    # HTTPServer defaults to AF_INET, which will not start properly if
+    # binding an ipv6 address is requested.
+    # This function is based on what upstream python did for http.server
+    # in https://github.com/python/cpython/pull/11767
+    infos = socket.getaddrinfo(address, port)
+    family, _, _, _, sockaddr = next(iter(infos))
+    return family, sockaddr[0]
+
+
+def start_wsgi_server(port, addr='0.0.0.0', registry=REGISTRY):
     """Starts a WSGI server for prometheus metrics as a daemon thread."""
+    class TmpServer(ThreadingWSGIServer):
+        """Copy of ThreadingWSGIServer to update address_family locally"""
+    TmpServer.address_family, addr = _get_best_family(addr, port)
     app = make_wsgi_app(registry)
-    httpd = make_server(addr, port, app, ThreadingWSGIServer, handler_class=_SilentHandler)
+    httpd = make_server(addr, port, app, TmpServer, handler_class=_SilentHandler)
     t = threading.Thread(target=httpd.serve_forever)
     t.daemon = True
     t.start()
