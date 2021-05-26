@@ -441,7 +441,15 @@ class Summary(MetricWrapperBase):
         self._created = time.time()
 
     def observe(self, amount):
-        """Observe the given amount."""
+        """Observe the given amount.
+
+        The amount is usually positive or zero. Negative values are
+        accepted but prevent current versions of Prometheus from
+        properly detecting counter resets in the sum of
+        observations. See
+        https://prometheus.io/docs/practices/histograms/#count-and-sum-of-observations
+        for details.
+        """
         self._count.inc(1)
         self._sum.inc(amount)
 
@@ -550,7 +558,15 @@ class Histogram(MetricWrapperBase):
             )
 
     def observe(self, amount):
-        """Observe the given amount."""
+        """Observe the given amount.
+
+        The amount is usually positive or zero. Negative values are
+        accepted but prevent current versions of Prometheus from
+        properly detecting counter resets in the sum of
+        observations. See
+        https://prometheus.io/docs/practices/histograms/#count-and-sum-of-observations
+        for details.
+        """
         self._sum.inc(amount)
         for i, bound in enumerate(self._upper_bounds):
             if amount <= bound:
