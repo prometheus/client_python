@@ -95,11 +95,11 @@ class MetricWrapperBase(object):
                  subsystem='',
                  unit='',
                  registry=REGISTRY,
-                 labelvalues=None,
+                 _labelvalues=None,
                  ):
         self._name = _build_full_name(self._type, name, namespace, subsystem, unit)
         self._labelnames = _validate_labelnames(self, labelnames)
-        self._labelvalues = tuple(labelvalues or ())
+        self._labelvalues = tuple(_labelvalues or ())
         self._kwargs = {}
         self._documentation = documentation
         self._unit = unit
@@ -170,7 +170,7 @@ class MetricWrapperBase(object):
                     documentation=self._documentation,
                     labelnames=self._labelnames,
                     unit=self._unit,
-                    labelvalues=labelvalues,
+                    _labelvalues=labelvalues,
                     **self._kwargs
                 )
             return self._metrics[labelvalues]
@@ -327,7 +327,7 @@ class Gauge(MetricWrapperBase):
                  subsystem='',
                  unit='',
                  registry=REGISTRY,
-                 labelvalues=None,
+                 _labelvalues=None,
                  multiprocess_mode='all',
                  ):
         self._multiprocess_mode = multiprocess_mode
@@ -341,7 +341,7 @@ class Gauge(MetricWrapperBase):
             subsystem=subsystem,
             unit=unit,
             registry=registry,
-            labelvalues=labelvalues,
+            _labelvalues=_labelvalues,
         )
         self._kwargs['multiprocess_mode'] = self._multiprocess_mode
 
@@ -515,7 +515,7 @@ class Histogram(MetricWrapperBase):
                  subsystem='',
                  unit='',
                  registry=REGISTRY,
-                 labelvalues=None,
+                 _labelvalues=None,
                  buckets=DEFAULT_BUCKETS,
                  ):
         self._prepare_buckets(buckets)
@@ -527,7 +527,7 @@ class Histogram(MetricWrapperBase):
             subsystem=subsystem,
             unit=unit,
             registry=registry,
-            labelvalues=labelvalues,
+            _labelvalues=_labelvalues,
         )
         self._kwargs['buckets'] = buckets
 
@@ -652,7 +652,7 @@ class Enum(MetricWrapperBase):
                  subsystem='',
                  unit='',
                  registry=REGISTRY,
-                 labelvalues=None,
+                 _labelvalues=None,
                  states=None,
                  ):
         super(Enum, self).__init__(
@@ -663,7 +663,7 @@ class Enum(MetricWrapperBase):
             subsystem=subsystem,
             unit=unit,
             registry=registry,
-            labelvalues=labelvalues,
+            _labelvalues=_labelvalues,
         )
         if name in labelnames:
             raise ValueError('Overlapping labels for Enum metric: %s' % (name,))
