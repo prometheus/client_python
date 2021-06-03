@@ -409,17 +409,6 @@ class Collector:
         return [self.metric_family]
 
 
-def _expect_metric_exception(registry, expected_error):
-    try:
-        generate_latest(registry)
-    except expected_error as exception:
-        assert isinstance(exception.args[-1], core.Metric)
-        # Got a valid error as expected, return quietly
-        return
-
-    raise RuntimeError('Expected exception not raised')
-
-
 @pytest.mark.parametrize('MetricFamily', [
     core.CounterMetricFamily,
     core.GaugeMetricFamily,
@@ -434,7 +423,12 @@ def _expect_metric_exception(registry, expected_error):
 def test_basic_metric_families(registry, MetricFamily, value, error):
     metric_family = MetricFamily(MetricFamily.__name__, 'help')
     registry.register(Collector(metric_family, value))
-    _expect_metric_exception(registry, error)
+    try:
+        generate_latest(registry)
+    except error as exception: 
+        # Got a valid error as expected, return quietly
+        return
+    raise RuntimeError('Expected exception not raised')
 
 
 @pytest.mark.parametrize('count_value,sum_value,error', [
@@ -450,14 +444,18 @@ def test_basic_metric_families(registry, MetricFamily, value, error):
 def test_summary_metric_family(registry, count_value, sum_value, error):
     metric_family = core.SummaryMetricFamily('summary', 'help')
     registry.register(Collector(metric_family, count_value, sum_value))
-    _expect_metric_exception(registry, error)
+    try:
+        generate_latest(registry)
+    except error as exception:
+        # Got a valid error as expected, return quietly
+        return
+    raise RuntimeError('Expected exception not raised')
 
 
 @pytest.mark.parametrize('MetricFamily', [
     core.GaugeHistogramMetricFamily,
 ])
 @pytest.mark.parametrize('buckets,sum_value,error', [
-    ([('spam', 0), ('eggs', 0)], None, TypeError),
     ([('spam', 0), ('eggs', None)], 0, TypeError),
     ([('spam', 0), (None, 0)], 0, AttributeError),
     ([('spam', None), ('eggs', 0)], 0, TypeError),
@@ -469,7 +467,12 @@ def test_summary_metric_family(registry, count_value, sum_value, error):
 def test_histogram_metric_families(MetricFamily, registry, buckets, sum_value, error):
     metric_family = MetricFamily(MetricFamily.__name__, 'help')
     registry.register(Collector(metric_family, buckets, sum_value))
-    _expect_metric_exception(registry, error)
+    try:
+        generate_latest(registry)
+    except error as exception:
+        # Got a valid error as expected, return quietly
+        return
+    raise RuntimeError('Expected exception not raised')
 
 
 if __name__ == '__main__':

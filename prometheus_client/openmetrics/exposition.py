@@ -8,6 +8,13 @@ CONTENT_TYPE_LATEST = str('application/openmetrics-text; version=0.0.1; charset=
 """Content type of the latest OpenMetrics text format"""
 
 
+def _to_openmetrics_value(value):
+    # Openmetrics distinguishes integers and floats with different text representations.
+    if type(value) == int:
+        return str(value)
+    return floatToGoString(value)
+
+
 def generate_latest(registry):
     '''Returns the metrics from the registry in latest text format as a string.'''
     output = []
@@ -37,13 +44,13 @@ def generate_latest(registry):
                     if s.exemplar.timestamp is not None:
                         exemplarstr = ' # {0} {1} {2}'.format(
                             labels,
-                            floatToGoString(s.exemplar.value),
+                            _to_openmetrics_value(s.exemplar.value),
                             s.exemplar.timestamp,
                         )
                     else:
                         exemplarstr = ' # {0} {1}'.format(
                             labels,
-                            floatToGoString(s.exemplar.value),
+                            _to_openmetrics_value(s.exemplar.value),
                         )
                 else:
                     exemplarstr = ''
@@ -53,7 +60,7 @@ def generate_latest(registry):
                 output.append('{0}{1} {2}{3}{4}\n'.format(
                     s.name,
                     labelstr,
-                    floatToGoString(s.value),
+                    _to_openmetrics_value(s.value),
                     timestamp,
                     exemplarstr,
                 ))

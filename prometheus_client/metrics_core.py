@@ -257,10 +257,13 @@ class GaugeHistogramMetricFamily(Metric):
                 dict(list(zip(self._labelnames, labels)) + [('le', bucket)]),
                 value, timestamp))
         # +Inf is last and provides the count value.
-        self.samples.extend([
+        self.samples.append(
             Sample(self.name + '_gcount', dict(zip(self._labelnames, labels)), buckets[-1][1], timestamp),
-            Sample(self.name + '_gsum', dict(zip(self._labelnames, labels)), gsum_value, timestamp),
-        ])
+        )
+        if gsum_value is not None:
+            self.samples.append(
+                Sample(self.name + '_gsum', dict(zip(self._labelnames, labels)), gsum_value, timestamp),
+            )
 
 
 class InfoMetricFamily(Metric):
