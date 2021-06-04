@@ -8,6 +8,14 @@ CONTENT_TYPE_LATEST = str('application/openmetrics-text; version=0.0.1; charset=
 """Content type of the latest OpenMetrics text format"""
 
 
+def _is_valid_exemplar_metric(metric, sample):
+    if metric.type == 'counter' and sample.name.endswith('_total'):
+        return True
+    if metric.type in ('histogram', 'gaugehistogram') and sample.name.endswith('_bucket'):
+        return True
+    return False
+
+
 def generate_latest(registry):
     '''Returns the metrics from the registry in latest text format as a string.'''
     output = []
@@ -28,8 +36,8 @@ def generate_latest(registry):
                 else:
                     labelstr = ''
                 if s.exemplar:
-                    if metric.type not in ('histogram', 'gaugehistogram') or not s.name.endswith('_bucket'):
-                        raise ValueError("Metric {0} has exemplars, but is not a histogram bucket".format(metric.name))
+                    if not _is_valid_exemplar_metric(metric, s):
+                        raise ValueError("Metric {0} has exemplars, but is not a histogram bucket or counter".format(metric.name))
                     labels = '{{{0}}}'.format(','.join(
                         ['{0}="{1}"'.format(
                             k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))

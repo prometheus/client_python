@@ -136,7 +136,23 @@ hh_bucket{le="+Inf"} 0.0
 # EOF
 """, generate_latest(self.registry))
 
-    def test_nonhistogram_exemplar(self):
+    def test_counter_exemplar(self):
+        class MyCollector(object):
+            def collect(self):
+                metric = Metric("cc", "A counter", 'counter')
+                metric.add_sample("cc_total", {}, 1, None, Exemplar({'a': 'b'}, 1.0, 123.456))
+                metric.add_sample("cc_created", {}, 123.456, None, None)
+                yield metric
+
+        self.registry.register(MyCollector())
+        self.assertEqual(b"""# HELP cc A counter
+# TYPE cc counter
+cc_total 1.0 # {a="b"} 1.0 123.456
+cc_created 123.456
+# EOF
+""", generate_latest(self.registry))
+
+    def test_untyped_exemplar(self):
         class MyCollector(object):
             def collect(self):
                 metric = Metric("hh", "help", 'untyped')
@@ -148,12 +164,24 @@ hh_bucket{le="+Inf"} 0.0
         with self.assertRaises(ValueError):
             generate_latest(self.registry)
 
-    def test_nonhistogram_bucket_exemplar(self):
+    def test_histogram_non_bucket_exemplar(self):
         class MyCollector(object):
             def collect(self):
                 metric = Metric("hh", "help", 'histogram')
                 # This is not sane, but it covers all the cases.
                 metric.add_sample("hh_count", {}, 0, None, Exemplar({'a': 'b'}, 0.5))
+                yield metric
+
+        self.registry.register(MyCollector())
+        with self.assertRaises(ValueError):
+            generate_latest(self.registry)
+
+    def test_counter_non_total_exemplar(self):
+        class MyCollector(object):
+            def collect(self):
+                metric = Metric("cc", "A counter", 'counter')
+                metric.add_sample("cc_total", {}, 1, None, None)
+                metric.add_sample("cc_created", {}, 123.456, None, Exemplar({'a': 'b'}, 1.0, 123.456))
                 yield metric
 
         self.registry.register(MyCollector())
