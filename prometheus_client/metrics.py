@@ -258,6 +258,7 @@ class Counter(MetricWrapperBase):
 
     def inc(self, amount=1):
         """Increment counter by the given amount."""
+        self._raise_if_not_observable()
         if amount < 0:
             raise ValueError('Counters can only be incremented by non-negative amounts.')
         self._value.inc(amount)
@@ -353,14 +354,17 @@ class Gauge(MetricWrapperBase):
 
     def inc(self, amount=1):
         """Increment gauge by the given amount."""
+        self._raise_if_not_observable()
         self._value.inc(amount)
 
     def dec(self, amount=1):
         """Decrement gauge by the given amount."""
+        self._raise_if_not_observable()
         self._value.inc(-amount)
 
     def set(self, value):
         """Set gauge to the given value."""
+        self._raise_if_not_observable()
         self._value.set(float(value))
 
     def set_to_current_time(self):
@@ -391,6 +395,8 @@ class Gauge(MetricWrapperBase):
         The function must return a float, and may be called from
         multiple threads. All other methods of the Gauge become NOOPs.
         """
+
+        self._raise_if_not_observable()
 
         def samples(self):
             return (('', {}, float(f())),)
@@ -450,6 +456,7 @@ class Summary(MetricWrapperBase):
         https://prometheus.io/docs/practices/histograms/#count-and-sum-of-observations
         for details.
         """
+        self._raise_if_not_observable()
         self._count.inc(1)
         self._sum.inc(amount)
 
@@ -567,6 +574,7 @@ class Histogram(MetricWrapperBase):
         https://prometheus.io/docs/practices/histograms/#count-and-sum-of-observations
         for details.
         """
+        self._raise_if_not_observable()
         self._sum.inc(amount)
         for i, bound in enumerate(self._upper_bounds):
             if amount <= bound:
