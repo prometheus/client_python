@@ -10,6 +10,7 @@ from .metrics_core import (
     RESERVED_METRIC_LABEL_NAME_RE,
 )
 from .registry import REGISTRY
+from .samples import Exemplar
 from .utils import floatToGoString, INF
 
 if sys.version_info > (3,):
@@ -36,16 +37,30 @@ def _build_full_name(metric_type, name, namespace, subsystem, unit):
     return full_name
 
 
+def _validate_labelname(l):
+    if not METRIC_LABEL_NAME_RE.match(l):
+        raise ValueError('Invalid label metric name: ' + l)
+    if RESERVED_METRIC_LABEL_NAME_RE.match(l):
+        raise ValueError('Reserved label metric name: ' + l)
+
+
 def _validate_labelnames(cls, labelnames):
     labelnames = tuple(labelnames)
     for l in labelnames:
-        if not METRIC_LABEL_NAME_RE.match(l):
-            raise ValueError('Invalid label metric name: ' + l)
-        if RESERVED_METRIC_LABEL_NAME_RE.match(l):
-            raise ValueError('Reserved label metric name: ' + l)
+        _validate_labelname(l)
         if l in cls._reserved_labelnames:
             raise ValueError('Reserved label metric name: ' + l)
     return labelnames
+
+
+def _validate_exemplar(exemplar):
+    runes = 0
+    for k, v in exemplar.items():
+        _validate_labelname(k)
+        runes += len(k)
+        runes += len(v)
+    if runes > 128:
+        raise ValueError('Exemplar labels have %d UTF-8 characters, exceeding the limit of 128')
 
 
 class MetricWrapperBase(object):
@@ -76,8 +91,8 @@ class MetricWrapperBase(object):
 
     def collect(self):
         metric = self._get_metric()
-        for suffix, labels, value in self._samples():
-            metric.add_sample(self._name + suffix, labels, value)
+        for suffix, labels, value, timestamp, exemplar in self._samples():
+            metric.add_sample(self._name + suffix, labels, value, timestamp, exemplar)
         return [metric]
 
     def __str__(self):
@@ -202,8 +217,8 @@ class MetricWrapperBase(object):
             metrics = self._metrics.copy()
         for labels, metric in metrics.items():
             series_labels = list(zip(self._labelnames, labels))
-            for suffix, sample_labels, value in metric._samples():
-                yield (suffix, dict(series_labels + list(sample_labels.items())), value)
+            for suffix, sample_labels, value, timestamp, exemplar in metric._samples():
+                yield (suffix, dict(series_labels + list(sample_labels.items())), value, timestamp, exemplar)
 
     def _child_samples(self):  # pragma: no cover
         raise NotImplementedError('_child_samples() must be implemented by %r' % self)
@@ -256,12 +271,15 @@ class Counter(MetricWrapperBase):
                                         self._labelvalues)
         self._created = time.time()
 
-    def inc(self, amount=1):
+    def inc(self, amount=1, exemplar=None):
         """Increment counter by the given amount."""
         self._raise_if_not_observable()
         if amount < 0:
             raise ValueError('Counters can only be incremented by non-negative amounts.')
         self._value.inc(amount)
+        if exemplar:
+            _validate_exemplar(exemplar)
+            self._value.set_exemplar(Exemplar(exemplar, amount, time.time()))
 
     def count_exceptions(self, exception=Exception):
         """Count exceptions in a block of code or function.
@@ -275,8 +293,8 @@ class Counter(MetricWrapperBase):
 
     def _child_samples(self):
         return (
-            ('_total', {}, self._value.get()),
-            ('_created', {}, self._created),
+            ('_total', {}, self._value.get(), None, self._value.get_exemplar()),
+            ('_created', {}, self._created, None, None),
         )
 
 
@@ -399,12 +417,12 @@ class Gauge(MetricWrapperBase):
         self._raise_if_not_observable()
 
         def samples(self):
-            return (('', {}, float(f())),)
+            return (('', {}, float(f()), None, None),)
 
         self._child_samples = create_bound_method(samples, self)
 
     def _child_samples(self):
-        return (('', {}, self._value.get()),)
+        return (('', {}, self._value.get(), None, None),)
 
 
 class Summary(MetricWrapperBase):
@@ -470,9 +488,10 @@ class Summary(MetricWrapperBase):
 
     def _child_samples(self):
         return (
-            ('_count', {}, self._count.get()),
-            ('_sum', {}, self._sum.get()),
-            ('_created', {}, self._created))
+            ('_count', {}, self._count.get(), None, None),
+            ('_sum', {}, self._sum.get(), None, None),
+            ('_created', {}, self._created, None, None),
+        )
 
 
 class Histogram(MetricWrapperBase):
@@ -564,7 +583,7 @@ class Histogram(MetricWrapperBase):
                 self._labelvalues + (floatToGoString(b),))
             )
 
-    def observe(self, amount):
+    def observe(self, amount, exemplar=None):
         """Observe the given amount.
 
         The amount is usually positive or zero. Negative values are
@@ -579,6 +598,9 @@ class Histogram(MetricWrapperBase):
         for i, bound in enumerate(self._upper_bounds):
             if amount <= bound:
                 self._buckets[i].inc(1)
+                if exemplar:
+                    _validate_exemplar(exemplar)
+                    self._buckets[i].set_exemplar(Exemplar(exemplar, amount, time.time()))
                 break
 
     def time(self):
@@ -593,11 +615,11 @@ class Histogram(MetricWrapperBase):
         acc = 0
         for i, bound in enumerate(self._upper_bounds):
             acc += self._buckets[i].get()
-            samples.append(('_bucket', {'le': floatToGoString(bound)}, acc))
-        samples.append(('_count', {}, acc))
+            samples.append(('_bucket', {'le': floatToGoString(bound)}, acc, None, self._buckets[i].get_exemplar()))
+        samples.append(('_count', {}, acc, None, None))
         if self._upper_bounds[0] >= 0:
-            samples.append(('_sum', {}, self._sum.get()))
-        samples.append(('_created', {}, self._created))
+            samples.append(('_sum', {}, self._sum.get(), None, None))
+        samples.append(('_created', {}, self._created, None, None))
         return tuple(samples)
 
 
@@ -634,7 +656,7 @@ class Info(MetricWrapperBase):
 
     def _child_samples(self):
         with self._lock:
-            return (('_info', self._value, 1.0,),)
+            return (('_info', self._value, 1.0, None, None),)
 
 
 class Enum(MetricWrapperBase):
@@ -692,7 +714,7 @@ class Enum(MetricWrapperBase):
     def _child_samples(self):
         with self._lock:
             return [
-                ('', {self._name: s}, 1 if i == self._value else 0,)
+                ('', {self._name: s}, 1 if i == self._value else 0, None, None)
                 for i, s
                 in enumerate(self._states)
             ]

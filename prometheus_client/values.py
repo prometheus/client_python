@@ -14,6 +14,7 @@ class MutexValue(object):
 
     def __init__(self, typ, metric_name, name, labelnames, labelvalues, **kwargs):
         self._value = 0.0
+        self._exemplar = None
         self._lock = Lock()
 
     def inc(self, amount):
@@ -24,9 +25,17 @@ class MutexValue(object):
         with self._lock:
             self._value = value
 
+    def set_exemplar(self, exemplar):
+        with self._lock:
+            self._exemplar = exemplar
+
     def get(self):
         with self._lock:
             return self._value
+
+    def get_exemplar(self):
+        with self._lock:
+            return self._exemplar
 
 
 def MultiProcessValue(process_identifier=os.getpid):
@@ -100,10 +109,18 @@ def MultiProcessValue(process_identifier=os.getpid):
                 self._value = value
                 self._file.write_value(self._key, self._value)
 
+        def set_exemplar(self, exemplar):
+            # TODO: Implement exemplars for multiprocess mode.
+            return
+
         def get(self):
             with lock:
                 self.__check_for_pid_change()
                 return self._value
+
+        def get_exemplar(self):
+            # TODO: Implement exemplars for multiprocess mode.
+            return None
 
     return MmapedValue
 
