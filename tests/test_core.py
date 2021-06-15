@@ -19,6 +19,21 @@ except ImportError:
     import unittest
 
 
+def assert_not_observable(fn, *args, **kwargs):
+    """
+    Assert that a function call falls with a ValueError exception containing
+    'missing label values'
+    """
+
+    try:
+        fn(*args, **kwargs)
+    except ValueError as e:
+        assert 'missing label values' in str(e)
+        return
+
+    assert False, "Did not raise a 'missing label values' exception"
+
+
 class TestCounter(unittest.TestCase):
     def setUp(self):
         self.registry = CollectorRegistry()
@@ -36,7 +51,6 @@ class TestCounter(unittest.TestCase):
 
     def test_negative_increment_raises(self):
         self.assertRaises(ValueError, self.counter.inc, -1)
-    
 
     def test_function_decorator(self):
         @self.counter.count_exceptions(ValueError)
@@ -76,18 +90,21 @@ class TestCounter(unittest.TestCase):
 
     def test_count_exceptions_not_observable(self):
         counter = Counter('counter', 'help', labelnames=('label',), registry=self.registry)
+        assert_not_observable(counter.count_exceptions)
 
-        try:
-            counter.count_exceptions()
-        except ValueError as e:
-            self.assertIn('missing label values', str(e))
+    def test_inc_not_observable(self):
+        """.inc() must fail if the counter is not observable."""
+
+        counter = Counter('counter', 'help', labelnames=('label',), registry=self.registry)
+        assert_not_observable(counter.inc)
 
 
 class TestGauge(unittest.TestCase):
     def setUp(self):
         self.registry = CollectorRegistry()
         self.gauge = Gauge('g', 'help', registry=self.registry)
-    
+        self.gauge_with_label = Gauge('g2', 'help', labelnames=("label1",), registry=self.registry)
+
     def test_repr(self):
         self.assertEqual(repr(self.gauge), "prometheus_client.metrics.Gauge(g)")
 
@@ -99,6 +116,21 @@ class TestGauge(unittest.TestCase):
         self.assertEqual(-2, self.registry.get_sample_value('g'))
         self.gauge.set(9)
         self.assertEqual(9, self.registry.get_sample_value('g'))
+
+    def test_inc_not_observable(self):
+        """.inc() must fail if the gauge is not observable."""
+
+        assert_not_observable(self.gauge_with_label.inc)
+
+    def test_dec_not_observable(self):
+        """.dec() must fail if the gauge is not observable."""
+
+        assert_not_observable(self.gauge_with_label.dec)
+
+    def test_set_not_observable(self):
+        """.set() must fail if the gauge is not observable."""
+
+        assert_not_observable(self.gauge_with_label.set, 1)
 
     def test_inprogress_function_decorator(self):
         self.assertEqual(0, self.registry.get_sample_value('g'))
@@ -126,6 +158,11 @@ class TestGauge(unittest.TestCase):
         self.assertEqual(0, self.registry.get_sample_value('g'))
         x['a'] = None
         self.assertEqual(1, self.registry.get_sample_value('g'))
+
+    def test_set_function_not_observable(self):
+        """.set_function() must fail if the gauge is not observable."""
+
+        assert_not_observable(self.gauge_with_label.set_function, lambda: 1)
 
     def test_time_function_decorator(self):
         self.assertEqual(0, self.registry.get_sample_value('g'))
@@ -167,25 +204,18 @@ class TestGauge(unittest.TestCase):
 
     def test_track_in_progress_not_observable(self):
         g = Gauge('test', 'help', labelnames=('label',), registry=self.registry)
-
-        try:
-            g.track_inprogress()
-        except ValueError as e:
-            self.assertIn('missing label values', str(e))
+        assert_not_observable(g.track_inprogress)
 
     def test_timer_not_observable(self):
         g = Gauge('test', 'help', labelnames=('label',), registry=self.registry)
-
-        try:
-            g.time()
-        except ValueError as e:
-            self.assertIn('missing label values', str(e))
+        assert_not_observable(g.time)
 
 
 class TestSummary(unittest.TestCase):
     def setUp(self):
         self.registry = CollectorRegistry()
         self.summary = Summary('s', 'help', registry=self.registry)
+        self.summary_with_labels = Summary('s_with_labels', 'help', labelnames=("label1",), registry=self.registry)
 
     def test_repr(self):
         self.assertEqual(repr(self.summary), "prometheus_client.metrics.Summary(s)")
@@ -196,6 +226,10 @@ class TestSummary(unittest.TestCase):
         self.summary.observe(10)
         self.assertEqual(1, self.registry.get_sample_value('s_count'))
         self.assertEqual(10, self.registry.get_sample_value('s_sum'))
+
+    def test_summary_not_observable(self):
+        """.observe() must fail if the Summary is not observable."""
+        assert_not_observable(self.summary_with_labels.observe, 1)
 
     def test_function_decorator(self):
         self.assertEqual(0, self.registry.get_sample_value('s_count'))
@@ -267,10 +301,7 @@ class TestSummary(unittest.TestCase):
     def test_timer_not_observable(self):
         s = Summary('test', 'help', labelnames=('label',), registry=self.registry)
 
-        try:
-            s.time()
-        except ValueError as e:
-            self.assertIn('missing label values', str(e))
+        assert_not_observable(s.time)
 
 
 class TestHistogram(unittest.TestCase):
@@ -314,6 +345,10 @@ class TestHistogram(unittest.TestCase):
         self.assertEqual(3, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
         self.assertEqual(3, self.registry.get_sample_value('h_count'))
         self.assertEqual(float("inf"), self.registry.get_sample_value('h_sum'))
+
+    def test_histogram_not_observable(self):
+        """.observe() must fail if the Summary is not observable."""
+        assert_not_observable(self.labels.observe, 1)
 
     def test_setting_buckets(self):
         h = Histogram('h', 'help', registry=None, buckets=[0, 1, 2])
