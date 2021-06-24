@@ -796,7 +796,19 @@ class TestCollectorRegistry(unittest.TestCase):
 
         m = Metric('s', 'help', 'summary')
         m.samples = [Sample('s_sum', {}, 7)]
-        self.assertEqual([m], registry.restricted_registry(['s_sum']).collect())
+        self.assertEqual([m], list(registry.restricted_registry(['s_sum']).collect()))
+
+    def test_restricted_registry_adds_new_metrics(self):
+        registry = CollectorRegistry()
+        Counter('c_total', 'help', registry=registry)
+
+        restricted_registry = registry.restricted_registry(['s_sum'])
+
+        Summary('s', 'help', registry=registry).observe(7)
+        m = Metric('s', 'help', 'summary')
+        m.samples = [Sample('s_sum', {}, 7)]
+
+        self.assertEqual([m], list(restricted_registry.collect()))
 
     def test_target_info_injected(self):
         registry = CollectorRegistry(target_info={'foo': 'bar'})
@@ -820,11 +832,11 @@ class TestCollectorRegistry(unittest.TestCase):
 
         m = Metric('s', 'help', 'summary')
         m.samples = [Sample('s_sum', {}, 7)]
-        self.assertEqual([m], registry.restricted_registry(['s_sum']).collect())
+        self.assertEqual([m], list(registry.restricted_registry(['s_sum']).collect()))
 
         m = Metric('target', 'Target metadata', 'info')
         m.samples = [Sample('target_info', {'foo': 'bar'}, 1)]
-        self.assertEqual([m], registry.restricted_registry(['target_info']).collect())
+        self.assertEqual([m], list(registry.restricted_registry(['target_info']).collect()))
 
 
 if __name__ == '__main__':

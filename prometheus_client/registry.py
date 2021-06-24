@@ -94,28 +94,7 @@ class CollectorRegistry(object):
 
         Experimental."""
         names = set(names)
-        collectors = set()
-        metrics = []
-        with self._lock:
-            if 'target_info' in names and self._target_info:
-                metrics.append(self._target_info_metric())
-                names.remove('target_info')
-            for name in names:
-                if name in self._names_to_collectors:
-                    collectors.add(self._names_to_collectors[name])
-        for collector in collectors:
-            for metric in collector.collect():
-                samples = [s for s in metric.samples if s[0] in names]
-                if samples:
-                    m = Metric(metric.name, metric.documentation, metric.type)
-                    m.samples = samples
-                    metrics.append(m)
-
-        class RestrictedRegistry(object):
-            def collect(self):
-                return metrics
-
-        return RestrictedRegistry()
+        return RestrictedRegistry(names, self)
 
     def set_target_info(self, labels):
         with self._lock:
@@ -148,6 +127,18 @@ class CollectorRegistry(object):
                 if s.name == name and s.labels == labels:
                     return s.value
         return None
+
+
+class RestrictedRegistry(object):
+    def __init__(self, names, registry):
+        self._name_set = set(names)
+        self._registry = registry
+
+    def collect(self):
+        for metric in self._registry.collect():
+            m = metric.restricted_metric(self._name_set)
+            if m:
+                yield m
 
 
 REGISTRY = CollectorRegistry(auto_describe=True)
