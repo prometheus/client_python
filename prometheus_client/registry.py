@@ -136,7 +136,7 @@ class RestrictedRegistry(object):
 
     def collect(self):
         for metric in self._registry.collect():
-            m = metric.restricted_metric(self._name_set)
+            m = metric._restricted_metric(self._name_set)
             if m:
                 yield m
 

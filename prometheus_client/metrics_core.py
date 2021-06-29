@@ -58,7 +58,7 @@ class Metric(object):
             self.samples,
         )
 
-    def restricted_metric(self, names):
+    def _restricted_metric(self, names):
         """Build a snapshot of a metric with samples restricted to a given set of names."""
         samples = [s for s in self.samples if s[0] in names]
         if samples:
