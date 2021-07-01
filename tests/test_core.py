@@ -1,8 +1,8 @@
 from __future__ import unicode_literals
 
 from concurrent.futures import ThreadPoolExecutor
+import sys
 import time
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -839,7 +839,9 @@ class TestCollectorRegistry(unittest.TestCase):
         m.samples = [Sample('target_info', {'foo': 'bar'}, 1)]
         self.assertEqual([m], list(registry.restricted_registry(['target_info']).collect()))
 
+    @unittest.skipIf(sys.version_info < (3, 3), "Test requires Python 3.3+.")
     def test_restricted_registry_does_not_call_extra(self):
+        from unittest.mock import MagicMock
         registry = CollectorRegistry()
         mock_collector = MagicMock()
         mock_collector.describe.return_value = [Metric('foo', 'help', 'summary')]
