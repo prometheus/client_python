@@ -122,7 +122,7 @@ def make_wsgi_app(registry=REGISTRY):
             # Bake output
             status, header, output = _bake_output(registry, accept_header, params)
         # Return output
-        start_response(status, [header])
+        start_response(str(status), [header])
         return [output]
 
     return prometheus_app
