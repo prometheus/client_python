@@ -135,10 +135,20 @@ class RestrictedRegistry(object):
         self._registry = registry
 
     def collect(self):
-        for metric in self._registry.collect():
-            m = metric._restricted_metric(self._name_set)
-            if m:
-                yield m
+        names = copy.copy(self._name_set)
+        collectors = set()
+        with self._registry._lock:
+            if 'target_info' in names and self._registry._target_info:
+                yield self._registry._target_info_metric()
+                names.remove('target_info')
+            for name in names:
+                if name in self._registry._names_to_collectors:
+                    collectors.add(self._registry._names_to_collectors[name])
+        for collector in collectors:
+            for metric in collector.collect():
+                m = metric._restricted_metric(self._name_set)
+                if m:
+                    yield m
 
 
 REGISTRY = CollectorRegistry(auto_describe=True)

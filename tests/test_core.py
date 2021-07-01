@@ -2,6 +2,7 @@ from __future__ import unicode_literals
 
 from concurrent.futures import ThreadPoolExecutor
 import time
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -837,6 +838,18 @@ class TestCollectorRegistry(unittest.TestCase):
         m = Metric('target', 'Target metadata', 'info')
         m.samples = [Sample('target_info', {'foo': 'bar'}, 1)]
         self.assertEqual([m], list(registry.restricted_registry(['target_info']).collect()))
+
+    def test_restricted_registry_does_not_call_extra(self):
+        registry = CollectorRegistry()
+        mock_collector = MagicMock()
+        mock_collector.describe.return_value = [Metric('foo', 'help', 'summary')]
+        registry.register(mock_collector)
+        Summary('s', 'help', registry=registry).observe(7)
+
+        m = Metric('s', 'help', 'summary')
+        m.samples = [Sample('s_sum', {}, 7)]
+        self.assertEqual([m], list(registry.restricted_registry(['s_sum']).collect()))
+        mock_collector.collect.assert_not_called()
 
 
 if __name__ == '__main__':
