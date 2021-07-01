@@ -58,6 +58,15 @@ class Metric(object):
             self.samples,
         )
 
+    def _restricted_metric(self, names):
+        """Build a snapshot of a metric with samples restricted to a given set of names."""
+        samples = [s for s in self.samples if s[0] in names]
+        if samples:
+            m = Metric(self.name, self.documentation, self.type)
+            m.samples = samples
+            return m
+        return None
+
 
 class UnknownMetricFamily(Metric):
     """A single unknown metric and its samples.
