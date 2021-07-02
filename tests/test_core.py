@@ -853,6 +853,19 @@ class TestCollectorRegistry(unittest.TestCase):
         self.assertEqual([m], list(registry.restricted_registry(['s_sum']).collect()))
         mock_collector.collect.assert_not_called()
 
+    def test_restricted_registry_does_not_yield_while_locked(self):
+        registry = CollectorRegistry(target_info={'foo': 'bar'})
+        Summary('s', 'help', registry=registry).observe(7)
+
+        m = Metric('s', 'help', 'summary')
+        m.samples = [Sample('s_sum', {}, 7)]
+        self.assertEqual([m], list(registry.restricted_registry(['s_sum']).collect()))
+
+        m = Metric('target', 'Target metadata', 'info')
+        m.samples = [Sample('target_info', {'foo': 'bar'}, 1)]
+        for _ in registry.restricted_registry(['target_info', 's_sum']).collect():
+            self.assertFalse(registry._lock.locked())
+
 
 if __name__ == '__main__':
     unittest.main()
