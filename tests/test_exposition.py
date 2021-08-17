@@ -376,10 +376,6 @@ class TestPushGateway(unittest.TestCase):
         # ensure the redirect took place at the expected redirect location.
         self.assertEqual(self.requests[1][0].path, "/" + self.redirect_flag)
 
-    @unittest.skipIf(
-        sys.platform == "darwin",
-        "instance_ip_grouping_key() does not work on macOS."
-    )
     def test_instance_ip_grouping_key(self):
         self.assertTrue('' != instance_ip_grouping_key()['instance'])
 
