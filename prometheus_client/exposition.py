@@ -481,7 +481,7 @@ def _escape_grouping_key(k, v):
 def instance_ip_grouping_key():
     """Grouping key with instance set to the IP Address of this host."""
     with closing(socket.socket(socket.AF_INET, socket.SOCK_DGRAM)) as s:
-        s.connect(('localhost', 0))
+        s.connect(('10.255.255.255', 1))
         return {'instance': s.getsockname()[0]}
 
 
