@@ -370,6 +370,10 @@ class Gauge(MetricWrapperBase):
     def set_to_current_time(self):
         """Set gauge to the current unixtime."""
         self.set(time.time())
+        
+   def set_to_time(self, timestamp=time.time()):
+        """Set gauge to the given unixtime."""
+        self.set(timestamp)
 
     def track_inprogress(self):
         """Track inprogress blocks of code or functions.
