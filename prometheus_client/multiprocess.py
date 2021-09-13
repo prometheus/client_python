@@ -6,10 +6,12 @@ import json
 import os
 import warnings
 
+import psutil
+
 from .metrics_core import Metric
 from .mmap_dict import MmapedDict
 from .samples import Sample
-from .utils import floatToGoString
+from .utils import floatToGoString, get_process_data
 
 try:  # Python3
     FileNotFoundError
@@ -158,7 +160,18 @@ def mark_process_dead(pid, path=None):
     """Do bookkeeping for when one process dies in a multi-process setup."""
     if path is None:
         path = os.environ.get('PROMETHEUS_MULTIPROC_DIR', os.environ.get('prometheus_multiproc_dir'))
-    for f in glob.glob(os.path.join(path, 'gauge_livesum_{0}.db'.format(pid))):
-        os.remove(f)
-    for f in glob.glob(os.path.join(path, 'gauge_liveall_{0}.db'.format(pid))):
-        os.remove(f)
+    try:
+        process = psutil.Process(pid)
+        types = ["counter", "histogram", "summary", "gauge_min", "gauge_max", "gauge_livesum", "gauge_liveall"]
+        for typ in types:
+            for f in glob.glob(os.path.join(path, '{0}_{1}_{2}.db'.format(typ, pid, process.__hash__()))):
+                os.remove(f)
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
+        # We couldn't found the dead process, no further action required because with the uuid of the process there is
+        # no much we can do
+        pass
+    except OSError:
+        # Error deleting some of the files, for example in windows if they're in use they'll raise this error
+        # Maybe we can rename them as _defunk if needed to do a future cleanup
+        pass
+

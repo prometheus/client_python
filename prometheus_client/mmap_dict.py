@@ -134,6 +134,13 @@ class MmapedDict(object):
             self._m.close()
             self._m = None
             self._f.close()
+            try:
+                # Given that we're using uuid for the process we can safely
+                # remove the file because is not going to be shared by other process
+                os.remove(self._f.name)
+            except OSError:
+                # In windows if the file is in use raises an error
+                pass
             self._f = None
 
 

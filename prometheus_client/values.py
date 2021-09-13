@@ -4,7 +4,9 @@ import os
 from threading import Lock
 import warnings
 
+
 from .mmap_dict import mmap_key, MmapedDict
+from .utils import get_process_data
 
 
 class MutexValue(object):
@@ -39,7 +41,9 @@ def MultiProcessValue(process_identifier=os.getpid):
     """
     files = {}
     values = []
-    pid = {'value': process_identifier()}
+    pid = process_identifier()
+    pdata = {'id': pid, 'uuid': get_process_data(pid)}
+
     # Use a single global lock when in multi-processing mode
     # as we presume this means there is no threading going on.
     # This avoids the need to also have mutexes in __MmapDict.
@@ -70,7 +74,7 @@ def MultiProcessValue(process_identifier=os.getpid):
             if file_prefix not in files:
                 filename = os.path.join(
                     os.environ.get('PROMETHEUS_MULTIPROC_DIR'),
-                    '{0}_{1}.db'.format(file_prefix, pid['value']))
+                    '{0}_{1}_{2}.db'.format(file_prefix, pdata['id'], pdata['uuid']))
 
                 files[file_prefix] = MmapedDict(filename)
             self._file = files[file_prefix]
@@ -79,8 +83,9 @@ def MultiProcessValue(process_identifier=os.getpid):
 
         def __check_for_pid_change(self):
             actual_pid = process_identifier()
-            if pid['value'] != actual_pid:
-                pid['value'] = actual_pid
+            if pid['id'] != actual_pid:
+                pid['id'] = actual_pid
+                pid['uuid'] = get_process_data(actual_pid)
                 # There has been a fork(), reset all the values.
                 for f in files.values():
                     f.close()
