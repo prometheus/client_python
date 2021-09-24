@@ -399,7 +399,9 @@ class Gauge(MetricWrapperBase):
         self._raise_if_not_observable()
 
         def samples(self):
-            return (('', {}, float(f())),)
+            value = f()
+            self.set(value)
+            return (('', {}, float(value)),)
 
         self._child_samples = create_bound_method(samples, self)
 
