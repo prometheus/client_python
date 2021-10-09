@@ -1,18 +1,13 @@
 #!/usr/bin/python
 
 
+import io as StringIO
 import math
 import re
 
 from ..metrics_core import Metric, METRIC_LABEL_NAME_RE
 from ..samples import Exemplar, Sample, Timestamp
 from ..utils import floatToGoString
-
-try:
-    import StringIO
-except ImportError:
-    # Python 3
-    import io as StringIO
 
 
 def text_string_to_metric_families(text):

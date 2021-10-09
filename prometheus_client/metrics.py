@@ -1,6 +1,9 @@
 from threading import Lock
 import time
 import types
+from typing import (
+    Any, Callable, Dict, Optional, Sequence, Tuple, Type, TypeVar,
+)
 
 from . import values  # retain this import style for testability
 from .context_managers import ExceptionCounter, InprogressTracker, Timer
@@ -8,9 +11,12 @@ from .metrics_core import (
     Metric, METRIC_LABEL_NAME_RE, METRIC_NAME_RE,
     RESERVED_METRIC_LABEL_NAME_RE,
 )
-from .registry import REGISTRY
+from .registry import CollectorRegistry, REGISTRY
 from .samples import Exemplar
 from .utils import floatToGoString, INF
+
+T = TypeVar('T', bound='MetricWrapperBase')
+F = TypeVar("F", bound=Callable[..., Any])
 
 
 def _build_full_name(metric_type, name, namespace, subsystem, unit):
@@ -56,8 +62,8 @@ def _validate_exemplar(exemplar):
 
 
 class MetricWrapperBase:
-    _type = None
-    _reserved_labelnames = ()
+    _type: Optional[str] = None
+    _reserved_labelnames: Sequence[str] = ()
 
     def _is_observable(self):
         # Whether this metric is observable, i.e.
@@ -94,20 +100,20 @@ class MetricWrapperBase:
         metric_type = type(self)
         return f"{metric_type.__module__}.{metric_type.__name__}({self._name})"
 
-    def __init__(self,
-                 name,
-                 documentation,
-                 labelnames=(),
-                 namespace='',
-                 subsystem='',
-                 unit='',
-                 registry=REGISTRY,
-                 _labelvalues=None,
-                 ):
+    def __init__(self: T,
+                 name: str,
+                 documentation: str,
+                 labelnames: Sequence[str]=(),
+                 namespace: str='',
+                 subsystem: str='',
+                 unit: str='',
+                 registry: CollectorRegistry=REGISTRY,
+                 _labelvalues: Optional[Sequence[str]]=None,
+                 ) -> None:
         self._name = _build_full_name(self._type, name, namespace, subsystem, unit)
         self._labelnames = _validate_labelnames(self, labelnames)
         self._labelvalues = tuple(_labelvalues or ())
-        self._kwargs = {}
+        self._kwargs: Dict[str, Any] = {}
         self._documentation = documentation
         self._unit = unit
 
@@ -117,7 +123,7 @@ class MetricWrapperBase:
         if self._is_parent():
             # Prepare the fields needed for child metrics.
             self._lock = Lock()
-            self._metrics = {}
+            self._metrics: Dict[Sequence[str], T] = {}
 
         if self._is_observable():
             self._metric_init()
@@ -127,7 +133,7 @@ class MetricWrapperBase:
             if registry:
                 registry.register(self)
 
-    def labels(self, *labelvalues, **labelkwargs):
+    def labels(self: T, *labelvalues: str, **labelkwargs: str) -> T:
         """Return the child for the given labelset.
 
         All metrics can have labels, allowing grouping of related time series.
@@ -193,7 +199,7 @@ class MetricWrapperBase:
         with self._lock:
             del self._metrics[labelvalues]
 
-    def clear(self):
+    def clear(self) -> None:
         """Remove all labelsets from the metric"""
         with self._lock:
             self._metrics = {}
@@ -212,7 +218,7 @@ class MetricWrapperBase:
             for suffix, sample_labels, value, timestamp, exemplar in metric._samples():
                 yield (suffix, dict(series_labels + list(sample_labels.items())), value, timestamp, exemplar)
 
-    def _child_samples(self):  # pragma: no cover
+    def _child_samples(self) -> Sequence[Tuple[str, Dict[str, str], float]]:  # pragma: no cover
         raise NotImplementedError('_child_samples() must be implemented by %r' % self)
 
     def _metric_init(self):  # pragma: no cover
@@ -258,12 +264,12 @@ class Counter(MetricWrapperBase):
     """
     _type = 'counter'
 
-    def _metric_init(self):
+    def _metric_init(self) -> None:
         self._value = values.ValueClass(self._type, self._name, self._name + '_total', self._labelnames,
                                         self._labelvalues)
         self._created = time.time()
 
-    def inc(self, amount=1, exemplar=None):
+    def inc(self, amount: float=1, exemplar: Optional[Dict[str, str]]=None) -> None:
         """Increment counter by the given amount."""
         self._raise_if_not_observable()
         if amount < 0:
@@ -273,7 +279,7 @@ class Counter(MetricWrapperBase):
             _validate_exemplar(exemplar)
             self._value.set_exemplar(Exemplar(exemplar, amount, time.time()))
 
-    def count_exceptions(self, exception=Exception):
+    def count_exceptions(self, exception: Type[BaseException]=Exception) -> ExceptionCounter:
         """Count exceptions in a block of code or function.
 
         Can be used as a function decorator or context manager.
@@ -667,15 +673,15 @@ class Enum(MetricWrapperBase):
     _type = 'stateset'
 
     def __init__(self,
-                 name,
-                 documentation,
-                 labelnames=(),
-                 namespace='',
-                 subsystem='',
-                 unit='',
-                 registry=REGISTRY,
-                 _labelvalues=None,
-                 states=None,
+                 name: str,
+                 documentation: str,
+                 labelnames: Sequence[str]=(),
+                 namespace: str='',
+                 subsystem: str='',
+                 unit: str='',
+                 registry: CollectorRegistry=REGISTRY,
+                 _labelvalues: Optional[Sequence[str]]=None,
+                 states: Optional[Sequence[str]]=None,
                  ):
         super().__init__(
             name=name,
@@ -693,11 +699,11 @@ class Enum(MetricWrapperBase):
             raise ValueError(f'No states provided for Enum metric: {name}')
         self._kwargs['states'] = self._states = states
 
-    def _metric_init(self):
+    def _metric_init(self) -> None:
         self._value = 0
         self._lock = Lock()
 
-    def state(self, state):
+    def state(self, state: str) -> None:
         """Set enum metric state."""
         self._raise_if_not_observable()
         with self._lock:

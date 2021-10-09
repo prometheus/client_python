@@ -1,13 +1,8 @@
+import io as StringIO
 import re
 
 from .metrics_core import Metric
 from .samples import Sample
-
-try:
-    import StringIO
-except ImportError:
-    # Python 3
-    import io as StringIO
 
 
 def text_string_to_metric_families(text):
