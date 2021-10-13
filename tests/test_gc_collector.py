@@ -3,12 +3,7 @@ from __future__ import unicode_literals
 import gc
 import platform
 import sys
-
-if sys.version_info < (2, 7):
-    # We need the skip decorators from unittest2 on Python 2.6.
-    import unittest2 as unittest
-else:
-    import unittest
+import unittest
 
 from prometheus_client import CollectorRegistry, GCCollector
 
