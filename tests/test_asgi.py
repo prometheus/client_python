@@ -1,11 +1,9 @@
 from __future__ import absolute_import, unicode_literals
 
-from unittest import TestCase
-from unittest import skipUnless
+from unittest import skipUnless, TestCase
 
 from prometheus_client import CollectorRegistry, Counter
 from prometheus_client.exposition import CONTENT_TYPE_LATEST
-
 
 try:
     # Python >3.5 only

@@ -4,8 +4,8 @@ import glob
 import os
 import shutil
 import tempfile
-import warnings
 import unittest
+import warnings
 
 from prometheus_client import mmap_dict, values
 from prometheus_client.core import (

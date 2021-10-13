@@ -17,7 +17,6 @@ from prometheus_client.exposition import (
     passthrough_redirect_handler,
 )
 
-
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 except ImportError:
