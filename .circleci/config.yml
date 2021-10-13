@@ -75,6 +75,7 @@ workflows:
                  - "3.7"
                  - "3.8"
                  - "3.9"
+                 - "3.10"
       - test_nooptionals:
           matrix:
             parameters:
