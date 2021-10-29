@@ -2,6 +2,7 @@ from __future__ import unicode_literals
 
 import math
 import sys
+import unittest
 
 from prometheus_client.core import (
     CollectorRegistry, CounterMetricFamily, Exemplar,
@@ -11,12 +12,6 @@ from prometheus_client.core import (
 )
 from prometheus_client.openmetrics.exposition import generate_latest
 from prometheus_client.openmetrics.parser import text_string_to_metric_families
-
-if sys.version_info < (2, 7):
-    # We need the skip decorators from unittest2 on Python 2.6.
-    import unittest2 as unittest
-else:
-    import unittest
 
 
 class TestParse(unittest.TestCase):
@@ -549,7 +544,6 @@ a_total{foo="foo # bar"} 1
                     mock2.assert_not_called()
                     mock3.assert_called_once_with('1')
 
-    @unittest.skipIf(sys.version_info < (2, 7), "Test requires Python 2.7+.")
     def test_roundtrip(self):
         text = """# HELP go_gc_duration_seconds A summary of the GC invocation durations.
 # TYPE go_gc_duration_seconds summary

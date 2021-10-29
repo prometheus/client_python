@@ -1,15 +1,9 @@
 from __future__ import absolute_import, unicode_literals
 
-import sys
-from unittest import TestCase
+from unittest import skipUnless, TestCase
 
 from prometheus_client import CollectorRegistry, Counter
 from prometheus_client.exposition import CONTENT_TYPE_LATEST
-
-if sys.version_info < (2, 7):
-    from unittest2 import skipUnless
-else:
-    from unittest import skipUnless
 
 try:
     # Python >3.5 only

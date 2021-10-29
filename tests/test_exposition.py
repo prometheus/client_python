@@ -1,8 +1,8 @@
 from __future__ import unicode_literals
 
-import sys
 import threading
 import time
+import unittest
 
 import pytest
 
@@ -16,12 +16,6 @@ from prometheus_client.exposition import (
     basic_auth_handler, default_handler, MetricsHandler,
     passthrough_redirect_handler,
 )
-
-if sys.version_info < (2, 7):
-    # We need the skip decorators from unittest2 on Python 2.6.
-    import unittest2 as unittest
-else:
-    import unittest
 
 try:
     from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
@@ -98,7 +92,6 @@ ss_sum{a="c",b="d"} 17.0
 ss_created{a="c",b="d"} 123.456
 """, generate_latest(self.registry))
 
-    @unittest.skipIf(sys.version_info < (2, 7), "Test requires Python 2.7+.")
     def test_histogram(self):
         s = Histogram('hh', 'A histogram', registry=self.registry)
         s.observe(0.05)

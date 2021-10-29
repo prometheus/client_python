@@ -1,13 +1,8 @@
 from __future__ import absolute_import, unicode_literals
 
-import sys
+from unittest import skipUnless
 
 from prometheus_client import CollectorRegistry, Counter, generate_latest
-
-if sys.version_info < (2, 7):
-    from unittest2 import skipUnless
-else:
-    from unittest import skipUnless
 
 try:
     from twisted.internet import reactor

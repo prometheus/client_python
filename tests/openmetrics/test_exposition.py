@@ -1,7 +1,7 @@
 from __future__ import unicode_literals
 
-import sys
 import time
+import unittest
 
 from prometheus_client import (
     CollectorRegistry, Counter, Enum, Gauge, Histogram, Info, Metric, Summary,
@@ -10,12 +10,6 @@ from prometheus_client.core import (
     Exemplar, GaugeHistogramMetricFamily, Timestamp,
 )
 from prometheus_client.openmetrics.exposition import generate_latest
-
-if sys.version_info < (2, 7):
-    # We need the skip decorators from unittest2 on Python 2.6.
-    import unittest2 as unittest
-else:
-    import unittest
 
 
 class TestGenerateText(unittest.TestCase):

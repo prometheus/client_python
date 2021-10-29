@@ -22,17 +22,6 @@ class WSGITest(TestCase):
         self.captured_status = status
         self.captured_headers = header
 
-    def assertIn(self, item, iterable):
-        try:
-            super().assertIn(item, iterable)
-        except:  # Python < 2.7
-            self.assertTrue(
-                item in iterable,
-                msg="{item} not found in {iterable}".format(
-                    item=item, iterable=iterable
-                )
-            )
-
     def validate_metrics(self, metric_name, help_text, increments):
         """
         WSGI app serves the metrics from the provided registry.
