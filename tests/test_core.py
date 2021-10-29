@@ -1,3 +1,4 @@
+# coding=utf-8
 from __future__ import unicode_literals
 
 from concurrent.futures import ThreadPoolExecutor
@@ -46,7 +47,7 @@ class TestCounter(unittest.TestCase):
         self.assertEqual(1, self.registry.get_sample_value('c_total'))
         self.counter.inc(7)
         self.assertEqual(8, self.registry.get_sample_value('c_total'))
-    
+
     def test_repr(self):
         self.assertEqual(repr(self.counter), "prometheus_client.metrics.Counter(c)")
 
@@ -98,6 +99,28 @@ class TestCounter(unittest.TestCase):
 
         counter = Counter('counter', 'help', labelnames=('label',), registry=self.registry)
         assert_not_observable(counter.inc)
+
+    def test_exemplar_invalid_label_name(self):
+        self.assertRaises(ValueError, self.counter.inc, exemplar={':o)': 'smile'})
+        self.assertRaises(ValueError, self.counter.inc, exemplar={'1': 'number'})
+
+    def test_exemplar_unicode(self):
+        # 128 characters should not raise, even using characters larger than 1 byte.
+        self.counter.inc(exemplar={
+            'abcdefghijklmnopqrstuvwxyz': '26+16 characters',
+            'x123456': '7+15 characters',
+            'zyxwvutsrqponmlkjihgfedcba': '26+16 characters',
+            'unicode': '7+15 chars    平',
+        })
+
+    def test_exemplar_too_long(self):
+        # 129 characters should fail.
+        self.assertRaises(ValueError, self.counter.inc, exemplar={
+            'abcdefghijklmnopqrstuvwxyz': '26+16 characters',
+            'x1234567': '8+15 characters',
+            'zyxwvutsrqponmlkjihgfedcba': '26+16 characters',
+            'y123456': '7+15 characters',
+        })
 
 
 class TestGauge(unittest.TestCase):
@@ -415,6 +438,19 @@ class TestHistogram(unittest.TestCase):
             pass
         self.assertEqual(1, self.registry.get_sample_value('h_count'))
         self.assertEqual(1, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
+
+    def test_exemplar_invalid_label_name(self):
+        self.assertRaises(ValueError, self.histogram.observe, 3.0, exemplar={':o)': 'smile'})
+        self.assertRaises(ValueError, self.histogram.observe, 3.0, exemplar={'1': 'number'})
+
+    def test_exemplar_too_long(self):
+        # 129 characters in total should fail.
+        self.assertRaises(ValueError, self.histogram.observe, 1.0, exemplar={
+            'abcdefghijklmnopqrstuvwxyz': '26+16 characters',
+            'x1234567': '8+15 characters',
+            'zyxwvutsrqponmlkjihgfedcba': '26+16 characters',
+            'y123456': '7+15 characters',
+        })
 
 
 class TestInfo(unittest.TestCase):

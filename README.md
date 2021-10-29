@@ -231,6 +231,27 @@ c.labels('get', '/')
 c.labels('post', '/submit')
 ```
 
+### Exemplars
+
+Exemplars can be added to counter and histogram metrics. Exemplars can be
+specified by passing a dict of label value pairs to be exposed as the exemplar.
+For example with a counter:
+
+```python
+from prometheus_client import Counter
+c = Counter('my_requests_total', 'HTTP Failures', ['method', 'endpoint'])
+c.labels('get', '/').inc(exemplar={'trace_id': 'abc123'})
+c.labels('post', '/submit').inc(1.0, {'trace_id': 'def456'})
+```
+
+And with a histogram:
+
+```python
+from prometheus_client import Histogram
+h = Histogram('request_latency_seconds', 'Description of histogram')
+h.observe(4.7, {'trace_id': 'abc123'})
+```
+
 ### Process Collector
 
 The Python client automatically exports metrics about process CPU usage, RAM,
@@ -510,6 +531,7 @@ This comes with a number of limitations:
 - Info and Enum metrics do not work
 - The pushgateway cannot be used
 - Gauges cannot use the `pid` label
+- Exemplars are not supported
 
 There's several steps to getting this working:
 
