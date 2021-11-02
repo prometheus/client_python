@@ -45,5 +45,4 @@ setup(
         "Topic :: System :: Monitoring",
         "License :: OSI Approved :: Apache Software License",
     ],
-    options={'bdist_wheel': {'universal': '1'}},
 )
