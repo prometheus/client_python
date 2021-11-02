@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 import threading
 import time
 import unittest
@@ -36,7 +34,7 @@ class TestGenerateText(unittest.TestCase):
         time.time = self.old_time
 
     def custom_collector(self, metric_family):
-        class CustomCollector(object):
+        class CustomCollector:
             def collect(self):
                 return [metric_family]
 
@@ -159,14 +157,14 @@ gh_gsum 7.0
                          generate_latest(self.registry))
 
     def test_nonnumber(self):
-        class MyNumber(object):
+        class MyNumber:
             def __repr__(self):
                 return "MyNumber(123)"
 
             def __float__(self):
                 return 123.0
 
-        class MyCollector(object):
+        class MyCollector:
             def collect(self):
                 metric = Metric("nonnumber", "Non number", 'untyped')
                 metric.add_sample("nonnumber", {}, MyNumber())
@@ -177,7 +175,7 @@ gh_gsum 7.0
                          generate_latest(self.registry))
 
     def test_timestamp(self):
-        class MyCollector(object):
+        class MyCollector:
             def collect(self):
                 metric = Metric("ts", "help", 'untyped')
                 metric.add_sample("ts", {"foo": "a"}, 0, 123.456)
@@ -231,7 +229,7 @@ class TestPushGateway(unittest.TestCase):
         # which will cause the request handler to return 201.
         httpd_redirect = HTTPServer(('localhost', 0), TestHandler)
         self.redirect_address = TestHandler.redirect_address = \
-            'http://localhost:{0}/{1}'.format(httpd_redirect.server_address[1], redirect_flag)
+            f'http://localhost:{httpd_redirect.server_address[1]}/{redirect_flag}'
 
         class TestRedirectServer(threading.Thread):
             def run(self):
@@ -243,7 +241,7 @@ class TestPushGateway(unittest.TestCase):
 
         # set up the normal server to serve the example requests across test cases.
         httpd = HTTPServer(('localhost', 0), TestHandler)
-        self.address = 'http://localhost:{0}'.format(httpd.server_address[1])
+        self.address = f'http://localhost:{httpd.server_address[1]}'
 
         class TestServer(threading.Thread):
             def run(self):
@@ -383,7 +381,7 @@ class TestPushGateway(unittest.TestCase):
         self.assertEqual(handler.registry, self.registry)
 
     def test_metrics_handler_subclassing(self):
-        subclass = type(str('MetricsHandlerSubclass'), (MetricsHandler, object), {})
+        subclass = type('MetricsHandlerSubclass', (MetricsHandler, object), {})
         handler = subclass.factory(self.registry)
 
         self.assertTrue(issubclass(handler, (MetricsHandler, subclass)))

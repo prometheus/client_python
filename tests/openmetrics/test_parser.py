@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 import math
 import unittest
 
@@ -605,7 +603,7 @@ bar_bucket{a="c",le="+Inf"} 0.0
 """
         families = list(text_string_to_metric_families(text))
 
-        class TextCollector(object):
+        class TextCollector:
             def collect(self):
                 return families
 

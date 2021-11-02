@@ -55,7 +55,7 @@ def _validate_exemplar(exemplar):
         raise ValueError('Exemplar labels have %d UTF-8 characters, exceeding the limit of 128')
 
 
-class MetricWrapperBase(object):
+class MetricWrapperBase:
     _type = None
     _reserved_labelnames = ()
 
@@ -88,11 +88,11 @@ class MetricWrapperBase(object):
         return [metric]
 
     def __str__(self):
-        return "{0}:{1}".format(self._type, self._name)
+        return f"{self._type}:{self._name}"
 
     def __repr__(self):
         metric_type = type(self)
-        return "{0}.{1}({2})".format(metric_type.__module__, metric_type.__name__, self._name)
+        return f"{metric_type.__module__}.{metric_type.__name__}({self._name})"
 
     def __init__(self,
                  name,
@@ -154,7 +154,7 @@ class MetricWrapperBase(object):
             raise ValueError('No label names were set when constructing %s' % self)
 
         if self._labelvalues:
-            raise ValueError('%s already has labels set (%s); can not chain calls to .labels()' % (
+            raise ValueError('{} already has labels set ({}); can not chain calls to .labels()'.format(
                 self,
                 dict(zip(self._labelnames, self._labelvalues))
             ))
@@ -344,7 +344,7 @@ class Gauge(MetricWrapperBase):
         self._multiprocess_mode = multiprocess_mode
         if multiprocess_mode not in self._MULTIPROC_MODES:
             raise ValueError('Invalid multiprocess mode: ' + multiprocess_mode)
-        super(Gauge, self).__init__(
+        super().__init__(
             name=name,
             documentation=documentation,
             labelnames=labelnames,
@@ -537,7 +537,7 @@ class Histogram(MetricWrapperBase):
                  buckets=DEFAULT_BUCKETS,
                  ):
         self._prepare_buckets(buckets)
-        super(Histogram, self).__init__(
+        super().__init__(
             name=name,
             documentation=documentation,
             labelnames=labelnames,
@@ -641,7 +641,7 @@ class Info(MetricWrapperBase):
     def info(self, val):
         """Set info metric."""
         if self._labelname_set.intersection(val.keys()):
-            raise ValueError('Overlapping labels for Info metric, metric: %s child: %s' % (
+            raise ValueError('Overlapping labels for Info metric, metric: {} child: {}'.format(
                 self._labelnames, val))
         with self._lock:
             self._value = dict(val)
@@ -677,7 +677,7 @@ class Enum(MetricWrapperBase):
                  _labelvalues=None,
                  states=None,
                  ):
-        super(Enum, self).__init__(
+        super().__init__(
             name=name,
             documentation=documentation,
             labelnames=labelnames,
@@ -688,9 +688,9 @@ class Enum(MetricWrapperBase):
             _labelvalues=_labelvalues,
         )
         if name in labelnames:
-            raise ValueError('Overlapping labels for Enum metric: %s' % (name,))
+            raise ValueError(f'Overlapping labels for Enum metric: {name}')
         if not states:
-            raise ValueError('No states provided for Enum metric: %s' % (name,))
+            raise ValueError(f'No states provided for Enum metric: {name}')
         self._kwargs['states'] = self._states = states
 
     def _metric_init(self):

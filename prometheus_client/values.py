@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 import os
 from threading import Lock
 import warnings
@@ -7,7 +5,7 @@ import warnings
 from .mmap_dict import mmap_key, MmapedDict
 
 
-class MutexValue(object):
+class MutexValue:
     """A float protected by a mutex."""
 
     _multiprocess = False
@@ -54,7 +52,7 @@ def MultiProcessValue(process_identifier=os.getpid):
     # This avoids the need to also have mutexes in __MmapDict.
     lock = Lock()
 
-    class MmapedValue(object):
+    class MmapedValue:
         """A float protected by a mutex backed by a per-process mmaped file."""
 
         _multiprocess = True
@@ -79,7 +77,7 @@ def MultiProcessValue(process_identifier=os.getpid):
             if file_prefix not in files:
                 filename = os.path.join(
                     os.environ.get('PROMETHEUS_MULTIPROC_DIR'),
-                    '{0}_{1}.db'.format(file_prefix, pid['value']))
+                    '{}_{}.db'.format(file_prefix, pid['value']))
 
                 files[file_prefix] = MmapedDict(filename)
             self._file = files[file_prefix]

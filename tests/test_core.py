@@ -1,6 +1,3 @@
-# coding=utf-8
-from __future__ import unicode_literals
-
 from concurrent.futures import ThreadPoolExecutor
 import time
 
@@ -555,7 +552,7 @@ class TestMetricWrapper(unittest.TestCase):
         self.assertEqual(None, self.registry.get_sample_value('c_total', {'l': 'None'}))
 
     def test_non_string_labels_raises(self):
-        class Test(object):
+        class Test:
             __str__ = None
 
         self.assertRaises(TypeError, self.counter.labels, Test())
@@ -617,7 +614,7 @@ class TestMetricFamilies(unittest.TestCase):
         self.registry = CollectorRegistry()
 
     def custom_collector(self, metric_family):
-        class CustomCollector(object):
+        class CustomCollector:
             def collect(self):
                 return [metric_family]
 
@@ -810,7 +807,7 @@ class TestCollectorRegistry(unittest.TestCase):
         Gauge('s_count', 'help', registry=registry)
 
     def custom_collector(self, metric_family, registry):
-        class CustomCollector(object):
+        class CustomCollector:
             def collect(self):
                 return [metric_family]
 

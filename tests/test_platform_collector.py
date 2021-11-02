@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 import unittest
 
 from prometheus_client import CollectorRegistry, PlatformCollector
@@ -44,7 +42,7 @@ class TestPlatformCollector(unittest.TestCase):
         assert False
 
 
-class _MockPlatform(object):
+class _MockPlatform:
     def __init__(self):
         self._system = "system"
 
