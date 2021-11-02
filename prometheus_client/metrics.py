@@ -1,4 +1,3 @@
-import sys
 from threading import Lock
 import time
 import types
@@ -12,13 +11,6 @@ from .metrics_core import (
 from .registry import REGISTRY
 from .samples import Exemplar
 from .utils import floatToGoString, INF
-
-if sys.version_info > (3,):
-    unicode = str
-    create_bound_method = types.MethodType
-else:
-    def create_bound_method(func, obj):
-        return types.MethodType(func, obj, obj.__class__)
 
 
 def _build_full_name(metric_type, name, namespace, subsystem, unit):
@@ -173,11 +165,11 @@ class MetricWrapperBase(object):
         if labelkwargs:
             if sorted(labelkwargs) != sorted(self._labelnames):
                 raise ValueError('Incorrect label names')
-            labelvalues = tuple(unicode(labelkwargs[l]) for l in self._labelnames)
+            labelvalues = tuple(str(labelkwargs[l]) for l in self._labelnames)
         else:
             if len(labelvalues) != len(self._labelnames):
                 raise ValueError('Incorrect label count')
-            labelvalues = tuple(unicode(l) for l in labelvalues)
+            labelvalues = tuple(str(l) for l in labelvalues)
         with self._lock:
             if labelvalues not in self._metrics:
                 self._metrics[labelvalues] = self.__class__(
@@ -197,7 +189,7 @@ class MetricWrapperBase(object):
         """Remove the given labelset from the metric."""
         if len(labelvalues) != len(self._labelnames):
             raise ValueError('Incorrect label count (expected %d, got %s)' % (len(self._labelnames), labelvalues))
-        labelvalues = tuple(unicode(l) for l in labelvalues)
+        labelvalues = tuple(str(l) for l in labelvalues)
         with self._lock:
             del self._metrics[labelvalues]
 
@@ -419,7 +411,7 @@ class Gauge(MetricWrapperBase):
         def samples(self):
             return (('', {}, float(f()), None, None),)
 
-        self._child_samples = create_bound_method(samples, self)
+        self._child_samples = types.MethodType(samples, self)
 
     def _child_samples(self):
         return (('', {}, self._value.get(), None, None),)

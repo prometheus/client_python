@@ -2,38 +2,25 @@ from __future__ import unicode_literals
 
 import base64
 from contextlib import closing
+from http.server import BaseHTTPRequestHandler
 import os
 import socket
+from socketserver import ThreadingMixIn
 import sys
 import threading
+from urllib.error import HTTPError
+from urllib.parse import parse_qs, quote_plus, urlparse
+from urllib.request import (
+    build_opener, HTTPHandler, HTTPRedirectHandler, Request,
+)
 from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
 
 from .openmetrics import exposition as openmetrics
 from .registry import REGISTRY
 from .utils import floatToGoString
 
-try:
-    from urllib import quote_plus
-
-    from BaseHTTPServer import BaseHTTPRequestHandler
-    from SocketServer import ThreadingMixIn
-    from urllib2 import (
-        build_opener, HTTPError, HTTPHandler, HTTPRedirectHandler, Request,
-    )
-    from urlparse import parse_qs, urlparse
-except ImportError:
-    # Python 3
-    from http.server import BaseHTTPRequestHandler
-    from socketserver import ThreadingMixIn
-    from urllib.error import HTTPError
-    from urllib.parse import parse_qs, quote_plus, urlparse
-    from urllib.request import (
-        build_opener, HTTPHandler, HTTPRedirectHandler, Request,
-    )
-
 CONTENT_TYPE_LATEST = str('text/plain; version=0.0.4; charset=utf-8')
 """Content type of the latest text format"""
-PYTHON27_OR_OLDER = sys.version_info < (3, )
 PYTHON376_OR_NEWER = sys.version_info > (3, 7, 5)
 
 
@@ -88,11 +75,7 @@ class _PrometheusRedirectHandler(HTTPRedirectHandler):
             unverifiable=True,
             data=req.data,
         )
-        if PYTHON27_OR_OLDER:
-            # the `method` attribute did not exist for Request in Python 2.7.
-            new_request.get_method = lambda: m
-        else:
-            new_request.method = m
+        new_request.method = m
         return new_request
 
 
@@ -273,19 +256,7 @@ def write_to_textfile(path, registry):
     
     # rename(2) is atomic but fails on Windows if the destination file exists
     if os.name == 'nt':
-        if sys.version_info <= (3, 3):
-            # Unable to guarantee atomic rename on Windows and Python<3.3
-            # Remove and rename instead (risks losing the file)
-            try:
-                os.remove(path)
-            except FileNotFoundError:
-                pass
-
-            os.rename(tmppath, path)
-        else:
-            # os.replace is introduced in Python 3.3 but there is some dispute whether
-            # it is a truly atomic file operation: https://bugs.python.org/issue8828
-            os.replace(tmppath, path)
+        os.replace(tmppath, path)
     else:
         os.rename(tmppath, path)
 
@@ -495,8 +466,4 @@ def instance_ip_grouping_key():
         return {'instance': s.getsockname()[0]}
 
 
-try:
-    # Python >3.5 only
-    from .asgi import make_asgi_app  # noqa
-except:
-    pass
+from .asgi import make_asgi_app  # noqa
