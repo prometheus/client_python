@@ -448,6 +448,8 @@ def _use_gateway(method, gateway, job, registry, grouping_key, timeout, handler)
             and gateway_url.scheme not in ['http', 'https']
     ):
         gateway = 'http://{0}'.format(gateway)
+
+    gateway = gateway.rstrip('/')
     url = '{0}/metrics/{1}/{2}'.format(gateway, *_escape_grouping_key("job", job))
 
     data = b''

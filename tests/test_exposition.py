@@ -369,6 +369,12 @@ class TestPushGateway(unittest.TestCase):
         # ensure the redirect took place at the expected redirect location.
         self.assertEqual(self.requests[1][0].path, "/" + self.redirect_flag)
 
+    def test_push_with_trailing_slash(self):
+        address = self.address + '/'
+        push_to_gateway(address, "my_job_with_trailing_slash", self.registry)
+
+        self.assertNotIn('//', self.requests[0][0].path)
+
     def test_instance_ip_grouping_key(self):
         self.assertTrue('' != instance_ip_grouping_key()['instance'])
 
