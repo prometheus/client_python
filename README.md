@@ -1,6 +1,6 @@
 # Prometheus Python Client
 
-The official Python 3 client for [Prometheus](https://prometheus.io).
+The official Python client for [Prometheus](https://prometheus.io).
 
 ## Three Step Demo
 
