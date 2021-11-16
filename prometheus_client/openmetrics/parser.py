@@ -562,10 +562,16 @@ def text_fd_to_metric_families(fd):
 
             if typ == 'stateset' and name not in sample.labels:
                 raise ValueError("Stateset missing label: " + line)
-            if (typ in ['histogram', 'gaugehistogram'] and name + '_bucket' == sample.name
+            if (name + '_bucket' == sample.name
                     and (sample.labels.get('le', "NaN") == "NaN"
                          or _isUncanonicalNumber(sample.labels['le']))):
                 raise ValueError("Invalid le label: " + line)
+            if (name + '_bucket' == sample.name
+                    and (not isinstance(sample.value, int) and not sample.value.is_integer())):
+                raise ValueError("Bucket value must be an integer: " + line)
+            if ((name + '_count' == sample.name or name + '_gcount' == sample.name)
+                    and (not isinstance(sample.value, int) and not sample.value.is_integer())):
+                raise ValueError("Count value must be an integer: " + line)
             if (typ == 'summary' and name == sample.name
                     and (not (0 <= float(sample.labels.get('quantile', -1)) <= 1)
                          or _isUncanonicalNumber(sample.labels['quantile']))):
