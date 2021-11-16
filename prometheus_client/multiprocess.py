@@ -1,13 +1,15 @@
 from __future__ import unicode_literals
 
 from collections import defaultdict
+from functools import wraps
 import glob
 import json
 import os
 import warnings
 
+from .process_lock import lock, unlock, LOCK_EX
 from .metrics_core import Metric
-from .mmap_dict import MmapedDict
+from .mmap_dict import MmapedDict, mmap_key
 from .samples import Sample
 from .utils import floatToGoString
 
@@ -17,6 +19,21 @@ except NameError:  # Python >= 2.5
     FileNotFoundError = IOError
 
 MP_METRIC_HELP = 'Multiprocess metric'
+
+
+def require_metrics_lock(func):
+    @wraps(func)
+    def _wrap(*args, **kwargs):
+        path = os.environ.get('prometheus_multiproc_dir')
+        f = open(os.path.join(path, 'metrics.lock'), 'w')
+        try:
+            lock(f, LOCK_EX)
+            return func(*args, **kwargs)
+        finally:
+            unlock(f)
+            f.close()
+
+    return _wrap
 
 
 class MultiProcessCollector(object):
@@ -36,6 +53,7 @@ class MultiProcessCollector(object):
             registry.register(self)
 
     @staticmethod
+    @require_metrics_lock
     def merge(files, accumulate=True):
         """Merge metrics from given mmap files.
 
@@ -154,6 +172,7 @@ class MultiProcessCollector(object):
         return self.merge(files, accumulate=True)
 
 
+@require_metrics_lock
 def mark_process_dead(pid, path=None):
     """Do bookkeeping for when one process dies in a multi-process setup."""
     if path is None:
@@ -161,4 +180,44 @@ def mark_process_dead(pid, path=None):
     for f in glob.glob(os.path.join(path, 'gauge_livesum_{0}.db'.format(pid))):
         os.remove(f)
     for f in glob.glob(os.path.join(path, 'gauge_liveall_{0}.db'.format(pid))):
+        os.remove(f)
+
+    # get associated db files with pid
+    files = glob.glob(os.path.join(path, '*_{0}.db'.format(pid)))
+    if not files:
+        return
+
+    # get merge file name
+    merge_files = []
+    for f in files:
+        file_prefix = os.path.basename(f).rsplit('_', 1)[0]
+        merge_file = os.path.join(path, '{0}_merge.db'.format(file_prefix))
+        if merge_file not in merge_files:
+            merge_files.append(merge_file)
+
+        # if not exist merge_file, create and init it
+        if not os.path.exists(merge_file):
+            MmapedDict(merge_file).close()
+
+    # do merge, here we use the same method to merge
+    metrics = MultiProcessCollector.merge(files + merge_files, accumulate=False)
+    typ_metrics_dict = defaultdict(list)
+    for metric in metrics:
+        typ_metrics_dict[metric.type].append(metric)
+
+    # write data to correct merge_file
+    for merge_file in merge_files:
+        typ = os.path.basename(merge_file).split('_')[0]
+        d = MmapedDict(merge_file)
+        for metric in typ_metrics_dict[typ]:
+            for sample in metric.samples:
+                labels = values = []
+                if sample.labels:
+                    labels, values = zip(*sample.labels.items())
+                key = mmap_key(metric.name, sample.name, labels, values)
+                d.write_value(key, sample.value)
+        d.close()
+
+    # remove the old db file
+    for f in files:
         os.remove(f)
