@@ -4,7 +4,7 @@ from threading import Lock
 from .metrics_core import Metric
 
 
-class CollectorRegistry(object):
+class CollectorRegistry:
     """Metric collector registry.
 
     Collectors must have a no-argument method 'collect' that returns a list of
@@ -27,7 +27,7 @@ class CollectorRegistry(object):
             duplicates = set(self._names_to_collectors).intersection(names)
             if duplicates:
                 raise ValueError(
-                    'Duplicated timeseries in CollectorRegistry: {0}'.format(
+                    'Duplicated timeseries in CollectorRegistry: {}'.format(
                         duplicates))
             for name in names:
                 self._names_to_collectors[name] = collector
@@ -80,8 +80,7 @@ class CollectorRegistry(object):
         if ti:
             yield ti
         for collector in collectors:
-            for metric in collector.collect():
-                yield metric
+            yield from collector.collect()
 
     def restricted_registry(self, names):
         """Returns object that only collects some metrics.
@@ -129,7 +128,7 @@ class CollectorRegistry(object):
         return None
 
 
-class RestrictedRegistry(object):
+class RestrictedRegistry:
     def __init__(self, names, registry):
         self._name_set = set(names)
         self._registry = registry

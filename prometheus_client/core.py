@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 from .metrics import Counter, Enum, Gauge, Histogram, Info, Summary
 from .metrics_core import (
     CounterMetricFamily, GaugeHistogramMetricFamily, GaugeMetricFamily,

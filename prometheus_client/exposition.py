@@ -1,39 +1,24 @@
-from __future__ import unicode_literals
-
 import base64
 from contextlib import closing
+from http.server import BaseHTTPRequestHandler
 import os
 import socket
+from socketserver import ThreadingMixIn
 import sys
 import threading
+from urllib.error import HTTPError
+from urllib.parse import parse_qs, quote_plus, urlparse
+from urllib.request import (
+    build_opener, HTTPHandler, HTTPRedirectHandler, Request,
+)
 from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
 
 from .openmetrics import exposition as openmetrics
 from .registry import REGISTRY
 from .utils import floatToGoString
 
-try:
-    from urllib import quote_plus
-
-    from BaseHTTPServer import BaseHTTPRequestHandler
-    from SocketServer import ThreadingMixIn
-    from urllib2 import (
-        build_opener, HTTPError, HTTPHandler, HTTPRedirectHandler, Request,
-    )
-    from urlparse import parse_qs, urlparse
-except ImportError:
-    # Python 3
-    from http.server import BaseHTTPRequestHandler
-    from socketserver import ThreadingMixIn
-    from urllib.error import HTTPError
-    from urllib.parse import parse_qs, quote_plus, urlparse
-    from urllib.request import (
-        build_opener, HTTPHandler, HTTPRedirectHandler, Request,
-    )
-
-CONTENT_TYPE_LATEST = str('text/plain; version=0.0.4; charset=utf-8')
+CONTENT_TYPE_LATEST = 'text/plain; version=0.0.4; charset=utf-8'
 """Content type of the latest text format"""
-PYTHON27_OR_OLDER = sys.version_info < (3, )
 PYTHON376_OR_NEWER = sys.version_info > (3, 7, 5)
 
 
@@ -88,11 +73,7 @@ class _PrometheusRedirectHandler(HTTPRedirectHandler):
             unverifiable=True,
             data=req.data,
         )
-        if PYTHON27_OR_OLDER:
-            # the `method` attribute did not exist for Request in Python 2.7.
-            new_request.get_method = lambda: m
-        else:
-            new_request.method = m
+        new_request.method = m
         return new_request
 
 
@@ -102,7 +83,7 @@ def _bake_output(registry, accept_header, params):
     if 'name[]' in params:
         registry = registry.restricted_registry(params['name[]'])
     output = encoder(registry)
-    return str('200 OK'), (str('Content-Type'), content_type), output
+    return '200 OK', ('Content-Type', content_type), output
 
 
 def make_wsgi_app(registry=REGISTRY):
@@ -114,8 +95,8 @@ def make_wsgi_app(registry=REGISTRY):
         params = parse_qs(environ.get('QUERY_STRING', ''))
         if environ['PATH_INFO'] == '/favicon.ico':
             # Serve empty response for browsers
-            status = str('200 OK')
-            header = (str(''), str(''))
+            status = '200 OK'
+            header = ('', '')
             output = b''
         else:
             # Bake output
@@ -160,7 +141,7 @@ def generate_latest(registry=REGISTRY):
     def sample_line(line):
         if line.labels:
             labelstr = '{{{0}}}'.format(','.join(
-                ['{0}="{1}"'.format(
+                ['{}="{}"'.format(
                     k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
                     for k, v in sorted(line.labels.items())]))
         else:
@@ -168,9 +149,8 @@ def generate_latest(registry=REGISTRY):
         timestamp = ''
         if line.timestamp is not None:
             # Convert to milliseconds.
-            timestamp = ' {0:d}'.format(int(float(line.timestamp) * 1000))
-        return '{0}{1} {2}{3}\n'.format(
-            line.name, labelstr, floatToGoString(line.value), timestamp)
+            timestamp = f' {int(float(line.timestamp) * 1000):d}'
+        return f'{line.name}{labelstr} {floatToGoString(line.value)}{timestamp}\n'
 
     output = []
     for metric in registry.collect():
@@ -192,9 +172,9 @@ def generate_latest(registry=REGISTRY):
             elif mtype == 'unknown':
                 mtype = 'untyped'
 
-            output.append('# HELP {0} {1}\n'.format(
+            output.append('# HELP {} {}\n'.format(
                 mname, metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
-            output.append('# TYPE {0} {1}\n'.format(mname, mtype))
+            output.append(f'# TYPE {mname} {mtype}\n')
 
             om_samples = {}
             for s in metric.samples:
@@ -210,9 +190,9 @@ def generate_latest(registry=REGISTRY):
             raise
 
         for suffix, lines in sorted(om_samples.items()):
-            output.append('# HELP {0}{1} {2}\n'.format(metric.name, suffix,
-                                                       metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
-            output.append('# TYPE {0}{1} gauge\n'.format(metric.name, suffix))
+            output.append('# HELP {}{} {}\n'.format(metric.name, suffix,
+                                                    metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
+            output.append(f'# TYPE {metric.name}{suffix} gauge\n')
             output.extend(lines)
     return ''.join(output).encode('utf-8')
 
@@ -267,25 +247,13 @@ def write_to_textfile(path, registry):
 
     This is intended for use with the Node exporter textfile collector.
     The path must end in .prom for the textfile collector to process it."""
-    tmppath = '%s.%s.%s' % (path, os.getpid(), threading.current_thread().ident)
+    tmppath = f'{path}.{os.getpid()}.{threading.current_thread().ident}'
     with open(tmppath, 'wb') as f:
         f.write(generate_latest(registry))
     
     # rename(2) is atomic but fails on Windows if the destination file exists
     if os.name == 'nt':
-        if sys.version_info <= (3, 3):
-            # Unable to guarantee atomic rename on Windows and Python<3.3
-            # Remove and rename instead (risks losing the file)
-            try:
-                os.remove(path)
-            except FileNotFoundError:
-                pass
-
-            os.rename(tmppath, path)
-        else:
-            # os.replace is introduced in Python 3.3 but there is some dispute whether
-            # it is a truly atomic file operation: https://bugs.python.org/issue8828
-            os.replace(tmppath, path)
+        os.replace(tmppath, path)
     else:
         os.rename(tmppath, path)
 
@@ -299,8 +267,7 @@ def _make_handler(url, method, timeout, headers, data, base_handler):
             request.add_header(k, v)
         resp = build_opener(base_handler).open(request, timeout=timeout)
         if resp.code >= 400:
-            raise IOError("error talking to pushgateway: {0} {1}".format(
-                resp.code, resp.msg))
+            raise OSError(f"error talking to pushgateway: {resp.code} {resp.msg}")
 
     return handle
 
@@ -337,7 +304,7 @@ def basic_auth_handler(url, method, timeout, headers, data, username=None, passw
         """Handler that implements HTTP Basic Auth.
         """
         if username is not None and password is not None:
-            auth_value = '{0}:{1}'.format(username, password).encode('utf-8')
+            auth_value = f'{username}:{password}'.encode()
             auth_token = base64.b64encode(auth_value)
             auth_header = b'Basic ' + auth_token
             headers.append(['Authorization', auth_header])
@@ -447,10 +414,10 @@ def _use_gateway(method, gateway, job, registry, grouping_key, timeout, handler)
             PYTHON376_OR_NEWER
             and gateway_url.scheme not in ['http', 'https']
     ):
-        gateway = 'http://{0}'.format(gateway)
+        gateway = f'http://{gateway}'
 
     gateway = gateway.rstrip('/')
-    url = '{0}/metrics/{1}/{2}'.format(gateway, *_escape_grouping_key("job", job))
+    url = '{}/metrics/{}/{}'.format(gateway, *_escape_grouping_key("job", job))
 
     data = b''
     if method != 'DELETE':
@@ -459,7 +426,7 @@ def _use_gateway(method, gateway, job, registry, grouping_key, timeout, handler)
     if grouping_key is None:
         grouping_key = {}
     url += ''.join(
-        '/{0}/{1}'.format(*_escape_grouping_key(str(k), str(v)))
+        '/{}/{}'.format(*_escape_grouping_key(str(k), str(v)))
         for k, v in sorted(grouping_key.items()))
 
     handler(
@@ -495,8 +462,4 @@ def instance_ip_grouping_key():
         return {'instance': s.getsockname()[0]}
 
 
-try:
-    # Python >3.5 only
-    from .asgi import make_asgi_app  # noqa
-except:
-    pass
+from .asgi import make_asgi_app  # noqa

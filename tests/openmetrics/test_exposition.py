@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 import time
 import unittest
 
@@ -24,7 +22,7 @@ class TestGenerateText(unittest.TestCase):
         time.time = self.old_time
 
     def custom_collector(self, metric_family):
-        class CustomCollector(object):
+        class CustomCollector:
             def collect(self):
                 return [metric_family]
 
@@ -137,7 +135,7 @@ cc_created 123.456
 """, generate_latest(self.registry))
 
     def test_untyped_exemplar(self):
-        class MyCollector(object):
+        class MyCollector:
             def collect(self):
                 metric = Metric("hh", "help", 'untyped')
                 # This is not sane, but it covers all the cases.
@@ -149,7 +147,7 @@ cc_created 123.456
             generate_latest(self.registry)
 
     def test_histogram_non_bucket_exemplar(self):
-        class MyCollector(object):
+        class MyCollector:
             def collect(self):
                 metric = Metric("hh", "help", 'histogram')
                 # This is not sane, but it covers all the cases.
@@ -161,7 +159,7 @@ cc_created 123.456
             generate_latest(self.registry)
 
     def test_counter_non_total_exemplar(self):
-        class MyCollector(object):
+        class MyCollector:
             def collect(self):
                 metric = Metric("cc", "A counter", 'counter')
                 metric.add_sample("cc_total", {}, 1, None, None)
@@ -236,14 +234,14 @@ cc_created{a="\\\\x\\n\\""} 123.456
 """, generate_latest(self.registry))
 
     def test_nonnumber(self):
-        class MyNumber(object):
+        class MyNumber:
             def __repr__(self):
                 return "MyNumber(123)"
 
             def __float__(self):
                 return 123.0
 
-        class MyCollector(object):
+        class MyCollector:
             def collect(self):
                 metric = Metric("nonnumber", "Non number", 'untyped')
                 metric.add_sample("nonnumber", {}, MyNumber())
@@ -254,7 +252,7 @@ cc_created{a="\\\\x\\n\\""} 123.456
                          generate_latest(self.registry))
 
     def test_timestamp(self):
-        class MyCollector(object):
+        class MyCollector:
             def collect(self):
                 metric = Metric("ts", "help", 'unknown')
                 metric.add_sample("ts", {"foo": "a"}, 0, 123.456)

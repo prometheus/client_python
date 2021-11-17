@@ -1,7 +1,3 @@
-from __future__ import absolute_import, unicode_literals
-
-import sys
-import unittest
 from unittest import TestCase
 from wsgiref.util import setup_testing_defaults
 
@@ -57,7 +53,6 @@ class WSGITest(TestCase):
     def test_report_metrics_4(self):
         self.validate_metrics("failed_requests", "Number of failed requests", 7)
 
-    @unittest.skipIf(sys.version_info < (3, 3), "Test requires Python 3.3+.")
     def test_favicon_path(self):
         from unittest.mock import patch
 

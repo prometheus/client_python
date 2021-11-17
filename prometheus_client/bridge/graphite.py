@@ -1,5 +1,4 @@
 #!/usr/bin/python
-from __future__ import unicode_literals
 
 import logging
 import re
@@ -22,7 +21,7 @@ def _sanitize(s):
 
 class _RegularPush(threading.Thread):
     def __init__(self, pusher, interval, prefix):
-        super(_RegularPush, self).__init__()
+        super().__init__()
         self._pusher = pusher
         self._interval = interval
         self._prefix = prefix
@@ -41,11 +40,11 @@ class _RegularPush(threading.Thread):
                 time.sleep(wait_until - now)
             try:
                 self._pusher.push(prefix=self._prefix)
-            except IOError:
+            except OSError:
                 logging.exception("Push failed")
 
 
-class GraphiteBridge(object):
+class GraphiteBridge:
     def __init__(self, address, registry=REGISTRY, timeout_seconds=30, _timer=time.time, tags=False):
         self._address = address
         self._registry = registry
@@ -76,8 +75,7 @@ class GraphiteBridge(object):
                             for k, v in sorted(s.labels.items())])
                 else:
                     labelstr = ''
-                output.append('{0}{1}{2} {3} {4}\n'.format(
-                    prefixstr, _sanitize(s.name), labelstr, float(s.value), now))
+                output.append(f'{prefixstr}{_sanitize(s.name)}{labelstr} {float(s.value)} {now}\n')
 
         conn = socket.create_connection(self._address, self._timeout)
         conn.sendall(''.join(output).encode('ascii'))

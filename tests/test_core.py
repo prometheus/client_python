@@ -1,8 +1,4 @@
-# coding=utf-8
-from __future__ import unicode_literals
-
 from concurrent.futures import ThreadPoolExecutor
-import sys
 import time
 
 import pytest
@@ -556,7 +552,7 @@ class TestMetricWrapper(unittest.TestCase):
         self.assertEqual(None, self.registry.get_sample_value('c_total', {'l': 'None'}))
 
     def test_non_string_labels_raises(self):
-        class Test(object):
+        class Test:
             __str__ = None
 
         self.assertRaises(TypeError, self.counter.labels, Test())
@@ -618,7 +614,7 @@ class TestMetricFamilies(unittest.TestCase):
         self.registry = CollectorRegistry()
 
     def custom_collector(self, metric_family):
-        class CustomCollector(object):
+        class CustomCollector:
             def collect(self):
                 return [metric_family]
 
@@ -811,7 +807,7 @@ class TestCollectorRegistry(unittest.TestCase):
         Gauge('s_count', 'help', registry=registry)
 
     def custom_collector(self, metric_family, registry):
-        class CustomCollector(object):
+        class CustomCollector:
             def collect(self):
                 return [metric_family]
 
@@ -875,7 +871,6 @@ class TestCollectorRegistry(unittest.TestCase):
         m.samples = [Sample('target_info', {'foo': 'bar'}, 1)]
         self.assertEqual([m], list(registry.restricted_registry(['target_info']).collect()))
 
-    @unittest.skipIf(sys.version_info < (3, 3), "Test requires Python 3.3+.")
     def test_restricted_registry_does_not_call_extra(self):
         from unittest.mock import MagicMock
         registry = CollectorRegistry()

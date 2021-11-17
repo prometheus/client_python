@@ -1,10 +1,9 @@
 #!/usr/bin/python
 
-from __future__ import unicode_literals
 
 from ..utils import floatToGoString
 
-CONTENT_TYPE_LATEST = str('application/openmetrics-text; version=0.0.1; charset=utf-8')
+CONTENT_TYPE_LATEST = 'application/openmetrics-text; version=0.0.1; charset=utf-8'
 """Content type of the latest OpenMetrics text format"""
 
 
@@ -22,34 +21,34 @@ def generate_latest(registry):
     for metric in registry.collect():
         try:
             mname = metric.name
-            output.append('# HELP {0} {1}\n'.format(
+            output.append('# HELP {} {}\n'.format(
                 mname, metric.documentation.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"')))
-            output.append('# TYPE {0} {1}\n'.format(mname, metric.type))
+            output.append(f'# TYPE {mname} {metric.type}\n')
             if metric.unit:
-                output.append('# UNIT {0} {1}\n'.format(mname, metric.unit))
+                output.append(f'# UNIT {mname} {metric.unit}\n')
             for s in metric.samples:
                 if s.labels:
                     labelstr = '{{{0}}}'.format(','.join(
-                        ['{0}="{1}"'.format(
+                        ['{}="{}"'.format(
                             k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
                             for k, v in sorted(s.labels.items())]))
                 else:
                     labelstr = ''
                 if s.exemplar:
                     if not _is_valid_exemplar_metric(metric, s):
-                        raise ValueError("Metric {0} has exemplars, but is not a histogram bucket or counter".format(metric.name))
+                        raise ValueError(f"Metric {metric.name} has exemplars, but is not a histogram bucket or counter")
                     labels = '{{{0}}}'.format(','.join(
-                        ['{0}="{1}"'.format(
+                        ['{}="{}"'.format(
                             k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
                             for k, v in sorted(s.exemplar.labels.items())]))
                     if s.exemplar.timestamp is not None:
-                        exemplarstr = ' # {0} {1} {2}'.format(
+                        exemplarstr = ' # {} {} {}'.format(
                             labels,
                             floatToGoString(s.exemplar.value),
                             s.exemplar.timestamp,
                         )
                     else:
-                        exemplarstr = ' # {0} {1}'.format(
+                        exemplarstr = ' # {} {}'.format(
                             labels,
                             floatToGoString(s.exemplar.value),
                         )
@@ -57,8 +56,8 @@ def generate_latest(registry):
                     exemplarstr = ''
                 timestamp = ''
                 if s.timestamp is not None:
-                    timestamp = ' {0}'.format(s.timestamp)
-                output.append('{0}{1} {2}{3}{4}\n'.format(
+                    timestamp = f' {s.timestamp}'
+                output.append('{}{} {}{}{}\n'.format(
                     s.name,
                     labelstr,
                     floatToGoString(s.value),

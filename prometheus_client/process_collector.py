@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 import os
 
 from .metrics_core import CounterMetricFamily, GaugeMetricFamily
@@ -14,7 +12,7 @@ except ImportError:
     _PAGESIZE = 4096
 
 
-class ProcessCollector(object):
+class ProcessCollector:
     """Collector for Standard Exports such as cpu and memory."""
 
     def __init__(self, namespace='', pid=lambda: 'self', proc='/proc', registry=REGISTRY):
@@ -37,7 +35,7 @@ class ProcessCollector(object):
         self._btime = 0
         try:
             self._btime = self._boot_time()
-        except IOError:
+        except OSError:
             pass
         if registry:
             registry.register(self)
@@ -73,7 +71,7 @@ class ProcessCollector(object):
                                       'Total user and system CPU time spent in seconds.',
                                       value=utime + stime)
             result.extend([vmem, rss, start_time, cpu])
-        except IOError:
+        except OSError:
             pass
 
         try:
@@ -88,7 +86,7 @@ class ProcessCollector(object):
                                          'Number of open file descriptors.',
                                          len(os.listdir(os.path.join(pid, 'fd'))))
             result.extend([open_fds, max_fds])
-        except (IOError, OSError):
+        except OSError:
             pass
 
         return result

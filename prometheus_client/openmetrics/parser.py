@@ -1,6 +1,5 @@
 #!/usr/bin/python
 
-from __future__ import unicode_literals
 
 import math
 import re
@@ -21,11 +20,10 @@ def text_string_to_metric_families(text):
 
     See text_fd_to_metric_families.
     """
-    for metric_family in text_fd_to_metric_families(StringIO.StringIO(text)):
-        yield metric_family
+    yield from text_fd_to_metric_families(StringIO.StringIO(text))
 
 
-_CANONICAL_NUMBERS = set([float("inf")])
+_CANONICAL_NUMBERS = {float("inf")}
 
 
 def _isUncanonicalNumber(s):
@@ -83,7 +81,7 @@ def _unescape_help(text):
 def _parse_value(value):
     value = ''.join(value)
     if value != value.strip() or '_' in value:
-        raise ValueError("Invalid value: {0!r}".format(value))
+        raise ValueError(f"Invalid value: {value!r}")
     try:
         return int(value)
     except ValueError:
@@ -95,7 +93,7 @@ def _parse_timestamp(timestamp):
     if not timestamp:
         return None
     if timestamp != timestamp.strip() or '_' in timestamp:
-        raise ValueError("Invalid timestamp: {0!r}".format(timestamp))
+        raise ValueError(f"Invalid timestamp: {timestamp!r}")
     try:
         # Simple int.
         return Timestamp(int(timestamp), 0)
@@ -108,7 +106,7 @@ def _parse_timestamp(timestamp):
             # Float.
             ts = float(timestamp)
             if math.isnan(ts) or math.isinf(ts):
-                raise ValueError("Invalid timestamp: {0!r}".format(timestamp))
+                raise ValueError(f"Invalid timestamp: {timestamp!r}")
             return ts
 
 
@@ -359,7 +357,7 @@ def _parse_remaining_text(text):
     ts = _parse_timestamp(timestamp)
     exemplar = None
     if exemplar_labels is not None:
-        exemplar_length = sum([len(k) + len(v) for k, v in exemplar_labels.items()])
+        exemplar_length = sum(len(k) + len(v) for k, v in exemplar_labels.items())
         if exemplar_length > 128:
             raise ValueError("Exmplar labels are too long: " + text)
         exemplar = Exemplar(

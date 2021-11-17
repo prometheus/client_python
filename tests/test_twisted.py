@@ -1,5 +1,3 @@
-from __future__ import absolute_import, unicode_literals
-
 from unittest import skipUnless
 
 from prometheus_client import CollectorRegistry, Counter, generate_latest
@@ -39,7 +37,7 @@ class MetricsResourceTest(TestCase):
 
         agent = Agent(reactor)
         port = server.getHost().port
-        url = "http://localhost:{port}/metrics".format(port=port)
+        url = f"http://localhost:{port}/metrics"
         d = agent.request(b"GET", url.encode("ascii"))
 
         d.addCallback(readBody)

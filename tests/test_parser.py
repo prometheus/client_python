@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 import math
 import unittest
 
@@ -13,7 +11,7 @@ from prometheus_client.parser import text_string_to_metric_families
 
 class TestParse(unittest.TestCase):
     def assertEqualMetrics(self, first, second, msg=None):
-        super(TestParse, self).assertEqual(first, second, msg)
+        super().assertEqual(first, second, msg)
 
         # Test that samples are actually named tuples of type Sample.
         for a, b in zip(first, second):
@@ -325,7 +323,7 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
 """
         families = list(text_string_to_metric_families(text))
 
-        class TextCollector(object):
+        class TextCollector:
             def collect(self):
                 return families
 

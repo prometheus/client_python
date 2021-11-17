@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 from collections import defaultdict
 import glob
 import json
@@ -19,7 +17,7 @@ except NameError:  # Python >= 2.5
 MP_METRIC_HELP = 'Multiprocess metric'
 
 
-class MultiProcessCollector(object):
+class MultiProcessCollector:
     """Collector for files for multi-process mode."""
 
     def __init__(self, registry, path=None):
@@ -97,7 +95,7 @@ class MultiProcessCollector(object):
             for s in metric.samples:
                 name, labels, value, timestamp, exemplar = s
                 if metric.type == 'gauge':
-                    without_pid_key = (name, tuple([l for l in labels if l[0] != 'pid']))
+                    without_pid_key = (name, tuple(l for l in labels if l[0] != 'pid'))
                     if metric._multiprocess_mode == 'min':
                         current = samples_setdefault(without_pid_key, value)
                         if value < current:
@@ -158,7 +156,7 @@ def mark_process_dead(pid, path=None):
     """Do bookkeeping for when one process dies in a multi-process setup."""
     if path is None:
         path = os.environ.get('PROMETHEUS_MULTIPROC_DIR', os.environ.get('prometheus_multiproc_dir'))
-    for f in glob.glob(os.path.join(path, 'gauge_livesum_{0}.db'.format(pid))):
+    for f in glob.glob(os.path.join(path, f'gauge_livesum_{pid}.db')):
         os.remove(f)
-    for f in glob.glob(os.path.join(path, 'gauge_liveall_{0}.db'.format(pid))):
+    for f in glob.glob(os.path.join(path, f'gauge_liveall_{pid}.db')):
         os.remove(f)

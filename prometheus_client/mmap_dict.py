@@ -45,7 +45,7 @@ def _read_all_values(data, used=0):
         pos += 8
 
 
-class MmapedDict(object):
+class MmapedDict:
     """A dict of doubles, backed by an mmapped file.
 
     The file starts with a 4 byte int, indicating how much of it is used.
@@ -94,7 +94,7 @@ class MmapedDict(object):
         encoded = key.encode('utf-8')
         # Pad to be 8-byte aligned.
         padded = encoded + (b' ' * (8 - (len(encoded) + 4) % 8))
-        value = struct.pack('i{0}sd'.format(len(padded)).encode(), len(encoded), padded, 0.0)
+        value = struct.pack(f'i{len(padded)}sd'.encode(), len(encoded), padded, 0.0)
         while self._used + len(value) > self._capacity:
             self._capacity *= 2
             self._f.truncate(self._capacity)

@@ -1,5 +1,3 @@
-from __future__ import absolute_import, unicode_literals
-
 from twisted.internet import reactor
 from twisted.web.wsgi import WSGIResource
 

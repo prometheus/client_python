@@ -1,22 +1,22 @@
 from collections import namedtuple
 
 
-class Timestamp(object):
+class Timestamp:
     """A nanosecond-resolution timestamp."""
 
     def __init__(self, sec, nsec):
         if nsec < 0 or nsec >= 1e9:
-            raise ValueError("Invalid value for nanoseconds in Timestamp: {0}".format(nsec))
+            raise ValueError(f"Invalid value for nanoseconds in Timestamp: {nsec}")
         if sec < 0:
             nsec = -nsec
         self.sec = int(sec)
         self.nsec = int(nsec)
 
     def __str__(self):
-        return "{0}.{1:09d}".format(self.sec, self.nsec)
+        return f"{self.sec}.{self.nsec:09d}"
 
     def __repr__(self):
-        return "Timestamp({0}, {1})".format(self.sec, self.nsec)
+        return f"Timestamp({self.sec}, {self.nsec})"
 
     def __float__(self):
         return float(self.sec) + float(self.nsec) / 1e9

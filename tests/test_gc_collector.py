@@ -1,16 +1,13 @@
-from __future__ import unicode_literals
-
 import gc
 import platform
-import sys
 import unittest
 
 from prometheus_client import CollectorRegistry, GCCollector
 
-SKIP = sys.version_info < (3, 4) or platform.python_implementation() != "CPython"
+SKIP = platform.python_implementation() != "CPython"
 
 
-@unittest.skipIf(SKIP, "Test requires CPython 3.4 +")
+@unittest.skipIf(SKIP, "Test requires CPython")
 class TestGCCollector(unittest.TestCase):
     def setUp(self):
         gc.disable()

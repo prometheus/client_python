@@ -1,7 +1,4 @@
-from __future__ import unicode_literals
-
 import math
-import sys
 import unittest
 
 from prometheus_client.core import (
@@ -482,7 +479,6 @@ a_bucket{le="+Inf",foo="bar # "} 3 # {a="d",foo="bar # bar"} 4
         hfm.add_sample("a_bucket", {"le": "+Inf", "foo": "bar # "}, 3.0, None, Exemplar({"a": "d", "foo": "bar # bar"}, 4))
         self.assertEqual([hfm], list(families))
 
-    @unittest.skipIf(sys.version_info < (3, 3), "Test requires Python 3.3+.")
     def test_fallback_to_state_machine_label_parsing(self):
         from unittest.mock import patch
 
@@ -607,7 +603,7 @@ bar_bucket{a="c",le="+Inf"} 0.0
 """
         families = list(text_string_to_metric_families(text))
 
-        class TextCollector(object):
+        class TextCollector:
             def collect(self):
                 return families
 
