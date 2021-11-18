@@ -116,6 +116,18 @@ a_sum 2
         self.assertEqual([HistogramMetricFamily("a", "help", sum_value=2, buckets=[("1.0", 0.0), ("+Inf", 3.0)])],
                          list(families))
 
+    def test_simple_histogram_float_values(self):
+        families = text_string_to_metric_families("""# TYPE a histogram
+# HELP a help
+a_bucket{le="1.0"} 0.0
+a_bucket{le="+Inf"} 3.0
+a_count 3.0
+a_sum 2.0
+# EOF
+""")
+        self.assertEqual([HistogramMetricFamily("a", "help", sum_value=2, buckets=[("1.0", 0.0), ("+Inf", 3.0)])],
+                         list(families))
+
     def test_histogram_noncanonical(self):
         families = text_string_to_metric_families("""# TYPE a histogram
 # HELP a help
@@ -759,15 +771,20 @@ bar_bucket{a="c",le="+Inf"} 0.0
             ('# TYPE a histogram\na_bucket{le="+Inf"} -1\n# EOF\n'),
             ('# TYPE a histogram\na_bucket{le="-1.0"} 1\na_bucket{le="+Inf"} 2\na_sum -1\n# EOF\n'),
             ('# TYPE a histogram\na_bucket{le="-1.0"} 1\na_bucket{le="+Inf"} 2\na_sum 1\n# EOF\n'),
+            ('# TYPE a histogram\na_bucket{le="+Inf"} 0.5\n# EOF\n'),
+            ('# TYPE a histogram\na_bucket{le="+Inf"} 0.5\na_count 0.5\na_sum 0\n# EOF\n'),
             ('# TYPE a gaugehistogram\na_bucket{le="+Inf"} NaN\n# EOF\n'),
             ('# TYPE a gaugehistogram\na_bucket{le="+Inf"} -1\na_gcount -1\n# EOF\n'),
             ('# TYPE a gaugehistogram\na_bucket{le="+Inf"} -1\n# EOF\n'),
             ('# TYPE a gaugehistogram\na_bucket{le="+Inf"} 1\na_gsum -1\n# EOF\n'),
             ('# TYPE a gaugehistogram\na_bucket{le="+Inf"} 1\na_gsum NaN\n# EOF\n'),
+            ('# TYPE a gaugehistogram\na_bucket{le="+Inf"} 0.5\n# EOF\n'),
+            ('# TYPE a gaugehistogram\na_bucket{le="+Inf"} 0.5\na_gsum 0.5\na_gcount 0\n# EOF\n'),
             ('# TYPE a summary\na_sum NaN\n# EOF\n'),
             ('# TYPE a summary\na_count NaN\n# EOF\n'),
             ('# TYPE a summary\na_sum -1\n# EOF\n'),
             ('# TYPE a summary\na_count -1\n# EOF\n'),
+            ('# TYPE a summary\na_count 0.5\n# EOF\n'),
             ('# TYPE a summary\na{quantile="0.5"} -1\n# EOF\n'),
             # Bad info and stateset values.
             ('# TYPE a info\na_info{foo="bar"} 2\n# EOF\n'),
