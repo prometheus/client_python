@@ -103,12 +103,12 @@ class MetricWrapperBase:
     def __init__(self: T,
                  name: str,
                  documentation: str,
-                 labelnames: Sequence[str]=(),
-                 namespace: str='',
-                 subsystem: str='',
-                 unit: str='',
-                 registry: CollectorRegistry=REGISTRY,
-                 _labelvalues: Optional[Sequence[str]]=None,
+                 labelnames: Sequence[str] = (),
+                 namespace: str = '',
+                 subsystem: str = '',
+                 unit: str = '',
+                 registry: CollectorRegistry = REGISTRY,
+                 _labelvalues: Optional[Sequence[str]] = None,
                  ) -> None:
         self._name = _build_full_name(self._type, name, namespace, subsystem, unit)
         self._labelnames = _validate_labelnames(self, labelnames)
@@ -269,7 +269,7 @@ class Counter(MetricWrapperBase):
                                         self._labelvalues)
         self._created = time.time()
 
-    def inc(self, amount: float=1, exemplar: Optional[Dict[str, str]]=None) -> None:
+    def inc(self, amount: float = 1, exemplar: Optional[Dict[str, str]] = None) -> None:
         """Increment counter by the given amount."""
         self._raise_if_not_observable()
         if amount < 0:
@@ -279,7 +279,7 @@ class Counter(MetricWrapperBase):
             _validate_exemplar(exemplar)
             self._value.set_exemplar(Exemplar(exemplar, amount, time.time()))
 
-    def count_exceptions(self, exception: Type[BaseException]=Exception) -> ExceptionCounter:
+    def count_exceptions(self, exception: Type[BaseException] = Exception) -> ExceptionCounter:
         """Count exceptions in a block of code or function.
 
         Can be used as a function decorator or context manager.
@@ -675,13 +675,13 @@ class Enum(MetricWrapperBase):
     def __init__(self,
                  name: str,
                  documentation: str,
-                 labelnames: Sequence[str]=(),
-                 namespace: str='',
-                 subsystem: str='',
-                 unit: str='',
-                 registry: CollectorRegistry=REGISTRY,
-                 _labelvalues: Optional[Sequence[str]]=None,
-                 states: Optional[Sequence[str]]=None,
+                 labelnames: Sequence[str] = (),
+                 namespace: str = '',
+                 subsystem: str = '',
+                 unit: str = '',
+                 registry: CollectorRegistry = REGISTRY,
+                 _labelvalues: Optional[Sequence[str]] = None,
+                 states: Optional[Sequence[str]] = None,
                  ):
         super().__init__(
             name=name,

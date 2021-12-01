@@ -1,8 +1,10 @@
+import sys
 from timeit import default_timer
 from types import TracebackType
-from typing import (
-    Any, Callable, Literal, Optional, Type, TYPE_CHECKING, TypeVar,
-)
+from typing import Any, Callable, Optional, Type, TYPE_CHECKING, TypeVar
+
+if sys.version_info >= (3, 8, 0):
+    from typing import Literal
 
 from .decorator import decorate
 
@@ -19,7 +21,7 @@ class ExceptionCounter:
     def __enter__(self) -> None:
         pass
 
-    def __exit__(self, typ: Optional[Type[BaseException]], value: Optional[BaseException], traceback: Optional[TracebackType]) -> Literal[False]:
+    def __exit__(self, typ: Optional[Type[BaseException]], value: Optional[BaseException], traceback: Optional[TracebackType]) -> "Literal[False]":
         if isinstance(value, self._exception):
             self._counter.inc()
         return False
