@@ -50,11 +50,18 @@ class Timer:
 
     def __enter__(self):
         self._start = default_timer()
+        return self
 
     def __exit__(self, typ, value, traceback):
         # Time can go backwards.
         duration = max(default_timer() - self._start, 0)
         self._callback(duration)
+
+    def labels(self, *args, **kw):
+        instance = self._callback.__self__
+        self._callback = getattr(
+            instance.labels(*args, **kw),
+            self._callback.__name__)
 
     def __call__(self, f):
         def wrapped(func, *args, **kwargs):

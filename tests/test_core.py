@@ -435,6 +435,15 @@ class TestHistogram(unittest.TestCase):
         self.assertEqual(1, self.registry.get_sample_value('h_count'))
         self.assertEqual(1, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
 
+    def test_block_decorator_with_label(self):
+        value = self.registry.get_sample_value
+        self.assertEqual(None, value('hl_count', {'l': 'a'}))
+        self.assertEqual(None, value('hl_bucket', {'le': '+Inf', 'l': 'a'}))
+        with self.labels.time() as metric:
+            metric.labels('a')
+        self.assertEqual(1, value('hl_count', {'l': 'a'}))
+        self.assertEqual(1, value('hl_bucket', {'le': '+Inf', 'l': 'a'}))
+
     def test_exemplar_invalid_label_name(self):
         self.assertRaises(ValueError, self.histogram.observe, 3.0, exemplar={':o)': 'smile'})
         self.assertRaises(ValueError, self.histogram.observe, 3.0, exemplar={'1': 'number'})
