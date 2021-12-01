@@ -396,7 +396,6 @@ class Gauge(MetricWrapperBase):
 
         Can be used as a function decorator or context manager.
         """
-        self._raise_if_not_observable()
         return Timer(self.set)
 
     def set_function(self, f):
@@ -475,7 +474,6 @@ class Summary(MetricWrapperBase):
 
         Can be used as a function decorator or context manager.
         """
-        self._raise_if_not_observable()
         return Timer(self.observe)
 
     def _child_samples(self):
