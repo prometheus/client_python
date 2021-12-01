@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 import time
+import unittest
 
 import pytest
 
@@ -10,11 +11,6 @@ from prometheus_client.core import (
     StateSetMetricFamily, Summary, SummaryMetricFamily, UntypedMetricFamily,
 )
 from prometheus_client.decorator import getargspec
-
-try:
-    import unittest2 as unittest
-except ImportError:
-    import unittest
 
 
 def assert_not_observable(fn, *args, **kwargs):

@@ -1,3 +1,4 @@
+from http.server import BaseHTTPRequestHandler, HTTPServer
 import threading
 import time
 import unittest
@@ -14,12 +15,6 @@ from prometheus_client.exposition import (
     basic_auth_handler, default_handler, MetricsHandler,
     passthrough_redirect_handler,
 )
-
-try:
-    from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
-except ImportError:
-    # Python 3
-    from http.server import BaseHTTPRequestHandler, HTTPServer
 
 
 class TestGenerateText(unittest.TestCase):
