@@ -1,21 +1,30 @@
 from timeit import default_timer
+from types import TracebackType
+from typing import (
+    Any, Callable, Literal, Optional, Type, TYPE_CHECKING, TypeVar,
+)
 
 from .decorator import decorate
 
+if TYPE_CHECKING:
+    from . import Counter
+    F = TypeVar("F", bound=Callable[..., Any])
+
 
 class ExceptionCounter:
-    def __init__(self, counter, exception):
+    def __init__(self, counter: "Counter", exception: Type[BaseException]) -> None:
         self._counter = counter
         self._exception = exception
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         pass
 
-    def __exit__(self, typ, value, traceback):
+    def __exit__(self, typ: Optional[Type[BaseException]], value: Optional[BaseException], traceback: Optional[TracebackType]) -> Literal[False]:
         if isinstance(value, self._exception):
             self._counter.inc()
+        return False
 
-    def __call__(self, f):
+    def __call__(self, f: "F") -> "F":
         def wrapped(func, *args, **kwargs):
             with self:
                 return func(*args, **kwargs)

@@ -23,6 +23,9 @@ setup(
         'prometheus_client.openmetrics',
         'prometheus_client.twisted',
     ],
+    package_data={
+        'prometheus_client': ['py.typed']
+    },
     extras_require={
         'twisted': ['twisted'],
     },

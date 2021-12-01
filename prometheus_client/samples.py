@@ -1,4 +1,4 @@
-from collections import namedtuple
+from typing import Dict, NamedTuple, Optional
 
 
 class Timestamp:
@@ -36,8 +36,15 @@ class Timestamp:
 # Timestamp can be a float containing a unixtime in seconds,
 # a Timestamp object, or None.
 # Exemplar can be an Exemplar object, or None.
-Sample = namedtuple('Sample', ['name', 'labels', 'value', 'timestamp', 'exemplar'])
-Sample.__new__.__defaults__ = (None, None)
+class Exemplar(NamedTuple):
+    labels: Dict[str, str]
+    value: float
+    timestamp: Optional[float] = None
 
-Exemplar = namedtuple('Exemplar', ['labels', 'value', 'timestamp'])
-Exemplar.__new__.__defaults__ = (None,)
+
+class Sample(NamedTuple):
+    name: str
+    labels: Dict[str, str]
+    value: float
+    timestamp: Optional[float] = None
+    exemplar: Optional[Exemplar] = None
