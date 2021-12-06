@@ -581,7 +581,7 @@ class Histogram(MetricWrapperBase):
                 self._labelvalues + (floatToGoString(b),))
             )
 
-    def observe(self, amount, exemplar=None):
+    def observe(self, amount, exemplar=None, quantity=1):
         """Observe the given amount.
 
         The amount is usually positive or zero. Negative values are
@@ -590,12 +590,14 @@ class Histogram(MetricWrapperBase):
         observations. See
         https://prometheus.io/docs/practices/histograms/#count-and-sum-of-observations
         for details.
+
+        The counter for the appropriate bucket is incremented by the given quantity.
         """
         self._raise_if_not_observable()
-        self._sum.inc(amount)
+        self._sum.inc(amount * quantity)
         for i, bound in enumerate(self._upper_bounds):
             if amount <= bound:
-                self._buckets[i].inc(1)
+                self._buckets[i].inc(quantity)
                 if exemplar:
                     _validate_exemplar(exemplar)
                     self._buckets[i].set_exemplar(Exemplar(exemplar, amount, time.time()))

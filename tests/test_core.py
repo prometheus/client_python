@@ -366,6 +366,14 @@ class TestHistogram(unittest.TestCase):
         self.assertEqual(3, self.registry.get_sample_value('h_count'))
         self.assertEqual(float("inf"), self.registry.get_sample_value('h_sum'))
 
+        self.histogram.observe(4, quantity=2)
+        self.assertEqual(0, self.registry.get_sample_value('h_bucket', {'le': '1.0'}))
+        self.assertEqual(2, self.registry.get_sample_value('h_bucket', {'le': '2.5'}))
+        self.assertEqual(4, self.registry.get_sample_value('h_bucket', {'le': '5.0'}))
+        self.assertEqual(5, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
+        self.assertEqual(5, self.registry.get_sample_value('h_count'))
+
+
     def test_histogram_not_observable(self):
         """.observe() must fail if the Summary is not observable."""
         assert_not_observable(self.labels.observe, 1)
