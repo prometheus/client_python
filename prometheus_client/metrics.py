@@ -396,7 +396,7 @@ class Gauge(MetricWrapperBase):
 
         Can be used as a function decorator or context manager.
         """
-        return Timer(self.set)
+        return Timer(self, 'set')
 
     def set_function(self, f):
         """Call the provided function to return the Gauge value.
@@ -474,7 +474,7 @@ class Summary(MetricWrapperBase):
 
         Can be used as a function decorator or context manager.
         """
-        return Timer(self.observe)
+        return Timer(self, 'observe')
 
     def _child_samples(self):
         return (
@@ -598,7 +598,7 @@ class Histogram(MetricWrapperBase):
 
         Can be used as a function decorator or context manager.
         """
-        return Timer(self.observe)
+        return Timer(self, 'observe')
 
     def _child_samples(self):
         samples = []
