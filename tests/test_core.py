@@ -222,13 +222,25 @@ class TestGauge(unittest.TestCase):
             time.sleep(.001)
         self.assertNotEqual(0, self.registry.get_sample_value('g'))
 
+    def test_time_block_decorator_with_label(self):
+        value = self.registry.get_sample_value
+        self.assertEqual(None, value('g2', {'label1': 'foo'}))
+        with self.gauge_with_label.time() as metric:
+            metric.labels('foo')
+        self.assertLess(0, value('g2', {'label1': 'foo'}))
+
     def test_track_in_progress_not_observable(self):
         g = Gauge('test', 'help', labelnames=('label',), registry=self.registry)
         assert_not_observable(g.track_inprogress)
 
     def test_timer_not_observable(self):
         g = Gauge('test', 'help', labelnames=('label',), registry=self.registry)
-        assert_not_observable(g.time)
+
+        def manager():
+            with g.time():
+                pass
+
+        assert_not_observable(manager)
 
 
 class TestSummary(unittest.TestCase):
@@ -318,10 +330,21 @@ class TestSummary(unittest.TestCase):
             pass
         self.assertEqual(1, self.registry.get_sample_value('s_count'))
 
+    def test_block_decorator_with_label(self):
+        value = self.registry.get_sample_value
+        self.assertEqual(None, value('s_with_labels_count', {'label1': 'foo'}))
+        with self.summary_with_labels.time() as metric:
+            metric.labels('foo')
+        self.assertEqual(1, value('s_with_labels_count', {'label1': 'foo'}))
+
     def test_timer_not_observable(self):
         s = Summary('test', 'help', labelnames=('label',), registry=self.registry)
 
-        assert_not_observable(s.time)
+        def manager():
+            with s.time():
+                pass
+
+        assert_not_observable(manager)
 
 
 class TestHistogram(unittest.TestCase):
@@ -434,6 +457,15 @@ class TestHistogram(unittest.TestCase):
             pass
         self.assertEqual(1, self.registry.get_sample_value('h_count'))
         self.assertEqual(1, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
+
+    def test_block_decorator_with_label(self):
+        value = self.registry.get_sample_value
+        self.assertEqual(None, value('hl_count', {'l': 'a'}))
+        self.assertEqual(None, value('hl_bucket', {'le': '+Inf', 'l': 'a'}))
+        with self.labels.time() as metric:
+            metric.labels('a')
+        self.assertEqual(1, value('hl_count', {'l': 'a'}))
+        self.assertEqual(1, value('hl_bucket', {'le': '+Inf', 'l': 'a'}))
 
     def test_exemplar_invalid_label_name(self):
         self.assertRaises(ValueError, self.histogram.observe, 3.0, exemplar={':o)': 'smile'})
