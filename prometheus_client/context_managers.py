@@ -56,7 +56,6 @@ class Timer:
     def __exit__(self, typ, value, traceback):
         # Time can go backwards.
         duration = max(default_timer() - self._start, 0)
-        self._metric._raise_if_not_observable()
         callback = getattr(self._metric, self._callback_name)
         callback(duration)
 
