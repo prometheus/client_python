@@ -197,6 +197,26 @@ ts{foo="e"} 0.0 123000
 ts{foo="f"} 0.0 123000
 """, generate_latest(self.registry))
 
+    def test_extra_labels(self):
+        c1 = Counter('c1', 'A counter', ["label1"], registry=self.registry)
+        c1.labels(label1="value1").inc()
+        c2 = Counter('c2', 'Another counter', registry=self.registry)
+        c2.inc()
+        extra_labels = {"label2": "value2"}
+        self.assertEqual(b"""# HELP c1_total A counter
+# TYPE c1_total counter
+c1_total{label1="value1",label2="value2"} 1.0
+# HELP c1_created A counter
+# TYPE c1_created gauge
+c1_created{label1="value1",label2="value2"} 123.456
+# HELP c2_total Another counter
+# TYPE c2_total counter
+c2_total{label2="value2"} 1.0
+# HELP c2_created Another counter
+# TYPE c2_created gauge
+c2_created{label2="value2"} 123.456
+""", generate_latest(self.registry, extra_labels))
+
 
 class TestPushGateway(unittest.TestCase):
     def setUp(self):

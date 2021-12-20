@@ -135,15 +135,16 @@ def start_wsgi_server(port, addr='', registry=REGISTRY):
 start_http_server = start_wsgi_server
 
 
-def generate_latest(registry=REGISTRY):
+def generate_latest(registry=REGISTRY, extra_labels={}):
     """Returns the metrics from the registry in latest text format as a string."""
 
     def sample_line(line):
-        if line.labels:
+        labels = {**line.labels, **extra_labels}
+        if labels:
             labelstr = '{{{0}}}'.format(','.join(
                 ['{}="{}"'.format(
                     k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
-                    for k, v in sorted(line.labels.items())]))
+                    for k, v in sorted(labels.items())]))
         else:
             labelstr = ''
         timestamp = ''
