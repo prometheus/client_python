@@ -82,6 +82,18 @@ class CollectorRegistry:
         for collector in collectors:
             yield from collector.collect()
 
+    def labelled_registry(self, extra_labels):
+        """Returns object that collects metrics with additional labels.
+
+        Returns an object which upon collect() will return
+        samples with additional labels given in the dictionary.
+
+        Intended usage is:
+            generate_latest(REGISTRY.labelled_registry(['a_timeseries']))
+
+        Experimental."""
+        return LabelledRegistry(extra_labels, self)
+
     def restricted_registry(self, names):
         """Returns object that only collects some metrics.
 
@@ -126,6 +138,19 @@ class CollectorRegistry:
                 if s.name == name and s.labels == labels:
                     return s.value
         return None
+
+
+class LabelledRegistry:
+    """Metric collector registry that applies extra labels to metrics."""
+
+    def __init__(self, extra_labels, registry):
+        self._extra_labels = extra_labels
+        self._registry = registry
+
+    def collect(self):
+        for metric in self._registry.collect():
+            metric.samples = [s._replace(labels = {**s.labels, **self._extra_labels}) for s in metric.samples]
+            yield metric
 
 
 class RestrictedRegistry:

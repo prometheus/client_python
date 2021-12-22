@@ -929,6 +929,13 @@ class TestCollectorRegistry(unittest.TestCase):
         for _ in registry.restricted_registry(['target_info', 's_sum']).collect():
             self.assertFalse(registry._lock.locked())
 
+    def test_labelled_registry(self):
+        extra_labels = {'label1': 'value1'}
+        registry = CollectorRegistry(extra_labels)
+        Counter('c_total', 'help', registry=registry)
+        metrics = list(registry.labelled_registry(extra_labels).collect())
+        self.assertEqual(metrics[0].samples[0].labels, extra_labels)
+
 
 if __name__ == '__main__':
     unittest.main()
