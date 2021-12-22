@@ -149,7 +149,7 @@ class LabelledRegistry:
 
     def collect(self):
         for metric in self._registry.collect():
-            metric.samples = [s._replace(labels = {**s.labels, **self._extra_labels}) for s in metric.samples]
+            metric.samples = [s._replace(labels={**s.labels, **self._extra_labels}) for s in metric.samples]
             yield metric
 
 
