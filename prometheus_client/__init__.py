@@ -4,40 +4,21 @@ from . import (
     exposition, gc_collector, metrics, metrics_core, platform_collector,
     process_collector, registry,
 )
+from .exposition import (
+    CONTENT_TYPE_LATEST, delete_from_gateway, generate_latest,
+    instance_ip_grouping_key, make_asgi_app, make_wsgi_app, MetricsHandler,
+    push_to_gateway, pushadd_to_gateway, start_http_server, start_wsgi_server,
+    write_to_textfile,
+)
+from .gc_collector import GC_COLLECTOR, GCCollector
+from .metrics import Counter, Enum, Gauge, Histogram, Info, Summary
+from .metrics_core import Metric
+from .platform_collector import PLATFORM_COLLECTOR, PlatformCollector
+from .process_collector import PROCESS_COLLECTOR, ProcessCollector
+from .registry import CollectorRegistry, REGISTRY
 
 __all__ = ['Counter', 'Gauge', 'Summary', 'Histogram', 'Info', 'Enum']
 
-from .registry import CollectorRegistry
-from .registry import REGISTRY
-from .metrics_core import Metric
-from .metrics import Counter
-from .metrics import Gauge
-from .metrics import Summary
-from .metrics import Histogram
-from .metrics import Info
-from .metrics import Enum
-
-from .exposition import CONTENT_TYPE_LATEST
-from .exposition import generate_latest
-from .exposition import MetricsHandler
-from .exposition import make_wsgi_app
-from .exposition import make_asgi_app
-from .exposition import start_http_server
-from .exposition import start_wsgi_server
-from .exposition import write_to_textfile
-from .exposition import push_to_gateway
-from .exposition import pushadd_to_gateway
-from .exposition import delete_from_gateway
-from .exposition import instance_ip_grouping_key
-
-from .process_collector import ProcessCollector
-from .process_collector import PROCESS_COLLECTOR
-
-from .platform_collector import PlatformCollector
-from .platform_collector import PLATFORM_COLLECTOR
-
-from .gc_collector import GCCollector
-from .gc_collector import GC_COLLECTOR
 
 if __name__ == '__main__':
     c = Counter('cc', 'A counter')
