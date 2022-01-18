@@ -4,40 +4,21 @@ from . import (
     exposition, gc_collector, metrics, metrics_core, platform_collector,
     process_collector, registry,
 )
+from .exposition import (
+    CONTENT_TYPE_LATEST, delete_from_gateway, generate_latest,
+    instance_ip_grouping_key, make_asgi_app, make_wsgi_app, MetricsHandler,
+    push_to_gateway, pushadd_to_gateway, start_http_server, start_wsgi_server,
+    write_to_textfile,
+)
+from .gc_collector import GC_COLLECTOR, GCCollector
+from .metrics import Counter, Enum, Gauge, Histogram, Info, Summary
+from .metrics_core import Metric
+from .platform_collector import PLATFORM_COLLECTOR, PlatformCollector
+from .process_collector import PROCESS_COLLECTOR, ProcessCollector
+from .registry import CollectorRegistry, REGISTRY
 
 __all__ = ['Counter', 'Gauge', 'Summary', 'Histogram', 'Info', 'Enum']
 
-CollectorRegistry = registry.CollectorRegistry
-REGISTRY = registry.REGISTRY
-Metric = metrics_core.Metric
-Counter = metrics.Counter
-Gauge = metrics.Gauge
-Summary = metrics.Summary
-Histogram = metrics.Histogram
-Info = metrics.Info
-Enum = metrics.Enum
-
-CONTENT_TYPE_LATEST = exposition.CONTENT_TYPE_LATEST
-generate_latest = exposition.generate_latest
-MetricsHandler = exposition.MetricsHandler
-make_wsgi_app = exposition.make_wsgi_app
-make_asgi_app = exposition.make_asgi_app
-start_http_server = exposition.start_http_server
-start_wsgi_server = exposition.start_wsgi_server
-write_to_textfile = exposition.write_to_textfile
-push_to_gateway = exposition.push_to_gateway
-pushadd_to_gateway = exposition.pushadd_to_gateway
-delete_from_gateway = exposition.delete_from_gateway
-instance_ip_grouping_key = exposition.instance_ip_grouping_key
-
-ProcessCollector = process_collector.ProcessCollector
-PROCESS_COLLECTOR = process_collector.PROCESS_COLLECTOR
-
-PlatformCollector = platform_collector.PlatformCollector
-PLATFORM_COLLECTOR = platform_collector.PLATFORM_COLLECTOR
-
-GCCollector = gc_collector.GCCollector
-GC_COLLECTOR = gc_collector.GC_COLLECTOR
 
 if __name__ == '__main__':
     c = Counter('cc', 'A counter')
