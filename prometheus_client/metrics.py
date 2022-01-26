@@ -133,7 +133,7 @@ class MetricWrapperBase:
             if registry:
                 registry.register(self)
 
-    def labels(self: T, *labelvalues: str, **labelkwargs: str) -> T:
+    def labels(self: T, *labelvalues: Any, **labelkwargs: Any) -> T:
         """Return the child for the given labelset.
 
         All metrics can have labels, allowing grouping of related time series.
