@@ -107,7 +107,7 @@ class MetricWrapperBase:
                  namespace: str = '',
                  subsystem: str = '',
                  unit: str = '',
-                 registry: CollectorRegistry = REGISTRY,
+                 registry: Optional[CollectorRegistry] = REGISTRY,
                  _labelvalues: Optional[Sequence[str]] = None,
                  ) -> None:
         self._name = _build_full_name(self._type, name, namespace, subsystem, unit)
