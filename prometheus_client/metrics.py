@@ -2,7 +2,7 @@ from threading import Lock
 import time
 import types
 from typing import (
-    Any, Callable, Dict, Optional, Sequence, Tuple, Type, TypeVar,
+    Any, Callable, Dict, Iterable, Optional, Sequence, Type, TypeVar,
 )
 
 from . import values  # retain this import style for testability
@@ -12,7 +12,7 @@ from .metrics_core import (
     RESERVED_METRIC_LABEL_NAME_RE,
 )
 from .registry import CollectorRegistry, REGISTRY
-from .samples import Exemplar
+from .samples import Exemplar, Sample
 from .utils import floatToGoString, INF
 
 T = TypeVar('T', bound='MetricWrapperBase')
@@ -103,7 +103,7 @@ class MetricWrapperBase:
     def __init__(self: T,
                  name: str,
                  documentation: str,
-                 labelnames: Sequence[str] = (),
+                 labelnames: Iterable[str] = (),
                  namespace: str = '',
                  subsystem: str = '',
                  unit: str = '',
@@ -204,21 +204,21 @@ class MetricWrapperBase:
         with self._lock:
             self._metrics = {}
 
-    def _samples(self):
+    def _samples(self) -> Iterable[Sample]:
         if self._is_parent():
             return self._multi_samples()
         else:
             return self._child_samples()
 
-    def _multi_samples(self):
+    def _multi_samples(self) -> Iterable[Sample]:
         with self._lock:
             metrics = self._metrics.copy()
         for labels, metric in metrics.items():
             series_labels = list(zip(self._labelnames, labels))
             for suffix, sample_labels, value, timestamp, exemplar in metric._samples():
-                yield (suffix, dict(series_labels + list(sample_labels.items())), value, timestamp, exemplar)
+                yield Sample(suffix, dict(series_labels + list(sample_labels.items())), value, timestamp, exemplar)
 
-    def _child_samples(self) -> Sequence[Tuple[str, Dict[str, str], float]]:  # pragma: no cover
+    def _child_samples(self) -> Iterable[Sample]:  # pragma: no cover
         raise NotImplementedError('_child_samples() must be implemented by %r' % self)
 
     def _metric_init(self):  # pragma: no cover
@@ -289,10 +289,10 @@ class Counter(MetricWrapperBase):
         self._raise_if_not_observable()
         return ExceptionCounter(self, exception)
 
-    def _child_samples(self):
+    def _child_samples(self) -> Iterable[Sample]:
         return (
-            ('_total', {}, self._value.get(), None, self._value.get_exemplar()),
-            ('_created', {}, self._created, None, None),
+            Sample('_total', {}, self._value.get(), None, self._value.get_exemplar()),
+            Sample('_created', {}, self._created, None, None),
         )
 
 
@@ -413,13 +413,13 @@ class Gauge(MetricWrapperBase):
 
         self._raise_if_not_observable()
 
-        def samples(self):
-            return (('', {}, float(f()), None, None),)
+        def samples(self) -> Iterable[Sample]:
+            return (Sample('', {}, float(f()), None, None),)
 
         self._child_samples = types.MethodType(samples, self)
 
-    def _child_samples(self):
-        return (('', {}, self._value.get(), None, None),)
+    def _child_samples(self) -> Iterable[Sample]:
+        return (Sample('', {}, self._value.get(), None, None),)
 
 
 class Summary(MetricWrapperBase):
@@ -482,11 +482,11 @@ class Summary(MetricWrapperBase):
         """
         return Timer(self, 'observe')
 
-    def _child_samples(self):
+    def _child_samples(self) -> Iterable[Sample]:
         return (
-            ('_count', {}, self._count.get(), None, None),
-            ('_sum', {}, self._sum.get(), None, None),
-            ('_created', {}, self._created, None, None),
+            Sample('_count', {}, self._count.get(), None, None),
+            Sample('_sum', {}, self._sum.get(), None, None),
+            Sample('_created', {}, self._created, None, None),
         )
 
 
@@ -606,16 +606,16 @@ class Histogram(MetricWrapperBase):
         """
         return Timer(self, 'observe')
 
-    def _child_samples(self):
+    def _child_samples(self) -> Iterable[Sample]:
         samples = []
         acc = 0
         for i, bound in enumerate(self._upper_bounds):
             acc += self._buckets[i].get()
-            samples.append(('_bucket', {'le': floatToGoString(bound)}, acc, None, self._buckets[i].get_exemplar()))
-        samples.append(('_count', {}, acc, None, None))
+            samples.append(Sample('_bucket', {'le': floatToGoString(bound)}, acc, None, self._buckets[i].get_exemplar()))
+        samples.append(Sample('_count', {}, acc, None, None))
         if self._upper_bounds[0] >= 0:
-            samples.append(('_sum', {}, self._sum.get(), None, None))
-        samples.append(('_created', {}, self._created, None, None))
+            samples.append(Sample('_sum', {}, self._sum.get(), None, None))
+        samples.append(Sample('_created', {}, self._created, None, None))
         return tuple(samples)
 
 
@@ -650,9 +650,9 @@ class Info(MetricWrapperBase):
         with self._lock:
             self._value = dict(val)
 
-    def _child_samples(self):
+    def _child_samples(self) -> Iterable[Sample]:
         with self._lock:
-            return (('_info', self._value, 1.0, None, None),)
+            return (Sample('_info', self._value, 1.0, None, None),)
 
 
 class Enum(MetricWrapperBase):
@@ -707,10 +707,10 @@ class Enum(MetricWrapperBase):
         with self._lock:
             self._value = self._states.index(state)
 
-    def _child_samples(self):
+    def _child_samples(self) -> Iterable[Sample]:
         with self._lock:
             return [
-                ('', {self._name: s}, 1 if i == self._value else 0, None, None)
+                Sample('', {self._name: s}, 1 if i == self._value else 0, None, None)
                 for i, s
                 in enumerate(self._states)
             ]
