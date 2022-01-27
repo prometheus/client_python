@@ -17,7 +17,7 @@ from .platform_collector import PLATFORM_COLLECTOR, PlatformCollector
 from .process_collector import PROCESS_COLLECTOR, ProcessCollector
 from .registry import CollectorRegistry, REGISTRY
 
-__all__ = ['Counter', 'Gauge', 'Summary', 'Histogram', 'Info', 'Enum']
+__all__ = ['Counter', 'Gauge', 'Summary', 'Histogram', 'Info', 'Enum', 'CollectorRegistry', 'REGISTRY']
 
 
 if __name__ == '__main__':
