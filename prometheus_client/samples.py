@@ -1,4 +1,4 @@
-from typing import Dict, NamedTuple, Optional
+from typing import Dict, NamedTuple, Optional, Union
 
 
 class Timestamp:
@@ -39,12 +39,12 @@ class Timestamp:
 class Exemplar(NamedTuple):
     labels: Dict[str, str]
     value: float
-    timestamp: Optional[float] = None
+    timestamp: Optional[Union[float, Timestamp]] = None
 
 
 class Sample(NamedTuple):
     name: str
     labels: Dict[str, str]
     value: float
-    timestamp: Optional[float] = None
+    timestamp: Optional[Union[float, Timestamp]] = None
     exemplar: Optional[Exemplar] = None
