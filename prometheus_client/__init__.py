@@ -17,8 +17,35 @@ from .platform_collector import PLATFORM_COLLECTOR, PlatformCollector
 from .process_collector import PROCESS_COLLECTOR, ProcessCollector
 from .registry import CollectorRegistry, REGISTRY
 
-__all__ = ['Counter', 'Gauge', 'Summary', 'Histogram', 'Info', 'Enum', 'CollectorRegistry', 'REGISTRY']
-
+__all__ = (
+    'CollectorRegistry',
+    'REGISTRY',
+    'Metric',
+    'Counter',
+    'Gauge',
+    'Summary',
+    'Histogram',
+    'Info',
+    'Enum',
+    'CONTENT_TYPE_LATEST',
+    'generate_latest',
+    'MetricsHandler',
+    'make_wsgi_app',
+    'make_asgi_app',
+    'start_http_server',
+    'start_wsgi_server',
+    'write_to_textfile',
+    'push_to_gateway',
+    'pushadd_to_gateway',
+    'delete_from_gateway',
+    'instance_ip_grouping_key',
+    'ProcessCollector',
+    'PROCESS_COLLECTOR',
+    'PlatformCollector',
+    'PLATFORM_COLLECTOR',
+    'GCCollector',
+    'GC_COLLECTOR',
+)
 
 if __name__ == '__main__':
     c = Counter('cc', 'A counter')
