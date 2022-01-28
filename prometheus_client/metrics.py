@@ -11,7 +11,7 @@ from .metrics_core import (
     Metric, METRIC_LABEL_NAME_RE, METRIC_NAME_RE,
     RESERVED_METRIC_LABEL_NAME_RE,
 )
-from .registry import CollectorRegistry, REGISTRY
+from .registry import Registerer, REGISTRY
 from .samples import Exemplar, Sample
 from .utils import floatToGoString, INF
 
@@ -107,7 +107,7 @@ class MetricWrapperBase:
                  namespace: str = '',
                  subsystem: str = '',
                  unit: str = '',
-                 registry: Optional[CollectorRegistry] = REGISTRY,
+                 registry: Optional[Registerer] = REGISTRY,
                  _labelvalues: Optional[Sequence[str]] = None,
                  ) -> None:
         self._name = _build_full_name(self._type, name, namespace, subsystem, unit)
@@ -677,7 +677,7 @@ class Enum(MetricWrapperBase):
                  namespace: str = '',
                  subsystem: str = '',
                  unit: str = '',
-                 registry: Optional[CollectorRegistry] = REGISTRY,
+                 registry: Optional[Registerer] = REGISTRY,
                  _labelvalues: Optional[Sequence[str]] = None,
                  states: Optional[Sequence[str]] = None,
                  ):

@@ -1,7 +1,13 @@
 import copy
 from threading import Lock
+from typing import Protocol
 
 from .metrics_core import Metric
+
+
+class Registerer(Protocol):
+    def register(self, collector) -> None:
+        pass
 
 
 class CollectorRegistry:
