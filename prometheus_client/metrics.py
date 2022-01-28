@@ -579,7 +579,7 @@ class Histogram(MetricWrapperBase):
                 self._labelvalues + (floatToGoString(b),))
             )
 
-    def observe(self, amount: float = 1, exemplar: Optional[Dict[str, str]] = None) -> None:
+    def observe(self, amount: float, exemplar: Optional[Dict[str, str]] = None) -> None:
         """Observe the given amount.
 
         The amount is usually positive or zero. Negative values are
