@@ -337,15 +337,15 @@ class Gauge(MetricWrapperBase):
     _MULTIPROC_MODES = frozenset(('min', 'max', 'livesum', 'liveall', 'all'))
 
     def __init__(self,
-                 name,
-                 documentation,
-                 labelnames=(),
-                 namespace='',
-                 subsystem='',
-                 unit='',
-                 registry=REGISTRY,
-                 _labelvalues=None,
-                 multiprocess_mode='all',
+                 name: str,
+                 documentation: str,
+                 labelnames: Iterable[str] = (),
+                 namespace: str = '',
+                 subsystem: str = '',
+                 unit: str = '',
+                 registry: Optional[CollectorRegistry] = REGISTRY,
+                 _labelvalues: Optional[Sequence[str]] = None,
+                 multiprocess_mode: str = 'all',
                  ):
         self._multiprocess_mode = multiprocess_mode
         if multiprocess_mode not in self._MULTIPROC_MODES:
@@ -362,32 +362,32 @@ class Gauge(MetricWrapperBase):
         )
         self._kwargs['multiprocess_mode'] = self._multiprocess_mode
 
-    def _metric_init(self):
+    def _metric_init(self) -> None:
         self._value = values.ValueClass(
             self._type, self._name, self._name, self._labelnames, self._labelvalues,
             multiprocess_mode=self._multiprocess_mode
         )
 
-    def inc(self, amount=1):
+    def inc(self, amount: float = 1) -> None:
         """Increment gauge by the given amount."""
         self._raise_if_not_observable()
         self._value.inc(amount)
 
-    def dec(self, amount=1):
+    def dec(self, amount: float = 1) -> None:
         """Decrement gauge by the given amount."""
         self._raise_if_not_observable()
         self._value.inc(-amount)
 
-    def set(self, value):
+    def set(self, value: float) -> None:
         """Set gauge to the given value."""
         self._raise_if_not_observable()
         self._value.set(float(value))
 
-    def set_to_current_time(self):
+    def set_to_current_time(self) -> None:
         """Set gauge to the current unixtime."""
         self.set(time.time())
 
-    def track_inprogress(self):
+    def track_inprogress(self) -> InprogressTracker:
         """Track inprogress blocks of code or functions.
 
         Can be used as a function decorator or context manager.
@@ -397,14 +397,14 @@ class Gauge(MetricWrapperBase):
         self._raise_if_not_observable()
         return InprogressTracker(self)
 
-    def time(self):
+    def time(self) -> Timer:
         """Time a block of code or function, and set the duration in seconds.
 
         Can be used as a function decorator or context manager.
         """
         return Timer(self, 'set')
 
-    def set_function(self, f):
+    def set_function(self, f: Callable[[], float]) -> None:
         """Call the provided function to return the Gauge value.
 
         The function must return a float, and may be called from
@@ -416,7 +416,7 @@ class Gauge(MetricWrapperBase):
         def samples(_: Gauge) -> Iterable[Sample]:
             return (Sample('', {}, float(f()), None, None),)
 
-        self._child_samples = types.MethodType(samples, self)
+        self._child_samples = types.MethodType(samples, self)  # type: ignore
 
     def _child_samples(self) -> Iterable[Sample]:
         return (Sample('', {}, self._value.get(), None, None),)
@@ -455,13 +455,13 @@ class Summary(MetricWrapperBase):
     _type = 'summary'
     _reserved_labelnames = ['quantile']
 
-    def _metric_init(self):
+    def _metric_init(self) -> None:
         self._count = values.ValueClass(self._type, self._name, self._name + '_count', self._labelnames,
                                         self._labelvalues)
         self._sum = values.ValueClass(self._type, self._name, self._name + '_sum', self._labelnames, self._labelvalues)
         self._created = time.time()
 
-    def observe(self, amount):
+    def observe(self, amount: float) -> None:
         """Observe the given amount.
 
         The amount is usually positive or zero. Negative values are
@@ -475,7 +475,7 @@ class Summary(MetricWrapperBase):
         self._count.inc(1)
         self._sum.inc(amount)
 
-    def time(self):
+    def time(self) -> Timer:
         """Time a block of code or function, and observe the duration in seconds.
 
         Can be used as a function decorator or context manager.
