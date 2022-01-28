@@ -677,7 +677,7 @@ class Enum(MetricWrapperBase):
                  namespace: str = '',
                  subsystem: str = '',
                  unit: str = '',
-                 registry: CollectorRegistry = REGISTRY,
+                 registry: Optional[CollectorRegistry] = REGISTRY,
                  _labelvalues: Optional[Sequence[str]] = None,
                  states: Optional[Sequence[str]] = None,
                  ):
