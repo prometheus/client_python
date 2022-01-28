@@ -413,7 +413,7 @@ class Gauge(MetricWrapperBase):
 
         self._raise_if_not_observable()
 
-        def samples(self) -> Iterable[Sample]:
+        def samples(_: Gauge) -> Iterable[Sample]:
             return (Sample('', {}, float(f()), None, None),)
 
         self._child_samples = types.MethodType(samples, self)
@@ -530,15 +530,15 @@ class Histogram(MetricWrapperBase):
     DEFAULT_BUCKETS = (.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, INF)
 
     def __init__(self,
-                 name,
-                 documentation,
-                 labelnames=(),
-                 namespace='',
-                 subsystem='',
-                 unit='',
-                 registry=REGISTRY,
-                 _labelvalues=None,
-                 buckets=DEFAULT_BUCKETS,
+                 name: str,
+                 documentation: str,
+                 labelnames: Iterable[str] = (),
+                 namespace: str = '',
+                 subsystem: str = '',
+                 unit: str = '',
+                 registry: Optional[CollectorRegistry] = REGISTRY,
+                 _labelvalues: Optional[Sequence[str]] = None,
+                 buckets: Sequence[float] = DEFAULT_BUCKETS,
                  ):
         self._prepare_buckets(buckets)
         super().__init__(
@@ -553,7 +553,7 @@ class Histogram(MetricWrapperBase):
         )
         self._kwargs['buckets'] = buckets
 
-    def _prepare_buckets(self, buckets):
+    def _prepare_buckets(self, buckets: Sequence[float]) -> None:
         buckets = [float(b) for b in buckets]
         if buckets != sorted(buckets):
             # This is probably an error on the part of the user,
@@ -565,7 +565,7 @@ class Histogram(MetricWrapperBase):
             raise ValueError('Must have at least two buckets')
         self._upper_bounds = buckets
 
-    def _metric_init(self):
+    def _metric_init(self) -> None:
         self._buckets = []
         self._created = time.time()
         bucket_labelnames = self._labelnames + ('le',)
@@ -579,7 +579,7 @@ class Histogram(MetricWrapperBase):
                 self._labelvalues + (floatToGoString(b),))
             )
 
-    def observe(self, amount, exemplar=None):
+    def observe(self, amount: float = 1, exemplar: Optional[Dict[str, str]] = None) -> None:
         """Observe the given amount.
 
         The amount is usually positive or zero. Negative values are
@@ -599,7 +599,7 @@ class Histogram(MetricWrapperBase):
                     self._buckets[i].set_exemplar(Exemplar(exemplar, amount, time.time()))
                 break
 
-    def time(self):
+    def time(self) -> Timer:
         """Time a block of code or function, and observe the duration in seconds.
 
         Can be used as a function decorator or context manager.
