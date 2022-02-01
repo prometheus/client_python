@@ -2,7 +2,7 @@ from threading import Lock
 import time
 import types
 from typing import (
-    Any, Callable, Dict, Iterable, Optional, Sequence, Type, TypeVar,
+    Any, Callable, Dict, Iterable, Optional, Sequence, Type, TypeVar, Union,
 )
 
 from . import values  # retain this import style for testability
@@ -538,7 +538,7 @@ class Histogram(MetricWrapperBase):
                  unit: str = '',
                  registry: Optional[CollectorRegistry] = REGISTRY,
                  _labelvalues: Optional[Sequence[str]] = None,
-                 buckets: Sequence[float] = DEFAULT_BUCKETS,
+                 buckets: Sequence[Union[float, int, str]] = DEFAULT_BUCKETS,
                  ):
         self._prepare_buckets(buckets)
         super().__init__(
@@ -553,8 +553,8 @@ class Histogram(MetricWrapperBase):
         )
         self._kwargs['buckets'] = buckets
 
-    def _prepare_buckets(self, buckets: Sequence[float]) -> None:
-        buckets = [float(b) for b in buckets]
+    def _prepare_buckets(self, source_buckets: Sequence[Union[float, int, str]]) -> None:
+        buckets = [float(b) for b in source_buckets]
         if buckets != sorted(buckets):
             # This is probably an error on the part of the user,
             # so raise rather than sorting for them.
