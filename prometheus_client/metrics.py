@@ -15,6 +15,8 @@ from .registry import CollectorRegistry, REGISTRY
 from .samples import Exemplar, Sample
 from .utils import floatToGoString, INF
 
+import pandas as pd
+
 T = TypeVar('T', bound='MetricWrapperBase')
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -714,3 +716,299 @@ class Enum(MetricWrapperBase):
                 for i, s
                 in enumerate(self._states)
             ]
+
+
+class MetricPandasWrapperBase:
+    _type: Optional[str] = None
+    _reserved_labelnames: Sequence[str] = ()
+
+    def _is_observable(self):
+        # Whether this metric is observable, i.e.
+        # * a metric without label names and values, or
+        # * the child of a labelled metric.
+        return not self._labelnames or (self._labelnames and self._labelvalues)
+
+    def _raise_if_not_observable(self):
+        # Functions that mutate the state of the metric, for example incrementing
+        # a counter, will fail if the metric is not observable, because only if a
+        # metric is observable will the value be initialized.
+        if not self._is_observable():
+            raise ValueError('%s metric is missing label values' % str(self._type))
+
+    def _is_parent(self):
+        return self._labelnames and not self._labelvalues
+
+    def _get_metric(self):
+        return Metric(self._name, self._documentation, self._type, self._unit)
+
+    def describe(self):
+        return [self._get_metric()]
+
+    def collect(self):
+        metric = self._get_metric()
+        for suffix, labels, value, timestamp, exemplar in self._samples():
+            metric.add_sample(self._name + suffix, labels, value, timestamp, exemplar)
+        return [metric]
+
+    def __str__(self):
+        return f"{self._type}:{self._name}"
+
+    def __repr__(self):
+        metric_type = type(self)
+        return f"{metric_type.__module__}.{metric_type.__name__}({self._name})"
+
+    def __init__(self: T,
+                 name: str,
+                 documentation: str,
+                 labelnames: Iterable[str] = (),
+                 namespace: str = '',
+                 subsystem: str = '',
+                 unit: str = '',
+                 registry: Optional[CollectorRegistry] = REGISTRY,
+                 _labelvalues: Optional[Sequence[str]] = None,
+                 ) -> None:
+        self._name = _build_full_name(self._type, name, namespace, subsystem, unit)
+        self._labelnames = _validate_labelnames(self, labelnames)
+        self._labelvalues = tuple(_labelvalues or ())
+        self._kwargs: Dict[str, Any] = {}
+        self._documentation = documentation
+        self._unit = unit
+
+        if not METRIC_NAME_RE.match(self._name):
+            raise ValueError('Invalid metric name: ' + self._name)
+
+        if self._is_parent():
+            # Prepare the fields needed for child metrics.
+            self._lock = Lock()
+            self._metrics = pd.DataFrame(columns=labelnames)
+
+        if self._is_observable():
+            self._metric_init()
+
+        if not self._labelvalues:
+            # Register the multi-wrapper parent metric, or if a label-less metric, the whole shebang.
+            if registry:
+                registry.register(self)
+
+    def labels(self: T, *labelvalues: Any, **labelkwargs: Any) -> T:
+        """Return the child for the given labelset.
+
+        All metrics can have labels, allowing grouping of related time series.
+        Taking a counter as an example:
+
+            from prometheus_client import Counter
+
+            c = Counter('my_requests_total', 'HTTP Failures', ['method', 'endpoint'])
+            c.labels('get', '/').inc()
+            c.labels('post', '/submit').inc()
+
+        Labels can also be provided as keyword arguments:
+
+            from prometheus_client import Counter
+
+            c = Counter('my_requests_total', 'HTTP Failures', ['method', 'endpoint'])
+            c.labels(method='get', endpoint='/').inc()
+            c.labels(method='post', endpoint='/submit').inc()
+
+        See the best practices on [naming](http://prometheus.io/docs/practices/naming/)
+        and [labels](http://prometheus.io/docs/practices/instrumentation/#use-labels).
+        """
+        if not self._labelnames:
+            raise ValueError('No label names were set when constructing %s' % self)
+
+        if self._labelvalues:
+            raise ValueError('{} already has labels set ({}); can not chain calls to .labels()'.format(
+                self,
+                dict(zip(self._labelnames, self._labelvalues))
+            ))
+
+        if labelvalues and labelkwargs:
+            raise ValueError("Can't pass both *args and **kwargs")
+
+        if labelkwargs:
+            if sorted(labelkwargs) != sorted(self._labelnames):
+                raise ValueError('Incorrect label names')
+            labelvalues = tuple(str(labelkwargs[l]) for l in self._labelnames)
+        else:
+            if len(labelvalues) != len(self._labelnames):
+                raise ValueError('Incorrect label count')
+            labelvalues = tuple(str(l) for l in labelvalues)
+        with self._lock:
+            if labelvalues not in self._metrics:
+                self._metrics[labelvalues] = self.__class__(
+                    self._name,
+                    documentation=self._documentation,
+                    labelnames=self._labelnames,
+                    unit=self._unit,
+                    _labelvalues=labelvalues,
+                    **self._kwargs
+                )
+            return self._metrics[labelvalues]
+
+    def remove(self, *labelvalues):
+        if not self._labelnames:
+            raise ValueError('No label names were set when constructing %s' % self)
+
+        """Remove the given labelset from the metric."""
+        if len(labelvalues) != len(self._labelnames):
+            raise ValueError('Incorrect label count (expected %d, got %s)' % (len(self._labelnames), labelvalues))
+        labelvalues = tuple(str(l) for l in labelvalues)
+        with self._lock:
+            del self._metrics[labelvalues]
+
+    def clear(self) -> None:
+        """Remove all labelsets from the metric"""
+        with self._lock:
+            self._metrics = {}
+
+    def _samples(self) -> Iterable[Sample]:
+        if self._is_parent():
+            return self._multi_samples()
+        else:
+            return self._child_samples()
+
+    def _multi_samples(self) -> Iterable[Sample]:
+        with self._lock:
+            metrics = self._metrics.copy()
+        for labels, metric in metrics.items():
+            series_labels = list(zip(self._labelnames, labels))
+            for suffix, sample_labels, value, timestamp, exemplar in metric._samples():
+                yield Sample(suffix, dict(series_labels + list(sample_labels.items())), value, timestamp, exemplar)
+
+    def _child_samples(self) -> Iterable[Sample]:  # pragma: no cover
+        raise NotImplementedError('_child_samples() must be implemented by %r' % self)
+
+    def _metric_init(self):  # pragma: no cover
+        """
+        Initialize the metric object as a child, i.e. when it has labels (if any) set.
+
+        This is factored as a separate function to allow for deferred initialization.
+        """
+        raise NotImplementedError('_metric_init() must be implemented by %r' % self)
+
+
+class GaugePandas(MetricPandasWrapperBase):
+    """Gauge metric, to report instantaneous values.
+
+     Examples of Gauges include:
+        - Inprogress requests
+        - Number of items in a queue
+        - Free memory
+        - Total memory
+        - Temperature
+
+     Gauges can go both up and down.
+
+        from prometheus_client import Gauge
+
+        g = Gauge('my_inprogress_requests', 'Description of gauge')
+        g.inc()      # Increment by 1
+        g.dec(10)    # Decrement by given value
+        g.set(4.2)   # Set to a given value
+
+     There are utilities for common use cases:
+
+        g.set_to_current_time()   # Set to current unixtime
+
+        # Increment when entered, decrement when exited.
+        @g.track_inprogress()
+        def f():
+            pass
+
+        with g.track_inprogress():
+            pass
+
+     A Gauge can also take its value from a callback:
+
+        d = Gauge('data_objects', 'Number of objects')
+        my_dict = {}
+        d.set_function(lambda: len(my_dict))
+    """
+    _type = 'gauge'
+    _MULTIPROC_MODES = frozenset(('min', 'max', 'livesum', 'liveall', 'all'))
+
+    def __init__(self,
+                 name: str,
+                 documentation: str,
+                 labelnames: Iterable[str] = (),
+                 namespace: str = '',
+                 subsystem: str = '',
+                 unit: str = '',
+                 registry: Optional[CollectorRegistry] = REGISTRY,
+                 _labelvalues: Optional[Sequence[str]] = None,
+                 multiprocess_mode: str = 'all',
+                 ):
+        self._multiprocess_mode = multiprocess_mode
+        if multiprocess_mode not in self._MULTIPROC_MODES:
+            raise ValueError('Invalid multiprocess mode: ' + multiprocess_mode)
+        super().__init__(
+            name=name,
+            documentation=documentation,
+            labelnames=labelnames,
+            namespace=namespace,
+            subsystem=subsystem,
+            unit=unit,
+            registry=registry,
+            _labelvalues=_labelvalues,
+        )
+        self._kwargs['multiprocess_mode'] = self._multiprocess_mode
+
+    def _metric_init(self) -> None:
+        self._value = values.ValueClass(
+            self._type, self._name, self._name, self._labelnames, self._labelvalues,
+            multiprocess_mode=self._multiprocess_mode
+        )
+
+    def inc(self, amount: float = 1) -> None:
+        """Increment gauge by the given amount."""
+        self._raise_if_not_observable()
+        self._value.inc(amount)
+
+    def dec(self, amount: float = 1) -> None:
+        """Decrement gauge by the given amount."""
+        self._raise_if_not_observable()
+        self._value.inc(-amount)
+
+    def set(self, value: float) -> None:
+        """Set gauge to the given value."""
+        self._raise_if_not_observable()
+        self._value.set(float(value))
+
+    def set_to_current_time(self) -> None:
+        """Set gauge to the current unixtime."""
+        self.set(time.time())
+
+    def track_inprogress(self) -> InprogressTracker:
+        """Track inprogress blocks of code or functions.
+
+        Can be used as a function decorator or context manager.
+        Increments the gauge when the code is entered,
+        and decrements when it is exited.
+        """
+        self._raise_if_not_observable()
+        return InprogressTracker(self)
+
+    def time(self) -> Timer:
+        """Time a block of code or function, and set the duration in seconds.
+
+        Can be used as a function decorator or context manager.
+        """
+        return Timer(self, 'set')
+
+    def set_function(self, f: Callable[[], float]) -> None:
+        """Call the provided function to return the Gauge value.
+
+        The function must return a float, and may be called from
+        multiple threads. All other methods of the Gauge become NOOPs.
+        """
+
+        self._raise_if_not_observable()
+
+        def samples(_: Gauge) -> Iterable[Sample]:
+            return (Sample('', {}, float(f()), None, None),)
+
+        self._child_samples = types.MethodType(samples, self)  # type: ignore
+
+    def _child_samples(self) -> Iterable[Sample]:
+        return (Sample('', {}, self._value.get(), None, None),)
+
