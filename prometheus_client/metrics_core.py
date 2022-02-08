@@ -1,6 +1,7 @@
 import re
+from typing import Dict, List, Optional, Sequence, Tuple, Union
 
-from .samples import Sample
+from .samples import Exemplar, Sample, Timestamp
 
 METRIC_TYPES = (
     'counter', 'gauge', 'summary', 'histogram',
@@ -20,36 +21,36 @@ class Metric:
     and SummaryMetricFamily instead.
     """
 
-    def __init__(self, name, documentation, typ, unit=''):
+    def __init__(self, name: str, documentation: str, typ: str, unit: str = ''):
         if unit and not name.endswith("_" + unit):
             name += "_" + unit
         if not METRIC_NAME_RE.match(name):
             raise ValueError('Invalid metric name: ' + name)
-        self.name = name
-        self.documentation = documentation
-        self.unit = unit
+        self.name: str = name
+        self.documentation: str = documentation
+        self.unit: str = unit
         if typ == 'untyped':
             typ = 'unknown'
         if typ not in METRIC_TYPES:
             raise ValueError('Invalid metric type: ' + typ)
-        self.type = typ
-        self.samples = []
+        self.type: str = typ
+        self.samples: List[Sample] = []
 
-    def add_sample(self, name, labels, value, timestamp=None, exemplar=None):
+    def add_sample(self, name: str, labels: Dict[str, str], value: float, timestamp: Optional[Union[Timestamp, float]] = None, exemplar: Optional[Exemplar] = None) -> None:
         """Add a sample to the metric.
 
         Internal-only, do not use."""
         self.samples.append(Sample(name, labels, value, timestamp, exemplar))
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return (isinstance(other, Metric)
-                and self.name == other.name 
+                and self.name == other.name
                 and self.documentation == other.documentation
                 and self.type == other.type
                 and self.unit == other.unit
                 and self.samples == other.samples)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "Metric({}, {}, {}, {}, {})".format(
             self.name,
             self.documentation,
@@ -73,7 +74,13 @@ class UnknownMetricFamily(Metric):
     For use by custom collectors.
     """
 
-    def __init__(self, name, documentation, value=None, labels=None, unit=''):
+    def __init__(self,
+                 name: str,
+                 documentation: str,
+                 value: Optional[float] = None,
+                 labels: Optional[Sequence[str]] = None,
+                 unit: str = '',
+                 ):
         Metric.__init__(self, name, documentation, 'unknown', unit)
         if labels is not None and value is not None:
             raise ValueError('Can only specify at most one of value and labels.')
@@ -83,7 +90,7 @@ class UnknownMetricFamily(Metric):
         if value is not None:
             self.add_metric([], value)
 
-    def add_metric(self, labels, value, timestamp=None):
+    def add_metric(self, labels: Sequence[str], value: float, timestamp: Optional[Union[Timestamp, float]] = None) -> None:
         """Add a metric to the metric family.
         Args:
         labels: A list of label values
@@ -102,7 +109,14 @@ class CounterMetricFamily(Metric):
     For use by custom collectors.
     """
 
-    def __init__(self, name, documentation, value=None, labels=None, created=None, unit=''):
+    def __init__(self,
+                 name: str,
+                 documentation: str,
+                 value: Optional[float] = None,
+                 labels: Sequence[str] = None,
+                 created: Optional[float] = None,
+                 unit: str = '',
+                 ):
         # Glue code for pre-OpenMetrics metrics.
         if name.endswith('_total'):
             name = name[:-6]
@@ -115,7 +129,12 @@ class CounterMetricFamily(Metric):
         if value is not None:
             self.add_metric([], value, created)
 
-    def add_metric(self, labels, value, created=None, timestamp=None):
+    def add_metric(self,
+                   labels: Sequence[str],
+                   value: float,
+                   created: Optional[float] = None,
+                   timestamp: Optional[Union[Timestamp, float]] = None,
+                   ) -> None:
         """Add a metric to the metric family.
 
         Args:
@@ -134,7 +153,13 @@ class GaugeMetricFamily(Metric):
     For use by custom collectors.
     """
 
-    def __init__(self, name, documentation, value=None, labels=None, unit=''):
+    def __init__(self,
+                 name: str,
+                 documentation: str,
+                 value: Optional[float] = None,
+                 labels: Optional[Sequence[str]] = None,
+                 unit: str = '',
+                 ):
         Metric.__init__(self, name, documentation, 'gauge', unit)
         if labels is not None and value is not None:
             raise ValueError('Can only specify at most one of value and labels.')
@@ -144,7 +169,7 @@ class GaugeMetricFamily(Metric):
         if value is not None:
             self.add_metric([], value)
 
-    def add_metric(self, labels, value, timestamp=None):
+    def add_metric(self, labels: Sequence[str], value: float, timestamp: Optional[Union[Timestamp, float]] = None) -> None:
         """Add a metric to the metric family.
 
         Args:
@@ -160,7 +185,14 @@ class SummaryMetricFamily(Metric):
     For use by custom collectors.
     """
 
-    def __init__(self, name, documentation, count_value=None, sum_value=None, labels=None, unit=''):
+    def __init__(self,
+                 name: str,
+                 documentation: str,
+                 count_value: Optional[float] = None,
+                 sum_value: Optional[float] = None,
+                 labels: Optional[Sequence[str]] = None,
+                 unit: str = '',
+                 ):
         Metric.__init__(self, name, documentation, 'summary', unit)
         if (sum_value is None) != (count_value is None):
             raise ValueError('count_value and sum_value must be provided together.')
@@ -169,10 +201,17 @@ class SummaryMetricFamily(Metric):
         if labels is None:
             labels = []
         self._labelnames = tuple(labels)
-        if count_value is not None:
+        # The and clause is necessary only for typing, the above ValueError will raise if only one is set.
+        if count_value is not None and sum_value is not None:
             self.add_metric([], count_value, sum_value)
 
-    def add_metric(self, labels, count_value, sum_value, timestamp=None):
+    def add_metric(self,
+                   labels: Sequence[str],
+                   count_value: float,
+                   sum_value: float,
+                   timestamp:
+                   Optional[Union[float, Timestamp]] = None
+                   ) -> None:
         """Add a metric to the metric family.
 
         Args:
@@ -190,7 +229,14 @@ class HistogramMetricFamily(Metric):
     For use by custom collectors.
     """
 
-    def __init__(self, name, documentation, buckets=None, sum_value=None, labels=None, unit=''):
+    def __init__(self,
+                 name: str,
+                 documentation: str,
+                 buckets: Optional[Sequence[Tuple[str, float, Optional[Exemplar]]]] = None,
+                 sum_value: Optional[float] = None,
+                 labels: Optional[Sequence[str]] = None,
+                 unit: str = '',
+                 ):
         Metric.__init__(self, name, documentation, 'histogram', unit)
         if sum_value is not None and buckets is None:
             raise ValueError('sum value cannot be provided without buckets.')
@@ -202,7 +248,11 @@ class HistogramMetricFamily(Metric):
         if buckets is not None:
             self.add_metric([], buckets, sum_value)
 
-    def add_metric(self, labels, buckets, sum_value, timestamp=None):
+    def add_metric(self,
+                   labels: Sequence[str],
+                   buckets: Sequence[Tuple[str, float, Optional[Exemplar]]],
+                   sum_value: Optional[float],
+                   timestamp: Optional[Union[Timestamp, float]] = None) -> None:
         """Add a metric to the metric family.
 
         Args:
@@ -241,7 +291,14 @@ class GaugeHistogramMetricFamily(Metric):
     For use by custom collectors.
     """
 
-    def __init__(self, name, documentation, buckets=None, gsum_value=None, labels=None, unit=''):
+    def __init__(self,
+                 name: str,
+                 documentation: str,
+                 buckets: Optional[Sequence[Tuple[str, float]]] = None,
+                 gsum_value: Optional[float] = None,
+                 labels: Optional[Sequence[str]] = None,
+                 unit: str = '',
+                 ):
         Metric.__init__(self, name, documentation, 'gaugehistogram', unit)
         if labels is not None and buckets is not None:
             raise ValueError('Can only specify at most one of buckets and labels.')
@@ -251,7 +308,12 @@ class GaugeHistogramMetricFamily(Metric):
         if buckets is not None:
             self.add_metric([], buckets, gsum_value)
 
-    def add_metric(self, labels, buckets, gsum_value, timestamp=None):
+    def add_metric(self,
+                   labels: Sequence[str],
+                   buckets: Sequence[Tuple[str, float]],
+                   gsum_value: Optional[float],
+                   timestamp: Optional[Union[float, Timestamp]] = None,
+                   ) -> None:
         """Add a metric to the metric family.
 
         Args:
@@ -268,7 +330,8 @@ class GaugeHistogramMetricFamily(Metric):
         # +Inf is last and provides the count value.
         self.samples.extend([
             Sample(self.name + '_gcount', dict(zip(self._labelnames, labels)), buckets[-1][1], timestamp),
-            Sample(self.name + '_gsum', dict(zip(self._labelnames, labels)), gsum_value, timestamp),
+            # TODO: Handle None gsum_value correctly. Currently a None will fail exposition but is allowed here.
+            Sample(self.name + '_gsum', dict(zip(self._labelnames, labels)), gsum_value, timestamp),  # type: ignore
         ])
 
 
@@ -278,7 +341,12 @@ class InfoMetricFamily(Metric):
     For use by custom collectors.
     """
 
-    def __init__(self, name, documentation, value=None, labels=None):
+    def __init__(self,
+                 name: str,
+                 documentation: str,
+                 value: Optional[Dict[str, str]] = None,
+                 labels: Optional[Sequence[str]] = None,
+                 ):
         Metric.__init__(self, name, documentation, 'info')
         if labels is not None and value is not None:
             raise ValueError('Can only specify at most one of value and labels.')
@@ -288,7 +356,11 @@ class InfoMetricFamily(Metric):
         if value is not None:
             self.add_metric([], value)
 
-    def add_metric(self, labels, value, timestamp=None):
+    def add_metric(self,
+                   labels: Sequence[str],
+                   value: Dict[str, str],
+                   timestamp: Optional[Union[Timestamp, float]] = None,
+                   ) -> None:
         """Add a metric to the metric family.
 
         Args:
@@ -309,7 +381,12 @@ class StateSetMetricFamily(Metric):
     For use by custom collectors.
     """
 
-    def __init__(self, name, documentation, value=None, labels=None):
+    def __init__(self,
+                 name: str,
+                 documentation: str,
+                 value: Optional[Dict[str, bool]] = None,
+                 labels: Optional[Sequence[str]] = None,
+                 ):
         Metric.__init__(self, name, documentation, 'stateset')
         if labels is not None and value is not None:
             raise ValueError('Can only specify at most one of value and labels.')
@@ -319,7 +396,11 @@ class StateSetMetricFamily(Metric):
         if value is not None:
             self.add_metric([], value)
 
-    def add_metric(self, labels, value, timestamp=None):
+    def add_metric(self,
+                   labels: Sequence[str],
+                   value: Dict[str, bool],
+                   timestamp: Optional[Union[Timestamp, float]] = None,
+                   ) -> None:
         """Add a metric to the metric family.
 
         Args:
