@@ -1,19 +1,20 @@
 import gc
 import platform
+from typing import Iterable
 
-from .metrics_core import CounterMetricFamily
-from .registry import REGISTRY
+from .metrics_core import CounterMetricFamily, Metric
+from .registry import Collector, REGISTRY, Registry
 
 
-class GCCollector:
+class GCCollector(Collector):
     """Collector for Garbage collection statistics."""
 
-    def __init__(self, registry=REGISTRY):
+    def __init__(self, registry: Registry = REGISTRY):
         if not hasattr(gc, 'get_stats') or platform.python_implementation() != 'CPython':
             return
         registry.register(self)
 
-    def collect(self):
+    def collect(self) -> Iterable[Metric]:
         collected = CounterMetricFamily(
             'python_gc_objects_collected',
             'Objects collected during gc',
@@ -31,8 +32,8 @@ class GCCollector:
             labels=['generation'],
         )
 
-        for generation, stat in enumerate(gc.get_stats()):
-            generation = str(generation)
+        for gen, stat in enumerate(gc.get_stats()):
+            generation = str(gen)
             collected.add_metric([generation], value=stat['collected'])
             uncollectable.add_metric([generation], value=stat['uncollectable'])
             collections.add_metric([generation], value=stat['collections'])

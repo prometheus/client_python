@@ -2,7 +2,7 @@ from threading import Lock
 import time
 import types
 from typing import (
-    Any, Callable, Dict, Iterable, Optional, Sequence, Type, TypeVar, Union,
+    Any, Callable, Dict, Iterable, List, Optional, Sequence, Type, TypeVar, Union,
 )
 
 from . import values  # retain this import style for testability
@@ -11,7 +11,7 @@ from .metrics_core import (
     Metric, METRIC_LABEL_NAME_RE, METRIC_NAME_RE,
     RESERVED_METRIC_LABEL_NAME_RE,
 )
-from .registry import CollectorRegistry, REGISTRY
+from .registry import Collector, REGISTRY, Registry
 from .samples import Exemplar, Sample
 from .utils import floatToGoString, INF
 
@@ -61,7 +61,7 @@ def _validate_exemplar(exemplar):
         raise ValueError('Exemplar labels have %d UTF-8 characters, exceeding the limit of 128')
 
 
-class MetricWrapperBase:
+class MetricWrapperBase(Collector):
     _type: Optional[str] = None
     _reserved_labelnames: Sequence[str] = ()
 
@@ -84,19 +84,19 @@ class MetricWrapperBase:
     def _get_metric(self):
         return Metric(self._name, self._documentation, self._type, self._unit)
 
-    def describe(self):
+    def describe(self) -> Iterable[Metric]:
         return [self._get_metric()]
 
-    def collect(self):
+    def collect(self) -> Iterable[Metric]:
         metric = self._get_metric()
         for suffix, labels, value, timestamp, exemplar in self._samples():
             metric.add_sample(self._name + suffix, labels, value, timestamp, exemplar)
         return [metric]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self._type}:{self._name}"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         metric_type = type(self)
         return f"{metric_type.__module__}.{metric_type.__name__}({self._name})"
 
@@ -107,7 +107,7 @@ class MetricWrapperBase:
                  namespace: str = '',
                  subsystem: str = '',
                  unit: str = '',
-                 registry: Optional[CollectorRegistry] = REGISTRY,
+                 registry: Optional[Registry] = REGISTRY,
                  _labelvalues: Optional[Sequence[str]] = None,
                  ) -> None:
         self._name = _build_full_name(self._type, name, namespace, subsystem, unit)
@@ -188,7 +188,7 @@ class MetricWrapperBase:
                 )
             return self._metrics[labelvalues]
 
-    def remove(self, *labelvalues):
+    def remove(self, *labelvalues: str) -> None:
         if not self._labelnames:
             raise ValueError('No label names were set when constructing %s' % self)
 
@@ -343,7 +343,7 @@ class Gauge(MetricWrapperBase):
                  namespace: str = '',
                  subsystem: str = '',
                  unit: str = '',
-                 registry: Optional[CollectorRegistry] = REGISTRY,
+                 registry: Optional[Registry] = REGISTRY,
                  _labelvalues: Optional[Sequence[str]] = None,
                  multiprocess_mode: str = 'all',
                  ):
@@ -536,7 +536,7 @@ class Histogram(MetricWrapperBase):
                  namespace: str = '',
                  subsystem: str = '',
                  unit: str = '',
-                 registry: Optional[CollectorRegistry] = REGISTRY,
+                 registry: Optional[Registry] = REGISTRY,
                  _labelvalues: Optional[Sequence[str]] = None,
                  buckets: Sequence[Union[float, int, str]] = DEFAULT_BUCKETS,
                  ):
@@ -566,7 +566,7 @@ class Histogram(MetricWrapperBase):
         self._upper_bounds = buckets
 
     def _metric_init(self) -> None:
-        self._buckets = []
+        self._buckets: List[values.Value] = []
         self._created = time.time()
         bucket_labelnames = self._labelnames + ('le',)
         self._sum = values.ValueClass(self._type, self._name, self._name + '_sum', self._labelnames, self._labelvalues)
@@ -608,7 +608,7 @@ class Histogram(MetricWrapperBase):
 
     def _child_samples(self) -> Iterable[Sample]:
         samples = []
-        acc = 0
+        acc = 0.0
         for i, bound in enumerate(self._upper_bounds):
             acc += self._buckets[i].get()
             samples.append(Sample('_bucket', {'le': floatToGoString(bound)}, acc, None, self._buckets[i].get_exemplar()))
@@ -642,7 +642,7 @@ class Info(MetricWrapperBase):
         self._lock = Lock()
         self._value = {}
 
-    def info(self, val):
+    def info(self, val: Dict[str, str]) -> None:
         """Set info metric."""
         if self._labelname_set.intersection(val.keys()):
             raise ValueError('Overlapping labels for Info metric, metric: {} child: {}'.format(
@@ -677,7 +677,7 @@ class Enum(MetricWrapperBase):
                  namespace: str = '',
                  subsystem: str = '',
                  unit: str = '',
-                 registry: Optional[CollectorRegistry] = REGISTRY,
+                 registry: Optional[Registry] = REGISTRY,
                  _labelvalues: Optional[Sequence[str]] = None,
                  states: Optional[Sequence[str]] = None,
                  ):

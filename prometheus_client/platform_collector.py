@@ -2,10 +2,10 @@ import platform as pf
 from typing import Any, Iterable, Optional
 
 from .metrics_core import GaugeMetricFamily, Metric
-from .registry import CollectorRegistry, REGISTRY
+from .registry import Collector, CollectorRegistry, REGISTRY
 
 
-class PlatformCollector:
+class PlatformCollector(Collector):
     """Collector for python platform information"""
 
     def __init__(self, registry: CollectorRegistry = REGISTRY, platform: Optional[Any] = None):

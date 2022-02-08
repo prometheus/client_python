@@ -1,10 +1,30 @@
+from abc import ABC, abstractmethod
 import copy
 from threading import Lock
+from typing import Dict, Iterable, List, Optional
 
 from .metrics_core import Metric
 
 
-class CollectorRegistry:
+# Ideally these would be Protocols, but Protocols are only available in Python >= 3.8.
+class Collector(ABC):
+    @abstractmethod
+    def collect(self) -> Iterable[Metric]:
+        pass
+
+
+class Registry(ABC):
+    @abstractmethod
+    def register(self, collector: Collector) -> None:
+        pass
+
+
+class _EmptyCollector(Collector):
+    def collect(self) -> Iterable[Metric]:
+        return []
+
+
+class CollectorRegistry(Collector, Registry):
     """Metric collector registry.
 
     Collectors must have a no-argument method 'collect' that returns a list of
@@ -12,15 +32,15 @@ class CollectorRegistry:
     exposition formats.
     """
 
-    def __init__(self, auto_describe=False, target_info=None):
-        self._collector_to_names = {}
-        self._names_to_collectors = {}
+    def __init__(self, auto_describe: bool = False, target_info: Optional[Dict[str, str]] = None):
+        self._collector_to_names: Dict[Collector, List[str]] = {}
+        self._names_to_collectors: Dict[str, Collector] = {}
         self._auto_describe = auto_describe
         self._lock = Lock()
-        self._target_info = {}
+        self._target_info: Optional[Dict[str, str]] = {}
         self.set_target_info(target_info)
 
-    def register(self, collector):
+    def register(self, collector: Collector) -> None:
         """Add a collector to the registry."""
         with self._lock:
             names = self._get_names(collector)
@@ -33,7 +53,7 @@ class CollectorRegistry:
                 self._names_to_collectors[name] = collector
             self._collector_to_names[collector] = names
 
-    def unregister(self, collector):
+    def unregister(self, collector: Collector) -> None:
         """Remove a collector from the registry."""
         with self._lock:
             for name in self._collector_to_names[collector]:
@@ -69,7 +89,7 @@ class CollectorRegistry:
                 result.append(metric.name + suffix)
         return result
 
-    def collect(self):
+    def collect(self) -> Iterable[Metric]:
         """Yields metrics from the collectors in the registry."""
         collectors = None
         ti = None
@@ -82,7 +102,7 @@ class CollectorRegistry:
         for collector in collectors:
             yield from collector.collect()
 
-    def restricted_registry(self, names):
+    def restricted_registry(self, names: Iterable[str]) -> "RestrictedRegistry":
         """Returns object that only collects some metrics.
 
         Returns an object which upon collect() will return
@@ -95,17 +115,17 @@ class CollectorRegistry:
         names = set(names)
         return RestrictedRegistry(names, self)
 
-    def set_target_info(self, labels):
+    def set_target_info(self, labels: Optional[Dict[str, str]]) -> None:
         with self._lock:
             if labels:
                 if not self._target_info and 'target_info' in self._names_to_collectors:
                     raise ValueError('CollectorRegistry already contains a target_info metric')
-                self._names_to_collectors['target_info'] = None
+                self._names_to_collectors['target_info'] = _EmptyCollector()
             elif self._target_info:
                 self._names_to_collectors.pop('target_info', None)
             self._target_info = labels
 
-    def get_target_info(self):
+    def get_target_info(self) -> Optional[Dict[str, str]]:
         with self._lock:
             return self._target_info
 
@@ -114,7 +134,7 @@ class CollectorRegistry:
         m.add_sample('target_info', self._target_info, 1)
         return m
 
-    def get_sample_value(self, name, labels=None):
+    def get_sample_value(self, name: str, labels: Optional[Dict[str, str]] = None) -> Optional[float]:
         """Returns the sample value, or None if not found.
 
         This is inefficient, and intended only for use in unittests.
@@ -129,11 +149,11 @@ class CollectorRegistry:
 
 
 class RestrictedRegistry:
-    def __init__(self, names, registry):
+    def __init__(self, names: Iterable[str], registry: CollectorRegistry):
         self._name_set = set(names)
         self._registry = registry
 
-    def collect(self):
+    def collect(self) -> Iterable[Metric]:
         collectors = set()
         target_info_metric = None
         with self._registry._lock:
