@@ -30,7 +30,7 @@ class ExceptionCounter:
         def wrapped(*args: Any, **kwargs: Any) -> Any:
             with self:
                 return f(*args, **kwargs)
-        return wrapped
+        return wrapped  # type: ignore
 
 
 class InprogressTracker:
@@ -43,12 +43,12 @@ class InprogressTracker:
     def __exit__(self, typ, value, traceback):
         self._gauge.dec()
 
-    def __call__(self, f):
+    def __call__(self, f: "F") -> "F":
         @functools.wraps(f)
         def wrapped(*args: Any, **kwargs: Any) -> Any:
             with self:
                 return f(*args, **kwargs)
-        return wrapped
+        return wrapped  # type: ignore
 
 
 class Timer:
@@ -72,9 +72,9 @@ class Timer:
     def labels(self, *args, **kw):
         self._metric = self._metric.labels(*args, **kw)
 
-    def __call__(self, f):
+    def __call__(self, f: "F") -> "F":
         @functools.wraps(f)
         def wrapped(*args: Any, **kwargs: Any) -> Any:
             with self._new_timer():
                 return f(*args, **kwargs)
-        return wrapped
+        return wrapped  # type: ignore
