@@ -1,11 +1,12 @@
 import math
+from typing import Union
 
 INF = float("inf")
 MINUS_INF = float("-inf")
 NaN = float("NaN")
 
 
-def floatToGoString(d):
+def floatToGoString(d: Union[float, int, str]) -> str:
     d = float(d)
     if d == INF:
         return '+Inf'
