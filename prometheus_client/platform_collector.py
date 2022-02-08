@@ -1,13 +1,14 @@
 import platform as pf
+from typing import Any, Iterable, Optional
 
-from .metrics_core import GaugeMetricFamily
-from .registry import REGISTRY
+from .metrics_core import GaugeMetricFamily, Metric
+from .registry import CollectorRegistry, REGISTRY
 
 
 class PlatformCollector:
     """Collector for python platform information"""
 
-    def __init__(self, registry=REGISTRY, platform=None):
+    def __init__(self, registry: CollectorRegistry = REGISTRY, platform: Optional[Any] = None):
         self._platform = pf if platform is None else platform
         info = self._info()
         system = self._platform.system()
@@ -19,7 +20,7 @@ class PlatformCollector:
         if registry:
             registry.register(self)
 
-    def collect(self):
+    def collect(self) -> Iterable[Metric]:
         return self._metrics
 
     @staticmethod
