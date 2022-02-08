@@ -29,7 +29,7 @@ class ExceptionCounter:
         def wrapped(*args: Any, **kwargs: Any) -> Any:
             with self:
                 return f(*args, **kwargs)
-        return wrapped
+        return wrapped  # type: ignore
 
 
 class InprogressTracker:
@@ -47,7 +47,7 @@ class InprogressTracker:
         def wrapped(*args: Any, **kwargs: Any) -> Any:
             with self:
                 return f(*args, **kwargs)
-        return wrapped
+        return wrapped  # type: ignore
 
 
 class Timer:
@@ -78,4 +78,4 @@ class Timer:
             # ensures thread safety and reentrancy.
             with self._new_timer():
                 return f(*args, **kwargs)
-        return wrapped
+        return wrapped  # type: ignore
