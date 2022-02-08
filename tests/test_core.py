@@ -64,13 +64,13 @@ class TestCounter(unittest.TestCase):
 
     def test_function_decorator(self):
         @self.counter.count_exceptions(ValueError)
-        def f(r: bool) -> None:
+        def f(r):
             if r:
                 raise ValueError
             else:
                 raise TypeError
 
-        self.assertEqual("(r: bool) -> None", str(inspect.signature(f)))
+        self.assertEqual("(r)", str(inspect.signature(f)))
 
         try:
             f(False)
@@ -198,10 +198,10 @@ class TestGauge(unittest.TestCase):
         self.assertEqual(0, self.registry.get_sample_value('g'))
 
         @self.gauge.track_inprogress()
-        def f() -> None:
+        def f():
             self.assertEqual(1, self.registry.get_sample_value('g'))
 
-        self.assertEqual("() -> None", str(inspect.signature(f)))
+        self.assertEqual("()", str(inspect.signature(f)))
 
         f()
         self.assertEqual(0, self.registry.get_sample_value('g'))
@@ -230,10 +230,10 @@ class TestGauge(unittest.TestCase):
         self.assertEqual(0, self.registry.get_sample_value('g'))
 
         @self.gauge.time()
-        def f() -> None:
+        def f():
             time.sleep(.001)
 
-        self.assertEqual("() -> None", str(inspect.signature(f)))
+        self.assertEqual("()", str(inspect.signature(f)))
 
         f()
         self.assertNotEqual(0, self.registry.get_sample_value('g'))
@@ -309,10 +309,10 @@ class TestSummary(unittest.TestCase):
         self.assertEqual(0, self.registry.get_sample_value('s_count'))
 
         @self.summary.time()
-        def f() -> None:
+        def f():
             pass
 
-        self.assertEqual("() -> None", str(inspect.signature(f)))
+        self.assertEqual("()", str(inspect.signature(f)))
 
         f()
         self.assertEqual(1, self.registry.get_sample_value('s_count'))
@@ -462,10 +462,10 @@ class TestHistogram(unittest.TestCase):
         self.assertEqual(0, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
 
         @self.histogram.time()
-        def f() -> None:
+        def f():
             pass
 
-        self.assertEqual("() -> None", str(inspect.signature(f)))
+        self.assertEqual("()", str(inspect.signature(f)))
 
         f()
         self.assertEqual(1, self.registry.get_sample_value('h_count'))
