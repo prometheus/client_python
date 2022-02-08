@@ -1,42 +1,85 @@
+from abc import ABC, abstractmethod
 import os
 from threading import Lock
+from typing import Any, Callable, Optional, Sequence
 import warnings
 
 from .mmap_dict import mmap_key, MmapedDict
+from .samples import Exemplar
 
 
-class MutexValue:
+class Value(ABC):
+    @abstractmethod
+    def __init__(self,
+                 typ: Optional[str],
+                 metric_name: str,
+                 name: str,
+                 labelnames: Sequence[str],
+                 labelvalues: Sequence[str],
+                 **kwargs: Any,
+                 ):
+        pass
+
+    @abstractmethod
+    def inc(self, amount: float) -> None:
+        pass
+
+    @abstractmethod
+    def set(self, value: float) -> None:
+        pass
+
+    @abstractmethod
+    def set_exemplar(self, exemplar: Exemplar) -> None:
+        pass
+
+    @abstractmethod
+    def get(self) -> float:
+        pass
+
+    @abstractmethod
+    def get_exemplar(self) -> Optional[Exemplar]:
+        pass
+
+
+class MutexValue(Value):
     """A float protected by a mutex."""
 
     _multiprocess = False
 
-    def __init__(self, typ, metric_name, name, labelnames, labelvalues, **kwargs):
+    def __init__(self,
+                 typ: Optional[str],
+                 metric_name: str,
+                 name: str,
+                 labelnames: Sequence[str],
+                 labelvalues: Sequence[str],
+                 **kwargs: Any,
+                 ):
         self._value = 0.0
-        self._exemplar = None
+        self._exemplar: Optional[Exemplar] = None
         self._lock = Lock()
 
-    def inc(self, amount):
+    def inc(self, amount: float) -> None:
         with self._lock:
             self._value += amount
 
-    def set(self, value):
+    def set(self, value: float) -> None:
         with self._lock:
             self._value = value
 
-    def set_exemplar(self, exemplar):
+    def set_exemplar(self, exemplar: Exemplar) -> None:
         with self._lock:
             self._exemplar = exemplar
 
-    def get(self):
+    def get(self) -> float:
         with self._lock:
             return self._value
 
-    def get_exemplar(self):
+    def get_exemplar(self) -> Optional[Exemplar]:
         with self._lock:
             return self._exemplar
 
 
-def MultiProcessValue(process_identifier=os.getpid):
+def MultiProcessValue(process_identifier: Callable[[], int] = os.getpid) -> type[Value]:
     """Returns a MmapedValue class based on a process_identifier function.
 
     The 'process_identifier' function MUST comply with this simple rule:
@@ -52,7 +95,7 @@ def MultiProcessValue(process_identifier=os.getpid):
     # This avoids the need to also have mutexes in __MmapDict.
     lock = Lock()
 
-    class MmapedValue:
+    class MmapedValue(Value):
         """A float protected by a mutex backed by a per-process mmaped file."""
 
         _multiprocess = True
@@ -123,7 +166,7 @@ def MultiProcessValue(process_identifier=os.getpid):
     return MmapedValue
 
 
-def get_value_class():
+def get_value_class() -> type[Value]:
     # Should we enable multi-process mode?
     # This needs to be chosen before the first metric is constructed,
     # and as that may be in some arbitrary library the user/admin has
