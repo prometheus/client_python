@@ -1,3 +1,4 @@
+import functools
 import sys
 from timeit import default_timer
 from types import TracebackType
@@ -5,8 +6,6 @@ from typing import Any, Callable, Optional, Type, TYPE_CHECKING, TypeVar
 
 if sys.version_info >= (3, 8, 0):
     from typing import Literal
-
-from .decorator import decorate
 
 if TYPE_CHECKING:
     from . import Counter
@@ -27,11 +26,11 @@ class ExceptionCounter:
         return False
 
     def __call__(self, f: "F") -> "F":
-        def wrapped(func, *args, **kwargs):
+        @functools.wraps(f)
+        def wrapped(*args: Any, **kwargs: Any) -> Any:
             with self:
-                return func(*args, **kwargs)
-
-        return decorate(f, wrapped)
+                return f(*args, **kwargs)
+        return wrapped
 
 
 class InprogressTracker:
@@ -45,11 +44,11 @@ class InprogressTracker:
         self._gauge.dec()
 
     def __call__(self, f):
-        def wrapped(func, *args, **kwargs):
+        @functools.wraps(f)
+        def wrapped(*args: Any, **kwargs: Any) -> Any:
             with self:
-                return func(*args, **kwargs)
-
-        return decorate(f, wrapped)
+                return f(*args, **kwargs)
+        return wrapped
 
 
 class Timer:
@@ -74,10 +73,8 @@ class Timer:
         self._metric = self._metric.labels(*args, **kw)
 
     def __call__(self, f):
-        def wrapped(func, *args, **kwargs):
-            # Obtaining new instance of timer every time
-            # ensures thread safety and reentrancy.
+        @functools.wraps(f)
+        def wrapped(*args: Any, **kwargs: Any) -> Any:
             with self._new_timer():
-                return func(*args, **kwargs)
-
-        return decorate(f, wrapped)
+                return f(*args, **kwargs)
+        return wrapped
