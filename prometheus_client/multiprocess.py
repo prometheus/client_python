@@ -156,6 +156,11 @@ def mark_process_dead(pid, path=None):
     """Do bookkeeping for when one process dies in a multi-process setup."""
     if path is None:
         path = os.environ.get('PROMETHEUS_MULTIPROC_DIR', os.environ.get('prometheus_multiproc_dir'))
+
+    if path is None:
+        # Avoid error when environment is not correctly set-up
+        return
+
     for f in glob.glob(os.path.join(path, f'gauge_livesum_{pid}.db')):
         os.remove(f)
     for f in glob.glob(os.path.join(path, f'gauge_liveall_{pid}.db')):

@@ -60,7 +60,7 @@ class TestMultiProcess(unittest.TestCase):
         return
 
     def tearDown(self):
-        del os.environ['PROMETHEUS_MULTIPROC_DIR']
+        os.environ.pop('PROMETHEUS_MULTIPROC_DIR', None)
         shutil.rmtree(self.tempdir)
         values.ValueClass = MutexValue
 
@@ -302,6 +302,11 @@ class TestMultiProcess(unittest.TestCase):
             os.path.join(self.tempdir, 'gauge_liveall_9999999.db'),
             os.path.join(self.tempdir, 'gauge_livesum_9999999.db'),
         ]))
+
+    def test_mark_dead_no_env(self):
+        del os.environ['PROMETHEUS_MULTIPROC_DIR']
+
+        mark_process_dead(123)
 
 
 class TestMmapedDict(unittest.TestCase):
