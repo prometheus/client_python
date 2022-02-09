@@ -6,6 +6,7 @@ import socket
 from socketserver import ThreadingMixIn
 import sys
 import threading
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 from urllib.error import HTTPError
 from urllib.parse import parse_qs, quote_plus, urlparse
 from urllib.request import (
@@ -14,7 +15,7 @@ from urllib.request import (
 from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
 
 from .openmetrics import exposition as openmetrics
-from .registry import REGISTRY
+from .registry import CollectorRegistry, REGISTRY
 from .utils import floatToGoString
 
 __all__ = (
@@ -101,7 +102,7 @@ def _bake_output(registry, accept_header, params):
     return '200 OK', ('Content-Type', content_type), output
 
 
-def make_wsgi_app(registry=REGISTRY):
+def make_wsgi_app(registry: CollectorRegistry = REGISTRY) -> Callable:
     """Create a WSGI app which serves the metrics from a registry."""
 
     def prometheus_app(environ, start_response):
@@ -149,7 +150,7 @@ def _get_best_family(address, port):
     return family, sockaddr[0]
 
 
-def start_wsgi_server(port, addr='0.0.0.0', registry=REGISTRY):
+def start_wsgi_server(port: int, addr: str = '0.0.0.0', registry: CollectorRegistry = REGISTRY) -> None:
     """Starts a WSGI server for prometheus metrics as a daemon thread."""
     class TmpServer(ThreadingWSGIServer):
         """Copy of ThreadingWSGIServer to update address_family locally"""
@@ -164,7 +165,7 @@ def start_wsgi_server(port, addr='0.0.0.0', registry=REGISTRY):
 start_http_server = start_wsgi_server
 
 
-def generate_latest(registry=REGISTRY):
+def generate_latest(registry: CollectorRegistry = REGISTRY) -> bytes:
     """Returns the metrics from the registry in latest text format as a string."""
 
     def sample_line(line):
@@ -205,7 +206,7 @@ def generate_latest(registry=REGISTRY):
                 mname, metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
             output.append(f'# TYPE {mname} {mtype}\n')
 
-            om_samples = {}
+            om_samples: Dict[str, List[str]] = {}
             for s in metric.samples:
                 for suffix in ['_created', '_gsum', '_gcount']:
                     if s.name == metric.name + suffix:
@@ -226,7 +227,7 @@ def generate_latest(registry=REGISTRY):
     return ''.join(output).encode('utf-8')
 
 
-def choose_encoder(accept_header):
+def choose_encoder(accept_header: str) -> Tuple[Callable[[CollectorRegistry], bytes], str]:
     accept_header = accept_header or ''
     for accepted in accept_header.split(','):
         if accepted.split(';')[0].strip() == 'application/openmetrics-text':
@@ -237,9 +238,9 @@ def choose_encoder(accept_header):
 
 class MetricsHandler(BaseHTTPRequestHandler):
     """HTTP handler that gives metrics from ``REGISTRY``."""
-    registry = REGISTRY
+    registry: CollectorRegistry = REGISTRY
 
-    def do_GET(self):
+    def do_GET(self) -> None:
         # Prepare parameters
         registry = self.registry
         accept_header = self.headers.get('Accept')
@@ -252,11 +253,11 @@ class MetricsHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(output)
 
-    def log_message(self, format, *args):
+    def log_message(self, format: str, *args: Any) -> None:
         """Log nothing."""
 
     @classmethod
-    def factory(cls, registry):
+    def factory(cls, registry: CollectorRegistry) -> type:
         """Returns a dynamic MetricsHandler class tied
            to the passed registry.
         """
@@ -271,7 +272,7 @@ class MetricsHandler(BaseHTTPRequestHandler):
         return MyMetricsHandler
 
 
-def write_to_textfile(path, registry):
+def write_to_textfile(path: str, registry: CollectorRegistry) -> None:
     """Write metrics to the given path.
 
     This is intended for use with the Node exporter textfile collector.
@@ -279,7 +280,7 @@ def write_to_textfile(path, registry):
     tmppath = f'{path}.{os.getpid()}.{threading.current_thread().ident}'
     with open(tmppath, 'wb') as f:
         f.write(generate_latest(registry))
-    
+
     # rename(2) is atomic but fails on Windows if the destination file exists
     if os.name == 'nt':
         os.replace(tmppath, path)
@@ -287,11 +288,18 @@ def write_to_textfile(path, registry):
         os.rename(tmppath, path)
 
 
-def _make_handler(url, method, timeout, headers, data, base_handler):
+def _make_handler(
+    url: str,
+    method: str,
+    timeout: Optional[float],
+    headers: Sequence[Tuple[str, str]],
+    data: bytes,
+    base_handler: type,
+) -> Callable[[], None]:
 
-    def handle():
+    def handle() -> None:
         request = Request(url, data=data)
-        request.get_method = lambda: method
+        request.get_method = lambda: method  # type: ignore
         for k, v in headers:
             request.add_header(k, v)
         resp = build_opener(base_handler).open(request, timeout=timeout)
@@ -301,7 +309,13 @@ def _make_handler(url, method, timeout, headers, data, base_handler):
     return handle
 
 
-def default_handler(url, method, timeout, headers, data):
+def default_handler(
+    url: str,
+    method: str,
+    timeout: Optional[float],
+    headers: List[Tuple[str, str]],
+    data: bytes,
+) -> Callable[[], None]:
     """Default handler that implements HTTP/HTTPS connections.
 
     Used by the push_to_gateway functions. Can be re-used by other handlers."""
@@ -309,7 +323,13 @@ def default_handler(url, method, timeout, headers, data):
     return _make_handler(url, method, timeout, headers, data, HTTPHandler)
 
 
-def passthrough_redirect_handler(url, method, timeout, headers, data):
+def passthrough_redirect_handler(
+    url: str,
+    method: str,
+    timeout: Optional[float],
+    headers: List[Tuple[str, str]],
+    data: bytes,
+) -> Callable[[], None]:
     """
     Handler that automatically trusts redirect responses for all HTTP methods.
 
@@ -323,7 +343,15 @@ def passthrough_redirect_handler(url, method, timeout, headers, data):
     return _make_handler(url, method, timeout, headers, data, _PrometheusRedirectHandler)
 
 
-def basic_auth_handler(url, method, timeout, headers, data, username=None, password=None):
+def basic_auth_handler(
+    url: str,
+    method: str,
+    timeout: Optional[float],
+    headers: List[Tuple[str, str]],
+    data: bytes,
+    username: str = None,
+    password: str = None,
+) -> Callable[[], None]:
     """Handler that implements HTTP/HTTPS connections with Basic Auth.
 
     Sets auth headers using supplied 'username' and 'password', if set.
@@ -336,15 +364,20 @@ def basic_auth_handler(url, method, timeout, headers, data, username=None, passw
             auth_value = f'{username}:{password}'.encode()
             auth_token = base64.b64encode(auth_value)
             auth_header = b'Basic ' + auth_token
-            headers.append(['Authorization', auth_header])
+            headers.append(('Authorization', auth_header))
         default_handler(url, method, timeout, headers, data)()
 
     return handle
 
 
 def push_to_gateway(
-        gateway, job, registry, grouping_key=None, timeout=30,
-        handler=default_handler):
+    gateway: str,
+    job: str,
+    registry: CollectorRegistry,
+    grouping_key: Optional[Dict[str, Any]] = None,
+    timeout: Optional[float] = 30,
+    handler: Callable = default_handler,
+) -> None:
     """Push metrics to the given pushgateway.
 
     `gateway` the url for your push gateway. Either of the form
@@ -387,8 +420,13 @@ def push_to_gateway(
 
 
 def pushadd_to_gateway(
-        gateway, job, registry, grouping_key=None, timeout=30,
-        handler=default_handler):
+    gateway: str,
+    job: str,
+    registry: Optional[CollectorRegistry],
+    grouping_key: Optional[Dict[str, Any]] = None,
+    timeout: Optional[float] = 30,
+    handler: Callable = default_handler,
+) -> None:
     """PushAdd metrics to the given pushgateway.
 
     `gateway` the url for your push gateway. Either of the form
@@ -413,7 +451,12 @@ def pushadd_to_gateway(
 
 
 def delete_from_gateway(
-        gateway, job, grouping_key=None, timeout=30, handler=default_handler):
+    gateway: str,
+    job: str,
+    grouping_key: Optional[Dict[str, Any]] = None,
+    timeout: Optional[float] = 30,
+    handler: Callable = default_handler,
+) -> None:
     """Delete metrics from the given pushgateway.
 
     `gateway` the url for your push gateway. Either of the form
@@ -436,7 +479,15 @@ def delete_from_gateway(
     _use_gateway('DELETE', gateway, job, None, grouping_key, timeout, handler)
 
 
-def _use_gateway(method, gateway, job, registry, grouping_key, timeout, handler):
+def _use_gateway(
+    method: str,
+    gateway: str,
+    job: str,
+    registry: Optional[CollectorRegistry],
+    grouping_key: Optional[Dict[str, Any]],
+    timeout: Optional[float],
+    handler: Callable,
+) -> None:
     gateway_url = urlparse(gateway)
     # See https://bugs.python.org/issue27657 for details on urlparse in py>=3.7.6.
     if not gateway_url.scheme or (
@@ -450,6 +501,8 @@ def _use_gateway(method, gateway, job, registry, grouping_key, timeout, handler)
 
     data = b''
     if method != 'DELETE':
+        if registry is None:
+            registry = REGISTRY
         data = generate_latest(registry)
 
     if grouping_key is None:
@@ -475,7 +528,7 @@ def _escape_grouping_key(k, v):
         return k, quote_plus(v)
 
 
-def instance_ip_grouping_key():
+def instance_ip_grouping_key() -> Dict[str, Any]:
     """Grouping key with instance set to the IP Address of this host."""
     with closing(socket.socket(socket.AF_INET, socket.SOCK_DGRAM)) as s:
         if sys.platform == 'darwin':
