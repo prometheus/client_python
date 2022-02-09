@@ -232,7 +232,7 @@ class HistogramMetricFamily(Metric):
     def __init__(self,
                  name: str,
                  documentation: str,
-                 buckets: Optional[Sequence[Tuple[str, float, Optional[Exemplar]]]] = None,
+                 buckets: Optional[Sequence[Union[Tuple[str, float], Tuple[str, float, Exemplar]]]] = None,
                  sum_value: Optional[Union[int, float]] = None,
                  labels: Optional[Sequence[str]] = None,
                  unit: str = '',
@@ -250,7 +250,7 @@ class HistogramMetricFamily(Metric):
 
     def add_metric(self,
                    labels: Sequence[str],
-                   buckets: Sequence[Tuple[str, float, Optional[Exemplar]]],
+                   buckets: Sequence[Union[Tuple[str, float], Tuple[str, float, Exemplar]]],
                    sum_value: Optional[Union[int, float]],
                    timestamp: Optional[Union[Timestamp, float]] = None) -> None:
         """Add a metric to the metric family.
@@ -267,7 +267,7 @@ class HistogramMetricFamily(Metric):
             bucket, value = b[:2]
             exemplar = None
             if len(b) == 3:
-                exemplar = b[2]
+                exemplar = b[2]  # type: ignore
             self.samples.append(Sample(
                 self.name + '_bucket',
                 dict(list(zip(self._labelnames, labels)) + [('le', bucket)]),
