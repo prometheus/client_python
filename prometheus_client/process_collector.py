@@ -1,7 +1,8 @@
 import os
+from typing import Callable, Iterable, Union
 
-from .metrics_core import CounterMetricFamily, GaugeMetricFamily
-from .registry import REGISTRY
+from .metrics_core import CounterMetricFamily, GaugeMetricFamily, Metric
+from .registry import Collector, CollectorRegistry, REGISTRY
 
 try:
     import resource
@@ -12,10 +13,14 @@ except ImportError:
     _PAGESIZE = 4096
 
 
-class ProcessCollector:
+class ProcessCollector(Collector):
     """Collector for Standard Exports such as cpu and memory."""
 
-    def __init__(self, namespace='', pid=lambda: 'self', proc='/proc', registry=REGISTRY):
+    def __init__(self,
+                 namespace: str = '',
+                 pid: Callable[[], Union[int, str]] = lambda: 'self',
+                 proc: str = '/proc',
+                 registry: CollectorRegistry = REGISTRY):
         self._namespace = namespace
         self._pid = pid
         self._proc = proc
@@ -46,7 +51,7 @@ class ProcessCollector:
                 if line.startswith(b'btime '):
                     return float(line.split()[1])
 
-    def collect(self):
+    def collect(self) -> Iterable[Metric]:
         if not self._btime:
             return []
 
