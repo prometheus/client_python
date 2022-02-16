@@ -1,9 +1,11 @@
 from concurrent.futures import ThreadPoolExecutor
+import os
 import time
 import unittest
 
 import pytest
 
+from prometheus_client import metrics
 from prometheus_client.core import (
     CollectorRegistry, Counter, CounterMetricFamily, Enum, Gauge,
     GaugeHistogramMetricFamily, GaugeMetricFamily, Histogram,
@@ -11,6 +13,7 @@ from prometheus_client.core import (
     StateSetMetricFamily, Summary, SummaryMetricFamily, UntypedMetricFamily,
 )
 from prometheus_client.decorator import getargspec
+from prometheus_client.metrics import _get_use_created
 
 
 def assert_not_observable(fn, *args, **kwargs):
@@ -113,6 +116,32 @@ class TestCounter(unittest.TestCase):
             'zyxwvutsrqponmlkjihgfedcba': '26+16 characters',
             'y123456': '7+15 characters',
         })
+
+
+class TestDisableCreated(unittest.TestCase):
+    def setUp(self):
+        self.registry = CollectorRegistry()
+        os.environ['PROMETHEUS_DISABLE_CREATED_SERIES'] = 'True'
+        metrics._use_created = _get_use_created()
+
+    def tearDown(self):
+        os.environ.pop('PROMETHEUS_DISABLE_CREATED_SERIES', None)
+        metrics._use_created = _get_use_created()
+
+    def test_counter(self):
+        counter = Counter('c_total', 'help', registry=self.registry)
+        counter.inc()
+        self.assertEqual(None, self.registry.get_sample_value('c_created'))
+
+    def test_histogram(self):
+        histogram = Histogram('h', 'help', registry=self.registry)
+        histogram.observe(3.2)
+        self.assertEqual(None, self.registry.get_sample_value('h_created'))
+
+    def test_summary(self):
+        summary = Summary('s', 'help', registry=self.registry)
+        summary.observe(8.2)
+        self.assertEqual(None, self.registry.get_sample_value('s_created'))
 
 
 class TestGauge(unittest.TestCase):
