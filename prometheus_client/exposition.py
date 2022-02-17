@@ -1,5 +1,6 @@
 import base64
 from contextlib import closing
+import gzip
 from http.server import BaseHTTPRequestHandler
 import os
 import socket
@@ -93,13 +94,19 @@ class _PrometheusRedirectHandler(HTTPRedirectHandler):
         return new_request
 
 
-def _bake_output(registry, accept_header, params):
+def _bake_output(registry, accept_header, accept_encoding_header, params):
     """Bake output for metrics output."""
-    encoder, content_type = choose_encoder(accept_header)
+    # Choose the correct plain text format of the output.
+    formatter, content_type = choose_formatter(accept_header)
     if 'name[]' in params:
         registry = registry.restricted_registry(params['name[]'])
-    output = encoder(registry)
-    return '200 OK', ('Content-Type', content_type), output
+    output = formatter(registry)
+    headers = [('Content-Type', content_type)]
+    # If gzip encoding required, gzip the output.
+    if gzip_accepted(accept_encoding_header):
+        output = gzip.compress(output)
+        headers.append(('Content-Encoding', 'gzip'))
+    return '200 OK', headers, output
 
 
 def make_wsgi_app(registry: CollectorRegistry = REGISTRY) -> Callable:
@@ -108,17 +115,18 @@ def make_wsgi_app(registry: CollectorRegistry = REGISTRY) -> Callable:
     def prometheus_app(environ, start_response):
         # Prepare parameters
         accept_header = environ.get('HTTP_ACCEPT')
+        accept_encoding_header = environ.get('HTTP_ACCEPT_ENCODING')
         params = parse_qs(environ.get('QUERY_STRING', ''))
         if environ['PATH_INFO'] == '/favicon.ico':
             # Serve empty response for browsers
             status = '200 OK'
-            header = ('', '')
+            headers = [('', '')]
             output = b''
         else:
             # Bake output
-            status, header, output = _bake_output(registry, accept_header, params)
+            status, headers, output = _bake_output(registry, accept_header, accept_encoding_header, params)
         # Return output
-        start_response(status, [header])
+        start_response(status, headers)
         return [output]
 
     return prometheus_app
@@ -227,13 +235,21 @@ def generate_latest(registry: CollectorRegistry = REGISTRY) -> bytes:
     return ''.join(output).encode('utf-8')
 
 
-def choose_encoder(accept_header: str) -> Tuple[Callable[[CollectorRegistry], bytes], str]:
+def choose_formatter(accept_header: str) -> Tuple[Callable[[CollectorRegistry], bytes], str]:
     accept_header = accept_header or ''
     for accepted in accept_header.split(','):
-        if accepted.split(';')[0].strip() == 'application/openmetrics-text':
+        if accepted.split(';')[0].strip().lower() == 'application/openmetrics-text':
             return (openmetrics.generate_latest,
                     openmetrics.CONTENT_TYPE_LATEST)
     return generate_latest, CONTENT_TYPE_LATEST
+
+
+def gzip_accepted(accept_encoding_header: str) -> bool:
+    accept_encoding_header = accept_encoding_header or ''
+    for accepted in accept_encoding_header.split(','):
+        if accepted.split(';')[0].strip().lower() == 'gzip':
+            return True
+    return False
 
 
 class MetricsHandler(BaseHTTPRequestHandler):
@@ -244,12 +260,14 @@ class MetricsHandler(BaseHTTPRequestHandler):
         # Prepare parameters
         registry = self.registry
         accept_header = self.headers.get('Accept')
+        accept_encoding_header = self.headers.get('Accept-Encoding')
         params = parse_qs(urlparse(self.path).query)
         # Bake output
-        status, header, output = _bake_output(registry, accept_header, params)
+        status, headers, output = _bake_output(registry, accept_header, accept_encoding_header, params)
         # Return output
         self.send_response(int(status.split(' ')[0]))
-        self.send_header(*header)
+        for header in headers:
+            self.send_header(*header)
         self.end_headers()
         self.wfile.write(output)
 

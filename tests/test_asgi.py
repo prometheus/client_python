@@ -1,3 +1,4 @@
+import gzip
 from unittest import skipUnless, TestCase
 
 from prometheus_client import CollectorRegistry, Counter
@@ -115,3 +116,36 @@ class ASGITest(TestCase):
 
     def test_report_metrics_4(self):
         self.validate_metrics("failed_requests", "Number of failed requests", 7)
+
+    def test_gzip(self):
+        # Increment a metric.
+        metric_name = "counter"
+        help_text = "A counter"
+        increments = 2
+        c = Counter(metric_name, help_text, registry=self.registry)
+        for _ in range(increments):
+            c.inc()
+        app = make_asgi_app(self.registry)
+        self.seed_app(app)
+        # Send input with gzip header.
+        self.scope["headers"] = [(b"accept-encoding", b"gzip")]
+        self.send_input({"type": "http.request", "body": b""})
+        # Assert outputs
+        outputs = self.get_all_output()
+        # Assert outputs
+        self.assertEqual(len(outputs), 2)
+        response_start = outputs[0]
+        self.assertEqual(response_start['type'], 'http.response.start')
+        response_body = outputs[1]
+        self.assertEqual(response_body['type'], 'http.response.body')
+        # Status code
+        self.assertEqual(response_start['status'], 200)
+        # Headers
+        self.assertEqual(len(response_start['headers']), 2)
+        self.assertIn((b"Content-Type", CONTENT_TYPE_LATEST.encode('utf8')), response_start['headers'])
+        self.assertIn((b"Content-Encoding", b"gzip"), response_start['headers'])
+        # Body
+        output = gzip.decompress(response_body['body']).decode('utf8')
+        self.assertIn("# HELP " + metric_name + "_total " + help_text + "\n", output)
+        self.assertIn("# TYPE " + metric_name + "_total counter\n", output)
+        self.assertIn(metric_name + "_total " + str(increments) + ".0\n", output)
