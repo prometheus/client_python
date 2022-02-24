@@ -39,6 +39,13 @@ CONTENT_TYPE_LATEST = 'text/plain; version=0.0.4; charset=utf-8'
 PYTHON376_OR_NEWER = sys.version_info > (3, 7, 5)
 
 
+def _get_disable_compression() -> bool:
+    return os.environ.get("PROMETHEUS_DISABLE_COMPRESSION", 'False').lower() in ('true', '1', 't')
+
+
+_disable_compression = _get_disable_compression()
+
+
 class _PrometheusRedirectHandler(HTTPRedirectHandler):
     """
     Allow additional methods (e.g. PUT) and data forwarding in redirects.
@@ -160,8 +167,10 @@ def _get_best_family(address, port):
 
 def start_wsgi_server(port: int, addr: str = '0.0.0.0', registry: CollectorRegistry = REGISTRY) -> None:
     """Starts a WSGI server for prometheus metrics as a daemon thread."""
+
     class TmpServer(ThreadingWSGIServer):
         """Copy of ThreadingWSGIServer to update address_family locally"""
+
     TmpServer.address_family, addr = _get_best_family(addr, port)
     app = make_wsgi_app(registry)
     httpd = make_server(addr, port, app, TmpServer, handler_class=_SilentHandler)
@@ -245,6 +254,8 @@ def choose_formatter(accept_header: str) -> Tuple[Callable[[CollectorRegistry], 
 
 
 def gzip_accepted(accept_encoding_header: str) -> bool:
+    if _disable_compression:
+        return False
     accept_encoding_header = accept_encoding_header or ''
     for accepted in accept_encoding_header.split(','):
         if accepted.split(';')[0].strip().lower() == 'gzip':
@@ -307,14 +318,13 @@ def write_to_textfile(path: str, registry: CollectorRegistry) -> None:
 
 
 def _make_handler(
-    url: str,
-    method: str,
-    timeout: Optional[float],
-    headers: Sequence[Tuple[str, str]],
-    data: bytes,
-    base_handler: type,
+        url: str,
+        method: str,
+        timeout: Optional[float],
+        headers: Sequence[Tuple[str, str]],
+        data: bytes,
+        base_handler: type,
 ) -> Callable[[], None]:
-
     def handle() -> None:
         request = Request(url, data=data)
         request.get_method = lambda: method  # type: ignore
@@ -328,11 +338,11 @@ def _make_handler(
 
 
 def default_handler(
-    url: str,
-    method: str,
-    timeout: Optional[float],
-    headers: List[Tuple[str, str]],
-    data: bytes,
+        url: str,
+        method: str,
+        timeout: Optional[float],
+        headers: List[Tuple[str, str]],
+        data: bytes,
 ) -> Callable[[], None]:
     """Default handler that implements HTTP/HTTPS connections.
 
@@ -342,11 +352,11 @@ def default_handler(
 
 
 def passthrough_redirect_handler(
-    url: str,
-    method: str,
-    timeout: Optional[float],
-    headers: List[Tuple[str, str]],
-    data: bytes,
+        url: str,
+        method: str,
+        timeout: Optional[float],
+        headers: List[Tuple[str, str]],
+        data: bytes,
 ) -> Callable[[], None]:
     """
     Handler that automatically trusts redirect responses for all HTTP methods.
@@ -362,13 +372,13 @@ def passthrough_redirect_handler(
 
 
 def basic_auth_handler(
-    url: str,
-    method: str,
-    timeout: Optional[float],
-    headers: List[Tuple[str, str]],
-    data: bytes,
-    username: str = None,
-    password: str = None,
+        url: str,
+        method: str,
+        timeout: Optional[float],
+        headers: List[Tuple[str, str]],
+        data: bytes,
+        username: str = None,
+        password: str = None,
 ) -> Callable[[], None]:
     """Handler that implements HTTP/HTTPS connections with Basic Auth.
 
@@ -389,12 +399,12 @@ def basic_auth_handler(
 
 
 def push_to_gateway(
-    gateway: str,
-    job: str,
-    registry: CollectorRegistry,
-    grouping_key: Optional[Dict[str, Any]] = None,
-    timeout: Optional[float] = 30,
-    handler: Callable = default_handler,
+        gateway: str,
+        job: str,
+        registry: CollectorRegistry,
+        grouping_key: Optional[Dict[str, Any]] = None,
+        timeout: Optional[float] = 30,
+        handler: Callable = default_handler,
 ) -> None:
     """Push metrics to the given pushgateway.
 
@@ -438,12 +448,12 @@ def push_to_gateway(
 
 
 def pushadd_to_gateway(
-    gateway: str,
-    job: str,
-    registry: Optional[CollectorRegistry],
-    grouping_key: Optional[Dict[str, Any]] = None,
-    timeout: Optional[float] = 30,
-    handler: Callable = default_handler,
+        gateway: str,
+        job: str,
+        registry: Optional[CollectorRegistry],
+        grouping_key: Optional[Dict[str, Any]] = None,
+        timeout: Optional[float] = 30,
+        handler: Callable = default_handler,
 ) -> None:
     """PushAdd metrics to the given pushgateway.
 
@@ -469,11 +479,11 @@ def pushadd_to_gateway(
 
 
 def delete_from_gateway(
-    gateway: str,
-    job: str,
-    grouping_key: Optional[Dict[str, Any]] = None,
-    timeout: Optional[float] = 30,
-    handler: Callable = default_handler,
+        gateway: str,
+        job: str,
+        grouping_key: Optional[Dict[str, Any]] = None,
+        timeout: Optional[float] = 30,
+        handler: Callable = default_handler,
 ) -> None:
     """Delete metrics from the given pushgateway.
 
@@ -498,13 +508,13 @@ def delete_from_gateway(
 
 
 def _use_gateway(
-    method: str,
-    gateway: str,
-    job: str,
-    registry: Optional[CollectorRegistry],
-    grouping_key: Optional[Dict[str, Any]],
-    timeout: Optional[float],
-    handler: Callable,
+        method: str,
+        gateway: str,
+        job: str,
+        registry: Optional[CollectorRegistry],
+        grouping_key: Optional[Dict[str, Any]],
+        timeout: Optional[float],
+        handler: Callable,
 ) -> None:
     gateway_url = urlparse(gateway)
     # See https://bugs.python.org/issue27657 for details on urlparse in py>=3.7.6.
