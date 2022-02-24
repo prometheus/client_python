@@ -238,7 +238,7 @@ def generate_latest(registry: CollectorRegistry = REGISTRY) -> bytes:
 def choose_formatter(accept_header: str) -> Tuple[Callable[[CollectorRegistry], bytes], str]:
     accept_header = accept_header or ''
     for accepted in accept_header.split(','):
-        if accepted.split(';')[0].strip().lower() == 'application/openmetrics-text':
+        if accepted.split(';')[0].strip() == 'application/openmetrics-text':
             return (openmetrics.generate_latest,
                     openmetrics.CONTENT_TYPE_LATEST)
     return generate_latest, CONTENT_TYPE_LATEST
