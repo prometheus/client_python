@@ -265,7 +265,7 @@ class MetricsHandler(BaseHTTPRequestHandler):
         accept_encoding_header = self.headers.get('Accept-Encoding')
         params = parse_qs(urlparse(self.path).query)
         # Bake output
-        status, headers, output = _bake_output(registry, accept_header, accept_encoding_header, params)
+        status, headers, output = _bake_output(registry, accept_header, accept_encoding_header, params, False)
         # Return output
         self.send_response(int(status.split(' ')[0]))
         for header in headers:

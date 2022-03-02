@@ -2,9 +2,7 @@ import gzip
 from unittest import TestCase
 from wsgiref.util import setup_testing_defaults
 
-from prometheus_client import (
-    CollectorRegistry, Counter, make_wsgi_app,
-)
+from prometheus_client import CollectorRegistry, Counter, make_wsgi_app
 from prometheus_client.exposition import _bake_output, CONTENT_TYPE_LATEST
 
 
