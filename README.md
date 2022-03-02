@@ -338,6 +338,14 @@ from prometheus_client import start_wsgi_server
 start_wsgi_server(8000)
 ```
 
+By default, the WSGI application will respect `Accept-Encoding:gzip` headers used by Prometheus
+and compress the response if such a header is present. This behaviour can be disabled by passing
+`disable_compression=True` when creating the app, like this:
+
+```python
+app = make_wsgi_app(disable_compression=True)
+```
+
 #### ASGI
 
 To use Prometheus with [ASGI](http://asgi.readthedocs.org/en/latest/), there is
@@ -350,6 +358,14 @@ app = make_asgi_app()
 ```
 Such an application can be useful when integrating Prometheus metrics with ASGI
 apps.
+
+By default, the WSGI application will respect `Accept-Encoding:gzip` headers used by Prometheus
+and compress the response if such a header is present. This behaviour can be disabled by passing 
+`disable_compression=True` when creating the app, like this:
+
+```python
+app = make_asgi_app(disable_compression=True)
+```
 
 #### Flask
 
