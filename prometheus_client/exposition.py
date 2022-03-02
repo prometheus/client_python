@@ -39,13 +39,6 @@ CONTENT_TYPE_LATEST = 'text/plain; version=0.0.4; charset=utf-8'
 PYTHON376_OR_NEWER = sys.version_info > (3, 7, 5)
 
 
-def _get_disable_compression() -> bool:
-    return os.environ.get("PROMETHEUS_DISABLE_COMPRESSION", 'False').lower() in ('true', '1', 't')
-
-
-_disable_compression = _get_disable_compression()
-
-
 class _PrometheusRedirectHandler(HTTPRedirectHandler):
     """
     Allow additional methods (e.g. PUT) and data forwarding in redirects.
@@ -101,7 +94,7 @@ class _PrometheusRedirectHandler(HTTPRedirectHandler):
         return new_request
 
 
-def _bake_output(registry, accept_header, accept_encoding_header, params):
+def _bake_output(registry, accept_header, accept_encoding_header, params, disable_compression):
     """Bake output for metrics output."""
     # Choose the correct plain text format of the output.
     formatter, content_type = choose_formatter(accept_header)
@@ -110,13 +103,13 @@ def _bake_output(registry, accept_header, accept_encoding_header, params):
     output = formatter(registry)
     headers = [('Content-Type', content_type)]
     # If gzip encoding required, gzip the output.
-    if gzip_accepted(accept_encoding_header):
+    if not disable_compression and gzip_accepted(accept_encoding_header):
         output = gzip.compress(output)
         headers.append(('Content-Encoding', 'gzip'))
     return '200 OK', headers, output
 
 
-def make_wsgi_app(registry: CollectorRegistry = REGISTRY) -> Callable:
+def make_wsgi_app(registry: CollectorRegistry = REGISTRY, disable_compression: bool = False) -> Callable:
     """Create a WSGI app which serves the metrics from a registry."""
 
     def prometheus_app(environ, start_response):
@@ -131,7 +124,7 @@ def make_wsgi_app(registry: CollectorRegistry = REGISTRY) -> Callable:
             output = b''
         else:
             # Bake output
-            status, headers, output = _bake_output(registry, accept_header, accept_encoding_header, params)
+            status, headers, output = _bake_output(registry, accept_header, accept_encoding_header, params, disable_compression)
         # Return output
         start_response(status, headers)
         return [output]
@@ -254,8 +247,6 @@ def choose_formatter(accept_header: str) -> Tuple[Callable[[CollectorRegistry], 
 
 
 def gzip_accepted(accept_encoding_header: str) -> bool:
-    if _disable_compression:
-        return False
     accept_encoding_header = accept_encoding_header or ''
     for accepted in accept_encoding_header.split(','):
         if accepted.split(';')[0].strip().lower() == 'gzip':

@@ -1,11 +1,8 @@
 import gzip
-import os
 from unittest import skipUnless, TestCase
 
-from prometheus_client import CollectorRegistry, Counter, exposition
-from prometheus_client.exposition import (
-    _get_disable_compression, CONTENT_TYPE_LATEST,
-)
+from prometheus_client import CollectorRegistry, Counter
+from prometheus_client.exposition import CONTENT_TYPE_LATEST
 
 try:
     # Python >3.5 only
@@ -142,25 +139,22 @@ class ASGITest(TestCase):
         # Send input with gzip header.
         self.scope["headers"] = [(b"accept-encoding", b"gzip")]
         self.send_input({"type": "http.request", "body": b""})
-        # Assert outputs
+        # Assert outputs are compressed.
         outputs = self.get_all_output()
         self.assert_outputs(outputs, metric_name, help_text, increments, compressed=True)
 
-    def test_gzip_disabled_by_env_var(self):
+    def test_gzip_disabled(self):
         # Increment a metric.
         metric_name = "counter"
         help_text = "A counter"
         increments = 2
         self.increment_metrics(metric_name, help_text, increments)
-        # Set the env var disabling compression.
-        os.environ["PROMETHEUS_DISABLE_COMPRESSION"] = 'True'
-        exposition._disable_compression = _get_disable_compression()
-        app = make_asgi_app(self.registry)
+        # Disable compression explicitly.
+        app = make_asgi_app(self.registry, disable_compression=True)
         self.seed_app(app)
         # Send input with gzip header.
         self.scope["headers"] = [(b"accept-encoding", b"gzip")]
         self.send_input({"type": "http.request", "body": b""})
-        # Assert outputs
+        # Assert outputs are not compressed.
         outputs = self.get_all_output()
         self.assert_outputs(outputs, metric_name, help_text, increments, compressed=False)
-        os.environ.pop('PROMETHEUS_DISABLE_COMPRESSION', None)

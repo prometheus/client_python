@@ -5,7 +5,7 @@ from .exposition import _bake_output
 from .registry import CollectorRegistry, REGISTRY
 
 
-def make_asgi_app(registry: CollectorRegistry = REGISTRY) -> Callable:
+def make_asgi_app(registry: CollectorRegistry = REGISTRY, disable_compression: bool = False) -> Callable:
     """Create a ASGI app which serves the metrics from a registry."""
 
     async def prometheus_app(scope, receive, send):
@@ -21,7 +21,7 @@ def make_asgi_app(registry: CollectorRegistry = REGISTRY) -> Callable:
             if name.decode("utf8").lower() == 'accept-encoding'
         ])
         # Bake output
-        status, headers, output = _bake_output(registry, accept_header, accept_encoding_header, params)
+        status, headers, output = _bake_output(registry, accept_header, accept_encoding_header, params, disable_compression)
         formatted_headers = []
         for header in headers:
             formatted_headers.append(tuple(x.encode('utf8') for x in header))

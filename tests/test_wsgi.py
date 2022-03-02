@@ -1,14 +1,11 @@
 import gzip
-import os
 from unittest import TestCase
 from wsgiref.util import setup_testing_defaults
 
 from prometheus_client import (
-    CollectorRegistry, Counter, exposition, make_wsgi_app,
+    CollectorRegistry, Counter, make_wsgi_app,
 )
-from prometheus_client.exposition import (
-    _bake_output, _get_disable_compression, CONTENT_TYPE_LATEST,
-)
+from prometheus_client.exposition import _bake_output, CONTENT_TYPE_LATEST
 
 
 class WSGITest(TestCase):
@@ -100,23 +97,20 @@ class WSGITest(TestCase):
         gzip_environ = dict(self.environ)
         gzip_environ['HTTP_ACCEPT_ENCODING'] = 'gzip'
         outputs = app(gzip_environ, self.capture)
-        # Assert outputs
+        # Assert outputs are compressed.
         self.assert_outputs(outputs, metric_name, help_text, increments, compressed=True)
 
-    def test_gzip_disabled_by_env_var(self):
+    def test_gzip_disabled(self):
         # Increment a metric
         metric_name = "counter"
         help_text = "A counter"
         increments = 2
         self.increment_metrics(metric_name, help_text, increments)
-        # Set the env var disabling compression.
-        os.environ["PROMETHEUS_DISABLE_COMPRESSION"] = 'True'
-        exposition._disable_compression = _get_disable_compression()
-        app = make_wsgi_app(self.registry)
+        # Disable compression explicitly.
+        app = make_wsgi_app(self.registry, disable_compression=True)
         # Try accessing metrics using the gzip Accept-Content header.
         gzip_environ = dict(self.environ)
         gzip_environ['HTTP_ACCEPT_ENCODING'] = 'gzip'
         outputs = app(gzip_environ, self.capture)
-        # Assert outputs
+        # Assert outputs are not compressed.
         self.assert_outputs(outputs, metric_name, help_text, increments, compressed=False)
-        os.environ.pop('PROMETHEUS_DISABLE_COMPRESSION', None)
