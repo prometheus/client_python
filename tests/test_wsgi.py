@@ -1,3 +1,4 @@
+import gzip
 from unittest import TestCase
 from wsgiref.util import setup_testing_defaults
 
@@ -18,28 +19,40 @@ class WSGITest(TestCase):
         self.captured_status = status
         self.captured_headers = header
 
-    def validate_metrics(self, metric_name, help_text, increments):
-        """
-        WSGI app serves the metrics from the provided registry.
-        """
+    def increment_metrics(self, metric_name, help_text, increments):
         c = Counter(metric_name, help_text, registry=self.registry)
         for _ in range(increments):
             c.inc()
-        # Create and run WSGI app
-        app = make_wsgi_app(self.registry)
-        outputs = app(self.environ, self.capture)
-        # Assert outputs
+
+    def assert_outputs(self, outputs, metric_name, help_text, increments, compressed):
         self.assertEqual(len(outputs), 1)
-        output = outputs[0].decode('utf8')
+        if compressed:
+            output = gzip.decompress(outputs[0]).decode(encoding="utf-8")
+        else:
+            output = outputs[0].decode('utf8')
         # Status code
         self.assertEqual(self.captured_status, "200 OK")
         # Headers
-        self.assertEqual(len(self.captured_headers), 1)
-        self.assertEqual(self.captured_headers[0], ("Content-Type", CONTENT_TYPE_LATEST))
+        num_of_headers = 2 if compressed else 1
+        self.assertEqual(len(self.captured_headers), num_of_headers)
+        self.assertIn(("Content-Type", CONTENT_TYPE_LATEST), self.captured_headers)
+        if compressed:
+            self.assertIn(("Content-Encoding", "gzip"), self.captured_headers)
         # Body
         self.assertIn("# HELP " + metric_name + "_total " + help_text + "\n", output)
         self.assertIn("# TYPE " + metric_name + "_total counter\n", output)
         self.assertIn(metric_name + "_total " + str(increments) + ".0\n", output)
+
+    def validate_metrics(self, metric_name, help_text, increments):
+        """
+        WSGI app serves the metrics from the provided registry.
+        """
+        self.increment_metrics(metric_name, help_text, increments)
+        # Create and run WSGI app
+        app = make_wsgi_app(self.registry)
+        outputs = app(self.environ, self.capture)
+        # Assert outputs
+        self.assert_outputs(outputs, metric_name, help_text, increments, compressed=False)
 
     def test_report_metrics_1(self):
         self.validate_metrics("counter", "A counter", 2)
@@ -70,3 +83,32 @@ class WSGITest(TestCase):
             # Try accessing normal paths
             app(self.environ, self.capture)
             self.assertEqual(mock.call_count, 1)
+
+    def test_gzip(self):
+        # Increment a metric
+        metric_name = "counter"
+        help_text = "A counter"
+        increments = 2
+        self.increment_metrics(metric_name, help_text, increments)
+        app = make_wsgi_app(self.registry)
+        # Try accessing metrics using the gzip Accept-Content header.
+        gzip_environ = dict(self.environ)
+        gzip_environ['HTTP_ACCEPT_ENCODING'] = 'gzip'
+        outputs = app(gzip_environ, self.capture)
+        # Assert outputs are compressed.
+        self.assert_outputs(outputs, metric_name, help_text, increments, compressed=True)
+
+    def test_gzip_disabled(self):
+        # Increment a metric
+        metric_name = "counter"
+        help_text = "A counter"
+        increments = 2
+        self.increment_metrics(metric_name, help_text, increments)
+        # Disable compression explicitly.
+        app = make_wsgi_app(self.registry, disable_compression=True)
+        # Try accessing metrics using the gzip Accept-Content header.
+        gzip_environ = dict(self.environ)
+        gzip_environ['HTTP_ACCEPT_ENCODING'] = 'gzip'
+        outputs = app(gzip_environ, self.capture)
+        # Assert outputs are not compressed.
+        self.assert_outputs(outputs, metric_name, help_text, increments, compressed=False)

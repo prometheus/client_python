@@ -5,7 +5,7 @@ from .exposition import _bake_output
 from .registry import CollectorRegistry, REGISTRY
 
 
-def make_asgi_app(registry: CollectorRegistry = REGISTRY) -> Callable:
+def make_asgi_app(registry: CollectorRegistry = REGISTRY, disable_compression: bool = False) -> Callable:
     """Create a ASGI app which serves the metrics from a registry."""
 
     async def prometheus_app(scope, receive, send):
@@ -14,10 +14,17 @@ def make_asgi_app(registry: CollectorRegistry = REGISTRY) -> Callable:
         params = parse_qs(scope.get('query_string', b''))
         accept_header = "Accept: " + ",".join([
             value.decode("utf8") for (name, value) in scope.get('headers')
-            if name.decode("utf8") == 'accept'
+            if name.decode("utf8").lower() == 'accept'
+        ])
+        accept_encoding_header = ",".join([
+            value.decode("utf8") for (name, value) in scope.get('headers')
+            if name.decode("utf8").lower() == 'accept-encoding'
         ])
         # Bake output
-        status, header, output = _bake_output(registry, accept_header, params)
+        status, headers, output = _bake_output(registry, accept_header, accept_encoding_header, params, disable_compression)
+        formatted_headers = []
+        for header in headers:
+            formatted_headers.append(tuple(x.encode('utf8') for x in header))
         # Return output
         payload = await receive()
         if payload.get("type") == "http.request":
@@ -25,9 +32,7 @@ def make_asgi_app(registry: CollectorRegistry = REGISTRY) -> Callable:
                 {
                     "type": "http.response.start",
                     "status": int(status.split(' ')[0]),
-                    "headers": [
-                        tuple(x.encode('utf8') for x in header)
-                    ]
+                    "headers": formatted_headers,
                 }
             )
             await send({"type": "http.response.body", "body": output})

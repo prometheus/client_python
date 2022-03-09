@@ -1,3 +1,4 @@
+import gzip
 from unittest import skipUnless, TestCase
 
 from prometheus_client import CollectorRegistry, Counter
@@ -74,20 +75,12 @@ class ASGITest(TestCase):
                 break
         return outputs
 
-    def validate_metrics(self, metric_name, help_text, increments):
-        """
-        ASGI app serves the metrics from the provided registry.
-        """
+    def increment_metrics(self, metric_name, help_text, increments):
         c = Counter(metric_name, help_text, registry=self.registry)
         for _ in range(increments):
             c.inc()
-        # Create and run ASGI app
-        app = make_asgi_app(self.registry)
-        self.seed_app(app)
-        self.send_default_request()
-        # Assert outputs
-        outputs = self.get_all_output()
-        # Assert outputs
+
+    def assert_outputs(self, outputs, metric_name, help_text, increments, compressed):
         self.assertEqual(len(outputs), 2)
         response_start = outputs[0]
         self.assertEqual(response_start['type'], 'http.response.start')
@@ -96,13 +89,32 @@ class ASGITest(TestCase):
         # Status code
         self.assertEqual(response_start['status'], 200)
         # Headers
-        self.assertEqual(len(response_start['headers']), 1)
-        self.assertEqual(response_start['headers'][0], (b"Content-Type", CONTENT_TYPE_LATEST.encode('utf8')))
+        num_of_headers = 2 if compressed else 1
+        self.assertEqual(len(response_start['headers']), num_of_headers)
+        self.assertIn((b"Content-Type", CONTENT_TYPE_LATEST.encode('utf8')), response_start['headers'])
+        if compressed:
+            self.assertIn((b"Content-Encoding", b"gzip"), response_start['headers'])
         # Body
-        output = response_body['body'].decode('utf8')
+        if compressed:
+            output = gzip.decompress(response_body['body']).decode('utf8')
+        else:
+            output = response_body['body'].decode('utf8')
         self.assertIn("# HELP " + metric_name + "_total " + help_text + "\n", output)
         self.assertIn("# TYPE " + metric_name + "_total counter\n", output)
         self.assertIn(metric_name + "_total " + str(increments) + ".0\n", output)
+
+    def validate_metrics(self, metric_name, help_text, increments):
+        """
+        ASGI app serves the metrics from the provided registry.
+        """
+        self.increment_metrics(metric_name, help_text, increments)
+        # Create and run ASGI app
+        app = make_asgi_app(self.registry)
+        self.seed_app(app)
+        self.send_default_request()
+        # Assert outputs
+        outputs = self.get_all_output()
+        self.assert_outputs(outputs, metric_name, help_text, increments, compressed=False)
 
     def test_report_metrics_1(self):
         self.validate_metrics("counter", "A counter", 2)
@@ -115,3 +127,34 @@ class ASGITest(TestCase):
 
     def test_report_metrics_4(self):
         self.validate_metrics("failed_requests", "Number of failed requests", 7)
+
+    def test_gzip(self):
+        # Increment a metric.
+        metric_name = "counter"
+        help_text = "A counter"
+        increments = 2
+        self.increment_metrics(metric_name, help_text, increments)
+        app = make_asgi_app(self.registry)
+        self.seed_app(app)
+        # Send input with gzip header.
+        self.scope["headers"] = [(b"accept-encoding", b"gzip")]
+        self.send_input({"type": "http.request", "body": b""})
+        # Assert outputs are compressed.
+        outputs = self.get_all_output()
+        self.assert_outputs(outputs, metric_name, help_text, increments, compressed=True)
+
+    def test_gzip_disabled(self):
+        # Increment a metric.
+        metric_name = "counter"
+        help_text = "A counter"
+        increments = 2
+        self.increment_metrics(metric_name, help_text, increments)
+        # Disable compression explicitly.
+        app = make_asgi_app(self.registry, disable_compression=True)
+        self.seed_app(app)
+        # Send input with gzip header.
+        self.scope["headers"] = [(b"accept-encoding", b"gzip")]
+        self.send_input({"type": "http.request", "body": b""})
+        # Assert outputs are not compressed.
+        outputs = self.get_all_output()
+        self.assert_outputs(outputs, metric_name, help_text, increments, compressed=False)
