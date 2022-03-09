@@ -1,8 +1,9 @@
+import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import time
 import unittest
 
-import pytest
+import aiounittest  # type: ignore
 
 from prometheus_client.core import (
     CollectorRegistry, Counter, CounterMetricFamily, Enum, Gauge,
@@ -28,7 +29,7 @@ def assert_not_observable(fn, *args, **kwargs):
     assert False, "Did not raise a 'missing label values' exception"
 
 
-class TestCounter(unittest.TestCase):
+class TestCounter(aiounittest.AsyncTestCase):
     def setUp(self):
         self.registry = CollectorRegistry()
         self.counter = Counter('c_total', 'help', registry=self.registry)
@@ -56,16 +57,32 @@ class TestCounter(unittest.TestCase):
 
         self.assertEqual((["r"], None, None, None), getargspec(f))
 
-        try:
+        with self.assertRaises(TypeError):
             f(False)
-        except TypeError:
-            pass
         self.assertEqual(0, self.registry.get_sample_value('c_total'))
 
-        try:
+        with self.assertRaises(ValueError):
             f(True)
-        except ValueError:
-            pass
+        self.assertEqual(1, self.registry.get_sample_value('c_total'))
+
+    async def test_async_function_decorator(self):
+        @self.counter.count_exceptions(ValueError)
+        async def f(r):
+            if r:
+                raise ValueError
+            else:
+                raise TypeError
+
+        self.assertEqual((["r"], None, None, None), getargspec(f))
+
+        with self.assertRaises(TypeError):
+            await f(False)
+
+        self.assertEqual(0, self.registry.get_sample_value('c_total'))
+
+        with self.assertRaises(ValueError):
+            await f(True)
+
         self.assertEqual(1, self.registry.get_sample_value('c_total'))
 
     def test_block_decorator(self):
@@ -73,13 +90,9 @@ class TestCounter(unittest.TestCase):
             pass
         self.assertEqual(0, self.registry.get_sample_value('c_total'))
 
-        raised = False
-        try:
+        with self.assertRaises(ValueError):
             with self.counter.count_exceptions():
                 raise ValueError
-        except:
-            raised = True
-        self.assertTrue(raised)
         self.assertEqual(1, self.registry.get_sample_value('c_total'))
 
     def test_count_exceptions_not_observable(self):
@@ -115,7 +128,7 @@ class TestCounter(unittest.TestCase):
         })
 
 
-class TestGauge(unittest.TestCase):
+class TestGauge(aiounittest.AsyncTestCase):
     def setUp(self):
         self.registry = CollectorRegistry()
         self.gauge = Gauge('g', 'help', registry=self.registry)
@@ -160,6 +173,18 @@ class TestGauge(unittest.TestCase):
         f()
         self.assertEqual(0, self.registry.get_sample_value('g'))
 
+    async def test_inprogress_async_function_decorator(self):
+        self.assertEqual(0, self.registry.get_sample_value('g'))
+
+        @self.gauge.track_inprogress()
+        async def f():
+            self.assertEqual(1, self.registry.get_sample_value('g'))
+
+        self.assertEqual(([], None, None, None), getargspec(f))
+
+        await f()
+        self.assertEqual(0, self.registry.get_sample_value('g'))
+
     def test_inprogress_block_decorator(self):
         self.assertEqual(0, self.registry.get_sample_value('g'))
         with self.gauge.track_inprogress():
@@ -185,12 +210,24 @@ class TestGauge(unittest.TestCase):
 
         @self.gauge.time()
         def f():
-            time.sleep(.001)
+            time.sleep(.05)
 
         self.assertEqual(([], None, None, None), getargspec(f))
 
         f()
-        self.assertNotEqual(0, self.registry.get_sample_value('g'))
+        self.assertTrue(0.05 <= self.registry.get_sample_value('g') <= 0.1)
+
+    async def test_time_async_function_decorator(self):
+        self.assertEqual(0, self.registry.get_sample_value('g'))
+
+        @self.gauge.time()
+        async def f():
+            await asyncio.sleep(.05)
+
+        self.assertEqual(([], None, None, None), getargspec(f))
+
+        await f()
+        self.assertTrue(0.05 <= self.registry.get_sample_value('g') <= 0.1)
 
     def test_function_decorator_multithread(self):
         self.assertEqual(0, self.registry.get_sample_value('g'))
@@ -239,7 +276,7 @@ class TestGauge(unittest.TestCase):
         assert_not_observable(manager)
 
 
-class TestSummary(unittest.TestCase):
+class TestSummary(aiounittest.AsyncTestCase):
     def setUp(self):
         self.registry = CollectorRegistry()
         self.summary = Summary('s', 'help', registry=self.registry)
@@ -264,12 +301,26 @@ class TestSummary(unittest.TestCase):
 
         @self.summary.time()
         def f():
-            pass
+            time.sleep(.05)
 
         self.assertEqual(([], None, None, None), getargspec(f))
 
         f()
         self.assertEqual(1, self.registry.get_sample_value('s_count'))
+        self.assertTrue(.05 < self.registry.get_sample_value('s_sum') < 0.1)
+
+    async def test_async_function_decorator(self):
+        self.assertEqual(0, self.registry.get_sample_value('s_count'))
+
+        @self.summary.time()
+        async def f():
+            await asyncio.sleep(.05)
+
+        self.assertEqual(([], None, None, None), getargspec(f))
+
+        await f()
+        self.assertEqual(1, self.registry.get_sample_value('s_count'))
+        self.assertTrue(.05 < self.registry.get_sample_value('s_sum') < 0.1)
 
     def test_function_decorator_multithread(self):
         self.assertEqual(0, self.registry.get_sample_value('s_count'))
@@ -343,7 +394,7 @@ class TestSummary(unittest.TestCase):
         assert_not_observable(manager)
 
 
-class TestHistogram(unittest.TestCase):
+class TestHistogram(aiounittest.AsyncTestCase):
     def setUp(self):
         self.registry = CollectorRegistry()
         self.histogram = Histogram('h', 'help', registry=self.registry)
@@ -417,13 +468,29 @@ class TestHistogram(unittest.TestCase):
 
         @self.histogram.time()
         def f():
-            pass
+            time.sleep(.05)
 
         self.assertEqual(([], None, None, None), getargspec(f))
 
         f()
         self.assertEqual(1, self.registry.get_sample_value('h_count'))
         self.assertEqual(1, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
+        self.assertTrue(.05 < self.registry.get_sample_value('h_sum') < 0.1)
+
+    async def test_async_function_decorator(self):
+        self.assertEqual(0, self.registry.get_sample_value('h_count'))
+        self.assertEqual(0, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
+
+        @self.histogram.time()
+        async def f():
+            await asyncio.sleep(.05)
+
+        self.assertEqual(([], None, None, None), getargspec(f))
+
+        await f()
+        self.assertEqual(1, self.registry.get_sample_value('h_count'))
+        self.assertEqual(1, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
+        self.assertTrue(.05 < self.registry.get_sample_value('h_sum') < 0.1)
 
     def test_function_decorator_multithread(self):
         self.assertEqual(0, self.registry.get_sample_value('h_count'))
@@ -527,7 +594,7 @@ class TestEnum(unittest.TestCase):
         self.assertRaises(ValueError, self.labels.state, 'a')
 
     def test_overlapping_labels(self):
-        with pytest.raises(ValueError):
+        with self.assertRaises(ValueError):
             Enum('e', 'help', registry=None, labelnames=['e'])
 
 
@@ -568,7 +635,7 @@ class TestMetricWrapper(unittest.TestCase):
         self.assertRaises(ValueError, self.counter.remove, 'a', 'b')
 
     def test_labels_on_labels(self):
-        with pytest.raises(ValueError):
+        with self.assertRaises(ValueError):
             self.counter.labels('a').labels('b')
 
     def test_labels_coerced_to_string(self):
