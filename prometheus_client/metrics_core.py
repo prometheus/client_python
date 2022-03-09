@@ -36,7 +36,7 @@ class Metric:
         self.type: str = typ
         self.samples: List[Sample] = []
 
-    def add_sample(self, name: str, labels: Dict[str, str], value: Union[int, float], timestamp: Optional[Union[Timestamp, float]] = None, exemplar: Optional[Exemplar] = None) -> None:
+    def add_sample(self, name: str, labels: Dict[str, str], value: float, timestamp: Optional[Union[Timestamp, float]] = None, exemplar: Optional[Exemplar] = None) -> None:
         """Add a sample to the metric.
 
         Internal-only, do not use."""
@@ -77,7 +77,7 @@ class UnknownMetricFamily(Metric):
     def __init__(self,
                  name: str,
                  documentation: str,
-                 value: Optional[Union[int, float]] = None,
+                 value: Optional[float] = None,
                  labels: Optional[Sequence[str]] = None,
                  unit: str = '',
                  ):
@@ -90,7 +90,7 @@ class UnknownMetricFamily(Metric):
         if value is not None:
             self.add_metric([], value)
 
-    def add_metric(self, labels: Sequence[str], value: Union[int, float], timestamp: Optional[Union[Timestamp, float]] = None) -> None:
+    def add_metric(self, labels: Sequence[str], value: float, timestamp: Optional[Union[Timestamp, float]] = None) -> None:
         """Add a metric to the metric family.
         Args:
         labels: A list of label values
@@ -112,7 +112,7 @@ class CounterMetricFamily(Metric):
     def __init__(self,
                  name: str,
                  documentation: str,
-                 value: Optional[Union[int, float]] = None,
+                 value: Optional[float] = None,
                  labels: Sequence[str] = None,
                  created: Optional[float] = None,
                  unit: str = '',
@@ -131,7 +131,7 @@ class CounterMetricFamily(Metric):
 
     def add_metric(self,
                    labels: Sequence[str],
-                   value: Union[int, float],
+                   value: float,
                    created: Optional[float] = None,
                    timestamp: Optional[Union[Timestamp, float]] = None,
                    ) -> None:
@@ -156,7 +156,7 @@ class GaugeMetricFamily(Metric):
     def __init__(self,
                  name: str,
                  documentation: str,
-                 value: Optional[Union[int, float]] = None,
+                 value: Optional[float] = None,
                  labels: Optional[Sequence[str]] = None,
                  unit: str = '',
                  ):
@@ -169,7 +169,7 @@ class GaugeMetricFamily(Metric):
         if value is not None:
             self.add_metric([], value)
 
-    def add_metric(self, labels: Sequence[str], value: Union[int, float], timestamp: Optional[Union[Timestamp, float]] = None) -> None:
+    def add_metric(self, labels: Sequence[str], value: float, timestamp: Optional[Union[Timestamp, float]] = None) -> None:
         """Add a metric to the metric family.
 
         Args:
@@ -189,7 +189,7 @@ class SummaryMetricFamily(Metric):
                  name: str,
                  documentation: str,
                  count_value: Optional[int] = None,
-                 sum_value: Optional[Union[int, float]] = None,
+                 sum_value: Optional[float] = None,
                  labels: Optional[Sequence[str]] = None,
                  unit: str = '',
                  ):
@@ -208,7 +208,7 @@ class SummaryMetricFamily(Metric):
     def add_metric(self,
                    labels: Sequence[str],
                    count_value: int,
-                   sum_value: Union[int, float],
+                   sum_value: float,
                    timestamp:
                    Optional[Union[float, Timestamp]] = None
                    ) -> None:
@@ -233,7 +233,7 @@ class HistogramMetricFamily(Metric):
                  name: str,
                  documentation: str,
                  buckets: Optional[Sequence[Union[Tuple[str, float], Tuple[str, float, Exemplar]]]] = None,
-                 sum_value: Optional[Union[int, float]] = None,
+                 sum_value: Optional[float] = None,
                  labels: Optional[Sequence[str]] = None,
                  unit: str = '',
                  ):
@@ -251,7 +251,7 @@ class HistogramMetricFamily(Metric):
     def add_metric(self,
                    labels: Sequence[str],
                    buckets: Sequence[Union[Tuple[str, float], Tuple[str, float, Exemplar]]],
-                   sum_value: Optional[Union[int, float]],
+                   sum_value: Optional[float],
                    timestamp: Optional[Union[Timestamp, float]] = None) -> None:
         """Add a metric to the metric family.
 
@@ -295,7 +295,7 @@ class GaugeHistogramMetricFamily(Metric):
                  name: str,
                  documentation: str,
                  buckets: Optional[Sequence[Tuple[str, float]]] = None,
-                 gsum_value: Optional[Union[int, float]] = None,
+                 gsum_value: Optional[float] = None,
                  labels: Optional[Sequence[str]] = None,
                  unit: str = '',
                  ):
@@ -311,7 +311,7 @@ class GaugeHistogramMetricFamily(Metric):
     def add_metric(self,
                    labels: Sequence[str],
                    buckets: Sequence[Tuple[str, float]],
-                   gsum_value: Optional[Union[int, float]],
+                   gsum_value: Optional[float],
                    timestamp: Optional[Union[float, Timestamp]] = None,
                    ) -> None:
         """Add a metric to the metric family.

@@ -270,7 +270,7 @@ class Counter(MetricWrapperBase):
                                         self._labelvalues)
         self._created = time.time()
 
-    def inc(self, amount: Union[int, float] = 1, exemplar: Optional[Dict[str, str]] = None) -> None:
+    def inc(self, amount: float = 1, exemplar: Optional[Dict[str, str]] = None) -> None:
         """Increment counter by the given amount."""
         self._raise_if_not_observable()
         if amount < 0:
@@ -369,17 +369,17 @@ class Gauge(MetricWrapperBase):
             multiprocess_mode=self._multiprocess_mode
         )
 
-    def inc(self, amount: Union[int, float] = 1) -> None:
+    def inc(self, amount: float = 1) -> None:
         """Increment gauge by the given amount."""
         self._raise_if_not_observable()
         self._value.inc(amount)
 
-    def dec(self, amount: Union[int, float] = 1) -> None:
+    def dec(self, amount: float = 1) -> None:
         """Decrement gauge by the given amount."""
         self._raise_if_not_observable()
         self._value.inc(-amount)
 
-    def set(self, value: Union[int, float]) -> None:
+    def set(self, value: float) -> None:
         """Set gauge to the given value."""
         self._raise_if_not_observable()
         self._value.set(float(value))
@@ -462,7 +462,7 @@ class Summary(MetricWrapperBase):
         self._sum = values.ValueClass(self._type, self._name, self._name + '_sum', self._labelnames, self._labelvalues)
         self._created = time.time()
 
-    def observe(self, amount: Union[int, float]) -> None:
+    def observe(self, amount: float) -> None:
         """Observe the given amount.
 
         The amount is usually positive or zero. Negative values are
@@ -539,7 +539,7 @@ class Histogram(MetricWrapperBase):
                  unit: str = '',
                  registry: Optional[CollectorRegistry] = REGISTRY,
                  _labelvalues: Optional[Sequence[str]] = None,
-                 buckets: Sequence[Union[float, int, str]] = DEFAULT_BUCKETS,
+                 buckets: Sequence[Union[float, str]] = DEFAULT_BUCKETS,
                  ):
         self._prepare_buckets(buckets)
         super().__init__(
@@ -554,7 +554,7 @@ class Histogram(MetricWrapperBase):
         )
         self._kwargs['buckets'] = buckets
 
-    def _prepare_buckets(self, source_buckets: Sequence[Union[float, int, str]]) -> None:
+    def _prepare_buckets(self, source_buckets: Sequence[Union[float, str]]) -> None:
         buckets = [float(b) for b in source_buckets]
         if buckets != sorted(buckets):
             # This is probably an error on the part of the user,
@@ -580,7 +580,7 @@ class Histogram(MetricWrapperBase):
                 self._labelvalues + (floatToGoString(b),))
             )
 
-    def observe(self, amount: Union[int, float], exemplar: Optional[Dict[str, str]] = None) -> None:
+    def observe(self, amount: float, exemplar: Optional[Dict[str, str]] = None) -> None:
         """Observe the given amount.
 
         The amount is usually positive or zero. Negative values are

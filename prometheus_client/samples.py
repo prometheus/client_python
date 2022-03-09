@@ -4,7 +4,7 @@ from typing import Dict, NamedTuple, Optional, Union
 class Timestamp:
     """A nanosecond-resolution timestamp."""
 
-    def __init__(self, sec: Union[int, float], nsec: Union[int, float]) -> None:
+    def __init__(self, sec: float, nsec: float) -> None:
         if nsec < 0 or nsec >= 1e9:
             raise ValueError(f"Invalid value for nanoseconds in Timestamp: {nsec}")
         if sec < 0:
@@ -45,6 +45,6 @@ class Exemplar(NamedTuple):
 class Sample(NamedTuple):
     name: str
     labels: Dict[str, str]
-    value: Union[int, float]
+    value: float
     timestamp: Optional[Union[float, Timestamp]] = None
     exemplar: Optional[Exemplar] = None
