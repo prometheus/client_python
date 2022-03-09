@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+import inspect
 import time
 import unittest
 
@@ -10,7 +11,6 @@ from prometheus_client.core import (
     HistogramMetricFamily, Info, InfoMetricFamily, Metric, Sample,
     StateSetMetricFamily, Summary, SummaryMetricFamily, UntypedMetricFamily,
 )
-from prometheus_client.decorator import getargspec
 
 
 def assert_not_observable(fn, *args, **kwargs):
@@ -54,7 +54,7 @@ class TestCounter(unittest.TestCase):
             else:
                 raise TypeError
 
-        self.assertEqual((["r"], None, None, None), getargspec(f))
+        self.assertEqual("(r)", str(inspect.signature(f)))
 
         try:
             f(False)
@@ -155,7 +155,7 @@ class TestGauge(unittest.TestCase):
         def f():
             self.assertEqual(1, self.registry.get_sample_value('g'))
 
-        self.assertEqual(([], None, None, None), getargspec(f))
+        self.assertEqual("()", str(inspect.signature(f)))
 
         f()
         self.assertEqual(0, self.registry.get_sample_value('g'))
@@ -187,7 +187,7 @@ class TestGauge(unittest.TestCase):
         def f():
             time.sleep(.001)
 
-        self.assertEqual(([], None, None, None), getargspec(f))
+        self.assertEqual("()", str(inspect.signature(f)))
 
         f()
         self.assertNotEqual(0, self.registry.get_sample_value('g'))
@@ -266,7 +266,7 @@ class TestSummary(unittest.TestCase):
         def f():
             pass
 
-        self.assertEqual(([], None, None, None), getargspec(f))
+        self.assertEqual("()", str(inspect.signature(f)))
 
         f()
         self.assertEqual(1, self.registry.get_sample_value('s_count'))
@@ -419,7 +419,7 @@ class TestHistogram(unittest.TestCase):
         def f():
             pass
 
-        self.assertEqual(([], None, None, None), getargspec(f))
+        self.assertEqual("()", str(inspect.signature(f)))
 
         f()
         self.assertEqual(1, self.registry.get_sample_value('h_count'))
