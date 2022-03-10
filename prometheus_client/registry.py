@@ -71,7 +71,6 @@ class CollectorRegistry:
 
     def collect(self):
         """Yields metrics from the collectors in the registry."""
-        import pdb; pdb.set_trace()
         collectors = None
         ti = None
         with self._lock:

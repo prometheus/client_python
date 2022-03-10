@@ -758,6 +758,24 @@ class PandasGauge:
         metric_type = type(self)
         return f"{metric_type.__module__}.{metric_type.__name__}({self._name})"
 
+    def generate_pandas_report(self, value='value', tag='report'):
+        def make_str(row):
+            return f"{self._name}({[ f'{col}={row[col]}, ' for col in self._metrics.columns  if col not in [value, tag]]})"
+ 
+        # generate another column with metric formated
+        # make_str = lambda x: "metric01(a={}, b={})".format(x['a'],x['b'])
+        # a = s.apply(make_str , axis=1)
+        # https://github.com/prometheus/client_python/discussions/772
+
+        self._metrics[value] = self._metrics.apply(make_str, axis=1) 
+        # self._metrics
+
+    def set_metric(self, df: pd.DataFrame):
+        with self._lock:
+            self._metrics = df
+        self.generate_pandas_report()
+        import pdb; pdb.set_trace()
+
     #def __init__(self: T,
     #             name: str,
     #             documentation: str,

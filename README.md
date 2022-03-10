@@ -621,3 +621,8 @@ for family in text_string_to_metric_families(u"my_gauge 1.0\n"):
 
 * [Releases](https://github.com/prometheus/client_python/releases): The releases page shows the history of the project and acts as a changelog.
 * [PyPI](https://pypi.python.org/pypi/prometheus_client)
+
+
+```
+python -m pytest -vv -s -k test_gauge_pandas .\tests\
+```

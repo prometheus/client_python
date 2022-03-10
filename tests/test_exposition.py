@@ -204,6 +204,7 @@ ts{foo="f"} 0.0 123000
         df2.unit = ''
         g = PandasGauge(df, registry=self.registry)
         g = PandasGauge(df2, registry=self.registry)
+        g.generate_pandas_report()
         import pdb; pdb.set_trace()
         self.assertEqual(b'# HELP gg A gauge\n# TYPE gg gauge\ngg 17.0\n', generate_latest(self.registry))
 

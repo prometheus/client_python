@@ -168,6 +168,7 @@ def generate_latest(registry=REGISTRY):
         return f'{line.name}{labelstr} {floatToGoString(line.value)}{timestamp}\n'
 
     output = []
+    output_string = ""
     for metric in registry.collect():
         try:
             mname = metric.name
@@ -186,7 +187,6 @@ def generate_latest(registry=REGISTRY):
                 mtype = 'histogram'
             elif mtype == 'unknown':
                 mtype = 'untyped'
-            import pdb; pdb.set_trace()
             if 'encoder' not in vars(metric) or ('encoder' in vars(metric) and metric.encoder != 'pandas'):
                 # normal calls
                 output.append('# HELP {} {}\n'.format(
@@ -215,8 +215,6 @@ def generate_latest(registry=REGISTRY):
         except Exception as exception:
             exception.args = (exception.args or ('',)) + (metric,)
             raise
-        import pdb; pdb.set_trace()
-        
 
         return ''.join(output).encode('utf-8')
 
