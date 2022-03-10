@@ -1,5 +1,5 @@
 from prometheus_client.registry import CollectorRegistry
-from prometheus_client.metrics import Gauge, GaugePandas
+from prometheus_client.metrics import Gauge, PandasGauge, PandasGauge
 import pandas as pd
 
 def test_collector_registry_init():
@@ -9,7 +9,9 @@ def test_collector_registry_init():
     assert registry._auto_describe == False
     assert str(type(registry._lock)) == "<class '_thread.lock'>"
     assert registry._target_info == None
-    
+
+import pytest
+@pytest.mark.skip('wip')    
 def test_collector_registry_gauge():
     registry = CollectorRegistry()
     g = Gauge('raid_status', '1 if raid array is okay', registry=registry)
@@ -29,6 +31,6 @@ def test_collector_registry_gauge():
     '_metrics' in vars(registry._names_to_collectors['raid_status2'])
 
     registry2 = CollectorRegistry()
-    GP = GaugePandas('raid_status2', '1 if raid array is okay', ['label1'], registry=registry2)
+    GP = PandasGauge('raid_status2', '1 if raid array is okay', ['label1'], registry=registry2)
     assert  type(GP._metrics) == pd.core.frame.DataFrame
     import pdb; pdb.set_trace()

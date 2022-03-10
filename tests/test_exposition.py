@@ -8,7 +8,7 @@ import pytest
 from prometheus_client import (
     CollectorRegistry, CONTENT_TYPE_LATEST, core, Counter, delete_from_gateway,
     Enum, Gauge, generate_latest, Histogram, Info, instance_ip_grouping_key,
-    Metric, push_to_gateway, pushadd_to_gateway, Summary,
+    Metric, push_to_gateway, pushadd_to_gateway, Summary, PandasGauge
 )
 from prometheus_client.core import GaugeHistogramMetricFamily, Timestamp
 from prometheus_client.exposition import (
@@ -16,6 +16,7 @@ from prometheus_client.exposition import (
     passthrough_redirect_handler,
 )
 
+import pandas as pd
 
 class TestGenerateText(unittest.TestCase):
     def setUp(self):
@@ -191,6 +192,20 @@ ts{foo="d"} 0.0 123456
 ts{foo="e"} 0.0 123000
 ts{foo="f"} 0.0 123000
 """, generate_latest(self.registry))
+
+    def test_gauge_pandas(self):
+        df = pd.DataFrame({'a': [1.1,2.2,3.3,4.4], 'b':[5.1,6.2,7.3,8.4]})
+        df.name = 'report_pandas'
+        df.documentation = 'metric description'
+        df.unit = ''
+        df2 = pd.DataFrame({'c': [1.1,2.2,3.3,4.4], 'd':[5.1,6.2,7.3,8.4]})
+        df2.name = 'report_panda2s'
+        df2.documentation = 'metric description'
+        df2.unit = ''
+        g = PandasGauge(df, registry=self.registry)
+        g = PandasGauge(df2, registry=self.registry)
+        import pdb; pdb.set_trace()
+        self.assertEqual(b'# HELP gg A gauge\n# TYPE gg gauge\ngg 17.0\n', generate_latest(self.registry))
 
 
 class TestPushGateway(unittest.TestCase):

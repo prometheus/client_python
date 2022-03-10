@@ -186,30 +186,39 @@ def generate_latest(registry=REGISTRY):
                 mtype = 'histogram'
             elif mtype == 'unknown':
                 mtype = 'untyped'
+            import pdb; pdb.set_trace()
+            if 'encoder' not in vars(metric) or ('encoder' in vars(metric) and metric.encoder != 'pandas'):
+                # normal calls
+                output.append('# HELP {} {}\n'.format(
+                    mname, metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
+                output.append(f'# TYPE {mname} {mtype}\n')
 
-            output.append('# HELP {} {}\n'.format(
-                mname, metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
-            output.append(f'# TYPE {mname} {mtype}\n')
-
-            om_samples = {}
-            for s in metric.samples:
-                for suffix in ['_created', '_gsum', '_gcount']:
-                    if s.name == metric.name + suffix:
-                        # OpenMetrics specific sample, put in a gauge at the end.
-                        om_samples.setdefault(suffix, []).append(sample_line(s))
-                        break
-                else:
-                    output.append(sample_line(s))
+                om_samples = {}
+                for s in metric.samples:
+                    for suffix in ['_created', '_gsum', '_gcount']:
+                        if s.name == metric.name + suffix:
+                            # OpenMetrics specific sample, put in a gauge at the end.
+                            om_samples.setdefault(suffix, []).append(sample_line(s))
+                            break
+                    else:
+                        output.append(sample_line(s))
+                for suffix, lines in sorted(om_samples.items()):
+                    output.append('# HELP {}{} {}\n'.format(metric.name, suffix,
+                                                            metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
+                    output.append(f'# TYPE {metric.name}{suffix} gauge\n')
+                    output.extend(lines)
+            else:
+                output.append('# HELP {} {}\n'.format(
+                    mname, metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
+                output.append(f'# TYPE {mname} {mtype}\n')
+                import pdb; pdb.set_trace()
         except Exception as exception:
             exception.args = (exception.args or ('',)) + (metric,)
             raise
+        import pdb; pdb.set_trace()
+        
 
-        for suffix, lines in sorted(om_samples.items()):
-            output.append('# HELP {}{} {}\n'.format(metric.name, suffix,
-                                                    metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
-            output.append(f'# TYPE {metric.name}{suffix} gauge\n')
-            output.extend(lines)
-    return ''.join(output).encode('utf-8')
+        return ''.join(output).encode('utf-8')
 
 
 def choose_encoder(accept_header):
