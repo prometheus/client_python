@@ -18,6 +18,16 @@ class TestPlatformCollector(unittest.TestCase):
             "patchlevel": "pvt_patchlevel"
         })
 
+    def test_namespace(self):
+        PlatformCollector(registry=self.registry, platform=self.platform, namespace="foobar")
+        self.assertLabels("foobar_python_info", {
+            "version": "python_version",
+            "implementation": "python_implementation",
+            "major": "pvt_major",
+            "minor": "pvt_minor",
+            "patchlevel": "pvt_patchlevel"
+        })
+
     def test_system_info_java(self):
         self.platform._system = "Java"
         PlatformCollector(registry=self.registry, platform=self.platform)

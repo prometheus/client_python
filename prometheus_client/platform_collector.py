@@ -11,14 +11,20 @@ class PlatformCollector(Collector):
     def __init__(self,
                  registry: CollectorRegistry = REGISTRY,
                  platform: Optional[Any] = None,
+                 namespace: str = '',
                  ):
+        if namespace:
+            name = namespace + '_python_info'
+        else:
+            name = "python_info"
+
         self._platform = pf if platform is None else platform
         info = self._info()
         system = self._platform.system()
         if system == "Java":
             info.update(self._java())
         self._metrics = [
-            self._add_metric("python_info", "Python platform information", info)
+            self._add_metric(name, "Python platform information", info)
         ]
         if registry:
             registry.register(self)

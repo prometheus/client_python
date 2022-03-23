@@ -9,25 +9,33 @@ from .registry import Collector, CollectorRegistry, REGISTRY
 class GCCollector(Collector):
     """Collector for Garbage collection statistics."""
 
-    def __init__(self, registry: CollectorRegistry = REGISTRY):
+    def __init__(self,
+                 registry: CollectorRegistry = REGISTRY,
+                 namespace: str = '',
+                 ):
+        if namespace:
+            self._prefix = namespace + '_python_gc_'
+        else:
+            self._prefix = 'python_gc_'
+
         if not hasattr(gc, 'get_stats') or platform.python_implementation() != 'CPython':
             return
         registry.register(self)
 
     def collect(self) -> Iterable[Metric]:
         collected = CounterMetricFamily(
-            'python_gc_objects_collected',
+            self._prefix + 'objects_collected',
             'Objects collected during gc',
             labels=['generation'],
         )
         uncollectable = CounterMetricFamily(
-            'python_gc_objects_uncollectable',
+            self._prefix + 'objects_uncollectable',
             'Uncollectable object found during GC',
             labels=['generation'],
         )
 
         collections = CounterMetricFamily(
-            'python_gc_collections',
+            self._prefix + 'collections',
             'Number of times this generation was collected',
             labels=['generation'],
         )

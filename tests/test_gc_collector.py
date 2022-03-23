@@ -51,5 +51,13 @@ class TestGCCollector(unittest.TestCase):
                                                labels={"generation": "0"})
         self.assertEqual(0, after - before)
 
+    def test_namespace(self):
+        GCCollector(registry=self.registry, namespace="foobar")
+        self.registry.collect()
+
+        self.assertIsNotNone(self.registry.get_sample_value('foobar_python_gc_objects_collected_total', labels={"generation": "0"}))
+        self.assertIsNotNone(self.registry.get_sample_value('foobar_python_gc_objects_uncollectable_total', labels={"generation": "0"}))
+        self.assertIsNotNone(self.registry.get_sample_value('foobar_python_gc_collections_total', labels={"generation": "0"}))
+
     def tearDown(self):
         gc.enable()
