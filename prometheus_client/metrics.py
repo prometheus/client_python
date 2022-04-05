@@ -1,3 +1,4 @@
+import os
 from threading import Lock
 import time
 import types
@@ -60,6 +61,13 @@ def _validate_exemplar(exemplar):
         runes += len(v)
     if runes > 128:
         raise ValueError('Exemplar labels have %d UTF-8 characters, exceeding the limit of 128')
+
+
+def _get_use_created() -> bool:
+    return os.environ.get("PROMETHEUS_DISABLE_CREATED_SERIES", 'False').lower() not in ('true', '1', 't')
+
+
+_use_created = _get_use_created()
 
 
 class MetricWrapperBase(Collector):
@@ -291,10 +299,13 @@ class Counter(MetricWrapperBase):
         return ExceptionCounter(self, exception)
 
     def _child_samples(self) -> Iterable[Sample]:
-        return (
-            Sample('_total', {}, self._value.get(), None, self._value.get_exemplar()),
-            Sample('_created', {}, self._created, None, None),
-        )
+        sample = Sample('_total', {}, self._value.get(), None, self._value.get_exemplar())
+        if _use_created:
+            return (
+                sample,
+                Sample('_created', {}, self._created, None, None)
+            )
+        return (sample,)
 
 
 class Gauge(MetricWrapperBase):
@@ -484,11 +495,13 @@ class Summary(MetricWrapperBase):
         return Timer(self, 'observe')
 
     def _child_samples(self) -> Iterable[Sample]:
-        return (
+        samples = [
             Sample('_count', {}, self._count.get(), None, None),
             Sample('_sum', {}, self._sum.get(), None, None),
-            Sample('_created', {}, self._created, None, None),
-        )
+        ]
+        if _use_created:
+            samples.append(Sample('_created', {}, self._created, None, None))
+        return tuple(samples)
 
 
 class Histogram(MetricWrapperBase):
@@ -616,7 +629,8 @@ class Histogram(MetricWrapperBase):
         samples.append(Sample('_count', {}, acc, None, None))
         if self._upper_bounds[0] >= 0:
             samples.append(Sample('_sum', {}, self._sum.get(), None, None))
-        samples.append(Sample('_created', {}, self._created, None, None))
+        if _use_created:
+            samples.append(Sample('_created', {}, self._created, None, None))
         return tuple(samples)
 
 
