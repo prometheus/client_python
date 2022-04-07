@@ -132,6 +132,17 @@ class TestMultiProcess(unittest.TestCase):
         g2.set(2)
         self.assertEqual(1, self.registry.get_sample_value('g'))
 
+    def test_gauge_livemin(self):
+        g1 = Gauge('g', 'help', registry=None, multiprocess_mode='livemin')
+        values.ValueClass = MultiProcessValue(lambda: 456)
+        g2 = Gauge('g', 'help', registry=None, multiprocess_mode='livemin')
+        self.assertEqual(0, self.registry.get_sample_value('g'))
+        g1.set(1)
+        g2.set(2)
+        self.assertEqual(1, self.registry.get_sample_value('g'))
+        mark_process_dead(123, os.environ['PROMETHEUS_MULTIPROC_DIR'])
+        self.assertEqual(2, self.registry.get_sample_value('g'))
+
     def test_gauge_max(self):
         g1 = Gauge('g', 'help', registry=None, multiprocess_mode='max')
         values.ValueClass = MultiProcessValue(lambda: 456)
@@ -140,6 +151,28 @@ class TestMultiProcess(unittest.TestCase):
         g1.set(1)
         g2.set(2)
         self.assertEqual(2, self.registry.get_sample_value('g'))
+
+    def test_gauge_livemax(self):
+        g1 = Gauge('g', 'help', registry=None, multiprocess_mode='livemax')
+        values.ValueClass = MultiProcessValue(lambda: 456)
+        g2 = Gauge('g', 'help', registry=None, multiprocess_mode='livemax')
+        self.assertEqual(0, self.registry.get_sample_value('g'))
+        g1.set(2)
+        g2.set(1)
+        self.assertEqual(2, self.registry.get_sample_value('g'))
+        mark_process_dead(123, os.environ['PROMETHEUS_MULTIPROC_DIR'])
+        self.assertEqual(1, self.registry.get_sample_value('g'))
+
+    def test_gauge_sum(self):
+        g1 = Gauge('g', 'help', registry=None, multiprocess_mode='sum')
+        values.ValueClass = MultiProcessValue(lambda: 456)
+        g2 = Gauge('g', 'help', registry=None, multiprocess_mode='sum')
+        self.assertEqual(0, self.registry.get_sample_value('g'))
+        g1.set(1)
+        g2.set(2)
+        self.assertEqual(3, self.registry.get_sample_value('g'))
+        mark_process_dead(123, os.environ['PROMETHEUS_MULTIPROC_DIR'])
+        self.assertEqual(3, self.registry.get_sample_value('g'))
 
     def test_gauge_livesum(self):
         g1 = Gauge('g', 'help', registry=None, multiprocess_mode='livesum')

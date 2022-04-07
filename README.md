@@ -614,9 +614,12 @@ Gauges have several modes they can run in, which can be selected with the `multi
 
 - 'all': Default. Return a timeseries per process alive or dead.
 - 'liveall': Return a timeseries per process that is still alive.
+- 'sum': Return a single timeseries that is the sum of the values of all processes, alive or dead.
 - 'livesum': Return a single timeseries that is the sum of the values of alive processes.
 - 'max': Return a single timeseries that is the maximum of the values of all processes, alive or dead.
+- 'livemax': Return a single timeseries that is the maximum of the values of alive processes.
 - 'min': Return a single timeseries that is the minimum of the values of all processes, alive or dead.
+- 'livemin': Return a single timeseries that is the minimum of the values of alive processes.
 
 ```python
 from prometheus_client import Gauge
