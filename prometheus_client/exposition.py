@@ -168,7 +168,6 @@ def generate_latest(registry=REGISTRY):
         return f'{line.name}{labelstr} {floatToGoString(line.value)}{timestamp}\n'
 
     output = []
-    output_string = ""
     for metric in registry.collect():
         try:
             mname = metric.name
@@ -187,6 +186,7 @@ def generate_latest(registry=REGISTRY):
                 mtype = 'histogram'
             elif mtype == 'unknown':
                 mtype = 'untyped'
+            # default encoder
             if 'encoder' not in vars(metric) or ('encoder' in vars(metric) and metric.encoder != 'pandas'):
                 # normal calls
                 output.append('# HELP {} {}\n'.format(
@@ -208,15 +208,16 @@ def generate_latest(registry=REGISTRY):
                     output.append(f'# TYPE {metric.name}{suffix} gauge\n')
                     output.extend(lines)
             else:
+                # pandas encoder
                 output.append('# HELP {} {}\n'.format(
                     mname, metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
                 output.append(f'# TYPE {mname} {mtype}\n')
-                import pdb; pdb.set_trace()
+                output.extend(metric[metric._tag].to_list())
         except Exception as exception:
             exception.args = (exception.args or ('',)) + (metric,)
             raise
-
-        return ''.join(output).encode('utf-8')
+       
+    return ''.join(output).encode('utf-8')
 
 
 def choose_encoder(accept_header):

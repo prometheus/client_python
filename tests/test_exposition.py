@@ -194,20 +194,87 @@ ts{foo="f"} 0.0 123000
 """, generate_latest(self.registry))
 
     def test_gauge_pandas(self):
-        df = pd.DataFrame({'a': [1.1,2.2,3.3,4.4], 'b':[5.1,6.2,7.3,8.4]})
-        df.name = 'report_pandas'
-        df.documentation = 'metric description'
-        df.unit = ''
-        df2 = pd.DataFrame({'c': [1.1,2.2,3.3,4.4], 'd':[5.1,6.2,7.3,8.4]})
-        df2.name = 'report_panda2s'
-        df2.documentation = 'metric description'
-        df2.unit = ''
-        g = PandasGauge(df, registry=self.registry)
-        g = PandasGauge(df2, registry=self.registry)
-        g.generate_pandas_report()
-        import pdb; pdb.set_trace()
-        self.assertEqual(b'# HELP gg A gauge\n# TYPE gg gauge\ngg 17.0\n', generate_latest(self.registry))
+        """
+        2 possiveis chamadas
+        usa apenas as colunas expostas
+        PandasGauge('report_pandas', 'metric description', columns=['columnn01', 'column02'], registry=self.registry)
+        ou 
+        usará todos as colunas
+        PandasGauge('report_pandas', 'metric description', df=df, registry=self.registry)
+        ou
+        PandasGauge('report_pandas', 'metric description', df=df, columns=['columnn01', 'column02'], registry=self.registry)
+        """
+        df = pd.DataFrame({'a': [1.1,2.2,3.3,4.4], 'b':[5.1,6.2,7.3,8.4], 'value': [1,2,3,4]})
+        df2 = pd.DataFrame({'c': [1.1,2.2,3.3,4.4], 'd':[5.1,6.2,7.3,8.4], 'value': [5,6,7,8]})
+        PandasGauge('report_pandas', 'metric description', df=df, columns= ['a', 'b', 'value'], registry=self.registry)
+        g2 = PandasGauge('report_panda2s', 'metric description2', df=df2, registry=self.registry)
+        
+        self.assertEqual(
+            b'# HELP report_pandas metric description\n'
+            b'# TYPE report_pandas gauge\n'
+            b'report_pandas(a=1.1 ,b=5.1 ) 1.0 \n'
+            b'report_pandas(a=2.2 ,b=6.2 ) 2.0 \n'
+            b'report_pandas(a=3.3 ,b=7.3 ) 3.0 \n'
+            b'report_pandas(a=4.4 ,b=8.4 ) 4.0 \n'
+            b'# HELP report_panda2s metric description2\n'
+            b'# TYPE report_panda2s gauge\n'
+            b'report_panda2s(c=1.1 ,d=5.1 ) 5.0 \n'
+            b'report_panda2s(c=2.2 ,d=6.2 ) 6.0 \n'
+            b'report_panda2s(c=3.3 ,d=7.3 ) 7.0 \n'
+            b'report_panda2s(c=4.4 ,d=8.4 ) 8.0 \n',
+            generate_latest(self.registry)
+            )
+        
+        g2.set_metric(df2)
+        self.assertEqual(
+            b'# HELP report_pandas metric description\n'
+            b'# TYPE report_pandas gauge\n'
+            b'report_pandas(a=1.1 ,b=5.1 ) 1.0 \n'
+            b'report_pandas(a=2.2 ,b=6.2 ) 2.0 \n'
+            b'report_pandas(a=3.3 ,b=7.3 ) 3.0 \n'
+            b'report_pandas(a=4.4 ,b=8.4 ) 4.0 \n'
+            b'# HELP report_panda2s metric description2\n'
+            b'# TYPE report_panda2s gauge\n'
+            b'report_panda2s(c=1.1 ,d=5.1 ) 5 \n'
+            b'report_panda2s(c=2.2 ,d=6.2 ) 6 \n'
+            b'report_panda2s(c=3.3 ,d=7.3 ) 7 \n'
+            b'report_panda2s(c=4.4 ,d=8.4 ) 8 \n',
+            generate_latest(self.registry)
+            )
 
+    def test_gauge_pandas_columns(self):
+        """
+        2 possiveis chamadas
+        usa apenas as colunas expostas
+        PandasGauge('report_pandas', 'metric description', columns=['columnn01', 'column02'], registry=self.registry)
+        ou 
+        usará todos as colunas
+        PandasGauge('report_pandas', 'metric description', df=df, registry=self.registry)
+        ou
+        PandasGauge('report_pandas', 'metric description', df=df, columns=['columnn01', 'column02'], registry=self.registry)
+        """
+        df = pd.DataFrame({'a': [1.1,2.2,3.3,4.4], 'b':[5.1,6.2,7.3,8.4], 'value': [1,2,3,4]})
+        df2 = pd.DataFrame({'c': [1.1,2.2,3.3,4.4], 'd':[5.1,6.2,7.3,8.4], 'result': [5,6,7,8]})
+        PandasGauge('report_pandas', 'metric description', df=df, columns= ['a', 'value'], registry=self.registry)
+        g2 = PandasGauge('report_panda2s', 'metric description2', df=df2, columns=['d', 'result'],value='result' ,registry=self.registry)
+        
+        
+        import pdb; pdb.set_trace()
+        self.assertEqual(
+            b'# HELP report_pandas metric description\n'
+            b'# TYPE report_pandas gauge\n'
+            b'report_pandas(a=1.1 ) 1.0 \n'
+            b'report_pandas(a=2.2 ) 2.0 \n'
+            b'report_pandas(a=3.3 ) 3.0 \n'
+            b'report_pandas(a=4.4 ) 4.0 \n'
+            b'# HELP report_panda2s metric description2\n'
+            b'# TYPE report_panda2s gauge\n'
+            b'report_panda2s(d=5.1 ) 5.0 \n'
+            b'report_panda2s(d=6.2 ) 6.0 \n'
+            b'report_panda2s(d=7.3 ) 7.0 \n'
+            b'report_panda2s(d=8.4 ) 8.0 \n',
+            generate_latest(self.registry)
+            )
 
 class TestPushGateway(unittest.TestCase):
     def setUp(self):

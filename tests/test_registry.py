@@ -33,4 +33,3 @@ def test_collector_registry_gauge():
     registry2 = CollectorRegistry()
     GP = PandasGauge('raid_status2', '1 if raid array is okay', ['label1'], registry=registry2)
     assert  type(GP._metrics) == pd.core.frame.DataFrame
-    import pdb; pdb.set_trace()

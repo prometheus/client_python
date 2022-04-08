@@ -739,13 +739,8 @@ class PandasGauge:
     def _is_parent(self):
         return self._labelnames and not self._labelvalues
 
-    def _get_metric(self):
-        print("get_metric")
-        return Metric(self._name, self._documentation, self._type, self._unit)
-
     def describe(self):
-        print("describe")
-        return [self._get_metric()]
+        return [self._metrics]
 
     def collect(self):
         return [self._metrics]
@@ -758,66 +753,56 @@ class PandasGauge:
         metric_type = type(self)
         return f"{metric_type.__module__}.{metric_type.__name__}({self._name})"
 
-    def generate_pandas_report(self, value='value', tag='report'):
+    def generate_pandas_report(self):
         def make_str(row):
-            return f"{self._name}({[ f'{col}={row[col]}, ' for col in self._metrics.columns  if col not in [value, tag]]})"
- 
-        # generate another column with metric formated
-        # make_str = lambda x: "metric01(a={}, b={})".format(x['a'],x['b'])
-        # a = s.apply(make_str , axis=1)
-        # https://github.com/prometheus/client_python/discussions/772
-
-        self._metrics[value] = self._metrics.apply(make_str, axis=1) 
+            return  f"""{self._name}({','.join([ f'{col}={row[col]} ' for col in self._labelnames  if col not in [self._value, self._tag]])}) {row[self._value]} {chr(10)}"""
+        with self._lock:
+            self._metrics[self._tag] = self._metrics.apply(make_str, axis=1) 
         # self._metrics
 
     def set_metric(self, df: pd.DataFrame):
         with self._lock:
+            df.name = self._name
+            df.type = self._type
+            df.documentation = self._documentation
+            df.encoder = 'pandas'
             self._metrics = df
         self.generate_pandas_report()
-        import pdb; pdb.set_trace()
 
-    #def __init__(self: T,
-    #             name: str,
-    #             documentation: str,
-    #             labelnames: Iterable[str] = (),
-    #             namespace: str = '',
-    #             subsystem: str = '',
-    #             unit: str = '',
-    #             registry: Optional[CollectorRegistry] = REGISTRY,
-    #             _labelvalues: Optional[Sequence[str]] = None,
-    #             ) -> None:
     def __init__(
             self: T,
-            df: pd.DataFrame,
+            name: str = '',
+            documentation: str = '',
             namespace: str = '',
             subsystem: str = '',
-            registry: Optional[CollectorRegistry] = REGISTRY
+            unit: str = '',
+            df=None,
+            columns=None,
+            registry: Optional[CollectorRegistry] = REGISTRY,
+            tag='report',
+            value='value'
             ) -> None:
         """
         Esta classe parte do pressuporto que a metrica é trocada com mais eficiencia do que ficar alterando apenas 1 valor
         o calculo pode ser feito em outro lugar e passar apenas a estrutura completo pronto em DataFrame
         """
-        if 'documentation' in vars(df):
-            documentation = df.documentation
-        else:
-            documentation = 'no doc provided'
-        if 'unit' in vars(df):
-            unit = df.unit
-        else:
-            unit = 'no unit provided'
-        if 'name' in vars(df):
-            name = df.name
-        else:
-            name = 'no name provided'
-        df.type = self._type
-        df.encoder = self._encoder
         self._name = _build_full_name(self._type, name, namespace, subsystem, unit)
-        self._labelnames = _validate_labelnames(self, df.columns)
+        if columns:
+            self._labelvalues = columns
+        else:
+            self._labelvalues = df.columns
+        self._labelnames = _validate_labelnames(self, self._labelvalues)
         self._labelvalues = tuple(None or ())
         self._kwargs: Dict[str, Any] = {}
         self._documentation = documentation
         self._unit = unit
-
+        self._tag = tag
+        self._value = value
+        df.name = self._name
+        df.type = self._type
+        df.documentation = documentation
+        df.encoder = self._encoder
+        df._tag = tag
         if not METRIC_NAME_RE.match(self._name):
             raise ValueError('Invalid metric name: ' + self._name)
 
@@ -826,6 +811,7 @@ class PandasGauge:
             self._lock = Lock()
             self._metrics = df
 
+
         if self._is_observable():
             self._metric_init()
 
@@ -833,7 +819,7 @@ class PandasGauge:
             # Register the multi-wrapper parent metric, or if a label-less metric, the whole shebang.
             if registry:
                 registry.register(self)
-
+        self.generate_pandas_report()
 
     def remove(self, *labelvalues):
         if not self._labelnames:
