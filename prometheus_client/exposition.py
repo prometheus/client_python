@@ -13,6 +13,7 @@ from urllib.parse import parse_qs, quote_plus, urlparse
 from urllib.request import (
     build_opener, HTTPHandler, HTTPRedirectHandler, Request,
 )
+import warnings
 from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
 
 from .openmetrics import exposition as openmetrics
@@ -97,10 +98,10 @@ class _PrometheusRedirectHandler(HTTPRedirectHandler):
 def _bake_output(registry, accept_header, accept_encoding_header, params, disable_compression):
     """Bake output for metrics output."""
     # Choose the correct plain text format of the output.
-    formatter, content_type = choose_formatter(accept_header)
+    encoder, content_type = choose_encoder(accept_header)
     if 'name[]' in params:
         registry = registry.restricted_registry(params['name[]'])
-    output = formatter(registry)
+    output = encoder(registry)
     headers = [('Content-Type', content_type)]
     # If gzip encoding required, gzip the output.
     if not disable_compression and gzip_accepted(accept_encoding_header):
@@ -237,13 +238,22 @@ def generate_latest(registry: CollectorRegistry = REGISTRY) -> bytes:
     return ''.join(output).encode('utf-8')
 
 
-def choose_formatter(accept_header: str) -> Tuple[Callable[[CollectorRegistry], bytes], str]:
+def choose_encoder(accept_header: str) -> Tuple[Callable[[CollectorRegistry], bytes], str]:
     accept_header = accept_header or ''
     for accepted in accept_header.split(','):
         if accepted.split(';')[0].strip() == 'application/openmetrics-text':
             return (openmetrics.generate_latest,
                     openmetrics.CONTENT_TYPE_LATEST)
     return generate_latest, CONTENT_TYPE_LATEST
+
+
+def choose_formatter(accept_header: str) -> Tuple[Callable[[CollectorRegistry], bytes], str]:
+    warnings.warn(
+        "choose_formatter is deprecated and will be removed in 0.15.0, please use choose_encoder instead",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    return choose_encoder(accept_header)
 
 
 def gzip_accepted(accept_encoding_header: str) -> bool:
