@@ -80,6 +80,7 @@ class CollectorRegistry:
         if ti:
             yield ti
         for collector in collectors:
+            
             yield from collector.collect()
 
     def restricted_registry(self, names):
