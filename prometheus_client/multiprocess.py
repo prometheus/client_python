@@ -64,8 +64,8 @@ class MultiProcessCollector:
             try:
                 file_values = MmapedDict.read_all_values_from_file(f)
             except FileNotFoundError:
-                if typ == 'gauge' and 'live' in parts[1]:
-                    # Those files can disappear between the glob of collect
+                if typ == 'gauge' and parts[1].startswith('live'):
+                    # Files for 'live*' gauges can be deleted between the glob of collect
                     # and now (via a mark_process_dead call) so don't fail if
                     # the file is missing
                     continue
@@ -153,10 +153,13 @@ class MultiProcessCollector:
         return self.merge(files, accumulate=True)
 
 
+_LIVE_GAUGE_MULTIPROCESS_MODES = {m for m in Gauge._MULTIPROC_MODES if m.startswith('live')}
+
+
 def mark_process_dead(pid, path=None):
     """Do bookkeeping for when one process dies in a multi-process setup."""
     if path is None:
         path = os.environ.get('PROMETHEUS_MULTIPROC_DIR', os.environ.get('prometheus_multiproc_dir'))
-    for mode in {m for m in Gauge._MULTIPROC_MODES if 'live' in m}:
+    for mode in _LIVE_GAUGE_MULTIPROCESS_MODES:
         for f in glob.glob(os.path.join(path, f'gauge_{mode}_{pid}.db')):
             os.remove(f)
