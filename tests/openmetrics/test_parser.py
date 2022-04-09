@@ -289,8 +289,8 @@ a{a="2",foo="bar"} 5 0.0000000001
         self.assertEqual([metric_family], list(families))
 
     def test_empty_metadata(self):
-        families = text_string_to_metric_families("""# HELP a 
-# UNIT a 
+        families = text_string_to_metric_families("""# HELP a
+# UNIT a
 # EOF
 """)
         metric_family = Metric("a", "", "untyped")
@@ -331,7 +331,7 @@ a_total{foo="bar",bar="b{a}z"} 1
 
     def test_empty_help(self):
         families = text_string_to_metric_families("""# TYPE a counter
-# HELP a 
+# HELP a
 a_total 1
 # EOF
 """)

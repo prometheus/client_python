@@ -62,7 +62,7 @@ jobs:
       - checkout
       - run: pip install tox
       - run: tox
-   
+
 
 workflows:
   version: 2

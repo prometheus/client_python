@@ -272,7 +272,7 @@ a{foo="bar"} 1\t000
 # TYPE b counter
 # HELP b help
 b 2  1234567890
-b 88   1234566000   
+b 88   1234566000
 """)
         a = CounterMetricFamily("a", "help", labels=["foo"])
         a.add_metric(["bar"], 1, timestamp=0)

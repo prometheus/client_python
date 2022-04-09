@@ -274,8 +274,8 @@ ProcessCollector(namespace='mydaemon', pid=lambda: open('/var/run/daemon.pid').r
 ### Platform Collector
 
 The client also automatically exports some metadata about Python. If using Jython,
-metadata about the JVM in use is also included. This information is available as 
-labels on the `python_info` metric. The value of the metric is 1, since it is the 
+metadata about the JVM in use is also included. This information is available as
+labels on the `python_info` metric. The value of the metric is 1, since it is the
 labels that carry information.
 
 ## Exporting
@@ -367,7 +367,7 @@ Such an application can be useful when integrating Prometheus metrics with ASGI
 apps.
 
 By default, the WSGI application will respect `Accept-Encoding:gzip` headers used by Prometheus
-and compress the response if such a header is present. This behaviour can be disabled by passing 
+and compress the response if such a header is present. This behaviour can be disabled by passing
 `disable_compression=True` when creating the app, like this:
 
 ```python

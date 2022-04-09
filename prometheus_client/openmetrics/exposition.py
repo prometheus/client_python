@@ -3,8 +3,8 @@
 
 from ..utils import floatToGoString
 
+# Content type of the latest OpenMetrics text format
 CONTENT_TYPE_LATEST = 'application/openmetrics-text; version=0.0.1; charset=utf-8'
-"""Content type of the latest OpenMetrics text format"""
 
 
 def _is_valid_exemplar_metric(metric, sample):
