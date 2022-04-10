@@ -289,9 +289,10 @@ a{a="2",foo="bar"} 5 0.0000000001
         self.assertEqual([metric_family], list(families))
 
     def test_empty_metadata(self):
-        families = text_string_to_metric_families("# HELP a \n"
-                                                  "# UNIT a \n"
-                                                  "# EOF\n")
+        families = text_string_to_metric_families("""# HELP a 
+# UNIT a 
+# EOF
+""")
         metric_family = Metric("a", "", "untyped")
         self.assertEqual([metric_family], list(families))
 
@@ -329,10 +330,11 @@ a_total{foo="bar",bar="b{a}z"} 1
         self.assertEqual([metric_family], list(families))
 
     def test_empty_help(self):
-        families = text_string_to_metric_families("# TYPE a counter\n"
-                                                  "# HELP a \n"
-                                                  "a_total 1\n"
-                                                  "# EOF\n")
+        families = text_string_to_metric_families("""# TYPE a counter
+# HELP a 
+a_total 1
+# EOF
+""")
         self.assertEqual([CounterMetricFamily("a", "", value=1)], list(families))
 
     def test_labels_and_infinite(self):
