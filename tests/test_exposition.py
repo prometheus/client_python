@@ -258,8 +258,6 @@ ts{foo="f"} 0.0 123000
         PandasGauge('report_pandas', 'metric description', df=df, columns= ['a', 'value'], registry=self.registry)
         g2 = PandasGauge('report_panda2s', 'metric description2', df=df2, columns=['d', 'result'],value='result' ,registry=self.registry)
         
-        
-        import pdb; pdb.set_trace()
         self.assertEqual(
             b'# HELP report_pandas metric description\n'
             b'# TYPE report_pandas gauge\n'

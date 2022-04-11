@@ -771,12 +771,12 @@ class PandasGauge:
 
     def __init__(
             self: T,
-            name: str = '',
-            documentation: str = '',
+            name: str,
+            documentation: str,
+            df: pd.DataFrame,
             namespace: str = '',
             subsystem: str = '',
             unit: str = '',
-            df=None,
             columns=None,
             registry: Optional[CollectorRegistry] = REGISTRY,
             tag='report',
@@ -786,11 +786,15 @@ class PandasGauge:
         Esta classe parte do pressuporto que a metrica é trocada com mais eficiencia do que ficar alterando apenas 1 valor
         o calculo pode ser feito em outro lugar e passar apenas a estrutura completo pronto em DataFrame
         """
+        if df is None:
+            raise ValueError("df must be set")
+
         self._name = _build_full_name(self._type, name, namespace, subsystem, unit)
         if columns:
             self._labelvalues = columns
         else:
             self._labelvalues = df.columns
+
         self._labelnames = _validate_labelnames(self, self._labelvalues)
         self._labelvalues = tuple(None or ())
         self._kwargs: Dict[str, Any] = {}
@@ -837,20 +841,20 @@ class PandasGauge:
         with self._lock:
             self._metrics = {}
 
-    def _samples(self) -> Iterable[Sample]:
-        if self._is_parent():
-            return self._multi_samples()
-        else:
-            return self._child_samples()
+    # def _samples(self) -> Iterable[Sample]:
+    #     if self._is_parent():
+    #         return self._multi_samples()
+    #     else:
+    #         return self._child_samples()
 
-    def _multi_samples(self) -> Iterable[Sample]:
-        if 'pandas' not in vars(metrics._encoder):
-            with self._lock:
-                metrics = self._metrics.copy()
-            for labels, metric in metrics.items():
-                series_labels = list(zip(self._labelnames, labels))
-                for suffix, sample_labels, value, timestamp, exemplar in metric._samples():
-                    yield Sample(suffix, dict(series_labels + list(sample_labels.items())), value, timestamp, exemplar)
+    # def _multi_samples(self) -> Iterable[Sample]:
+    #     if 'pandas' not in vars(metrics._encoder):
+    #         with self._lock:
+    #             metrics = self._metrics.copy()
+    #         for labels, metric in metrics.items():
+    #             series_labels = list(zip(self._labelnames, labels))
+    #             for suffix, sample_labels, value, timestamp, exemplar in metric._samples():
+    #                 yield Sample(suffix, dict(series_labels + list(sample_labels.items())), value, timestamp, exemplar)
 
     def _child_samples(self) -> Iterable[Sample]:  # pragma: no cover
         raise NotImplementedError('_child_samples() must be implemented by %r' % self)
