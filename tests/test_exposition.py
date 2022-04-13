@@ -212,16 +212,16 @@ ts{foo="f"} 0.0 123000
         self.assertEqual(
             b'# HELP report_pandas metric description\n'
             b'# TYPE report_pandas gauge\n'
-            b'report_pandas(a=1.1 ,b=5.1 ) 1.0 \n'
-            b'report_pandas(a=2.2 ,b=6.2 ) 2.0 \n'
-            b'report_pandas(a=3.3 ,b=7.3 ) 3.0 \n'
-            b'report_pandas(a=4.4 ,b=8.4 ) 4.0 \n'
+            b'report_pandas(a="1.1" ,b="5.1" ) 1.0 \n'
+            b'report_pandas(a="2.2" ,b="6.2" ) 2.0 \n'
+            b'report_pandas(a="3.3" ,b="7.3" ) 3.0 \n'
+            b'report_pandas(a="4.4" ,b="8.4" ) 4.0 \n'
             b'# HELP report_panda2s metric description2\n'
             b'# TYPE report_panda2s gauge\n'
-            b'report_panda2s(c=1.1 ,d=5.1 ) 5.0 \n'
-            b'report_panda2s(c=2.2 ,d=6.2 ) 6.0 \n'
-            b'report_panda2s(c=3.3 ,d=7.3 ) 7.0 \n'
-            b'report_panda2s(c=4.4 ,d=8.4 ) 8.0 \n',
+            b'report_panda2s(c="1.1" ,d="5.1" ) 5.0 \n'
+            b'report_panda2s(c="2.2" ,d="6.2" ) 6.0 \n'
+            b'report_panda2s(c="3.3" ,d="7.3" ) 7.0 \n'
+            b'report_panda2s(c="4.4" ,d="8.4" ) 8.0 \n',
             generate_latest(self.registry)
         )
         
@@ -229,16 +229,16 @@ ts{foo="f"} 0.0 123000
         self.assertEqual(
             b'# HELP report_pandas metric description\n'
             b'# TYPE report_pandas gauge\n'
-            b'report_pandas(a=1.1 ,b=5.1 ) 1.0 \n'
-            b'report_pandas(a=2.2 ,b=6.2 ) 2.0 \n'
-            b'report_pandas(a=3.3 ,b=7.3 ) 3.0 \n'
-            b'report_pandas(a=4.4 ,b=8.4 ) 4.0 \n'
+            b'report_pandas(a="1.1" ,b="5.1" ) 1.0 \n'
+            b'report_pandas(a="2.2" ,b="6.2" ) 2.0 \n'
+            b'report_pandas(a="3.3" ,b="7.3" ) 3.0 \n'
+            b'report_pandas(a="4.4" ,b="8.4" ) 4.0 \n'
             b'# HELP report_panda2s metric description2\n'
             b'# TYPE report_panda2s gauge\n'
-            b'report_panda2s(c=1.1 ,d=5.1 ) 5 \n'
-            b'report_panda2s(c=2.2 ,d=6.2 ) 6 \n'
-            b'report_panda2s(c=3.3 ,d=7.3 ) 7 \n'
-            b'report_panda2s(c=4.4 ,d=8.4 ) 8 \n',
+            b'report_panda2s(c="1.1" ,d="5.1" ) 5 \n'
+            b'report_panda2s(c="2.2" ,d="6.2" ) 6 \n'
+            b'report_panda2s(c="3.3" ,d="7.3" ) 7 \n'
+            b'report_panda2s(c="4.4" ,d="8.4" ) 8 \n',
             generate_latest(self.registry)
         )
 
@@ -261,16 +261,16 @@ ts{foo="f"} 0.0 123000
         self.assertEqual(
             b'# HELP report_pandas metric description\n'
             b'# TYPE report_pandas gauge\n'
-            b'report_pandas(a=1.1 ) 1.0 \n'
-            b'report_pandas(a=2.2 ) 2.0 \n'
-            b'report_pandas(a=3.3 ) 3.0 \n'
-            b'report_pandas(a=4.4 ) 4.0 \n'
+            b'report_pandas(a="1.1" ) 1.0 \n'
+            b'report_pandas(a="2.2" ) 2.0 \n'
+            b'report_pandas(a="3.3" ) 3.0 \n'
+            b'report_pandas(a="4.4" ) 4.0 \n'
             b'# HELP report_panda2s metric description2\n'
             b'# TYPE report_panda2s gauge\n'
-            b'report_panda2s(d=5.1 ) 5.0 \n'
-            b'report_panda2s(d=6.2 ) 6.0 \n'
-            b'report_panda2s(d=7.3 ) 7.0 \n'
-            b'report_panda2s(d=8.4 ) 8.0 \n',
+            b'report_panda2s(d="5.1" ) 5.0 \n'
+            b'report_panda2s(d="6.2" ) 6.0 \n'
+            b'report_panda2s(d="7.3" ) 7.0 \n'
+            b'report_panda2s(d="8.4" ) 8.0 \n',
             generate_latest(self.registry)
         )
 
