@@ -780,11 +780,11 @@ class PandasGauge:
             namespace: str = '',
             subsystem: str = '',
             unit: str = '',
-            columns=None,
+            columns: list = None,
             registry: Optional[CollectorRegistry] = REGISTRY,
-            tag: str='report',
-            value: str='value'
-        ) -> None:
+            tag: str = 'report',
+            value: str = 'value'
+            ) -> None:
         """
         Esta classe parte do pressuporto que a metrica é trocada com mais eficiencia do que ficar alterando apenas 1 valor
         o calculo pode ser feito em outro lugar e passar apenas a estrutura completo pronto em DataFrame
