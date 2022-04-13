@@ -1,11 +1,11 @@
 from threading import Lock
 import time
 import types
-import pandas as pd
 from typing import (
     Any, Callable, Dict, Iterable, Optional, Sequence, Type, TypeVar, Union,
 )
 
+import pandas as pd
 from . import values  # retain this import style for testability
 from .context_managers import ExceptionCounter, InprogressTracker, Timer
 from .metrics_core import (

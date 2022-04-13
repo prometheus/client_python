@@ -3,8 +3,8 @@ import threading
 import time
 import unittest
 
-import pytest
 import pandas as pd
+import pytest
 
 from prometheus_client import (
     CollectorRegistry, CONTENT_TYPE_LATEST, core, Counter, delete_from_gateway,
@@ -204,9 +204,9 @@ ts{foo="f"} 0.0 123000
         ou
         PandasGauge('report_pandas', 'metric description', df=df, columns=['columnn01', 'column02'], registry=self.registry)
         """
-        df = pd.DataFrame({'a': [1.1, 2.2, 3.3, 4.4], 'b':[5.1, 6.2, 7.3, 8.4], 'value': [1, 2, 3, 4]})
-        df2 = pd.DataFrame({'c': [1.1, 2.2, 3.3, 4.4], 'd':[5.1, 6.2, 7.3, 8.4], 'value': [5, 6, 7, 8]})
-        PandasGauge('report_pandas', 'metric description', df=df, columns= ['a', 'b', 'value'], registry=self.registry)
+        df = pd.DataFrame({'a': [1.1, 2.2, 3.3, 4.4], 'b': [5.1, 6.2, 7.3, 8.4], 'value': [1, 2, 3, 4]})
+        df2 = pd.DataFrame({'c': [1.1, 2.2, 3.3, 4.4], 'd': [5.1, 6.2, 7.3, 8.4], 'value': [5, 6, 7, 8]})
+        PandasGauge('report_pandas', 'metric description', df=df, columns=['a', 'b', 'value'], registry=self.registry)
         g2 = PandasGauge('report_panda2s', 'metric description2', df=df2, registry=self.registry)
         
         self.assertEqual(
@@ -253,10 +253,10 @@ ts{foo="f"} 0.0 123000
         ou
         PandasGauge('report_pandas', 'metric description', df=df, columns=['columnn01', 'column02'], registry=self.registry)
         """
-        df = pd.DataFrame({'a': [1.1, 2.2, 3.3, 4.4], 'b':[5.1, 6.2, 7.3, 8.4], 'value': [1, 2, 3, 4]})
-        df2 = pd.DataFrame({'c': [1.1, 2.2, 3.3, 4.4], 'd':[5.1, 6.2, 7.3, 8.4], 'result': [5, 6, 7, 8]})
-        PandasGauge('report_pandas', 'metric description', df=df, columns= ['a', 'value'], registry=self.registry)
-        g2 = PandasGauge('report_panda2s', 'metric description2', df=df2, columns=['d', 'result'],value='result' ,registry=self.registry)
+        df = pd.DataFrame({'a': [1.1, 2.2, 3.3, 4.4], 'b': [5.1, 6.2, 7.3, 8.4], 'value': [1, 2, 3, 4]})
+        df2 = pd.DataFrame({'c': [1.1, 2.2, 3.3, 4.4], 'd': [5.1, 6.2, 7.3, 8.4], 'result': [5, 6, 7, 8]})
+        PandasGauge('report_pandas', 'metric description', df=df, columns=['a', 'value'], registry=self.registry)
+        g2 = PandasGauge('report_panda2s', 'metric description2', df=df2, columns=['d', 'result'],value='result' , registry=self.registry)
         
         self.assertEqual(
             b'# HELP report_pandas metric description\n'
@@ -273,6 +273,7 @@ ts{foo="f"} 0.0 123000
             b'report_panda2s(d="8.4" ) 8.0 \n',
             generate_latest(self.registry)
         )
+
 
 class TestPushGateway(unittest.TestCase):
     def setUp(self):
