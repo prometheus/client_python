@@ -256,7 +256,7 @@ ts{foo="f"} 0.0 123000
         df = pd.DataFrame({'a': [1.1, 2.2, 3.3, 4.4], 'b': [5.1, 6.2, 7.3, 8.4], 'value': [1, 2, 3, 4]})
         df2 = pd.DataFrame({'c': [1.1, 2.2, 3.3, 4.4], 'd': [5.1, 6.2, 7.3, 8.4], 'result': [5, 6, 7, 8]})
         PandasGauge('report_pandas', 'metric description', df=df, columns=['a', 'value'], registry=self.registry)
-        g2 = PandasGauge('report_panda2s', 'metric description2', df=df2, columns=['d', 'result'],value='result' , registry=self.registry)
+        g2 = PandasGauge('report_panda2s', 'metric description2', df=df2, columns=['d', 'result'], value='result' , registry=self.registry)
         
         self.assertEqual(
             b'# HELP report_pandas metric description\n'

@@ -1,5 +1,6 @@
 import pandas as pd
 import pytest
+
 from prometheus_client.metrics import Gauge, PandasGauge
 from prometheus_client.registry import CollectorRegistry
 

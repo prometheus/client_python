@@ -6,6 +6,7 @@ from typing import (
 )
 
 import pandas as pd
+
 from . import values  # retain this import style for testability
 from .context_managers import ExceptionCounter, InprogressTracker, Timer
 from .metrics_core import (
@@ -272,7 +273,7 @@ class Counter(MetricWrapperBase):
                                         self._labelvalues)
         self._created = time.time()
 
-    def inc(self, amount: float=1, exemplar: Optional[Dict[str, str]] = None) -> None:
+    def inc(self, amount: float = 1, exemplar: Optional[Dict[str, str]] = None) -> None:
         """Increment counter by the given amount."""
         self._raise_if_not_observable()
         if amount < 0:
@@ -756,7 +757,7 @@ class PandasGauge:
 
     def generate_pandas_report(self):
         def make_str(row):
-            return  f"""{self._name}({','.join([ f'{col}="{row[col]}" ' for col in self._labelnames  if col not in [self._value, self._tag]])}) {row[self._value]} {chr(10)}"""
+            return f"""{self._name}({','.join([ f'{col}="{row[col]}" ' for col in self._labelnames  if col not in [self._value, self._tag]])}) {row[self._value]} {chr(10)}"""
         with self._lock:
             self._metrics[self._tag] = self._metrics.apply(make_str, axis=1) 
         # self._metrics
@@ -782,7 +783,7 @@ class PandasGauge:
             registry: Optional[CollectorRegistry] = REGISTRY,
             tag='report',
             value='value'
-            ) -> None:
+        ) -> None:
         """
         Esta classe parte do pressuporto que a metrica é trocada com mais eficiencia do que ficar alterando apenas 1 valor
         o calculo pode ser feito em outro lugar e passar apenas a estrutura completo pronto em DataFrame
