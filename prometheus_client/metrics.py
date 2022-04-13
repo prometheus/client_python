@@ -20,6 +20,7 @@ from .utils import floatToGoString, INF
 
 
 T = TypeVar('T', bound='MetricWrapperBase')
+P = TypeVar('P', bound='PandasGauge')
 F = TypeVar("F", bound=Callable[..., Any])
 
 
@@ -762,7 +763,7 @@ class PandasGauge:
             self._metrics[self._tag] = self._metrics.apply(make_str, axis=1) 
         # self._metrics
 
-    def set_metric(self, df: pd.DataFrame):
+    def set_metric(self, df: pd.DataFrame) -> None:
         with self._lock:
             df.name = self._name
             df.type = self._type
@@ -772,7 +773,7 @@ class PandasGauge:
         self.generate_pandas_report()
 
     def __init__(
-            self: T,
+            self: P,
             name: str,
             documentation: str,
             df: pd.DataFrame,
@@ -781,8 +782,8 @@ class PandasGauge:
             unit: str = '',
             columns=None,
             registry: Optional[CollectorRegistry] = REGISTRY,
-            tag='report',
-            value='value'
+            tag: str='report',
+            value: str='value'
         ) -> None:
         """
         Esta classe parte do pressuporto que a metrica é trocada com mais eficiencia do que ficar alterando apenas 1 valor
