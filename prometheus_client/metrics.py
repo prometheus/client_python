@@ -1,6 +1,7 @@
 from threading import Lock
 import time
 import types
+import pandas as pd
 from typing import (
     Any, Callable, Dict, Iterable, Optional, Sequence, Type, TypeVar, Union,
 )
@@ -15,7 +16,7 @@ from .registry import CollectorRegistry, REGISTRY
 from .samples import Exemplar, Sample
 from .utils import floatToGoString, INF
 
-import pandas as pd
+
 
 T = TypeVar('T', bound='MetricWrapperBase')
 F = TypeVar("F", bound=Callable[..., Any])
@@ -271,7 +272,7 @@ class Counter(MetricWrapperBase):
                                         self._labelvalues)
         self._created = time.time()
 
-    def inc(self, amount: float = 1, exemplar: Optional[Dict[str, str]] = None) -> None:
+    def inc(self, amount: float=1, exemplar: Optional[Dict[str, str]] = None) -> None:
         """Increment counter by the given amount."""
         self._raise_if_not_observable()
         if amount < 0:
@@ -755,7 +756,7 @@ class PandasGauge:
 
     def generate_pandas_report(self):
         def make_str(row):
-            return  f"""{self._name}({','.join([ f'{col}={row[col]} ' for col in self._labelnames  if col not in [self._value, self._tag]])}) {row[self._value]} {chr(10)}"""
+            return  f"""{self._name}({','.join([ f'{col}="{row[col]}" ' for col in self._labelnames  if col not in [self._value, self._tag]])}) {row[self._value]} {chr(10)}"""
         with self._lock:
             self._metrics[self._tag] = self._metrics.apply(make_str, axis=1) 
         # self._metrics

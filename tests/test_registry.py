@@ -1,6 +1,7 @@
+import pytest
+import pandas as pd
 from prometheus_client.registry import CollectorRegistry
 from prometheus_client.metrics import Gauge, PandasGauge, PandasGauge
-import pandas as pd
 
 def test_collector_registry_init():
     registry = CollectorRegistry()
@@ -10,7 +11,7 @@ def test_collector_registry_init():
     assert str(type(registry._lock)) == "<class '_thread.lock'>"
     assert registry._target_info == None
 
-import pytest
+
 @pytest.mark.skip('wip')    
 def test_collector_registry_gauge():
     registry = CollectorRegistry()

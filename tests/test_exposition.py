@@ -4,11 +4,12 @@ import time
 import unittest
 
 import pytest
+import pandas as pd
 
 from prometheus_client import (
     CollectorRegistry, CONTENT_TYPE_LATEST, core, Counter, delete_from_gateway,
     Enum, Gauge, generate_latest, Histogram, Info, instance_ip_grouping_key,
-    Metric, push_to_gateway, pushadd_to_gateway, Summary, PandasGauge
+    Metric, PandasGauge, push_to_gateway, pushadd_to_gateway, Summary
 )
 from prometheus_client.core import GaugeHistogramMetricFamily, Timestamp
 from prometheus_client.exposition import (
@@ -16,7 +17,6 @@ from prometheus_client.exposition import (
     passthrough_redirect_handler,
 )
 
-import pandas as pd
 
 class TestGenerateText(unittest.TestCase):
     def setUp(self):
@@ -204,8 +204,8 @@ ts{foo="f"} 0.0 123000
         ou
         PandasGauge('report_pandas', 'metric description', df=df, columns=['columnn01', 'column02'], registry=self.registry)
         """
-        df = pd.DataFrame({'a': [1.1,2.2,3.3,4.4], 'b':[5.1,6.2,7.3,8.4], 'value': [1,2,3,4]})
-        df2 = pd.DataFrame({'c': [1.1,2.2,3.3,4.4], 'd':[5.1,6.2,7.3,8.4], 'value': [5,6,7,8]})
+        df = pd.DataFrame({'a': [1.1, 2.2, 3.3, 4.4], 'b':[5.1, 6.2, 7.3, 8.4], 'value': [1, 2, 3, 4]})
+        df2 = pd.DataFrame({'c': [1.1, 2.2, 3.3, 4.4], 'd':[5.1, 6.2, 7.3, 8.4], 'value': [5, 6, 7, 8]})
         PandasGauge('report_pandas', 'metric description', df=df, columns= ['a', 'b', 'value'], registry=self.registry)
         g2 = PandasGauge('report_panda2s', 'metric description2', df=df2, registry=self.registry)
         
@@ -223,7 +223,7 @@ ts{foo="f"} 0.0 123000
             b'report_panda2s(c=3.3 ,d=7.3 ) 7.0 \n'
             b'report_panda2s(c=4.4 ,d=8.4 ) 8.0 \n',
             generate_latest(self.registry)
-            )
+        )
         
         g2.set_metric(df2)
         self.assertEqual(
@@ -240,7 +240,7 @@ ts{foo="f"} 0.0 123000
             b'report_panda2s(c=3.3 ,d=7.3 ) 7 \n'
             b'report_panda2s(c=4.4 ,d=8.4 ) 8 \n',
             generate_latest(self.registry)
-            )
+        )
 
     def test_gauge_pandas_columns(self):
         """
@@ -253,8 +253,8 @@ ts{foo="f"} 0.0 123000
         ou
         PandasGauge('report_pandas', 'metric description', df=df, columns=['columnn01', 'column02'], registry=self.registry)
         """
-        df = pd.DataFrame({'a': [1.1,2.2,3.3,4.4], 'b':[5.1,6.2,7.3,8.4], 'value': [1,2,3,4]})
-        df2 = pd.DataFrame({'c': [1.1,2.2,3.3,4.4], 'd':[5.1,6.2,7.3,8.4], 'result': [5,6,7,8]})
+        df = pd.DataFrame({'a': [1.1, 2.2, 3.3, 4.4], 'b':[5.1, 6.2, 7.3, 8.4], 'value': [1, 2, 3, 4]})
+        df2 = pd.DataFrame({'c': [1.1, 2.2, 3.3, 4.4], 'd':[5.1, 6.2, 7.3, 8.4], 'result': [5, 6, 7, 8]})
         PandasGauge('report_pandas', 'metric description', df=df, columns= ['a', 'value'], registry=self.registry)
         g2 = PandasGauge('report_panda2s', 'metric description2', df=df2, columns=['d', 'result'],value='result' ,registry=self.registry)
         
@@ -272,7 +272,7 @@ ts{foo="f"} 0.0 123000
             b'report_panda2s(d=7.3 ) 7.0 \n'
             b'report_panda2s(d=8.4 ) 8.0 \n',
             generate_latest(self.registry)
-            )
+        )
 
 class TestPushGateway(unittest.TestCase):
     def setUp(self):
