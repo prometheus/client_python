@@ -613,7 +613,7 @@ When `Gauge`s are used in multiprocess applications,
 you must decide how to handle the metrics reported by each process.
 Gauges have several modes they can run in, which can be selected with the `multiprocess_mode` parameter.
 
-- 'all': Default. Return a timeseries per process (alive or dead), tagged by the process's `pid` (the tag is added internally).
+- 'all': Default. Return a timeseries per process (alive or dead), labelled by the process's `pid` (the label is added internally).
 - 'min': Return a single timeseries that is the minimum of the values of all processes (alive or dead).
 - 'max': Return a single timeseries that is the maximum of the values of all processes (alive or dead).
 - 'sum': Return a single timeseries that is the sum of the values of all processes (alive or dead).
