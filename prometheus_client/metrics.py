@@ -346,7 +346,7 @@ class Gauge(MetricWrapperBase):
         d.set_function(lambda: len(my_dict))
     """
     _type = 'gauge'
-    _MULTIPROC_MODES = frozenset(('min', 'max', 'livesum', 'liveall', 'all'))
+    _MULTIPROC_MODES = frozenset(('all', 'liveall', 'min', 'livemin', 'max', 'livemax', 'sum', 'livesum'))
 
     def __init__(self,
                  name: str,

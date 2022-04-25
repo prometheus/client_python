@@ -609,14 +609,17 @@ def child_exit(server, worker):
 
 **4. Metrics tuning (Gauge)**:
 
-When `Gauge` metrics are used, additional tuning needs to be performed.
+When `Gauge`s are used in multiprocess applications,
+you must decide how to handle the metrics reported by each process.
 Gauges have several modes they can run in, which can be selected with the `multiprocess_mode` parameter.
 
-- 'all': Default. Return a timeseries per process alive or dead.
-- 'liveall': Return a timeseries per process that is still alive.
-- 'livesum': Return a single timeseries that is the sum of the values of alive processes.
-- 'max': Return a single timeseries that is the maximum of the values of all processes, alive or dead.
-- 'min': Return a single timeseries that is the minimum of the values of all processes, alive or dead.
+- 'all': Default. Return a timeseries per process (alive or dead), labelled by the process's `pid` (the label is added internally).
+- 'min': Return a single timeseries that is the minimum of the values of all processes (alive or dead).
+- 'max': Return a single timeseries that is the maximum of the values of all processes (alive or dead).
+- 'sum': Return a single timeseries that is the sum of the values of all processes (alive or dead).
+
+Prepend 'live' to the beginning of the mode to return the same result but only considering living processes
+(e.g., 'liveall, 'livesum', 'livemax', 'livemin').
 
 ```python
 from prometheus_client import Gauge

@@ -4,6 +4,7 @@ import json
 import os
 import warnings
 
+from .metrics import Gauge
 from .metrics_core import Metric
 from .mmap_dict import MmapedDict
 from .samples import Sample
@@ -63,8 +64,8 @@ class MultiProcessCollector:
             try:
                 file_values = MmapedDict.read_all_values_from_file(f)
             except FileNotFoundError:
-                if typ == 'gauge' and parts[1] in ('liveall', 'livesum'):
-                    # Those files can disappear between the glob of collect
+                if typ == 'gauge' and parts[1].startswith('live'):
+                    # Files for 'live*' gauges can be deleted between the glob of collect
                     # and now (via a mark_process_dead call) so don't fail if
                     # the file is missing
                     continue
@@ -96,15 +97,15 @@ class MultiProcessCollector:
                 name, labels, value, timestamp, exemplar = s
                 if metric.type == 'gauge':
                     without_pid_key = (name, tuple(l for l in labels if l[0] != 'pid'))
-                    if metric._multiprocess_mode == 'min':
+                    if metric._multiprocess_mode in ('min', 'livemin'):
                         current = samples_setdefault(without_pid_key, value)
                         if value < current:
                             samples[without_pid_key] = value
-                    elif metric._multiprocess_mode == 'max':
+                    elif metric._multiprocess_mode in ('max', 'livemax'):
                         current = samples_setdefault(without_pid_key, value)
                         if value > current:
                             samples[without_pid_key] = value
-                    elif metric._multiprocess_mode == 'livesum':
+                    elif metric._multiprocess_mode in ('sum', 'livesum'):
                         samples[without_pid_key] += value
                     else:  # all/liveall
                         samples[(name, labels)] = value
@@ -152,11 +153,13 @@ class MultiProcessCollector:
         return self.merge(files, accumulate=True)
 
 
+_LIVE_GAUGE_MULTIPROCESS_MODES = {m for m in Gauge._MULTIPROC_MODES if m.startswith('live')}
+
+
 def mark_process_dead(pid, path=None):
     """Do bookkeeping for when one process dies in a multi-process setup."""
     if path is None:
         path = os.environ.get('PROMETHEUS_MULTIPROC_DIR', os.environ.get('prometheus_multiproc_dir'))
-    for f in glob.glob(os.path.join(path, f'gauge_livesum_{pid}.db')):
-        os.remove(f)
-    for f in glob.glob(os.path.join(path, f'gauge_liveall_{pid}.db')):
-        os.remove(f)
+    for mode in _LIVE_GAUGE_MULTIPROCESS_MODES:
+        for f in glob.glob(os.path.join(path, f'gauge_{mode}_{pid}.db')):
+            os.remove(f)
