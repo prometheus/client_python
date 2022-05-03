@@ -15,8 +15,6 @@ try:  # Python3
 except NameError:  # Python >= 2.5
     FileNotFoundError = IOError
 
-MP_METRIC_HELP = 'Multiprocess metric'
-
 
 class MultiProcessCollector:
     """Collector for files for multi-process mode."""
@@ -53,9 +51,9 @@ class MultiProcessCollector:
         def _parse_key(key):
             val = key_cache.get(key)
             if not val:
-                metric_name, name, labels = json.loads(key)
+                metric_name, name, labels, help_text = json.loads(key)
                 labels_key = tuple(sorted(labels.items()))
-                val = key_cache[key] = (metric_name, name, labels, labels_key)
+                val = key_cache[key] = (metric_name, name, labels, labels_key, help_text)
             return val
 
         for f in files:
@@ -71,11 +69,11 @@ class MultiProcessCollector:
                     continue
                 raise
             for key, value, _ in file_values:
-                metric_name, name, labels, labels_key = _parse_key(key)
+                metric_name, name, labels, labels_key, help_text = _parse_key(key)
 
                 metric = metrics.get(metric_name)
                 if metric is None:
-                    metric = Metric(metric_name, MP_METRIC_HELP, typ)
+                    metric = Metric(metric_name, help_text, typ)
                     metrics[metric_name] = metric
 
                 if typ == 'gauge':
