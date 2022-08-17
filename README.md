@@ -47,7 +47,7 @@ other information about the process for free!
 ## Installation
 
 ```
-pip install prometheus_client
+pip install prometheus-client
 ```
 
 This package can be found on
