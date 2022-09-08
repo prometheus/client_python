@@ -14,8 +14,8 @@ from urllib.request import (
     build_opener, HTTPHandler, HTTPRedirectHandler, Request,
 )
 import warnings
-from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
 import ssl
+from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
 
 from .openmetrics import exposition as openmetrics
 from .registry import CollectorRegistry, REGISTRY
