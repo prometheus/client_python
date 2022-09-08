@@ -15,6 +15,7 @@ from urllib.request import (
 )
 import warnings
 from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
+import ssl
 
 from .openmetrics import exposition as openmetrics
 from .registry import CollectorRegistry, REGISTRY
@@ -350,6 +351,40 @@ def default_handler(
     Used by the push_to_gateway functions. Can be re-used by other handlers."""
 
     return _make_handler(url, method, timeout, headers, data, HTTPHandler)
+
+
+def tls_handler(
+        url, 
+        method, 
+        timeout, 
+        headers, 
+        data,
+        BUNDLE_PATH: str = None
+) -> Callable[[], None]:
+    def handler():
+        if BUNDLE_PATH is not None:
+            try:
+                ssl_context = ssl.SSLContext()    
+                ssl_context.load_verify_locations(cafile=BUNDLE_PATH)
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_REQUIRED
+                ssl_handler = urllib.request.HTTPSHandler(context=ssl_context)
+
+                request = urllib.request.Request(url, data=data)
+                request.get_method = lambda: method
+                for k, v in headers:
+                    request.add_header(k, v)
+                response = urllib.request.build_opener(ssl_handler).open(
+                    request, timeout=timeout
+                )
+                if response.getcode() >= 400:
+                    logging.warning("Failed. {} {}").format(
+                        response.geturl(), response.info()
+                    )
+            except Exception as e:
+                logging.warning("Failed. Exception: {}".format(e))
+
+        return handler
 
 
 def passthrough_redirect_handler(
