@@ -1,4 +1,5 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
+import os
 import threading
 import time
 import unittest
@@ -14,7 +15,7 @@ from prometheus_client import (
 from prometheus_client.core import GaugeHistogramMetricFamily, Timestamp
 from prometheus_client.exposition import (
     basic_auth_handler, choose_encoder, choose_formatter, default_handler,
-    MetricsHandler, passthrough_redirect_handler,
+    MetricsHandler, passthrough_redirect_handler, tls_auth_handler,
 )
 import prometheus_client.openmetrics.exposition as openmetrics
 
@@ -340,6 +341,17 @@ class TestPushGateway(unittest.TestCase):
         push_to_gateway(self.address, "my_job_with_basic_auth", self.registry, handler=my_auth_handler)
         self.assertEqual(self.requests[0][0].command, 'PUT')
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job_with_basic_auth')
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
+        self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
+
+    def test_push_with_tls_auth_handler(self):
+        def my_auth_handler(url, method, timeout, headers, data):
+            certs_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'certs')
+            return tls_auth_handler(url, method, timeout, headers, data, os.path.join(certs_dir, "cert.pem"), os.path.join(certs_dir, "key.pem"))
+
+        push_to_gateway(self.address, "my_job_with_tls_auth", self.registry, handler=my_auth_handler)
+        self.assertEqual(self.requests[0][0].command, 'PUT')
+        self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job_with_tls_auth')
         self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
