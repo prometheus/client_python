@@ -175,22 +175,6 @@ def start_wsgi_server(port: int, addr: str = '0.0.0.0', registry: CollectorRegis
 
 start_http_server = start_wsgi_server
 
-def _convert_into_prometheus_format(mname, mtype):
-    # Munging from OpenMetrics into Prometheus format.
-    if mtype == 'counter':
-        mname = mname + '_total'
-    elif mtype == 'info':
-        mname = mname + '_info'
-        mtype = 'gauge'
-    elif mtype == 'stateset':
-        mtype = 'gauge'
-    elif mtype == 'gaugehistogram':
-        # A gauge histogram is really a gauge,
-        # but this captures the structure better.
-        mtype = 'histogram'
-    elif mtype == 'unknown':
-        mtype = 'untyped'
-    return mname, mtype
 
 def generate_latest(registry: CollectorRegistry = REGISTRY) -> bytes:
     """Returns the metrics from the registry in latest text format as a string."""
@@ -212,7 +196,23 @@ def generate_latest(registry: CollectorRegistry = REGISTRY) -> bytes:
     output = []
     for metric in registry.collect():
         try:
-            mname, mtype = _convert_into_prometheus_format(metric.name, metric.type)
+            mname = metric.name
+            mtype = metric.type
+
+            # Munging from OpenMetrics into Prometheus format.
+            if mtype == 'counter':
+                mname = mname + '_total'
+            elif mtype == 'info':
+                mname = mname + '_info'
+                mtype = 'gauge'
+            elif mtype == 'stateset':
+                mtype = 'gauge'
+            elif mtype == 'gaugehistogram':
+                # A gauge histogram is really a gauge,
+                # but this captures the structure better.
+                mtype = 'histogram'
+            elif mtype == 'unknown':
+                mtype = 'untyped'
             
             output.append('# HELP {} {}\n'.format(
                 mname, metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
