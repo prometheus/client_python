@@ -278,6 +278,18 @@ metadata about the JVM in use is also included. This information is available as
 labels on the `python_info` metric. The value of the metric is 1, since it is the 
 labels that carry information.
 
+### Disabling Default Collector metrics
+
+By default the collected `process`, `gc`, and `platform` collector metrics are exported.
+If this information is not helpful, it can be disabled using the following:
+```python
+import prometheus_client
+
+prometheus_client.REGISTRY.unregister(prometheus_client.GC_COLLECTOR)
+prometheus_client.REGISTRY.unregister(prometheus_client.PLATFORM_COLLECTOR)
+prometheus_client.REGISTRY.unregister(prometheus_client.PROCESS_COLLECTOR)
+```
+
 ## Exporting
 
 There are several options for exporting metrics.
