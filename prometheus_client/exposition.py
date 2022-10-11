@@ -15,7 +15,6 @@ from urllib.request import (
     BaseHandler, build_opener, HTTPHandler, HTTPRedirectHandler, HTTPSHandler,
     Request,
 )
-import warnings
 from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
 
 from .openmetrics import exposition as openmetrics
@@ -247,15 +246,6 @@ def choose_encoder(accept_header: str) -> Tuple[Callable[[CollectorRegistry], by
             return (openmetrics.generate_latest,
                     openmetrics.CONTENT_TYPE_LATEST)
     return generate_latest, CONTENT_TYPE_LATEST
-
-
-def choose_formatter(accept_header: str) -> Tuple[Callable[[CollectorRegistry], bytes], str]:
-    warnings.warn(
-        "choose_formatter is deprecated and will be removed in 0.15.0, please use choose_encoder instead",
-        DeprecationWarning,
-        stacklevel=2
-    )
-    return choose_encoder(accept_header)
 
 
 def gzip_accepted(accept_encoding_header: str) -> bool:
