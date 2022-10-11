@@ -471,6 +471,24 @@ g.set_to_current_time()
 push_to_gateway('localhost:9091', job='batchA', registry=registry, handler=my_auth_handler)
 ```
 
+TLS Auth is also supported when using the push gateway with a special handler.
+
+```python
+from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
+from prometheus_client.exposition import tls_handler
+
+
+def my_auth_handler(url, method, timeout, headers, data):
+    certfile = 'client-crt.pem'
+    keyfile = 'client-key.pem'
+    return tls_auth_handler(url, method, timeout, headers, data, certfile, keyfile)
+
+registry = CollectorRegistry()
+g = Gauge('job_last_success_unixtime', 'Last time a batch job successfully finished', registry=registry)
+g.set_to_current_time()
+push_to_gateway('localhost:9091', job='batchA', registry=registry, handler=my_auth_handler)
+```
+
 ## Bridges
 
 It is also possible to expose metrics to systems other than Prometheus.
