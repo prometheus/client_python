@@ -3,7 +3,6 @@ import os
 import threading
 import time
 import unittest
-import warnings
 
 import pytest
 
@@ -14,8 +13,8 @@ from prometheus_client import (
 )
 from prometheus_client.core import GaugeHistogramMetricFamily, Timestamp
 from prometheus_client.exposition import (
-    basic_auth_handler, choose_encoder, choose_formatter, default_handler,
-    MetricsHandler, passthrough_redirect_handler, tls_auth_handler,
+    basic_auth_handler, choose_encoder, default_handler, MetricsHandler,
+    passthrough_redirect_handler, tls_auth_handler,
 )
 import prometheus_client.openmetrics.exposition as openmetrics
 
@@ -478,14 +477,6 @@ def test_choose_encoder():
     assert choose_encoder(None) == (generate_latest, CONTENT_TYPE_LATEST)
     assert choose_encoder(CONTENT_TYPE_LATEST) == (generate_latest, CONTENT_TYPE_LATEST)
     assert choose_encoder(openmetrics.CONTENT_TYPE_LATEST) == (openmetrics.generate_latest, openmetrics.CONTENT_TYPE_LATEST)
-
-
-def test_choose_formatter():
-    with warnings.catch_warnings(record=True) as w:
-        assert choose_formatter('') == (generate_latest, CONTENT_TYPE_LATEST)
-        assert len(w) == 1
-        assert issubclass(w[-1].category, DeprecationWarning)
-        assert "choose_formatter is deprecated" in str(w[-1].message)
 
 
 if __name__ == '__main__':
