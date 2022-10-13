@@ -8,7 +8,7 @@ with open(path.join(path.abspath(path.dirname(__file__)), 'README.md')) as f:
 
 setup(
     name="prometheus_client",
-    version="0.14.1",
+    version="0.15.0",
     author="Brian Brazil",
     author_email="brian.brazil@robustperception.io",
     description="Python client for the Prometheus monitoring system.",
