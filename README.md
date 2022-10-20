@@ -434,7 +434,7 @@ app = FastAPI(debug=False)
 def make_metrics_app():
     registry = CollectorRegistry()
     multiprocess.MultiProcessCollector(registry)
-    return prometheus_client.make_asgi_app(registry=registry)
+    return make_asgi_app(registry=registry)
 
 
 metrics_app = make_metrics_app()
