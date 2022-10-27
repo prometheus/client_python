@@ -8,6 +8,7 @@ from typing import (
 )
 
 from . import values  # retain this import style for testability
+from .utils import append_docstring
 from .context_managers import ExceptionCounter, InprogressTracker, Timer
 from .metrics_core import (
     Metric, METRIC_LABEL_NAME_RE, METRIC_NAME_RE,
@@ -69,8 +70,24 @@ def _get_use_created() -> bool:
 
 _use_created = _get_use_created()
 
-
 class MetricWrapperBase(Collector):
+    """
+    ``MetricWrapperBase`` is the base class for all metric types.
+    ``MetricWrapperBase`` is not meant to be instantiated directly.
+
+    Each metric types inherits from ``MetricWrapperBase`` must implement
+    ``_metric_init`` and ``_child_samples`` methods.
+
+    Args:
+        name: The name of the metric.
+        documentation: A documentation string.
+        labelnames: A tuple of strings specifying the label names
+                    for the metric. Defaults to ``()``.
+        namespace: The namespace of the metric. Defaults to an empty string.
+        subsystem: The subsystem of the metric. Defaults to an empty string.
+        unit: The unit of the metric. Defaults to an empty string.
+        registry: The registry to register the metric to. Defaults to ``REGISTRY``.
+    """  # noqa: LN001
     _type: Optional[str] = None
     _reserved_labelnames: Sequence[str] = ()
 
@@ -143,10 +160,12 @@ class MetricWrapperBase(Collector):
                 registry.register(self)
 
     def labels(self: T, *labelvalues: Any, **labelkwargs: Any) -> T:
-        """Return the child for the given labelset.
-
+        """
         All metrics can have labels, allowing grouping of related time series.
-        Taking a counter as an example:
+
+        For example:
+
+        .. code-block:: python
 
             from prometheus_client import Counter
 
@@ -156,15 +175,37 @@ class MetricWrapperBase(Collector):
 
         Labels can also be provided as keyword arguments:
 
+        .. code-block:: python
+
             from prometheus_client import Counter
 
             c = Counter('my_requests_total', 'HTTP Failures', ['method', 'endpoint'])
             c.labels(method='get', endpoint='/').inc()
             c.labels(method='post', endpoint='/submit').inc()
 
-        See the best practices on [naming](http://prometheus.io/docs/practices/naming/)
-        and [labels](http://prometheus.io/docs/practices/instrumentation/#use-labels).
-        """
+        See the best practices on `naming <http://prometheus.io/docs/practices/naming/>`_
+        and `labels <http://prometheus.io/docs/practices/instrumentation/#use-labels>`_.
+
+        .. note::
+
+            Either ``*labelvalues`` or ``**labelkwargs`` must be provided, but not both.
+
+        Args:
+            *labelvalues: The label values as args to use for the child.
+            **labelkwargs: The label values as kwargs to use for the child.
+
+        Returns:
+            The child metric for given labelset.
+
+        Raises:
+            ValueError: The following scenarios will raise ``ValueError``:
+
+                        * If the child does not have a label names.
+                        * If the child's label values are already set.
+                        * If both ``*labelvalues`` and ``**labelkwargs`` are provided.
+                        * If ``**labelkwargs`` contains an invalid keyname
+                        * If ``*labelvalues`` has incorrect number of values
+        """  # noqa: LN001
         if not self._labelnames:
             raise ValueError('No label names were set when constructing %s' % self)
 
@@ -198,10 +239,21 @@ class MetricWrapperBase(Collector):
             return self._metrics[labelvalues]
 
     def remove(self, *labelvalues: Any) -> None:
+        """
+        Remove the given labelset from the metric.
+
+        Args:
+            *labelvalues: The label values to remove.
+
+        Raises:
+            ValueError: The following scenarios will raise ``ValueError``:
+
+                        * If no label names were set.
+                        * If the number of ``*labelvalues`` does not match the number of label names.
+        """  # noqa: LN001
         if not self._labelnames:
             raise ValueError('No label names were set when constructing %s' % self)
 
-        """Remove the given labelset from the metric."""
         if len(labelvalues) != len(self._labelnames):
             raise ValueError('Incorrect label count (expected %d, got %s)' % (len(self._labelnames), labelvalues))
         labelvalues = tuple(str(l) for l in labelvalues)
@@ -228,6 +280,8 @@ class MetricWrapperBase(Collector):
                 yield Sample(suffix, dict(series_labels + list(sample_labels.items())), value, timestamp, exemplar)
 
     def _child_samples(self) -> Iterable[Sample]:  # pragma: no cover
+        # NOTE: For all metrics implementation, this method must be implemented.
+        #       to return an iterable of Sample objects.
         raise NotImplementedError('_child_samples() must be implemented by %r' % self)
 
     def _metric_init(self):  # pragma: no cover
@@ -239,38 +293,40 @@ class MetricWrapperBase(Collector):
         raise NotImplementedError('_metric_init() must be implemented by %r' % self)
 
 
+METRICS_WRAPPER_DOCS = """\
+    :class:`prometheus_client.%s` inherits from :class:`prometheus_client.MetricWrapperBase`.
+    Refer to the documentation of :class:`prometheus_client.MetricWrapperBase` for more details
+    on initialization parameters.
+"""
+
+@append_docstring(METRICS_WRAPPER_DOCS % 'Counter')
 class Counter(MetricWrapperBase):
-    """A Counter tracks counts of events or running totals.
+    """
+    A Counter tracks counts of events or running totals.
 
-    Example use cases for Counters:
-    - Number of requests processed
-    - Number of items that were inserted into a queue
-    - Total amount of data that a system has processed
+    .. epigraph::
 
-    Counters can only go up (and be reset when the process restarts). If your use case can go down,
-    you should use a Gauge instead.
+        It is a cumulative metric that represents a single
+        `monotonically increasing counter <https://prometheus.io/docs/concepts/metric_types/#counter>`_
+        whose value can only increase or be reset to zero on restart.
 
-    An example for a Counter:
+    Some notable examples include:
+
+    * Number of requests processed
+    * Number of items that were inserted into a queue
+    * Total amount of data that a system has processed
+
+    If you need to go down, uses :class:`prometheus_client.Gauge` instead.
+
+    A quick example of a Counter:
+
+    .. code-block:: python
 
         from prometheus_client import Counter
 
         c = Counter('my_failures_total', 'Description of counter')
-        c.inc()     # Increment by 1
-        c.inc(1.6)  # Increment by given value
-
-    There are utilities to count exceptions raised:
-
-        @c.count_exceptions()
-        def f():
-            pass
-
-        with c.count_exceptions():
-            pass
-
-        # Count only one type of exception
-        with c.count_exceptions(ValueError):
-            pass
-    """
+        c.inc()
+    """  # noqa: LN001
     _type = 'counter'
 
     def _metric_init(self) -> None:
@@ -279,7 +335,50 @@ class Counter(MetricWrapperBase):
         self._created = time.time()
 
     def inc(self, amount: float = 1, exemplar: Optional[Dict[str, str]] = None) -> None:
-        """Increment counter by the given amount."""
+        """
+        Increment any given counter by the given amount.
+
+        Args:
+            amount: The amount to increment the counter by. Defaults to ``1``.
+            exemplar: An optional dictionary of string key-value pairs to
+                      attach to the metric as an exemplar. The definition can be
+                      found `here <https://github.com/OpenObservability/OpenMetrics/blob/main/specification/OpenMetrics.md#exemplars>`_.
+
+        Examples:
+
+        .. tab-set::
+
+            .. tab-item:: Simple use case
+
+                .. code-block:: python
+
+                    from prometheus_client import Counter
+                    c = Counter('failures', 'Total number of failures requests')
+                    c.inc()
+
+            .. tab-item:: Custom amount
+
+                .. code-block:: python
+
+                    from prometheus_client import Counter
+                    c = Counter('failures', 'Total number of failures requests')
+                    c.inc(1.6)
+
+            .. tab-item:: Exemplar
+
+                .. code-block:: python
+
+                    from prometheus_client import Counter
+                    c = Counter('failures', 'Total number of failures requests')
+                    c.inc(1.6, exemplar={"trace_id":"oHg5SJYRHA0"})
+
+        Raises:
+            ValueError: The following scenarios will raise ``ValueError``:
+
+                        * If given metrics are not observable
+                        * If the given amount is negative.
+                        * If given exemplar labels are invalid.
+        """
         self._raise_if_not_observable()
         if amount < 0:
             raise ValueError('Counters can only be incremented by non-negative amounts.')
@@ -289,11 +388,57 @@ class Counter(MetricWrapperBase):
             self._value.set_exemplar(Exemplar(exemplar, amount, time.time()))
 
     def count_exceptions(self, exception: Type[BaseException] = Exception) -> ExceptionCounter:
-        """Count exceptions in a block of code or function.
+        """
+        Count exceptions in a block of code or function.
 
-        Can be used as a function decorator or context manager.
-        Increments the counter when an exception of the given
-        type is raised up out of the code.
+        ``count_exceptions()`` can be used as both a decorator and context manager to count exceptions raised.
+
+        .. tab-set::
+
+            .. tab-item:: Decorator
+
+                .. code-block:: python
+
+                    from __future__ import annotations
+
+                    from prometheus_client import Counter
+
+                    c = Counter('failures', 'Total number of failures requests')
+                    @c.count_exceptions()
+                    def foo(input_data: dict[str, str]):
+                        ...
+
+            .. tab-item:: Context Manager
+
+                .. code-block:: python
+
+                    from __future__ import annotations
+
+                    from prometheus_client import Counter
+
+                    c = Counter('failures', 'Total number of failures requests')
+
+                    def foo(input_data: dict[str, str]):
+                        with c.count_exceptions():
+                            ...
+
+        ``count_exceptions()`` will optionally take in an exception to only track specific exceptions.
+
+        .. code-block:: python
+
+            ...
+            with c.count_exceptions(RuntimeError):
+                if input_data['output'] is None:
+                    raise RuntimeError("Given pre-processing logic is invalid")
+
+        Args:
+            exception: The exception to track. Defaults to ``Exception``.
+
+        Returns:
+            An :class:`ExceptionCounter` object.
+
+        Raises:
+            ValueError: If given metrics are not observable.
         """
         self._raise_if_not_observable()
         return ExceptionCounter(self, exception)
@@ -308,17 +453,25 @@ class Counter(MetricWrapperBase):
         return (sample,)
 
 
+@append_docstring(METRICS_WRAPPER_DOCS % 'Gauge')
 class Gauge(MetricWrapperBase):
-    """Gauge metric, to report instantaneous values.
+    """
+    Gauge represents a single numerical value that can arbitrarily go up and down.
 
-     Examples of Gauges include:
-        - Inprogress requests
-        - Number of items in a queue
-        - Free memory
-        - Total memory
-        - Temperature
+    Gauges are typically used to for report instantaneous values.
+    One can think of Gauge as a :class:`prometheus_client.Counter` that can go up and down.
 
-     Gauges can go both up and down.
+    Some notable examples include:
+
+    * Inprogress requests
+    * Number of items in a queue
+    * Free memory
+    * Total memory
+    * Temperature
+
+    A quick example of a Gauge:
+
+    .. code-block:: python
 
         from prometheus_client import Gauge
 
@@ -327,24 +480,28 @@ class Gauge(MetricWrapperBase):
         g.dec(10)    # Decrement by given value
         g.set(4.2)   # Set to a given value
 
-     There are utilities for common use cases:
+    In addition to all :class:`prometheus_client.MetricWrapperBase`
+    init arguments, ``Gauge`` also accepts a ``multiprocess_mode`` argument.
+    By default, ``multiprocess_mode`` is set to ``all``.
 
-        g.set_to_current_time()   # Set to current unixtime
+    ``multiprocess_mode`` accepts the following values:
 
-        # Increment when entered, decrement when exited.
-        @g.track_inprogress()
-        def f():
-            pass
+    * ``'all'``: Default. Return a timeseries per process (alive or dead),
+                 labelled by the process's `pid` (the label is added internally).
+    * ``'min'``: Return a single timeseries that is the minimum of the values
+                 of all processes (alive or dead).
+    * ``'max'``: Return a single timeseries that is the maximum of the values
+                 of all processes (alive or dead).
+    * ``'sum'``: Return a single timeseries that is the sum of the values of
+                 all processes (alive or dead).
 
-        with g.track_inprogress():
-            pass
+    Prepend 'live' to the beginning of the mode to return the same result
+    but only considering living processes
+    (e.g., ``'liveall'``, ``'livesum'``, ``'livemax'``, ``'livemin'``).
 
-     A Gauge can also take its value from a callback:
-
-        d = Gauge('data_objects', 'Number of objects')
-        my_dict = {}
-        d.set_function(lambda: len(my_dict))
-    """
+    Raises:
+        ValueError: If given ``multiprocess_mode`` is invalid.
+    """  # noqa: LN001
     _type = 'gauge'
     _MULTIPROC_MODES = frozenset(('all', 'liveall', 'min', 'livemin', 'max', 'livemax', 'sum', 'livesum'))
 
@@ -381,17 +538,41 @@ class Gauge(MetricWrapperBase):
         )
 
     def inc(self, amount: float = 1) -> None:
-        """Increment gauge by the given amount."""
+        """
+        Increment gauge by the given amount.
+
+        Args:
+            amount: The amount to increment the gauge by. Defaults to 1.
+
+        Raises:
+            ValueError: If given metrics are not observable.
+        """  # noqa: LN001
         self._raise_if_not_observable()
         self._value.inc(amount)
 
     def dec(self, amount: float = 1) -> None:
-        """Decrement gauge by the given amount."""
+        """
+        Decrement gauge by the given amount.
+
+        Args:
+            amount: The amount to decrement the gauge by. Defaults to 1.
+
+        Raises:
+            ValueError: If given metrics are not observable.
+        """  # noqa: LN001
         self._raise_if_not_observable()
         self._value.inc(-amount)
 
     def set(self, value: float) -> None:
-        """Set gauge to the given value."""
+        """
+        Set gauge to the given value.
+
+        Args:
+            value: The value to set the gauge to.
+
+        Raises:
+            ValueError: If given metrics are not observable.
+        """  # noqa: LN001
         self._raise_if_not_observable()
         self._value.set(float(value))
 
@@ -400,27 +581,115 @@ class Gauge(MetricWrapperBase):
         self.set(time.time())
 
     def track_inprogress(self) -> InprogressTracker:
-        """Track inprogress blocks of code or functions.
+        """
+        Track inprogress blocks of code or functions.
 
         Can be used as a function decorator or context manager.
         Increments the gauge when the code is entered,
         and decrements when it is exited.
-        """
+
+        .. tab-set::
+
+           .. tab-item:: Example
+
+              .. code-block:: python
+
+                  from __future__ import annotations
+
+                  from prometheus_client import Gauge
+
+                  g = Gauge('inprogress_request', 'Request inprogress')
+
+                  @g.track_inprogress()
+                  def foo(input_data: dict[str, str]):
+                      ...
+
+           .. tab-item:: Context Manager
+
+              .. code-block:: python
+
+                  from __future__ import annotations
+
+                  from prometheus_client import Gauge
+
+                  g = Gauge('inprogress_request', 'Request inprogress')
+
+                  def foo(input_data: dict[str, str]):
+                      with g.track_inprogress():
+                          ...
+
+        Raises:
+            ValueError: If given metrics are not observable.
+        """  # noqa: LN001
         self._raise_if_not_observable()
         return InprogressTracker(self)
 
     def time(self) -> Timer:
-        """Time a block of code or function, and set the duration in seconds.
+        """
+        Time a block of code or function, and set the duration in seconds.
 
         Can be used as a function decorator or context manager.
-        """
+
+        .. tab-set::
+
+           .. tab-item:: Example
+
+              .. code-block:: python
+
+                  from __future__ import annotations
+
+                  from prometheus_client import Gauge
+
+                  g = Gauge('inprogress_request', 'Request inprogress')
+
+                  @g.time()
+                  def foo(input_data: dict[str, str]):
+                      ...
+
+           .. tab-item:: Context Manager
+
+              .. code-block:: python
+
+                  from __future__ import annotations
+
+                  from prometheus_client import Gauge
+
+                  g = Gauge('inprogress_request', 'Request inprogress')
+
+                  def foo(input_data: dict[str, str]):
+                      with g.time():
+                          ...
+
+        Returns:
+            A :class:`prometheus_client.context_managers.Timer` instance.
+        """  # noqa: LN001
         return Timer(self, 'set')
 
     def set_function(self, f: Callable[[], float]) -> None:
         """Call the provided function to return the Gauge value.
 
-        The function must return a float, and may be called from
-        multiple threads. All other methods of the Gauge become NOOPs.
+        The callback must return a float, and may be called from
+        multiple threads.
+
+        .. note::
+            All other methods of the Gauge become NOOPs if a given callback
+            is set.
+
+        Example:
+
+        .. code-block:: python
+
+            from prometheus_client import Gauge
+
+            d = Gauge('data_objects', 'Number of objects')
+            my_dict = {}
+            d.set_function(lambda: len(my_dict))
+
+        Args:
+            f: A callable that takes no arguments and returns a float.
+
+        Raises:
+            ValueError: If given metrics are not observable.
         """
 
         self._raise_if_not_observable()
@@ -434,35 +703,32 @@ class Gauge(MetricWrapperBase):
         return (Sample('', {}, self._value.get(), None, None),)
 
 
+@append_docstring(METRICS_WRAPPER_DOCS % 'Summary')
 class Summary(MetricWrapperBase):
-    """A Summary tracks the size and number of events.
+    """
+    A Summary tracks the size and number of events.
 
-    Example use cases for Summaries:
-    - Response latency
-    - Request size
+    While it also provides a total count of observations and a sum of all observed values,
+    it calculates configurable quantiles over a sliding time window.
 
-    Example for a Summary:
+    Notable examples include request latency and response size.
+
+    * Response latency
+    * Request size
+
+    A quick example of a Summary:
+
+    .. code-block:: python
+
+        from __future__ import annotations
 
         from prometheus_client import Summary
 
         s = Summary('request_size_bytes', 'Request size (bytes)')
-        s.observe(512)  # Observe 512 (bytes)
 
-    Example for a Summary using time:
-
-        from prometheus_client import Summary
-
-        REQUEST_TIME = Summary('response_latency_seconds', 'Response latency (seconds)')
-
-        @REQUEST_TIME.time()
-        def create_response(request):
-          '''A dummy function'''
-          time.sleep(1)
-
-    Example for using the same Summary object as a context manager:
-
-        with REQUEST_TIME.time():
-            pass  # Logic to be timed
+        def foo(input_data: dict[str, str]):
+            s.observe(512)  # Observe 512 (bytes)
+            ...
     """
     _type = 'summary'
     _reserved_labelnames = ['quantile']
@@ -474,7 +740,8 @@ class Summary(MetricWrapperBase):
         self._created = time.time()
 
     def observe(self, amount: float) -> None:
-        """Observe the given amount.
+        """
+        Observe the given amount.
 
         The amount is usually positive or zero. Negative values are
         accepted but prevent current versions of Prometheus from
@@ -482,16 +749,59 @@ class Summary(MetricWrapperBase):
         observations. See
         https://prometheus.io/docs/practices/histograms/#count-and-sum-of-observations
         for details.
+
+        .. code-block:: python
+
+            from prometheus_client import Summary
+
+            request_size = Summary('request_size_bytes', 'Request size (bytes)')
+            request_size.observe(512)  # Observe 512 (bytes)
+
+        Args:
+            amount: The amount to observe.
+
+        Raises:
+            ValueError: If given metrics are not observable.
         """
         self._raise_if_not_observable()
         self._count.inc(1)
         self._sum.inc(amount)
 
     def time(self) -> Timer:
-        """Time a block of code or function, and observe the duration in seconds.
+        """
+        Time a block of code or function, and observe the duration in seconds.
 
         Can be used as a function decorator or context manager.
-        """
+
+        .. tab-set::
+
+            .. tab-item:: Example
+
+                .. code-block:: python
+
+                    from prometheus_client import Summary
+
+                    REQUEST_TIME = Summary('response_latency_seconds', 'Response latency (seconds)')
+
+                    @REQUEST_TIME.time()
+                    def foo(request):
+                        ...
+
+            .. tab-item:: Context Manager
+
+                .. code-block:: python
+
+                    from prometheus_client import Summary
+
+                    REQUEST_TIME = Summary('response_latency_seconds', 'Response latency (seconds)')
+
+                    def create_response(request):
+                        with REQUEST_TIME.time():
+                            ...
+
+        Returns:
+            A :class:`prometheus_client.context_managers.Timer` instance.
+        """  # noqa: LN001
         return Timer(self, 'observe')
 
     def _child_samples(self) -> Iterable[Sample]:
@@ -504,41 +814,49 @@ class Summary(MetricWrapperBase):
         return tuple(samples)
 
 
+@append_docstring(METRICS_WRAPPER_DOCS % 'Histogram')
 class Histogram(MetricWrapperBase):
-    """A Histogram tracks the size and number of events in buckets.
+    """
+    A Histogram tracks the size and number of events in a given bucket.
+    Histograms are often used to aggregatable calculation of quantiles.
 
-    You can use Histograms for aggregatable calculation of quantiles.
+    Some notable examples include:
 
-    Example use cases:
-    - Response latency
-    - Request size
+    * Response latency
+    * Request size
 
     Example for a Histogram:
 
-        from prometheus_client import Histogram
-
-        h = Histogram('request_size_bytes', 'Request size (bytes)')
-        h.observe(512)  # Observe 512 (bytes)
-
-    Example for a Histogram using time:
+    .. code-block:: python
 
         from prometheus_client import Histogram
 
-        REQUEST_TIME = Histogram('response_latency_seconds', 'Response latency (seconds)')
+        request_size = Histogram('request_size_bytes', 'Request size (bytes)')
+        request_size.observe(512)  # Observe 512 (bytes)
 
-        @REQUEST_TIME.time()
-        def create_response(request):
-          '''A dummy function'''
-          time.sleep(1)
+    In addition to all :class:`prometheus_client.MetricWrapperBase` init arguments,
+    ``Histogram`` also accepts a ``buckets`` argument.
 
-    Example of using the same Histogram object as a context manager:
+    ``buckets`` is a list of floats that defines the range in which the events are counted.
+    The default buckets are intended to cover a typical web/rpc request from milliseconds to
+    seconds. The default buckets can be found at
+    :attr:``prometheus_client.Histogram.DEFAULT_BUCKETS``.
 
-        with REQUEST_TIME.time():
-            pass  # Logic to be timed
+    .. note::
 
-    The default buckets are intended to cover a typical web/rpc request from milliseconds to seconds.
-    They can be overridden by passing `buckets` keyword argument to `Histogram`.
-    """
+        If ``labelnames`` is provided, it must not contain ``le``, as this label is reserved internally.
+
+    .. note::
+
+        If ``buckets`` is provided, it must be sorted in ascending order. Additionally, ``buckets`` must
+        contains at least two buckets.
+
+    Raises:
+        ValueError: The following scenarios will raise a ``ValueError``:
+
+                    * ``buckets`` is not sorted correctly.
+                    * ``buckets`` are less than 2.
+    """  # noqa: LN001
     _type = 'histogram'
     _reserved_labelnames = ['le']
     DEFAULT_BUCKETS = (.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, INF)
@@ -594,7 +912,8 @@ class Histogram(MetricWrapperBase):
             )
 
     def observe(self, amount: float, exemplar: Optional[Dict[str, str]] = None) -> None:
-        """Observe the given amount.
+        """
+        Observe the given amount.
 
         The amount is usually positive or zero. Negative values are
         accepted but prevent current versions of Prometheus from
@@ -602,7 +921,41 @@ class Histogram(MetricWrapperBase):
         observations. See
         https://prometheus.io/docs/practices/histograms/#count-and-sum-of-observations
         for details.
-        """
+
+        Args:
+            amount: The amount to observe.
+            exemplar: An optional dictionary of string key-value pairs to
+                      attach to the metric as an exemplar. The definition can be
+                      found `here <https://github.com/OpenObservability/OpenMetrics/blob/main/specification/OpenMetrics.md#exemplars>`_.
+
+        Examples:
+
+        .. tab-set::
+
+            .. tab-item:: Simple use case
+
+                .. code-block:: python
+
+                    from prometheus_client import Histogram
+                    request_size = Histogram('request_size_bytes', 'Request size (bytes)')
+                    request_size.observe(512)  # Observe 512 (bytes)
+
+            .. tab-item:: Exemplar
+
+                .. code-block:: python
+
+                    from prometheus_client import Histogram
+                    request_size = Histogram('request_size_bytes', 'Request size (bytes)')
+                    request_size.observe(1.6, exemplar={"trace_id":"oHg5SJYRHA0"})
+
+        Raises:
+            ValueError: The following scenarios will raise ``ValueError``:
+
+                        * If given metrics are not observable
+                        * If the given amount is negative.
+                        * If given exemplar labels are invalid.
+
+        """  # noqa: LN001
         self._raise_if_not_observable()
         self._sum.inc(amount)
         for i, bound in enumerate(self._upper_bounds):
@@ -614,10 +967,40 @@ class Histogram(MetricWrapperBase):
                 break
 
     def time(self) -> Timer:
-        """Time a block of code or function, and observe the duration in seconds.
+        """
+        Time a block of code or function, and observe the duration in seconds.
 
         Can be used as a function decorator or context manager.
-        """
+
+        .. tab-set::
+
+            .. tab-item:: Example
+
+                .. code-block:: python
+
+                    from prometheus_client import Histogram
+
+                    REQUEST_TIME = Histogram('response_latency_seconds', 'Response latency (seconds)')
+
+                    @REQUEST_TIME.time()
+                    def foo(request):
+                        ...
+
+            .. tab-item:: Context Manager
+
+                .. code-block:: python
+
+                    from prometheus_client import Histogram
+
+                    REQUEST_TIME = Histogram('response_latency_seconds', 'Response latency (seconds)')
+
+                    def create_response(request):
+                        with REQUEST_TIME.time():
+                            ...
+
+        Returns:
+            A :class:`prometheus_client.context_managers.Timer` instance.
+        """  # noqa: LN001
         return Timer(self, 'observe')
 
     def _child_samples(self) -> Iterable[Sample]:
@@ -634,21 +1017,29 @@ class Histogram(MetricWrapperBase):
         return tuple(samples)
 
 
+@append_docstring(METRICS_WRAPPER_DOCS % "Info")
 class Info(MetricWrapperBase):
-    """Info metric, key-value pairs.
+    """
+    Info metric, as key-value pairs.
 
-     Examples of Info include:
-        - Build information
-        - Version information
-        - Potential target metadata
+    Some notable examples include:
 
-     Example usage:
+    * Build information
+    * Version information
+    * Potential target metadata
+
+    Example for a Info:
+
+    .. code-block:: python
+
         from prometheus_client import Info
 
         i = Info('my_build', 'Description of info')
         i.info({'version': '1.2.3', 'buildhost': 'foo@bar'})
 
-     Info metrics do not work in multiprocess mode.
+    .. note::
+
+        :class:`prometheus_client.Info` **DO NOT WORK** in multiprocess mode.
     """
     _type = 'info'
 
@@ -658,7 +1049,15 @@ class Info(MetricWrapperBase):
         self._value = {}
 
     def info(self, val: Dict[str, str]) -> None:
-        """Set info metric."""
+        """
+        Set info metric.
+
+        Args:
+            val: A dictionary of string key-value pairs to attach to the metric.
+
+        Raises:
+            ValueError: If keys overlaps with given labelnames.
+        """
         if self._labelname_set.intersection(val.keys()):
             raise ValueError('Overlapping labels for Info metric, metric: {} child: {}'.format(
                 self._labelnames, val))
@@ -670,19 +1069,38 @@ class Info(MetricWrapperBase):
             return (Sample('_info', self._value, 1.0, None, None),)
 
 
+@append_docstring(METRICS_WRAPPER_DOCS % "Enum")
 class Enum(MetricWrapperBase):
-    """Enum metric, which of a set of states is true.
+    """
+    Enum metric, which of a set of states is true.
 
-     Example usage:
+    Example for a Enum:
+
+    .. code-block:: python
+
         from prometheus_client import Enum
 
-        e = Enum('task_state', 'Description of enum',
-          states=['starting', 'running', 'stopped'])
+        e = Enum('task_state', 'Description of enum', states=['starting', 'running', 'stopped'])
         e.state('running')
 
-     The first listed state will be the default.
-     Enum metrics do not work in multiprocess mode.
-    """
+    .. note::
+
+        The first listed state will be the default.
+
+    In addition to all :class:`prometheus_client.MetricWrapperBase` init arguments,
+    ``Enum`` also accepts a ``states`` argument, which is a sequence of strings determining
+    the possible states of the enum.
+
+    .. note::
+
+        :class:`prometheus_client.Enum` **DO NOT WORK** in multiprocess mode.
+
+    Raises:
+        ValueError: The following scenarios will raise ``ValueError``:
+
+                    * If ``states`` are not given.
+                    * If given ``name`` exists in ``labelnames``.
+    """  # noqa: LN001
     _type = 'stateset'
 
     def __init__(self,
@@ -717,7 +1135,15 @@ class Enum(MetricWrapperBase):
         self._lock = Lock()
 
     def state(self, state: str) -> None:
-        """Set enum metric state."""
+        """
+        Set enum metric state.
+
+        Args:
+            state: The state to set the enum to.
+
+        Raises:
+            ValueError: If metrics is not observable.
+        """
         self._raise_if_not_observable()
         with self._lock:
             self._value = self._states.index(state)
