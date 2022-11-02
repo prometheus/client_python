@@ -8,7 +8,6 @@ from typing import (
 )
 
 from . import values  # retain this import style for testability
-from .utils import append_docstring
 from .context_managers import ExceptionCounter, InprogressTracker, Timer
 from .metrics_core import (
     Metric, METRIC_LABEL_NAME_RE, METRIC_NAME_RE,
@@ -16,7 +15,7 @@ from .metrics_core import (
 )
 from .registry import Collector, CollectorRegistry, REGISTRY
 from .samples import Exemplar, Sample
-from .utils import floatToGoString, INF
+from .utils import append_docstring, floatToGoString, INF
 
 T = TypeVar('T', bound='MetricWrapperBase')
 F = TypeVar("F", bound=Callable[..., Any])
@@ -69,6 +68,7 @@ def _get_use_created() -> bool:
 
 
 _use_created = _get_use_created()
+
 
 class MetricWrapperBase(Collector):
     """
@@ -298,6 +298,7 @@ METRICS_WRAPPER_DOCS = """\
     Refer to the documentation of :class:`prometheus_client.MetricWrapperBase` for more details
     on initialization parameters.
 """
+
 
 @append_docstring(METRICS_WRAPPER_DOCS % 'Counter')
 class Counter(MetricWrapperBase):
