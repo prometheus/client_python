@@ -9,6 +9,10 @@ def make_asgi_app(registry: CollectorRegistry = REGISTRY, disable_compression: b
     """Create a ASGI app which serves the metrics from a registry."""
 
     async def prometheus_app(scope, receive, send):
+        if scope.get("type") == "lifespan":    
+            payload = await receive()    
+            await send({'type': payload['type'] + ".complete"})    
+            return
         assert scope.get("type") == "http"
         # Prepare parameters
         params = parse_qs(scope.get('query_string', b''))
