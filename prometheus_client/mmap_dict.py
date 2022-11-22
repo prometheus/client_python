@@ -3,7 +3,7 @@ import mmap
 import os
 import struct
 
-_INITIAL_MMAP_SIZE = 1 << 20
+_INITIAL_MMAP_SIZE = 1 << 16
 _pack_integer_func = struct.Struct(b'i').pack
 _pack_double_func = struct.Struct(b'd').pack
 _unpack_integer = struct.Struct(b'i').unpack_from
