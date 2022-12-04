@@ -281,6 +281,31 @@ class TestMultiProcess(unittest.TestCase):
 
         self.assertEqual(metrics['h'].samples, expected_histogram)
 
+    def test_collect_preserves_help(self):
+        pid = 0
+        values.ValueClass = MultiProcessValue(lambda: pid)
+        labels = {i: i for i in 'abcd'}
+
+        c = Counter('c', 'c help', labelnames=labels.keys(), registry=None)
+        g = Gauge('g', 'g help', labelnames=labels.keys(), registry=None)
+        h = Histogram('h', 'h help', labelnames=labels.keys(), registry=None)
+
+        c.labels(**labels).inc(1)
+        g.labels(**labels).set(1)
+        h.labels(**labels).observe(1)
+
+        pid = 1
+
+        c.labels(**labels).inc(1)
+        g.labels(**labels).set(1)
+        h.labels(**labels).observe(5)
+
+        metrics = {m.name: m for m in self.collector.collect()}
+
+        self.assertEqual(metrics['c'].documentation, 'c help')
+        self.assertEqual(metrics['g'].documentation, 'g help')
+        self.assertEqual(metrics['h'].documentation, 'h help')
+
     def test_merge_no_accumulate(self):
         pid = 0
         values.ValueClass = MultiProcessValue(lambda: pid)
