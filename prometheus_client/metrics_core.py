@@ -113,7 +113,7 @@ class CounterMetricFamily(Metric):
                  name: str,
                  documentation: str,
                  value: Optional[float] = None,
-                 labels: Sequence[str] = None,
+                 labels: Optional[Sequence[str]] = None,
                  created: Optional[float] = None,
                  unit: str = '',
                  ):
