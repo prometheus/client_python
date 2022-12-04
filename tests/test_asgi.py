@@ -75,6 +75,19 @@ class ASGITest(TestCase):
                 break
         return outputs
 
+    def get_all_response_headers(self):
+        outputs = self.get_all_output()
+        response_start = next(o for o in outputs if o["type"] == "http.response.start")
+        return response_start["headers"]
+
+    def get_response_header_value(self, header_name):
+        response_headers = self.get_all_response_headers()
+        return next(
+            value.decode("utf-8")
+            for name, value in response_headers
+            if name.decode("utf-8") == header_name
+        )
+
     def increment_metrics(self, metric_name, help_text, increments):
         c = Counter(metric_name, help_text, registry=self.registry)
         for _ in range(increments):
@@ -158,3 +171,22 @@ class ASGITest(TestCase):
         # Assert outputs are not compressed.
         outputs = self.get_all_output()
         self.assert_outputs(outputs, metric_name, help_text, increments, compressed=False)
+
+    def test_openmetrics_encoding(self):
+        """Response content type is application/openmetrics-text when appropriate Accept header is in request"""
+        app = make_asgi_app(self.registry)
+        self.seed_app(app)
+        self.scope["headers"] = [(b"Accept", b"application/openmetrics-text")]
+        self.send_input({"type": "http.request", "body": b""})
+
+        content_type = self.get_response_header_value('Content-Type').split(";")[0]
+        assert content_type == "application/openmetrics-text"
+
+    def test_plaintext_encoding(self):
+        """Response content type is text/plain when Accept header is missing in request"""
+        app = make_asgi_app(self.registry)
+        self.seed_app(app)
+        self.send_input({"type": "http.request", "body": b""})
+
+        content_type = self.get_response_header_value('Content-Type').split(";")[0]
+        assert content_type == "text/plain"
