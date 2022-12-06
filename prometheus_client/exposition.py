@@ -370,8 +370,8 @@ def basic_auth_handler(
         timeout: Optional[float],
         headers: List[Tuple[str, str]],
         data: bytes,
-        username: str = None,
-        password: str = None,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
 ) -> Callable[[], None]:
     """Handler that implements HTTP/HTTPS connections with Basic Auth.
 
