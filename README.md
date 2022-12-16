@@ -438,8 +438,7 @@ def make_metrics_app():
 
 
 metrics_app = make_metrics_app()
-app.mount("/metrics", metrics_app))
-
+app.mount("/metrics", metrics_app)
 ```
 
 Run the example web application like this
