@@ -642,6 +642,8 @@ bar_bucket{a="c",le="+Inf"} 0.0
             ('a{a""} 1\n# EOF\n'),
             ('a{a=} 1\n# EOF\n'),
             ('a{a="} 1\n# EOF\n'),
+            # Missing delimiters.
+            ('a{a="1"}1\n# EOF\n'),
             # Missing or extra commas.
             ('a{a="1"b="2"} 1\n# EOF\n'),
             ('a{a="1",,b="2"} 1\n# EOF\n'),
