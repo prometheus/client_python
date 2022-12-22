@@ -10,7 +10,7 @@ class MutexValue:
 
     _multiprocess = False
 
-    def __init__(self, typ, metric_name, name, labelnames, labelvalues, **kwargs):
+    def __init__(self, typ, metric_name, name, labelnames, labelvalues, help_text, **kwargs):
         self._value = 0.0
         self._exemplar = None
         self._lock = Lock()
@@ -57,8 +57,8 @@ def MultiProcessValue(process_identifier=os.getpid):
 
         _multiprocess = True
 
-        def __init__(self, typ, metric_name, name, labelnames, labelvalues, multiprocess_mode='', **kwargs):
-            self._params = typ, metric_name, name, labelnames, labelvalues, multiprocess_mode
+        def __init__(self, typ, metric_name, name, labelnames, labelvalues, help_text, multiprocess_mode='', **kwargs):
+            self._params = typ, metric_name, name, labelnames, labelvalues, help_text, multiprocess_mode
             # This deprecation warning can go away in a few releases when removing the compatibility
             if 'prometheus_multiproc_dir' in os.environ and 'PROMETHEUS_MULTIPROC_DIR' not in os.environ:
                 os.environ['PROMETHEUS_MULTIPROC_DIR'] = os.environ['prometheus_multiproc_dir']
@@ -69,7 +69,7 @@ def MultiProcessValue(process_identifier=os.getpid):
                 values.append(self)
 
         def __reset(self):
-            typ, metric_name, name, labelnames, labelvalues, multiprocess_mode = self._params
+            typ, metric_name, name, labelnames, labelvalues, help_text, multiprocess_mode = self._params
             if typ == 'gauge':
                 file_prefix = typ + '_' + multiprocess_mode
             else:
@@ -81,7 +81,7 @@ def MultiProcessValue(process_identifier=os.getpid):
 
                 files[file_prefix] = MmapedDict(filename)
             self._file = files[file_prefix]
-            self._key = mmap_key(metric_name, name, labelnames, labelvalues)
+            self._key = mmap_key(metric_name, name, labelnames, labelvalues, help_text)
             self._value = self._file.read_value(self._key)
 
         def __check_for_pid_change(self):
