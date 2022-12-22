@@ -146,6 +146,7 @@ a\t\t{\t\tfoo\t\t=\t\t"baz"\t\t}\t\t2
 a   {    foo   =  "buz"   }    3
 a\t {  \t foo\t = "biz"\t  } \t 4
 a \t{\t foo   = "boz"\t}\t 5
+a{foo="bez"}6
 """)
         metric_family = CounterMetricFamily("a", "help", labels=["foo"])
         metric_family.add_metric(["bar"], 1)
@@ -153,6 +154,7 @@ a \t{\t foo   = "boz"\t}\t 5
         metric_family.add_metric(["buz"], 3)
         metric_family.add_metric(["biz"], 4)
         metric_family.add_metric(["boz"], 5)
+        metric_family.add_metric(["bez"], 6)
         self.assertEqualMetrics([metric_family], list(families))
 
     def test_commas(self):

@@ -116,8 +116,8 @@ def _parse_sample(text):
         name = text[:label_start].strip()
         # We ignore the starting curly brace
         label = text[label_start + 1:label_end]
-        # The value is after the label end (ignoring curly brace and space)
-        value, timestamp = _parse_value_and_timestamp(text[label_end + 2:])
+        # The value is after the label end (ignoring curly brace)
+        value, timestamp = _parse_value_and_timestamp(text[label_end + 1:])
         return Sample(name, _parse_labels(label), value, timestamp)
 
     # We don't have labels
