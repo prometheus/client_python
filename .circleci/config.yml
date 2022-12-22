@@ -30,7 +30,7 @@ jobs:
       python:
         type: string
     docker:
-      - image: circleci/python:<< parameters.python >>
+      - image: cimg/python:<< parameters.python >>
     environment:
       TOXENV: "py<< parameters.python >>"
     steps:
@@ -80,6 +80,7 @@ workflows:
                  - "3.8"
                  - "3.9"
                  - "3.10"
+                 - "3.11"
       - test_nooptionals:
           matrix:
             parameters:
