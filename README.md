@@ -487,7 +487,7 @@ TLS Auth is also supported when using the push gateway with a special handler.
 
 ```python
 from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
-from prometheus_client.exposition import tls_handler
+from prometheus_client.exposition import tls_auth_handler
 
 
 def my_auth_handler(url, method, timeout, headers, data):
