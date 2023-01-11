@@ -1,4 +1,5 @@
 import math
+from typing import Any
 
 INF = float("inf")
 MINUS_INF = float("-inf")
@@ -22,3 +23,11 @@ def floatToGoString(d):
             mantissa = f'{s[0]}.{s[1:dot]}{s[dot + 1:]}'.rstrip('0.')
             return f'{mantissa}e+0{dot - 1}'
         return s
+
+
+def append_docstring(*docstr: str):
+    """Append metric docs to the docstring of a class or instance"""
+    def decorator(kls: Any):
+        kls.__doc__ = kls.__doc__ if kls.__doc__ is not None else "" + "".join(docstr)
+        return kls
+    return decorator
