@@ -3,8 +3,8 @@ from threading import Lock
 import time
 import types
 from typing import (
-    Any, Callable, Dict, Iterable, List, Optional, Sequence, Type, TypeVar,
-    Union,
+    Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Type,
+    TypeVar, Union,
 )
 
 from . import values  # retain this import style for testability
@@ -288,7 +288,7 @@ class Counter(MetricWrapperBase):
             _validate_exemplar(exemplar)
             self._value.set_exemplar(Exemplar(exemplar, amount, time.time()))
 
-    def count_exceptions(self, exception: Type[BaseException] = Exception) -> ExceptionCounter:
+    def count_exceptions(self, exception: Union[Type[BaseException], Tuple[Type[BaseException], ...]] = Exception) -> ExceptionCounter:
         """Count exceptions in a block of code or function.
 
         Can be used as a function decorator or context manager.
