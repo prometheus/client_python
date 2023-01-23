@@ -1,7 +1,9 @@
 import sys
 from timeit import default_timer
 from types import TracebackType
-from typing import Any, Callable, Optional, Type, TYPE_CHECKING, TypeVar
+from typing import (
+    Any, Callable, Optional, Tuple, Type, TYPE_CHECKING, TypeVar, Union,
+)
 
 if sys.version_info >= (3, 8, 0):
     from typing import Literal
@@ -14,7 +16,7 @@ if TYPE_CHECKING:
 
 
 class ExceptionCounter:
-    def __init__(self, counter: "Counter", exception: Type[BaseException]) -> None:
+    def __init__(self, counter: "Counter", exception: Union[Type[BaseException], Tuple[Type[BaseException], ...]]) -> None:
         self._counter = counter
         self._exception = exception
 
