@@ -1,11 +1,12 @@
 import io as StringIO
 import re
+from typing import Dict, Iterable, List, Match, Optional, TextIO, Tuple
 
 from .metrics_core import Metric
 from .samples import Sample
 
 
-def text_string_to_metric_families(text):
+def text_string_to_metric_families(text: str) -> Iterable[Metric]:
     """Parse Prometheus text format from a unicode string.
 
     See text_fd_to_metric_families.
@@ -20,7 +21,7 @@ ESCAPE_SEQUENCES = {
 }
 
 
-def replace_escape_sequence(match):
+def replace_escape_sequence(match: Match[str]) -> str:
     return ESCAPE_SEQUENCES[match.group(0)]
 
 
@@ -28,15 +29,15 @@ HELP_ESCAPING_RE = re.compile(r'\\[\\n]')
 ESCAPING_RE = re.compile(r'\\[\\n"]')
 
 
-def _replace_help_escaping(s):
+def _replace_help_escaping(s: str) -> str:
     return HELP_ESCAPING_RE.sub(replace_escape_sequence, s)
 
 
-def _replace_escaping(s):
+def _replace_escaping(s: str) -> str:
     return ESCAPING_RE.sub(replace_escape_sequence, s)
 
 
-def _is_character_escaped(s, charpos):
+def _is_character_escaped(s: str, charpos: int) -> bool:
     num_bslashes = 0
     while (charpos > num_bslashes
            and s[charpos - 1 - num_bslashes] == '\\'):
@@ -44,8 +45,8 @@ def _is_character_escaped(s, charpos):
     return num_bslashes % 2 == 1
 
 
-def _parse_labels(labels_string):
-    labels = {}
+def _parse_labels(labels_string: str) -> Dict[str, str]:
+    labels: Dict[str, str] = {}
     # Return if we don't have valid labels
     if "=" not in labels_string:
         return labels
@@ -95,7 +96,7 @@ def _parse_labels(labels_string):
 
 
 # If we have multiple values only consider the first
-def _parse_value_and_timestamp(s):
+def _parse_value_and_timestamp(s: str) -> Tuple[float, Optional[float]]:
     s = s.lstrip()
     separator = " "
     if separator not in s:
@@ -108,7 +109,7 @@ def _parse_value_and_timestamp(s):
     return value, timestamp
 
 
-def _parse_sample(text):
+def _parse_sample(text: str) -> Sample:
     # Detect the labels in the text
     try:
         label_start, label_end = text.index("{"), text.rindex("}")
@@ -133,7 +134,7 @@ def _parse_sample(text):
         return Sample(name, {}, value, timestamp)
 
 
-def text_fd_to_metric_families(fd):
+def text_fd_to_metric_families(fd: TextIO) -> Iterable[Metric]:
     """Parse Prometheus text format from a file descriptor.
 
     This is a laxer parser than the main Go parser,
@@ -145,10 +146,10 @@ def text_fd_to_metric_families(fd):
     name = ''
     documentation = ''
     typ = 'untyped'
-    samples = []
+    samples: List[Sample] = []
     allowed_names = []
 
-    def build_metric(name, documentation, typ, samples):
+    def build_metric(name: str, documentation: str, typ: str, samples: List[Sample]) -> Metric:
         # Munge counters into OpenMetrics representation
         # used internally.
         if typ == 'counter':
