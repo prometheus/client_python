@@ -1,0 +1,12 @@
+sphinx>=5
+myst-parser
+furo
+sphinx-inline-tabs
+sphinxext-opengraph
+sphinxcontrib-fulltoc
+sphinxcontrib-spelling
+sphinx-copybutton
+sphinx-issues
+sphinx-design
+pyenchant
+sphinx-autobuild
