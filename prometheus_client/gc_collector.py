@@ -22,7 +22,7 @@ class GCCollector(Collector):
         )
         uncollectable = CounterMetricFamily(
             'python_gc_objects_uncollectable',
-            'Uncollectable object found during GC',
+            'Uncollectable objects found during GC',
             labels=['generation'],
         )
 
