@@ -46,7 +46,7 @@ class InprogressTracker:
     def __exit__(self, typ, value, traceback):
         self._gauge.dec()
 
-    def __call__(self, f):
+    def __call__(self, f: "F") -> "F":
         def wrapped(func, *args, **kwargs):
             with self:
                 return func(*args, **kwargs)
@@ -75,7 +75,7 @@ class Timer:
     def labels(self, *args, **kw):
         self._metric = self._metric.labels(*args, **kw)
 
-    def __call__(self, f):
+    def __call__(self, f: "F") -> "F":
         def wrapped(func, *args, **kwargs):
             # Obtaining new instance of timer every time
             # ensures thread safety and reentrancy.
