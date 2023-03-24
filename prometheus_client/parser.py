@@ -158,7 +158,8 @@ def text_fd_to_metric_families(fd: TextIO) -> Iterable[Metric]:
             else:
                 new_samples = []
                 for s in samples:
-                    new_samples.append(Sample(s[0] + '_total', *s[1:]))
+                    sample_name = s.name if s.name.endswith('_total') else s.name + '_total'
+                    new_samples.append(Sample(sample_name, *s[1:]))
                     samples = new_samples
         metric = Metric(name, documentation, typ)
         metric.samples = samples
@@ -194,7 +195,7 @@ def text_fd_to_metric_families(fd: TextIO) -> Iterable[Metric]:
                     samples = []
                 typ = parts[3]
                 allowed_names = {
-                    'counter': [''],
+                    'counter': ['_total', ''],
                     'gauge': [''],
                     'summary': ['_count', '_sum', ''],
                     'histogram': ['_count', '_sum', '_bucket'],

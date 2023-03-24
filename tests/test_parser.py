@@ -25,6 +25,13 @@ a 1
 """)
         self.assertEqualMetrics([CounterMetricFamily("a", "help", value=1)], list(families))
 
+    def test_counter_with_suffix(self):
+        families = text_string_to_metric_families("""# TYPE a counter
+# HELP a help
+a_total 1
+""")
+        self.assertEqualMetrics([CounterMetricFamily("a", "help", value=1)], list(families))
+
     def test_simple_gauge(self):
         families = text_string_to_metric_families("""# TYPE a gauge
 # HELP a help
