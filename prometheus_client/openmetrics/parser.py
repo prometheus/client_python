@@ -196,7 +196,7 @@ def _parse_labels(text):
             label_name = sub_labels[:value_start]
             sub_labels = sub_labels[value_start + 1:]
 
-            # Check for missing quotes 
+            # Check for missing quotes
             if not sub_labels or sub_labels[0] != '"':
                 raise ValueError
 
@@ -240,7 +240,7 @@ def _parse_labels(text):
             # Check for missing commas
             if sub_labels and next_comma == 0:
                 raise ValueError
-            
+
         return labels
 
     except ValueError:
@@ -283,7 +283,7 @@ def _parse_remaining_text(text):
     val = _parse_value(split_text[0])
     if len(split_text) == 1:
         # We don't have timestamp or exemplar
-        return val, None, None  
+        return val, None, None
 
     timestamp = []
     exemplar_value = []

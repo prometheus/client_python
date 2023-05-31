@@ -19,19 +19,20 @@ Prometheus uses GitHub to manage reviews of pull requests.
 Submitted changes should pass the current tests, and be covered by new test
 cases when adding functionality.
 
+* [Install `pre-commit`](https://pre-commit.com/index.html#installation)
+  and run `pre-commit install` in the repository.
+
 * Run the tests locally using [tox] which executes the full suite on all
   supported Python versions installed.
 
-* Each pull request is gated using [Travis CI] with the results linked on the
-  github page. This must pass before the change can land, note pushing a new
+* Each pull request is gated using [CircleCI] with the results linked on the
+  GitHub page. This must pass before the change can land, note pushing a new
   change will trigger a retest.
 
 ## Style
 
 * Code style should follow [PEP 8] generally, and can be checked by running:
-  ``tox -e flake8``.
-
-* Import statements can be automatically formatted using [isort].
+  `pre-commit run`.
 
 
 [our mailing list]: https://groups.google.com/forum/?fromgroups#!forum/prometheus-developers
@@ -39,4 +40,4 @@ cases when adding functionality.
 [isort]: https://pypi.org/project/isort/
 [PEP 8]: https://www.python.org/dev/peps/pep-0008/
 [tox]: https://tox.readthedocs.io/en/latest/
-[Travis CI]: https://docs.travis-ci.com/
+[CircleCI]: https://circleci.com/

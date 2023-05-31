@@ -48,7 +48,7 @@ class ASGITest(TestCase):
             asyncio.get_event_loop().run_until_complete(
                 self.communicator.wait()
             )
-            
+
     def seed_app(self, app):
         self.communicator = ApplicationCommunicator(app, self.scope)
 

@@ -36,8 +36,9 @@ __all__ = (
     'write_to_textfile',
 )
 
+# Content type of the latest text format
 CONTENT_TYPE_LATEST = 'text/plain; version=0.0.4; charset=utf-8'
-"""Content type of the latest text format"""
+
 PYTHON376_OR_NEWER = sys.version_info > (3, 7, 5)
 
 

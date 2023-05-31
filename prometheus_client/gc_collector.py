@@ -41,5 +41,5 @@ class GCCollector(Collector):
         return [collected, uncollectable, collections]
 
 
+# Default GCCollector in default Registry REGISTRY.
 GC_COLLECTOR = GCCollector()
-"""Default GCCollector in default Registry REGISTRY."""

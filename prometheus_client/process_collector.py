@@ -97,5 +97,5 @@ class ProcessCollector(Collector):
         return result
 
 
+# Default ProcessCollector in default Registry REGISTRY.
 PROCESS_COLLECTOR = ProcessCollector()
-"""Default ProcessCollector in default Registry REGISTRY."""

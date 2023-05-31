@@ -55,5 +55,5 @@ class PlatformCollector(Collector):
         }
 
 
+# PlatformCollector in default Registry REGISTRY
 PLATFORM_COLLECTOR = PlatformCollector()
-"""PlatformCollector in default Registry REGISTRY"""
