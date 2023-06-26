@@ -36,7 +36,7 @@ jobs:
     steps:
       - checkout
       - run: echo 'export PATH=$HOME/.local/bin:$PATH' >> $BASH_ENV
-      - run: pip install --user tox
+      - run: pip install --user tox "virtualenv<20.22.0"
       - run: tox
   test_nooptionals:
     parameters:
