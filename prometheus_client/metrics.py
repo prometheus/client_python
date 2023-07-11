@@ -1,4 +1,5 @@
 import os
+import sys
 from threading import Lock
 import time
 import types
@@ -16,6 +17,9 @@ from .metrics_core import (
 from .registry import Collector, CollectorRegistry, REGISTRY
 from .samples import Exemplar, Sample
 from .utils import floatToGoString, INF
+
+if sys.version_info >= (3, 8, 0):
+    from typing import Literal
 
 T = TypeVar('T', bound='MetricWrapperBase')
 F = TypeVar("F", bound=Callable[..., Any])
@@ -357,7 +361,7 @@ class Gauge(MetricWrapperBase):
                  unit: str = '',
                  registry: Optional[CollectorRegistry] = REGISTRY,
                  _labelvalues: Optional[Sequence[str]] = None,
-                 multiprocess_mode: str = 'all',
+                 multiprocess_mode: "Literal['all', 'liveall', 'min', 'livemin', 'max', 'livemax', 'sum', 'livesum']" = 'all',
                  ):
         self._multiprocess_mode = multiprocess_mode
         if multiprocess_mode not in self._MULTIPROC_MODES:
