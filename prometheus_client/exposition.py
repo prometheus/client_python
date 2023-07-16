@@ -38,7 +38,6 @@ __all__ = (
 
 CONTENT_TYPE_LATEST = 'text/plain; version=0.0.4; charset=utf-8'
 """Content type of the latest text format"""
-PYTHON376_OR_NEWER = sys.version_info > (3, 7, 5)
 
 
 class _PrometheusRedirectHandler(HTTPRedirectHandler):
@@ -545,10 +544,7 @@ def _use_gateway(
 ) -> None:
     gateway_url = urlparse(gateway)
     # See https://bugs.python.org/issue27657 for details on urlparse in py>=3.7.6.
-    if not gateway_url.scheme or (
-            PYTHON376_OR_NEWER
-            and gateway_url.scheme not in ['http', 'https']
-    ):
+    if not gateway_url.scheme or gateway_url.scheme not in ['http', 'https']:
         gateway = f'http://{gateway}'
 
     gateway = gateway.rstrip('/')
