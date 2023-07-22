@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 from . import (
     exposition, gc_collector, metrics, metrics_core, platform_collector,
