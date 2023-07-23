@@ -159,7 +159,7 @@ def _get_best_family(address, port):
     return family, sockaddr[0]
 
 
-def start_wsgi_server(port: int, addr: str = '0.0.0.0', registry: CollectorRegistry = REGISTRY) -> None:
+def start_wsgi_server(port: int, addr: str = '0.0.0.0', tls: list = [], registry: CollectorRegistry = REGISTRY) -> None:
     """Starts a WSGI server for prometheus metrics as a daemon thread."""
 
     class TmpServer(ThreadingWSGIServer):
@@ -168,6 +168,10 @@ def start_wsgi_server(port: int, addr: str = '0.0.0.0', registry: CollectorRegis
     TmpServer.address_family, addr = _get_best_family(addr, port)
     app = make_wsgi_app(registry)
     httpd = make_server(addr, port, app, TmpServer, handler_class=_SilentHandler)
+    if len(tls) >= 2:
+        context = ssl.SSLContext()
+        context.load_cert_chain(tls[0], tls[1], tls[2] if len(tls) == 3 else None)
+        httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
     t = threading.Thread(target=httpd.serve_forever)
     t.daemon = True
     t.start()
