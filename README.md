@@ -313,6 +313,14 @@ To add Prometheus exposition to an existing HTTP server, see the `MetricsHandler
 which provides a `BaseHTTPRequestHandler`. It also serves as a simple example of how
 to write a custom endpoint.
 
+To enable TLS identity verification, `certfile` and `keyfile` need to be provided.
+
+```
+from prometheus_client import start_http_server
+
+start_http_server(8000, certfile="server_certificate.pem", keyfile="private_key.pem")
+```
+
 #### Twisted
 
 To use prometheus with [twisted](https://twistedmatrix.com/), there is `MetricsResource` which exposes metrics as a twisted resource.
