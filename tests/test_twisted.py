@@ -3,9 +3,9 @@ from unittest import skipUnless
 from prometheus_client import CollectorRegistry, Counter, generate_latest
 
 try:
-    from twisted.internet import reactor
+    from twisted.internet import defer, protocol, reactor
     from twisted.trial.unittest import TestCase
-    from twisted.web.client import Agent, readBody
+    from twisted.web.client import Agent
     from twisted.web.resource import Resource
     from twisted.web.server import Site
 
@@ -23,24 +23,44 @@ class MetricsResourceTest(TestCase):
     def setUp(self):
         self.registry = CollectorRegistry()
 
-    def test_reports_metrics(self):
-        """
-        ``MetricsResource`` serves the metrics from the provided registry.
-        """
-        c = Counter('cc', 'A counter', registry=self.registry)
-        c.inc()
+    @staticmethod
+    def _read_response_body(response):
+        class BodyReaderProtocol(protocol.Protocol):
+            def __init__(self, finished):
+                self.finished = finished
+                self.data = b""
 
-        root = Resource()
-        root.putChild(b'metrics', MetricsResource(registry=self.registry))
-        server = reactor.listenTCP(0, Site(root))
-        self.addCleanup(server.stopListening)
+            def dataReceived(self, data):
+                self.data += data
 
-        agent = Agent(reactor)
-        port = server.getHost().port
-        url = f"http://localhost:{port}/metrics"
-        d = agent.request(b"GET", url.encode("ascii"))
+            def connectionLost(self, reason):
+                self.finished.callback(self.data)
 
-        d.addCallback(readBody)
-        d.addCallback(self.assertEqual, generate_latest(self.registry))
+        finished = defer.Deferred()
+        response.deliverBody(BodyReaderProtocol(finished))
+        return finished
 
-        return d
+    if HAVE_TWISTED:
+        @defer.inlineCallbacks
+        def test_reports_metrics(self):
+            """
+            ``MetricsResource`` serves the metrics from the provided registry.
+            """
+            c = Counter('cc', 'A counter', registry=self.registry)
+            c.inc()
+
+            root = Resource()
+            root.putChild(b'metrics', MetricsResource(registry=self.registry))
+            server = reactor.listenTCP(0, Site(root))
+            self.addCleanup(server.stopListening)
+
+            agent = Agent(reactor)
+            port = server.getHost().port
+            url = f"http://localhost:{port}/metrics"
+            response = yield agent.request(b"GET", url.encode("ascii"))
+            body = yield self._read_response_body(response)
+
+            self.assertEqual(body, generate_latest(self.registry))
+    else:
+        def test_reports_metrics(self):
+            pass
