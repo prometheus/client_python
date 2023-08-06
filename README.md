@@ -313,7 +313,20 @@ To add Prometheus exposition to an existing HTTP server, see the `MetricsHandler
 which provides a `BaseHTTPRequestHandler`. It also serves as a simple example of how
 to write a custom endpoint.
 
-To enable TLS identity verification, `certfile` and `keyfile` need to be provided.
+By default, the prometheus client will accept only HTTP requests from Prometheus.
+To enable HTTPS, `certfile` and `keyfile` need to be provided. The certificate is
+presented to Prometheus as a server certificate during the TLS handshake, and
+the private key in the key file must belong to the public key in the certificate.
+
+When HTTPS is enabled, by default mutual TLS (mTLS) is enforced (i.e. Prometheus is
+required to present a client certificate during TLS handshake) and the client certificate
+including its hostname is validated against the CA certificate chain.
+insecure_skip_verify=True` can be used to disable the certificate and hostname
+validations.
+
+`cafile` can be used to specify a certificate file containing a CA certificate chain that
+is used to validate the client certificate. If not provided, a default CA certificate chain
+is used (see Python [ssl.SSLContext.load_default_certs()](https://docs.python.org/3/library/ssl.html#ssl.SSLContext.load_default_certs))
 
 ```
 from prometheus_client import start_http_server

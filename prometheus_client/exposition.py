@@ -171,11 +171,10 @@ def _get_ssl_ctx(
     if cafile is not None:
         ssl_cxt.load_verify_locations(cafile)
     else:
-        ssl_cxt.load_default_certs()
+        ssl_cxt.load_default_certs(purpose=ssl.Purpose.CLIENT_AUTH)
 
-    if insecure_skip_verify:
-        ssl_cxt.check_hostname = False
-        ssl_cxt.verify_mode = ssl.CERT_NONE
+    if not insecure_skip_verify:
+        ssl_cxt.verify_mode = ssl.CERT_REQUIRED
 
     ssl_cxt.load_cert_chain(certfile=certfile, keyfile=keyfile)
     return ssl_cxt
@@ -184,12 +183,12 @@ def _get_ssl_ctx(
 def start_wsgi_server(
         port: int,
         addr: str = '0.0.0.0',
+        registry: CollectorRegistry = REGISTRY,
         certfile: str = '',
         keyfile: str = '',
         cafile: Optional[str] = None,
         protocol: int = ssl.PROTOCOL_TLS_SERVER,
         insecure_skip_verify: bool = False,
-        registry: CollectorRegistry = REGISTRY,
 ) -> None:
     """Starts a WSGI server for prometheus metrics as a daemon thread."""
 
