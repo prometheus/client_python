@@ -164,12 +164,13 @@ def _get_ssl_ctx(
         keyfile: str,
         protocol: int,
         cafile: Optional[str] = None,
+        capath: Optional[str] = None,
         insecure_skip_verify: bool = False,
 ) -> ssl.SSLContext:
     """Load context supports SSL."""
     ssl_cxt = ssl.SSLContext(protocol=protocol)
     if cafile is not None:
-        ssl_cxt.load_verify_locations(cafile)
+        ssl_cxt.load_verify_locations(cafile, capath)
     else:
         ssl_cxt.load_default_certs(purpose=ssl.Purpose.CLIENT_AUTH)
 
@@ -187,6 +188,7 @@ def start_wsgi_server(
         certfile: str = '',
         keyfile: str = '',
         cafile: Optional[str] = None,
+        capath: Optional[str] = None,
         protocol: int = ssl.PROTOCOL_TLS_SERVER,
         insecure_skip_verify: bool = False,
 ) -> None:
@@ -199,7 +201,7 @@ def start_wsgi_server(
     app = make_wsgi_app(registry)
     httpd = make_server(addr, port, app, TmpServer, handler_class=_SilentHandler)
     if certfile and keyfile:
-        context = _get_ssl_ctx(certfile, keyfile, protocol, cafile, insecure_skip_verify)
+        context = _get_ssl_ctx(certfile, keyfile, protocol, cafile, capath, insecure_skip_verify)
         httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
     t = threading.Thread(target=httpd.serve_forever)
     t.daemon = True
@@ -442,7 +444,17 @@ def tls_auth_handler(
     disabled by setting insecure_skip_verify to True.
     
     Both this handler and the TLS feature on pushgateay are experimental."""
-    context = _get_ssl_ctx(certfile, keyfile, protocol, cafile, insecure_skip_verify)
+    context = ssl.SSLContext(protocol=protocol)
+    if cafile is not None:
+        context.load_verify_locations(cafile)
+    else:
+        context.load_default_certs()
+
+    if insecure_skip_verify:
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+
+    context.load_cert_chain(certfile=certfile, keyfile=keyfile)
     handler = HTTPSHandler(context=context)
     return _make_handler(url, method, timeout, headers, data, handler)
 
