@@ -22,6 +22,8 @@ class Metric:
     """
 
     def __init__(self, name: str, documentation: str, typ: str, unit: str = ''):
+        if typ == 'counter' and name.endswith('_total'):
+            name = name[:-6]
         if unit and not name.endswith("_" + unit):
             name += "_" + unit
         if not METRIC_NAME_RE.match(name):
