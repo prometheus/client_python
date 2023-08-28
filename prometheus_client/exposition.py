@@ -169,15 +169,34 @@ def _get_ssl_ctx(
 ) -> ssl.SSLContext:
     """Load context supports SSL."""
     ssl_cxt = ssl.SSLContext(protocol=protocol)
-    if cafile is not None:
-        ssl_cxt.load_verify_locations(cafile, capath)
+
+    if cafile is not None or capath is not None:
+        try:
+            ssl_cxt.load_verify_locations(cafile, capath)
+        except IOError as exc:
+            exc_type = type(exc)
+            msg = str(exc)
+            raise exc_type(f"Cannot load CA certificate chain from file "
+                           f"{cafile!r} or directory {capath!r}: {msg}")
     else:
-        ssl_cxt.load_default_certs(purpose=ssl.Purpose.CLIENT_AUTH)
+        try:
+            ssl_cxt.load_default_certs(purpose=ssl.Purpose.CLIENT_AUTH)
+        except IOError as exc:
+            exc_type = type(exc)
+            msg = str(exc)
+            raise exc_type(f"Cannot load default CA certificate chain: {msg}")
 
     if not insecure_skip_verify:
         ssl_cxt.verify_mode = ssl.CERT_REQUIRED
 
-    ssl_cxt.load_cert_chain(certfile=certfile, keyfile=keyfile)
+    try:
+        ssl_cxt.load_cert_chain(certfile=certfile, keyfile=keyfile)
+    except IOError as exc:
+        exc_type = type(exc)
+        msg = str(exc)
+        raise exc_type(f"Cannot load server certificate file {certfile!r} or "
+                       f"its private key file {keyfile!r}: {msg}")
+
     return ssl_cxt
 
 
@@ -442,7 +461,7 @@ def tls_auth_handler(
     The default protocol (ssl.PROTOCOL_TLS_CLIENT) will also enable
     ssl.CERT_REQUIRED and SSLContext.check_hostname by default. This can be
     disabled by setting insecure_skip_verify to True.
-    
+
     Both this handler and the TLS feature on pushgateay are experimental."""
     context = ssl.SSLContext(protocol=protocol)
     if cafile is not None:

@@ -288,8 +288,8 @@ ProcessCollector(namespace='mydaemon', pid=lambda: open('/var/run/daemon.pid').r
 ### Platform Collector
 
 The client also automatically exports some metadata about Python. If using Jython,
-metadata about the JVM in use is also included. This information is available as 
-labels on the `python_info` metric. The value of the metric is 1, since it is the 
+metadata about the JVM in use is also included. This information is available as
+labels on the `python_info` metric. The value of the metric is 1, since it is the
 labels that carry information.
 
 ### Disabling Default Collector metrics
@@ -335,11 +335,12 @@ the private key in the key file must belong to the public key in the certificate
 When HTTPS is enabled, by default mutual TLS (mTLS) is enforced (i.e. Prometheus is
 required to present a client certificate during TLS handshake) and the client certificate
 including its hostname is validated against the CA certificate chain.
-insecure_skip_verify=True` can be used to disable the certificate and hostname
-validations.
+`insecure_skip_verify=True` can be used to disable mTLS.
 
 `cafile` can be used to specify a certificate file containing a CA certificate chain that
-is used to validate the client certificate. If not provided, a default CA certificate chain
+is used to validate the client certificate. `capath` can be used to specify a
+certificate directory containing a CA certificate chain that is used to validate the
+client certificate. If neither of them is provided, a default CA certificate chain
 is used (see Python [ssl.SSLContext.load_default_certs()](https://docs.python.org/3/library/ssl.html#ssl.SSLContext.load_default_certs))
 
 ```
@@ -414,7 +415,7 @@ Such an application can be useful when integrating Prometheus metrics with ASGI
 apps.
 
 By default, the WSGI application will respect `Accept-Encoding:gzip` headers used by Prometheus
-and compress the response if such a header is present. This behaviour can be disabled by passing 
+and compress the response if such a header is present. This behaviour can be disabled by passing
 `disable_compression=True` when creating the app, like this:
 
 ```python
