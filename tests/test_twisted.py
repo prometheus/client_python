@@ -42,7 +42,10 @@ class MetricsResourceTest(TestCase):
         url = f"http://localhost:{port}/metrics"
         d = agent.request(b"GET", url.encode("ascii"))
 
-        filterwarnings('ignore', category=DeprecationWarning)
+        # Ignore expected DeprecationWarning.
+        filterwarnings("ignore", category=DeprecationWarning, message="Using readBody "
+                       "with a transport that does not have an abortConnection method")
+
         d.addCallback(readBody)
         d.addCallback(self.assertEqual, generate_latest(self.registry))
 
