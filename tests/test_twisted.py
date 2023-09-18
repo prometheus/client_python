@@ -3,6 +3,8 @@ from unittest import skipUnless
 from prometheus_client import CollectorRegistry, Counter, generate_latest
 
 try:
+    from warnings import filterwarnings
+
     from twisted.internet import reactor
     from twisted.trial.unittest import TestCase
     from twisted.web.client import Agent, readBody
@@ -39,6 +41,10 @@ class MetricsResourceTest(TestCase):
         port = server.getHost().port
         url = f"http://localhost:{port}/metrics"
         d = agent.request(b"GET", url.encode("ascii"))
+
+        # Ignore expected DeprecationWarning.
+        filterwarnings("ignore", category=DeprecationWarning, message="Using readBody "
+                       "with a transport that does not have an abortConnection method")
 
         d.addCallback(readBody)
         d.addCallback(self.assertEqual, generate_latest(self.registry))
