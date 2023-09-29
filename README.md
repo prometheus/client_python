@@ -604,8 +604,9 @@ To do so you need to create a custom collector, for example:
 
 ```python
 from prometheus_client.core import GaugeMetricFamily, CounterMetricFamily, REGISTRY
+from prometheus_client.registry import Collector
 
-class CustomCollector(object):
+class CustomCollector(Collector):
     def collect(self):
         yield GaugeMetricFamily('my_gauge', 'Help text', value=7)
         c = CounterMetricFamily('my_counter_total', 'Help text', labels=['foo'])
