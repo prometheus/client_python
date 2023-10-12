@@ -206,8 +206,8 @@ def start_wsgi_server(
         registry: CollectorRegistry = REGISTRY,
         certfile: Optional[str] = None,
         keyfile: Optional[str] = None,
-        cafile: Optional[str] = None,
-        capath: Optional[str] = None,
+        client_cafile: Optional[str] = None,
+        client_capath: Optional[str] = None,
         protocol: int = ssl.PROTOCOL_TLS_SERVER,
         insecure_skip_verify: bool = False,
 ) -> None:
@@ -220,7 +220,7 @@ def start_wsgi_server(
     app = make_wsgi_app(registry)
     httpd = make_server(addr, port, app, TmpServer, handler_class=_SilentHandler)
     if certfile and keyfile:
-        context = _get_ssl_ctx(certfile, keyfile, protocol, cafile, capath, insecure_skip_verify)
+        context = _get_ssl_ctx(certfile, keyfile, protocol, client_cafile, client_capath, insecure_skip_verify)
         httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
     t = threading.Thread(target=httpd.serve_forever)
     t.daemon = True

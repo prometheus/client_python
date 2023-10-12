@@ -337,13 +337,13 @@ required to present a client certificate during TLS handshake) and the client ce
 including its hostname is validated against the CA certificate chain.
 `insecure_skip_verify=True` can be used to disable mTLS.
 
-`cafile` can be used to specify a certificate file containing a CA certificate chain that
-is used to validate the client certificate. `capath` can be used to specify a
-certificate directory containing a CA certificate chain that is used to validate the
-client certificate. If neither of them is provided, a default CA certificate chain
-is used (see Python [ssl.SSLContext.load_default_certs()](https://docs.python.org/3/library/ssl.html#ssl.SSLContext.load_default_certs))
+`client_cafile` can be used to specify a certificate file containing a CA certificate
+chain that is used to validate the client certificate. `client_capath` can be used to
+specify a certificate directory containing a CA certificate chain that is used to
+validate the client certificate. If neither of them is provided, a default CA certificate
+chain is used (see Python [ssl.SSLContext.load_default_certs()](https://docs.python.org/3/library/ssl.html#ssl.SSLContext.load_default_certs))
 
-```
+```python
 from prometheus_client import start_http_server
 
 start_http_server(8000, certfile="server_certificate.pem", keyfile="private_key.pem")
