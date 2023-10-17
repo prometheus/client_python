@@ -185,6 +185,26 @@ class TestMultiProcess(unittest.TestCase):
         mark_process_dead(123, os.environ['PROMETHEUS_MULTIPROC_DIR'])
         self.assertEqual(2, self.registry.get_sample_value('g'))
 
+    def test_gauge_mostrecent(self):
+        g1 = Gauge('g', 'help', registry=None, multiprocess_mode='mostrecent')
+        values.ValueClass = MultiProcessValue(lambda: 456)
+        g2 = Gauge('g', 'help', registry=None, multiprocess_mode='mostrecent')
+        g2.set(2)
+        g1.set(1)
+        self.assertEqual(1, self.registry.get_sample_value('g'))
+        mark_process_dead(123, os.environ['PROMETHEUS_MULTIPROC_DIR'])
+        self.assertEqual(1, self.registry.get_sample_value('g'))
+
+    def test_gauge_livemostrecent(self):
+        g1 = Gauge('g', 'help', registry=None, multiprocess_mode='livemostrecent')
+        values.ValueClass = MultiProcessValue(lambda: 456)
+        g2 = Gauge('g', 'help', registry=None, multiprocess_mode='livemostrecent')
+        g2.set(2)
+        g1.set(1)
+        self.assertEqual(1, self.registry.get_sample_value('g'))
+        mark_process_dead(123, os.environ['PROMETHEUS_MULTIPROC_DIR'])
+        self.assertEqual(2, self.registry.get_sample_value('g'))
+
     def test_namespace_subsystem(self):
         c1 = Counter('c', 'help', registry=None, namespace='ns', subsystem='ss')
         c1.inc(1)
@@ -369,28 +389,28 @@ class TestMmapedDict(unittest.TestCase):
         self.d = mmap_dict.MmapedDict(self.tempfile)
 
     def test_process_restart(self):
-        self.d.write_value('abc', 123.0)
+        self.d.write_value('abc', 123.0, 987.0)
         self.d.close()
         self.d = mmap_dict.MmapedDict(self.tempfile)
-        self.assertEqual(123, self.d.read_value('abc'))
-        self.assertEqual([('abc', 123.0)], list(self.d.read_all_values()))
+        self.assertEqual((123, 987.0), self.d.read_value('abc'))
+        self.assertEqual([('abc', 123.0, 987.0)], list(self.d.read_all_values()))
 
     def test_expansion(self):
         key = 'a' * mmap_dict._INITIAL_MMAP_SIZE
-        self.d.write_value(key, 123.0)
-        self.assertEqual([(key, 123.0)], list(self.d.read_all_values()))
+        self.d.write_value(key, 123.0, 987.0)
+        self.assertEqual([(key, 123.0, 987.0)], list(self.d.read_all_values()))
 
     def test_multi_expansion(self):
         key = 'a' * mmap_dict._INITIAL_MMAP_SIZE * 4
-        self.d.write_value('abc', 42.0)
-        self.d.write_value(key, 123.0)
-        self.d.write_value('def', 17.0)
+        self.d.write_value('abc', 42.0, 987.0)
+        self.d.write_value(key, 123.0, 876.0)
+        self.d.write_value('def', 17.0, 765.0)
         self.assertEqual(
-            [('abc', 42.0), (key, 123.0), ('def', 17.0)],
+            [('abc', 42.0, 987.0), (key, 123.0, 876.0), ('def', 17.0, 765.0)],
             list(self.d.read_all_values()))
 
     def test_corruption_detected(self):
-        self.d.write_value('abc', 42.0)
+        self.d.write_value('abc', 42.0, 987.0)
         # corrupt the written data
         self.d._m[8:16] = b'somejunk'
         with self.assertRaises(RuntimeError):
