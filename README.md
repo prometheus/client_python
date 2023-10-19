@@ -737,6 +737,39 @@ for family in text_string_to_metric_families(u"my_gauge 1.0\n"):
     print("Name: {0} Labels: {1} Value: {2}".format(*sample))
 ```
 
+## Restricted registry
+
+Registry support querying a specific metric with the GET parameter "name[]".
+Since it's an array it can be use multiple times.
+
+```python
+curl -v --get --data-urlencode "name[]=python_gc_objects_collected_total" --data-urlencode "name[]=python_info" http://127.0.0.1:9200/metrics
+* About to connect() to 127.0.0.1 port 9200 (#0)
+*   Trying 127.0.0.1...
+* Connected to 127.0.0.1 (127.0.0.1) port 9200 (#0)
+> GET /metrics?name[]=python_gc_objects_collected_total&name[]=python_info HTTP/1.1
+> User-Agent: curl/7.29.0
+> Host: 127.0.0.1:9200
+> Accept: */*
+>
+* HTTP 1.0, assume close after body
+< HTTP/1.0 200 OK
+< Date: Thu, 19 Oct 2023 10:00:38 GMT
+< Server: WSGIServer/0.2 CPython/3.9.3
+< Content-Type: text/plain; version=0.0.4; charset=utf-8
+< Content-Length: 454
+<
+# HELP python_info Python platform information
+# TYPE python_info gauge
+python_info{implementation="CPython",major="3",minor="9",patchlevel="3",version="3.9.3"} 1.0
+# HELP python_gc_objects_collected_total Objects collected during gc
+# TYPE python_gc_objects_collected_total counter
+python_gc_objects_collected_total{generation="0"} 73129.0
+python_gc_objects_collected_total{generation="1"} 8594.0
+python_gc_objects_collected_total{generation="2"} 296.0
+* Closing connection 0
+```
+
 ## Links
 
 * [Releases](https://github.com/prometheus/client_python/releases): The releases page shows the history of the project and acts as a changelog.
