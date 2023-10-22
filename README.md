@@ -332,10 +332,9 @@ To enable HTTPS, `certfile` and `keyfile` need to be provided. The certificate i
 presented to Prometheus as a server certificate during the TLS handshake, and
 the private key in the key file must belong to the public key in the certificate.
 
-When HTTPS is enabled, by default mutual TLS (mTLS) is enforced (i.e. Prometheus is
-required to present a client certificate during TLS handshake) and the client certificate
-including its hostname is validated against the CA certificate chain.
-`insecure_skip_verify=True` can be used to disable mTLS.
+When HTTPS is enabled, you can enable mutual TLS (mTLS) by setting `client_auth_required=True`
+(i.e. Prometheus is required to present a client certificate during TLS handshake) and the
+client certificate including its hostname is validated against the CA certificate chain.
 
 `client_cafile` can be used to specify a certificate file containing a CA certificate
 chain that is used to validate the client certificate. `client_capath` can be used to
@@ -346,7 +345,7 @@ chain is used (see Python [ssl.SSLContext.load_default_certs()](https://docs.pyt
 ```python
 from prometheus_client import start_http_server
 
-start_http_server(8000, certfile="server_certificate.pem", keyfile="private_key.pem")
+start_http_server(8000, certfile="server.crt", keyfile="server.key")
 ```
 
 #### Twisted

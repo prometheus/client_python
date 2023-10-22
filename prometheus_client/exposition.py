@@ -165,7 +165,7 @@ def _get_ssl_ctx(
         protocol: int,
         cafile: Optional[str] = None,
         capath: Optional[str] = None,
-        insecure_skip_verify: bool = False,
+        client_auth_required: bool = False,
 ) -> ssl.SSLContext:
     """Load context supports SSL."""
     ssl_cxt = ssl.SSLContext(protocol=protocol)
@@ -186,7 +186,7 @@ def _get_ssl_ctx(
             msg = str(exc)
             raise exc_type(f"Cannot load default CA certificate chain: {msg}")
 
-    if not insecure_skip_verify:
+    if client_auth_required:
         ssl_cxt.verify_mode = ssl.CERT_REQUIRED
 
     try:
@@ -209,7 +209,7 @@ def start_wsgi_server(
         client_cafile: Optional[str] = None,
         client_capath: Optional[str] = None,
         protocol: int = ssl.PROTOCOL_TLS_SERVER,
-        insecure_skip_verify: bool = False,
+        client_auth_required: bool = False,
 ) -> None:
     """Starts a WSGI server for prometheus metrics as a daemon thread."""
 
@@ -220,7 +220,7 @@ def start_wsgi_server(
     app = make_wsgi_app(registry)
     httpd = make_server(addr, port, app, TmpServer, handler_class=_SilentHandler)
     if certfile and keyfile:
-        context = _get_ssl_ctx(certfile, keyfile, protocol, client_cafile, client_capath, insecure_skip_verify)
+        context = _get_ssl_ctx(certfile, keyfile, protocol, client_cafile, client_capath, client_auth_required)
         httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
     t = threading.Thread(target=httpd.serve_forever)
     t.daemon = True
