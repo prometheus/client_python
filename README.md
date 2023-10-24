@@ -740,7 +740,7 @@ for family in text_string_to_metric_families(u"my_gauge 1.0\n"):
 ## Restricted registry
 
 Registry support restriction to only return specific metrics.
-If you’re using the built-in HTTP server, you can use the GET parameter "name []", since it’s an array it can be used multiple times.
+If you’re using the built-in HTTP server, you can use the GET parameter "name[]", since it’s an array it can be used multiple times.
 If you’re directly using generate_latest, you can use the function restricted_registry().
 
 ```python
