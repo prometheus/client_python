@@ -741,7 +741,7 @@ for family in text_string_to_metric_families(u"my_gauge 1.0\n"):
 
 Registries support restriction to only return specific metrics.
 If you’re using the built-in HTTP server, you can use the GET parameter "name[]", since it’s an array it can be used multiple times.
-If you’re directly using generate_latest, you can use the function restricted_registry().
+If you’re directly using `generate_latest`, you can use the function `restricted_registry()`.
 
 ```python
 curl --get --data-urlencode "name[]=python_gc_objects_collected_total" --data-urlencode "name[]=python_info" http://127.0.0.1:9200/metrics
