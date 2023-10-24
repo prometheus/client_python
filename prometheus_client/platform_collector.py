@@ -9,7 +9,7 @@ class PlatformCollector(Collector):
     """Collector for python platform information"""
 
     def __init__(self,
-                 registry: CollectorRegistry = REGISTRY,
+                 registry: Optional[CollectorRegistry] = REGISTRY,
                  platform: Optional[Any] = None,
                  ):
         self._platform = pf if platform is None else platform

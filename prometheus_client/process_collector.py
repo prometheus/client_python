@@ -1,5 +1,5 @@
 import os
-from typing import Callable, Iterable, Union
+from typing import Callable, Iterable, Optional, Union
 
 from .metrics_core import CounterMetricFamily, GaugeMetricFamily, Metric
 from .registry import Collector, CollectorRegistry, REGISTRY
@@ -20,7 +20,7 @@ class ProcessCollector(Collector):
                  namespace: str = '',
                  pid: Callable[[], Union[int, str]] = lambda: 'self',
                  proc: str = '/proc',
-                 registry: CollectorRegistry = REGISTRY):
+                 registry: Optional[CollectorRegistry] = REGISTRY):
         self._namespace = namespace
         self._pid = pid
         self._proc = proc
