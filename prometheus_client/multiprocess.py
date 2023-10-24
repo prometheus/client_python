@@ -68,7 +68,7 @@ class MultiProcessCollector:
                     # the file is missing
                     continue
                 raise
-            for key, value, _ in file_values:
+            for key, value, timestamp, _ in file_values:
                 metric_name, name, labels, labels_key, help_text = _parse_key(key)
 
                 metric = metrics.get(metric_name)
@@ -79,7 +79,7 @@ class MultiProcessCollector:
                 if typ == 'gauge':
                     pid = parts[2][:-3]
                     metric._multiprocess_mode = parts[1]
-                    metric.add_sample(name, labels_key + (('pid', pid),), value)
+                    metric.add_sample(name, labels_key + (('pid', pid),), value, timestamp)
                 else:
                     # The duplicates and labels are fixed in the next for.
                     metric.add_sample(name, labels_key, value)
@@ -89,6 +89,7 @@ class MultiProcessCollector:
     def _accumulate_metrics(metrics, accumulate):
         for metric in metrics.values():
             samples = defaultdict(float)
+            sample_timestamps = defaultdict(float)
             buckets = defaultdict(lambda: defaultdict(float))
             samples_setdefault = samples.setdefault
             for s in metric.samples:
@@ -105,6 +106,12 @@ class MultiProcessCollector:
                             samples[without_pid_key] = value
                     elif metric._multiprocess_mode in ('sum', 'livesum'):
                         samples[without_pid_key] += value
+                    elif metric._multiprocess_mode in ('mostrecent', 'livemostrecent'):
+                        current_timestamp = sample_timestamps[without_pid_key]
+                        timestamp = float(timestamp or 0)
+                        if current_timestamp < timestamp:
+                            samples[without_pid_key] = value
+                            sample_timestamps[without_pid_key] = timestamp
                     else:  # all/liveall
                         samples[(name, labels)] = value
 

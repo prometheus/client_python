@@ -346,7 +346,8 @@ class Gauge(MetricWrapperBase):
         d.set_function(lambda: len(my_dict))
     """
     _type = 'gauge'
-    _MULTIPROC_MODES = frozenset(('all', 'liveall', 'min', 'livemin', 'max', 'livemax', 'sum', 'livesum'))
+    _MULTIPROC_MODES = frozenset(('all', 'liveall', 'min', 'livemin', 'max', 'livemax', 'sum', 'livesum', 'mostrecent', 'livemostrecent'))
+    _MOST_RECENT_MODES = frozenset(('mostrecent', 'livemostrecent'))
 
     def __init__(self,
                  name: str,
@@ -357,7 +358,7 @@ class Gauge(MetricWrapperBase):
                  unit: str = '',
                  registry: Optional[CollectorRegistry] = REGISTRY,
                  _labelvalues: Optional[Sequence[str]] = None,
-                 multiprocess_mode: Literal['all', 'liveall', 'min', 'livemin', 'max', 'livemax', 'sum', 'livesum'] = 'all',
+                 multiprocess_mode: Literal['all', 'liveall', 'min', 'livemin', 'max', 'livemax', 'sum', 'livesum', 'mostrecent', 'livemostrecent'] = 'all',
                  ):
         self._multiprocess_mode = multiprocess_mode
         if multiprocess_mode not in self._MULTIPROC_MODES:
@@ -373,6 +374,7 @@ class Gauge(MetricWrapperBase):
             _labelvalues=_labelvalues,
         )
         self._kwargs['multiprocess_mode'] = self._multiprocess_mode
+        self._is_most_recent = self._multiprocess_mode in self._MOST_RECENT_MODES
 
     def _metric_init(self) -> None:
         self._value = values.ValueClass(
@@ -382,18 +384,25 @@ class Gauge(MetricWrapperBase):
 
     def inc(self, amount: float = 1) -> None:
         """Increment gauge by the given amount."""
+        if self._is_most_recent:
+            raise RuntimeError("inc must not be used with the mostrecent mode")
         self._raise_if_not_observable()
         self._value.inc(amount)
 
     def dec(self, amount: float = 1) -> None:
         """Decrement gauge by the given amount."""
+        if self._is_most_recent:
+            raise RuntimeError("dec must not be used with the mostrecent mode")
         self._raise_if_not_observable()
         self._value.inc(-amount)
 
     def set(self, value: float) -> None:
         """Set gauge to the given value."""
         self._raise_if_not_observable()
-        self._value.set(float(value))
+        if self._is_most_recent:
+            self._value.set(float(value), timestamp=time.time())
+        else:
+            self._value.set(float(value))
 
     def set_to_current_time(self) -> None:
         """Set gauge to the current unixtime."""

@@ -19,7 +19,7 @@ class MutexValue:
         with self._lock:
             self._value += amount
 
-    def set(self, value):
+    def set(self, value, timestamp=None):
         with self._lock:
             self._value = value
 
@@ -82,7 +82,7 @@ def MultiProcessValue(process_identifier=os.getpid):
                 files[file_prefix] = MmapedDict(filename)
             self._file = files[file_prefix]
             self._key = mmap_key(metric_name, name, labelnames, labelvalues, help_text)
-            self._value = self._file.read_value(self._key)
+            self._value, self._timestamp = self._file.read_value(self._key)
 
         def __check_for_pid_change(self):
             actual_pid = process_identifier()
@@ -99,13 +99,15 @@ def MultiProcessValue(process_identifier=os.getpid):
             with lock:
                 self.__check_for_pid_change()
                 self._value += amount
-                self._file.write_value(self._key, self._value)
+                self._timestamp = 0.0
+                self._file.write_value(self._key, self._value, self._timestamp)
 
-        def set(self, value):
+        def set(self, value, timestamp=None):
             with lock:
                 self.__check_for_pid_change()
                 self._value = value
-                self._file.write_value(self._key, self._value)
+                self._timestamp = timestamp or 0.0
+                self._file.write_value(self._key, self._value, self._timestamp)
 
         def set_exemplar(self, exemplar):
             # TODO: Implement exemplars for multiprocess mode.
