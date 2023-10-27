@@ -70,6 +70,18 @@ def _get_use_created() -> bool:
 _use_created = _get_use_created()
 
 
+def disable_created_metrics():
+    """Disable exporting _created metrics on counters, histograms, and summaries."""
+    global _use_created
+    _use_created = False
+
+
+def enable_created_metrics():
+    """Enable exporting _created metrics on counters, histograms, and summaries."""
+    global _use_created
+    _use_created = True
+
+
 class MetricWrapperBase(Collector):
     _type: Optional[str] = None
     _reserved_labelnames: Sequence[str] = ()

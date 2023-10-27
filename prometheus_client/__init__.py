@@ -11,7 +11,10 @@ from .exposition import (
     write_to_textfile,
 )
 from .gc_collector import GC_COLLECTOR, GCCollector
-from .metrics import Counter, Enum, Gauge, Histogram, Info, Summary
+from .metrics import (
+    Counter, disable_created_metrics, enable_created_metrics, Enum, Gauge,
+    Histogram, Info, Summary,
+)
 from .metrics_core import Metric
 from .platform_collector import PLATFORM_COLLECTOR, PlatformCollector
 from .process_collector import PROCESS_COLLECTOR, ProcessCollector
@@ -27,6 +30,8 @@ __all__ = (
     'Histogram',
     'Info',
     'Enum',
+    'enable_created_metrics',
+    'disable_created_metrics',
     'CONTENT_TYPE_LATEST',
     'generate_latest',
     'MetricsHandler',
