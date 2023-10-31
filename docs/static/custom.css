@@ -1,0 +1,39 @@
+/*
+ * Didn't find much time to create a theme yet,
+ * so there are just a few non-default settings for now.
+ */
+:root,
+:root[color-theme="light"] {
+    --header-background: #222222;
+    --footer-background: #e6522c;
+    --footer-link-color: #ffffff;
+    --footer-link-color-visited: #ffffff;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --header-background: #222222;
+    --footer-background: #e6522c;
+    --footer-link-color: #ffffff;
+    --footer-link-color-visited: #ffffff;
+  }
+}
+
+:root[color-theme="dark"]
+{
+    --header-background: #111c24;
+    --body-background: #1f1f21;
+    --footer-background: #e6522c;
+    --footer-link-color: #ffffff;
+    --footer-link-color-visited: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --header-background: #111c24;
+    --body-background: #1f1f21;
+    --footer-background: #e6522c;
+    --footer-link-color: #ffffff;
+    --footer-link-color-visited: #ffffff;
+  }
+}

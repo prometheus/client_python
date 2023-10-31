@@ -1,0 +1,14 @@
+---
+more:
+  - name: Releases
+    ref: "https://github.com/prometheus/client_python/releases"
+    external: true
+    icon: "gdoc_download"
+  - name: GitHub
+    ref: "https://github.com/prometheus/client_python"
+    external: true
+    icon: "gdoc_github"
+  - name: PyPi
+    ref: "https://pypi.python.org/pypi/prometheus_client"
+    icon: "gdoc_link"
+    external: true
