@@ -1,5 +1,5 @@
 ---
-title: HTTP
+title: HTTP/HTTPS
 weight: 1
 ---
 
@@ -21,6 +21,8 @@ Visit [http://localhost:8000/](http://localhost:8000/) to view the metrics.
 To add Prometheus exposition to an existing HTTP server, see the `MetricsHandler` class
 which provides a `BaseHTTPRequestHandler`. It also serves as a simple example of how
 to write a custom endpoint.
+
+# HTTPS
 
 By default, the prometheus client will accept only HTTP requests from Prometheus.
 To enable HTTPS, `certfile` and `keyfile` need to be provided. The certificate is
