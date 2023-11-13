@@ -30,6 +30,9 @@ class Timestamp:
     def __gt__(self, other: "Timestamp") -> bool:
         return self.sec > other.sec or self.nsec > other.nsec
 
+    def __lt__(self, other: "Timestamp") -> bool:
+        return self.sec < other.sec or self.nsec < other.nsec
+
 
 # Timestamp and exemplar are optional.
 # Value can be an int or a float.
