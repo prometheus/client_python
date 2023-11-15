@@ -60,8 +60,6 @@ jobs:
             --minify \
             --baseURL "${{ steps.pages.outputs.base_url }}/"
         working-directory: ./docs
-      - name: ls ./docs/public/api
-        run: echo 'ls ./docs/public/api' && ls ./docs/public/api
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v1
         with:
