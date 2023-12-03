@@ -1,6 +1,7 @@
 import os
 from threading import Lock
 import time
+from datetime import datetime
 import types
 from typing import (
     Any, Callable, Dict, Iterable, List, Literal, Optional, Sequence, Tuple,
@@ -419,6 +420,14 @@ class Gauge(MetricWrapperBase):
     def set_to_current_time(self) -> None:
         """Set gauge to the current unixtime."""
         self.set(time.time())
+    
+    def set_datetime_object(self, dto:datetime) -> None:
+        '''Set gauge value to unixtime of a given datetime object'''
+        if(not isinstance(dto, datetime)):
+            raise TypeError("Function should recieve datetime object")
+        time_unix = round(time.mktime(dto.timetuple()) * 1000)
+        self.set(time_unix)
+        
 
     def track_inprogress(self) -> InprogressTracker:
         """Track inprogress blocks of code or functions.
