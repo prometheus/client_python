@@ -421,9 +421,9 @@ class Gauge(MetricWrapperBase):
         """Set gauge to the current unixtime."""
         self.set(time.time())
     
-    def set_datetime_object(self, dto:datetime) -> None:
+    def set_datetime_object(self, dto: datetime) -> None:
         '''Set gauge value to unixtime of a given datetime object'''
-        if(not isinstance(dto, datetime)):
+        if not isinstance(dto, datetime):
             raise TypeError("Function should recieve datetime object")
         time_unix = round(time.mktime(dto.timetuple()) * 1000)
         self.set(time_unix)
