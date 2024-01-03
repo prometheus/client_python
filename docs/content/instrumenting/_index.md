@@ -13,4 +13,8 @@ on how to use them.
 By default counters, histograms, and summaries export an additional series
 suffixed with `_created` and a value of the unix timestamp for when the metric
 was created. If this information is not helpful, it can be disabled by setting
-the environment variable `PROMETHEUS_DISABLE_CREATED_SERIES=True`.
+the environment variable `PROMETHEUS_DISABLE_CREATED_SERIES=True` or in code:
+```python
+from prometheus_client import disable_created_metrics
+disable_created_metrics()
+```
