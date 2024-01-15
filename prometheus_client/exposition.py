@@ -462,7 +462,7 @@ def tls_auth_handler(
     ssl.CERT_REQUIRED and SSLContext.check_hostname by default. This can be
     disabled by setting insecure_skip_verify to True.
 
-    Both this handler and the TLS feature on pushgateay are experimental."""
+    Both this handler and the TLS feature on pushgateway are experimental."""
     context = ssl.SSLContext(protocol=protocol)
     if cafile is not None:
         context.load_verify_locations(cafile)
@@ -477,6 +477,32 @@ def tls_auth_handler(
     handler = HTTPSHandler(context=context)
     return _make_handler(url, method, timeout, headers, data, handler)
 
+def tls_handler(
+        url: str,
+        method: str,
+        timeout: Optional[float],
+        headers: List[Tuple[str, str]],
+        data: bytes,
+        cafile: Optional[str] = None,
+        protocol: int = ssl.PROTOCOL_TLS_CLIENT,
+        verify_mode: ssl.VerifyMode = ssl.CERT_REQUIRED,
+) -> Callable[[], None]:
+    """Handler that implements an HTTPS connection.
+
+    The default protocol (ssl.PROTOCOL_TLS_CLIENT) will also enable
+    ssl.CERT_REQUIRED and SSLContext.check_hostname by default. This can be
+    changed by setting the verify_mode.
+    """
+    context = ssl.SSLContext(protocol=protocol)
+    if cafile is not None:
+        context.load_verify_locations(cafile)
+    else:
+        context.load_default_certs()
+
+    context.verify_mode = verify_mode
+
+    handler = HTTPSHandler(context=context)
+    return _make_handler(url, method, timeout, headers, data, handler)
 
 def push_to_gateway(
         gateway: str,
