@@ -381,6 +381,54 @@ class TestMultiProcess(unittest.TestCase):
             os.path.join(self.tempdir, 'gauge_livesum_9999999.db'),
         ]))
 
+    def test_delete_metrics(self):
+        c = Counter('c', 'help', registry=None)
+        g = Gauge('g', 'help', registry=None)
+
+        c.inc(1)
+        g.set(5)
+
+        # Test Counter deletion
+        self.assertEqual(1, self.registry.get_sample_value('c_total'))
+        c._value.delete()
+        self.assertIsNone(self.registry.get_sample_value('c_total'))
+
+        # Test Gauge deletion
+        self.assertEqual(5, self.registry.get_sample_value('g', {'pid': '123'}))
+        g._value.delete()
+        self.assertIsNone(self.registry.get_sample_value('g'))
+
+    def test_delete_metric_multiple_increments(self):
+        c = Counter('c', 'help', registry=None)
+        c.inc(1)
+        c.inc(3)
+
+        self.assertEqual(4, self.registry.get_sample_value('c_total'))
+
+        c._value.delete()
+
+        total = self.registry.get_sample_value('c_total')
+        self.assertIsNone(total)
+
+    def test_delete_metric_negative_values(self):
+        g = Gauge('g', 'help', registry=None)
+        g.set(-5)
+
+        self.assertEqual(-5, self.registry.get_sample_value('g', {'pid': '123'}))
+
+        g._value.delete()
+
+        total = self.registry.get_sample_value('g', {'pid': '123'})
+        self.assertIsNone(total)
+
+    def test_delete_metric_without_increment(self):
+        c = Counter('c', 'help', registry=None)
+
+        self.assertEqual(0, self.registry.get_sample_value('c_total'))
+
+        c._value.delete()
+        self.assertIsNone(self.registry.get_sample_value('c_total'))
+
 
 class TestMmapedDict(unittest.TestCase):
     def setUp(self):

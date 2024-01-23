@@ -35,6 +35,10 @@ class MutexValue:
         with self._lock:
             return self._exemplar
 
+    # used in multiproc mode
+    def delete(self):
+        pass
+
 
 def MultiProcessValue(process_identifier=os.getpid):
     """Returns a MmapedValue class based on a process_identifier function.
@@ -121,6 +125,31 @@ def MultiProcessValue(process_identifier=os.getpid):
         def get_exemplar(self):
             # TODO: Implement exemplars for multiprocess mode.
             return None
+
+        def delete(self):
+            with lock:
+                # Create a new MmapedDict temporarily
+                temp_file = MmapedDict(self._file._fname + ".tmp")
+
+                # Copy all key-value pairs, excluding the one to delete
+                for k, v, ts in self._file.read_all_values():
+                    if k != self._key:
+                        temp_file.write_value(k, v, ts)
+
+                temp_file.close()
+                self._file.close()
+
+                # Atomically perform the act of deleting the old file
+                # and replacing it with the newly constructed one
+                os.rename(self._file._fname + ".tmp", self._file._fname)
+
+                # Reloading the dictionary for accessing fresher data
+                self._file = MmapedDict(self._file._fname)
+
+                # Update the corresponding entry in files dictionary
+                for prefix, file in files.items():
+                    if file._fname == self._file._fname:
+                        files[prefix] = self._file
 
     return MmapedValue
 
