@@ -6,6 +6,7 @@ from typing import (
     Any, Callable, Dict, Iterable, List, Literal, Optional, Sequence, Tuple,
     Type, TypeVar, Union,
 )
+import warnings
 
 from . import values  # retain this import style for testability
 from .context_managers import ExceptionCounter, InprogressTracker, Timer
@@ -210,6 +211,11 @@ class MetricWrapperBase(Collector):
             return self._metrics[labelvalues]
 
     def remove(self, *labelvalues: Any) -> None:
+        if 'prometheus_multiproc_dir' in os.environ or 'PROMETHEUS_MULTIPROC_DIR' in os.environ:
+            warnings.warn(
+                "Removal of labels has not been implemented in  multi-process mode yet.",
+                UserWarning)
+
         if not self._labelnames:
             raise ValueError('No label names were set when constructing %s' % self)
 
@@ -222,6 +228,10 @@ class MetricWrapperBase(Collector):
 
     def clear(self) -> None:
         """Remove all labelsets from the metric"""
+        if 'prometheus_multiproc_dir' in os.environ or 'PROMETHEUS_MULTIPROC_DIR' in os.environ:
+            warnings.warn(
+                "Clearing labels has not been implemented in multi-process mode yet",
+                UserWarning)
         with self._lock:
             self._metrics = {}
 

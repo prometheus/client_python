@@ -18,6 +18,7 @@ This comes with a number of limitations:
 - The pushgateway cannot be used
 - Gauges cannot use the `pid` label
 - Exemplars are not supported
+- Remove and Clear of labels are currently not supported in multiprocess mode.
 
 There's several steps to getting this working:
 
