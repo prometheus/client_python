@@ -3,7 +3,7 @@
 
 from ..utils import floatToGoString
 
-CONTENT_TYPE_LATEST = 'application/openmetrics-text; version=0.0.1; charset=utf-8'
+CONTENT_TYPE_LATEST = 'application/openmetrics-text; version=1.0.0; charset=utf-8'
 """Content type of the latest OpenMetrics text format"""
 
 
