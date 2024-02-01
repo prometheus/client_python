@@ -381,6 +381,22 @@ class TestMultiProcess(unittest.TestCase):
             os.path.join(self.tempdir, 'gauge_livesum_9999999.db'),
         ]))
 
+    def test_remove_clear_warning(self):
+        os.environ['PROMETHEUS_MULTIPROC_DIR'] = self.tempdir
+        with warnings.catch_warnings(record=True) as w:
+            values.ValueClass = get_value_class()
+            registry = CollectorRegistry()
+            collector = MultiProcessCollector(registry)
+            counter = Counter('c', 'help', labelnames=['label'], registry=None)
+            counter.labels('label').inc()
+            counter.remove('label')
+            counter.clear()
+            assert os.environ['PROMETHEUS_MULTIPROC_DIR'] == self.tempdir
+            assert issubclass(w[0].category, UserWarning)
+            assert "Removal of labels has not been implemented" in str(w[0].message)
+            assert issubclass(w[-1].category, UserWarning)
+            assert "Clearing labels has not been implemented" in str(w[-1].message)
+
 
 class TestMmapedDict(unittest.TestCase):
     def setUp(self):
