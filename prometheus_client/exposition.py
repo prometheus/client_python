@@ -210,7 +210,7 @@ def start_wsgi_server(
         client_capath: Optional[str] = None,
         protocol: int = ssl.PROTOCOL_TLS_SERVER,
         client_auth_required: bool = False,
-) -> None:
+) -> Tuple[WSGIServer, threading.Thread]:
     """Starts a WSGI server for prometheus metrics as a daemon thread."""
 
     class TmpServer(ThreadingWSGIServer):
@@ -225,6 +225,8 @@ def start_wsgi_server(
     t = threading.Thread(target=httpd.serve_forever)
     t.daemon = True
     t.start()
+
+    return httpd, t
 
 
 start_http_server = start_wsgi_server

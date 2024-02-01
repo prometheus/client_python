@@ -18,6 +18,15 @@ start_http_server(8000)
 
 Visit [http://localhost:8000/](http://localhost:8000/) to view the metrics.
 
+The function will return the HTTP server and thread objects, which can be used
+to shutdown the server gracefully:
+
+```python
+server, t = start_http_server(8000)
+server.shutdown()
+t.join()
+```
+
 To add Prometheus exposition to an existing HTTP server, see the `MetricsHandler` class
 which provides a `BaseHTTPRequestHandler`. It also serves as a simple example of how
 to write a custom endpoint.
