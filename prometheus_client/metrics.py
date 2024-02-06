@@ -310,6 +310,12 @@ class Counter(MetricWrapperBase):
             _validate_exemplar(exemplar)
             self._value.set_exemplar(Exemplar(exemplar, amount, time.time()))
 
+    def reset(self) -> None:
+        """Reset the metric to zero."""
+        self._value.set(0)
+        if _use_created:
+            self._created = time.time()
+
     def count_exceptions(self, exception: Union[Type[BaseException], Tuple[Type[BaseException], ...]] = Exception) -> ExceptionCounter:
         """Count exceptions in a block of code or function.
 
