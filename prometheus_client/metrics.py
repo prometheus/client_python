@@ -317,7 +317,7 @@ class Counter(MetricWrapperBase):
             self._value.set_exemplar(Exemplar(exemplar, amount, time.time()))
 
     def reset(self) -> None:
-        """Reset the metric to zero."""
+        """Reset the counter to zero. Use this when a logical process restarts without restarting the actual python process."""
         self._value.set(0)
         self._created = time.time()
 
