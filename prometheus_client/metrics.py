@@ -292,6 +292,12 @@ class Counter(MetricWrapperBase):
         # Count only one type of exception
         with c.count_exceptions(ValueError):
             pass
+            
+    You can also reset the counter to zero in case your logical "process" restarts
+    without restarting the actual python process.
+
+       c.reset()
+
     """
     _type = 'counter'
 
@@ -309,6 +315,11 @@ class Counter(MetricWrapperBase):
         if exemplar:
             _validate_exemplar(exemplar)
             self._value.set_exemplar(Exemplar(exemplar, amount, time.time()))
+
+    def reset(self) -> None:
+        """Reset the counter to zero. Use this when a logical process restarts without restarting the actual python process."""
+        self._value.set(0)
+        self._created = time.time()
 
     def count_exceptions(self, exception: Union[Type[BaseException], Tuple[Type[BaseException], ...]] = Exception) -> ExceptionCounter:
         """Count exceptions in a block of code or function.

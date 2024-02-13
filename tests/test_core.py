@@ -43,6 +43,16 @@ class TestCounter(unittest.TestCase):
         self.counter.inc(7)
         self.assertEqual(8, self.registry.get_sample_value('c_total'))
 
+    def test_reset(self):
+        self.counter.inc()
+        self.assertNotEqual(0, self.registry.get_sample_value('c_total'))
+        created = self.registry.get_sample_value('c_created')
+        time.sleep(0.05)
+        self.counter.reset()        
+        self.assertEqual(0, self.registry.get_sample_value('c_total'))
+        created_after_reset = self.registry.get_sample_value('c_created')
+        self.assertLess(created, created_after_reset)       
+
     def test_repr(self):
         self.assertEqual(repr(self.counter), "prometheus_client.metrics.Counter(c)")
 
