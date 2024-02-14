@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-
-
 import io as StringIO
 import math
 import re

@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-
-
 from ..utils import floatToGoString
 
 CONTENT_TYPE_LATEST = 'application/openmetrics-text; version=1.0.0; charset=utf-8'
