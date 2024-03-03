@@ -705,6 +705,8 @@ class Info(MetricWrapperBase):
         if self._labelname_set.intersection(val.keys()):
             raise ValueError('Overlapping labels for Info metric, metric: {} child: {}'.format(
                 self._labelnames, val))
+        if any(i is None for i in val.values()):
+            raise ValueError('Label value cannot be None')
         with self._lock:
             self._value = dict(val)
 
