@@ -1,6 +1,5 @@
 import math
-# type: ignore[attr-defined]
-from threading import _PyRLock
+from threading import _PyRLock  # type: ignore[attr-defined]
 
 INF = float("inf")
 MINUS_INF = float("-inf")
