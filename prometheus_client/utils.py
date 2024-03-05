@@ -1,4 +1,5 @@
 import math
+from threading import _PyRLock
 
 INF = float("inf")
 MINUS_INF = float("-inf")
@@ -22,3 +23,8 @@ def floatToGoString(d):
             mantissa = f'{s[0]}.{s[1:dot]}{s[dot + 1:]}'.rstrip('0.')
             return f'{mantissa}e+0{dot - 1}'
         return s
+
+
+class Lock(_PyRLock):
+    def locked(self):
+        return bool(self._count)
