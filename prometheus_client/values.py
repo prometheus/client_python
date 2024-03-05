@@ -1,5 +1,5 @@
 import os
-from threading import Lock
+from threading import RLock
 import warnings
 
 from .mmap_dict import mmap_key, MmapedDict
