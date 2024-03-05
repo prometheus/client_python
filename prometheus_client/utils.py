@@ -1,4 +1,5 @@
 import math
+# type: ignore[attr-defined]
 from threading import _PyRLock
 
 INF = float("inf")
