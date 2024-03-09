@@ -1,5 +1,4 @@
 import os
-from threading import Lock
 import time
 import types
 from typing import (
@@ -16,7 +15,7 @@ from .metrics_core import (
 )
 from .registry import Collector, CollectorRegistry, REGISTRY
 from .samples import Exemplar, Sample
-from .utils import floatToGoString, INF
+from .utils import floatToGoString, INF, Lock
 
 T = TypeVar('T', bound='MetricWrapperBase')
 F = TypeVar("F", bound=Callable[..., Any])
