@@ -534,6 +534,7 @@ class TestInfo(unittest.TestCase):
 
     def test_labels(self):
         self.assertRaises(ValueError, self.labels.labels('a').info, {'l': ''})
+        self.assertRaises(ValueError, self.labels.labels('a').info, {'il': None})
 
         self.labels.labels('a').info({'foo': 'bar'})
         self.assertEqual(1, self.registry.get_sample_value('il_info', {'l': 'a', 'foo': 'bar'}))
