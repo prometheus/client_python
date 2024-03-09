@@ -121,10 +121,12 @@ class CounterMetricFamily(Metric):
         if name.endswith('_total'):
             name = name[:-6]
         Metric.__init__(self, name, documentation, 'counter', unit)
-        if labels is not None and value is not None:
-            raise ValueError('Can only specify at most one of value and labels.')
+
         if labels is None:
             labels = []
+        elif value is not None:
+            raise ValueError('Can only specify at most one of value and labels.')
+
         self._labelnames = tuple(labels)
         if value is not None:
             self.add_metric([], value, created)
@@ -196,10 +198,12 @@ class SummaryMetricFamily(Metric):
         Metric.__init__(self, name, documentation, 'summary', unit)
         if (sum_value is None) != (count_value is None):
             raise ValueError('count_value and sum_value must be provided together.')
-        if labels is not None and count_value is not None:
-            raise ValueError('Can only specify at most one of value and labels.')
-        if labels is None:
+
+        if (labels is None):
             labels = []
+        elif count_value is not None:
+            raise ValueError('Can only specify at most one of value and labels.')
+
         self._labelnames = tuple(labels)
         # The and clause is necessary only for typing, the above ValueError will raise if only one is set.
         if count_value is not None and sum_value is not None:
@@ -238,12 +242,15 @@ class HistogramMetricFamily(Metric):
                  unit: str = '',
                  ):
         Metric.__init__(self, name, documentation, 'histogram', unit)
+
         if sum_value is not None and buckets is None:
             raise ValueError('sum value cannot be provided without buckets.')
-        if labels is not None and buckets is not None:
-            raise ValueError('Can only specify at most one of buckets and labels.')
+
         if labels is None:
             labels = []
+        elif buckets is not None:
+            raise ValueError('Can only specify at most one of buckets and labels.')
+
         self._labelnames = tuple(labels)
         if buckets is not None:
             self.add_metric([], buckets, sum_value)
