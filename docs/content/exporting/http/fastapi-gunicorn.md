@@ -19,7 +19,7 @@ metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)
 ```
 
-For Multiprocessing support, use this modified code snippet. Full multiprocessing instructions are provided [here](https://prometheus.github.io/client_python/multiprocess/).
+For Multiprocessing support, use this modified code snippet. Full multiprocessing instructions are provided [here]({{< ref "/multiprocess" >}}).
 
 ```python
 from fastapi import FastAPI
