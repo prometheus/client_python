@@ -20,7 +20,7 @@ Changes to the `main` branch will be deployed automatically with Github actions.
 Update Geekdocs
 ---------------
 
-The docs use the [Geekdocs](https://geekdocs.de/) theme. The theme is checked in to Github in the `./docs/themes/hugo-geekdoc/` folder. To update [Geekdocs](https://geekdocs.de/), remove the current folder and create a new one with the latest [release](https://github.com/thegeeklab/hugo-geekdoc/releases). There are no local modifications in `./docs/themes/hugo-geekdoc/`.
+The docs use the [Geekdocs](https://geekdocs.de/) theme. The theme is checked in to Github in the `./docs/themes/hugo-geekdoc/` folder. To update [Geekdocs](https://geekdocs.de/), remove the current folder and create a new one with the latest [release](https://github.com/thegeeklab/hugo-geekdoc/releases/latest). There are no local modifications in `./docs/themes/hugo-geekdoc/`.
 
 Notes
 -----
