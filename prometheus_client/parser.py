@@ -37,57 +37,29 @@ def _replace_escaping(s: str) -> str:
     return ESCAPING_RE.sub(replace_escape_sequence, s)
 
 
-def _is_character_escaped(s: str, charpos: int) -> bool:
-    num_bslashes = 0
-    while (charpos > num_bslashes
-           and s[charpos - 1 - num_bslashes] == '\\'):
-        num_bslashes += 1
-    return num_bslashes % 2 == 1
-
-
 def _parse_labels(labels_string: str) -> Dict[str, str]:
     labels: Dict[str, str] = {}
     # Return if we don't have valid labels
     if "=" not in labels_string:
         return labels
 
-    escaping = False
-    if "\\" in labels_string:
-        escaping = True
+    # remove SINGLE leading and trailing commas
+    labels_string = labels_string.strip().removeprefix(',').removesuffix(',')
 
-    # Copy original labels
-    sub_labels = labels_string
+    sub_labels = labels_string.split(",")
     try:
         # Process one label at a time
-        while sub_labels:
-            # The label name is before the equal
-            value_start = sub_labels.index("=")
-            label_name = sub_labels[:value_start]
-            sub_labels = sub_labels[value_start + 1:].lstrip()
-            # Find the first quote after the equal
-            quote_start = sub_labels.index('"') + 1
-            value_substr = sub_labels[quote_start:]
+        for label in sub_labels:
+            label_name, label_value = label.split("=")
 
-            # Find the last unescaped quote
-            i = 0
-            while i < len(value_substr):
-                i = value_substr.index('"', i)
-                if not _is_character_escaped(value_substr, i):
-                    break
-                i += 1
+            normalized_value = label_value.strip()
+            # remove SINGLE leading and trailing double quotes
+            normalized_value = normalized_value.removeprefix('"').removesuffix('"')
 
-            # The label value is between the first and last quote
-            quote_end = i + 1
-            label_value = sub_labels[quote_start:quote_end]
-            # Replace escaping if needed
-            if escaping:
-                label_value = _replace_escaping(label_value)
-            labels[label_name.strip()] = label_value
+            if "\\" in normalized_value:
+                normalized_value = _replace_escaping(normalized_value)
 
-            # Remove the processed label from the sub-slice for next iteration
-            sub_labels = sub_labels[quote_end + 1:]
-            next_comma = sub_labels.find(",") + 1
-            sub_labels = sub_labels[next_comma:].lstrip()
+            labels[label_name.strip()] = normalized_value
 
         return labels
 
