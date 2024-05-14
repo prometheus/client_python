@@ -37,6 +37,20 @@ def _replace_escaping(s: str) -> str:
     return ESCAPING_RE.sub(replace_escape_sequence, s)
 
 
+# for python < 3.9 compatibility
+def _removeprefix(data: str, prefix: str) -> str:
+    if data.startswith(prefix):
+        return data[len(prefix):]
+    return data
+
+
+# for python < 3.9 compatibility
+def _removesuffix(data: str, suffix: str) -> str:
+    if data.endswith(suffix):
+        return data[:-len(suffix)]
+    return data
+
+
 def _parse_labels(labels_string: str) -> Dict[str, str]:
     labels: Dict[str, str] = {}
     # Return if we don't have valid labels
@@ -44,17 +58,19 @@ def _parse_labels(labels_string: str) -> Dict[str, str]:
         return labels
 
     # remove SINGLE leading and trailing commas
-    labels_string = labels_string.strip().removeprefix(',').removesuffix(',')
+    labels_string = labels_string.strip()
+    labels_string = _removeprefix(labels_string, ',')
+    labels_string = _removesuffix(labels_string, ',')
 
-    sub_labels = labels_string.split(",")
     try:
         # Process one label at a time
-        for label in sub_labels:
+        for label in labels_string.split(","):
             label_name, label_value = label.split("=")
 
             normalized_value = label_value.strip()
             # remove SINGLE leading and trailing double quotes
-            normalized_value = normalized_value.removeprefix('"').removesuffix('"')
+            normalized_value = _removeprefix(normalized_value, '"')
+            normalized_value = _removesuffix(normalized_value, '"')
 
             if "\\" in normalized_value:
                 normalized_value = _replace_escaping(normalized_value)
