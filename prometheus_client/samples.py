@@ -28,10 +28,10 @@ class Timestamp:
         return not self == other
 
     def __gt__(self, other: "Timestamp") -> bool:
-        return self.sec > other.sec or self.nsec > other.nsec
+        return self.nsec > other.nsec if self.sec == other.sec else self.sec > other.sec
 
     def __lt__(self, other: "Timestamp") -> bool:
-        return self.sec < other.sec or self.nsec < other.nsec
+        return self.nsec < other.nsec if self.sec == other.sec else self.sec < other.sec
 
 
 # Timestamp and exemplar are optional.
