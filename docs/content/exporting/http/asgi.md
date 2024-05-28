@@ -14,7 +14,7 @@ app = make_asgi_app()
 Such an application can be useful when integrating Prometheus metrics with ASGI
 apps.
 
-By default, the WSGI application will respect `Accept-Encoding:gzip` headers used by Prometheus
+By default, the ASGI application will respect `Accept-Encoding:gzip` headers used by Prometheus
 and compress the response if such a header is present. This behaviour can be disabled by passing 
 `disable_compression=True` when creating the app, like this:
 
