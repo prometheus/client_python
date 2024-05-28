@@ -27,13 +27,13 @@ def generate_latest(registry):
             if metric.unit:
                 output.append(f'# UNIT {mname} {metric.unit}\n')
             for s in metric.samples:
+                labelstr = ''
                 if s.labels:
                     labelstr = '{{{0}}}'.format(','.join(
                         ['{}="{}"'.format(
                             k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
                             for k, v in sorted(s.labels.items())]))
-                else:
-                    labelstr = ''
+                exemplarstr = ''
                 if s.exemplar:
                     if not _is_valid_exemplar_metric(metric, s):
                         raise ValueError(f"Metric {metric.name} has exemplars, but is not a histogram bucket or counter")
@@ -52,8 +52,6 @@ def generate_latest(registry):
                             labels,
                             floatToGoString(s.exemplar.value),
                         )
-                else:
-                    exemplarstr = ''
                 timestamp = ''
                 if s.timestamp is not None:
                     timestamp = f' {s.timestamp}'
