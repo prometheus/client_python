@@ -118,11 +118,29 @@ def make_wsgi_app(registry: CollectorRegistry = REGISTRY, disable_compression: b
         accept_header = environ.get('HTTP_ACCEPT')
         accept_encoding_header = environ.get('HTTP_ACCEPT_ENCODING')
         params = parse_qs(environ.get('QUERY_STRING', ''))
-        if environ['PATH_INFO'] == '/favicon.ico':
+
+        if environ['REQUEST_METHOD'] == 'OPTIONS':
+            if environ['PATH_INFO'] == '/*':
+                status = '200 OK'
+                headers = [('Allow', 'OPTIONS,GET')]
+                output = b''
+            else:
+                status = '404 Resource not found: '
+                headers = [('', '')]
+                output = '# HTTP {}: {}; use /*\n'.format(status, environ['PATH_INFO']).encode()
+        elif environ['REQUEST_METHOD'] != 'GET':
+            status = '405 Method Not Allowed'
+            headers = [('Allow', 'OPTIONS,GET')]
+            output = '# HTTP {}: {}; use OPTIONS or GET\n'.format(status, environ['REQUEST_METHOD']).encode()
+        elif environ['PATH_INFO'] == '/favicon.ico':
             # Serve empty response for browsers
             status = '200 OK'
             headers = [('', '')]
             output = b''
+        elif environ['PATH_INFO'].strip('/') not in ('', 'metrics'):
+            status = '404 Resource not found'
+            headers = [('', '')]
+            output = '# HTTP {}: {}; use / or /metrics\n'.format(status, environ['PATH_INFO']).encode()
         else:
             # Bake output
             status, headers, output = _bake_output(registry, accept_header, accept_encoding_header, params, disable_compression)

@@ -53,3 +53,26 @@ from prometheus_client import start_http_server
 
 start_http_server(8000, certfile="server.crt", keyfile="server.key")
 ```
+
+# Supported HTTP methods
+
+The prometheus client will handle the following HTTP methods and resources:
+
+* `OPTIONS /*` - returns HTTP status 200 and an 'Allow' header indicating the
+  allowed methods (OPTIONS, GET)
+* `GET /` - returns HTTP status 200 and the metrics data
+* `GET /metrics` - returns HTTP status 200 and the metrics data
+* `GET /favicon.ico` - returns HTTP status 200 and an empty response body. Some
+  browsers support this to display the returned icon in the browser tab.
+
+Other resources than these on the allowed OPTIONS and GET methods are rejected
+with HTTP status 404 "Resource Not Found".
+
+Other HTTP methods than these are rejected with HTTP status 405 "Method Not Allowed"
+and an 'Allow' header indicating the allowed methods (OPTIONS, GET).
+
+Any returned HTTP errors are also displayed in the response body after a hash
+sign and with a brief hint. Example:
+```
+# HTTP 405 Method Not Allowed: XXX; use OPTIONS or GET
+```
