@@ -1,8 +1,8 @@
 import os
-from threading import Lock
 import warnings
 
 from .mmap_dict import mmap_key, MmapedDict
+from .utils import Lock
 
 
 class MutexValue:
