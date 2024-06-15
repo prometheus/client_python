@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 
 
+from ast import literal_eval
 import io as StringIO
 import math
 import re
 
 from ..metrics_core import Metric, METRIC_LABEL_NAME_RE
-from ..samples import Exemplar, Sample, Timestamp
+from ..samples import BucketSpan, Exemplar, NativeHistStructValue, Sample, Timestamp
 from ..utils import floatToGoString
 
 
@@ -277,7 +278,6 @@ def _parse_sample(text):
     value, timestamp, exemplar = _parse_remaining_text(remaining_text)
     return Sample(name, labels, value, timestamp, exemplar)
 
-
 def _parse_remaining_text(text):
     split_text = text.split(" ", 1)
     val = _parse_value(split_text[0])
@@ -363,6 +363,70 @@ def _parse_remaining_text(text):
 
     return val, ts, exemplar
 
+def _parse_nh_sample(text, suffixes):
+    label_start = text.find("{")
+    # check if it's a native histogram with labels
+    re_nh_without_labels = re.compile(r'^[^{} ]+ {[^{}]+}$')
+    re_nh_with_labels = re.compile(r'[^{} ]+{[^{}]+} {[^{}]+}$')
+    ph = text.find("}") + 2
+    print('we are matching \'{}\''.format(text))
+    if re_nh_with_labels.match(text):
+        is_nh_with_labels = True
+        label_end = text.find("}")
+        label = text[label_start + 1:label_end]
+        labels = _parse_labels(label)
+        name_end = label_start - 1
+        name = text[:name_end]
+        if name.endswith(suffixes):
+            raise ValueError("the sample name of a native histogram with labels should have no suffixes", name)
+        nh_value_start = text.rindex("{")
+        nh_value = text[nh_value_start:]
+        value = _parse_nh_struct(nh_value)
+        return Sample(name, labels, value)
+    # check if it's a native histogram
+    if re_nh_without_labels.match(text):
+        is_nh_with_labels = False
+        nh_value_start = label_start
+        nh_value = text[nh_value_start:]
+        name_end = nh_value_start - 1
+        name = text[:name_end]
+        if name.endswith(suffixes):
+            raise ValueError("the sample name of a native histogram should have no suffixes", name)
+        value = _parse_nh_struct(nh_value)
+        return Sample(name, None, value)      
+    else:
+        # it's not a native histogram
+        return
+
+def _parse_nh_struct(text):
+
+    pattern = r'(\w+):\s*([^,}]+)'
+    
+    items = dict(re.findall(pattern, text))
+
+    count_value = float(items['count'])
+    sum_value = float(items['sum'])
+    schema = int(items['schema'])
+    zero_threshold = float(items['zero_threshold'])
+    zero_count = float(items['zero_count'])
+
+    pos_spans = tuple(BucketSpan(*map(int, span.split(':'))) for span in literal_eval(items['positive_spans'])) if 'positive_spans' in items else None
+    neg_spans = tuple(BucketSpan(*map(int, span.split(':'))) for span in literal_eval(items['negative_spans'])) if 'negative_spans' in items else None
+    pos_deltas = literal_eval(items['positive_deltas']) if 'positive_deltas' in items else None
+    neg_deltas = literal_eval(items['negative_deltas']) if 'negative_deltas' in items else None
+
+    return NativeHistStructValue(
+        count_value=count_value,
+        sum_value=sum_value,
+        schema=schema,
+        zero_threshold=zero_threshold,
+        zero_count=zero_count,
+        pos_spans=pos_spans,
+        neg_spans=neg_spans,
+        pos_deltas=pos_deltas,
+        neg_deltas=neg_deltas
+    )
+        
 
 def _group_for_sample(sample, name, typ):
     if typ == 'info':
@@ -406,37 +470,38 @@ def _check_histogram(samples, name):
     for s in samples:
         suffix = s.name[len(name):]
         g = _group_for_sample(s, name, 'histogram')
-        if g != group or s.timestamp != timestamp:
-            if group is not None:
-                do_checks()
-            count = None
-            bucket = None
-            has_negative_buckets = False
-            has_sum = False
-            has_gsum = False
-            has_negative_gsum = False
-            value = 0
-        group = g
-        timestamp = s.timestamp
+        if len(suffix) != 0:
+            if g != group or s.timestamp != timestamp:
+                if group is not None:
+                    do_checks()
+                count = None
+                bucket = None
+                has_negative_buckets = False
+                has_sum = False
+                has_gsum = False
+                has_negative_gsum = False
+                value = 0
+            group = g
+            timestamp = s.timestamp
 
-        if suffix == '_bucket':
-            b = float(s.labels['le'])
-            if b < 0:
-                has_negative_buckets = True
-            if bucket is not None and b <= bucket:
-                raise ValueError("Buckets out of order: " + name)
-            if s.value < value:
-                raise ValueError("Bucket values out of order: " + name)
-            bucket = b
-            value = s.value
-        elif suffix in ['_count', '_gcount']:
-            count = s.value
-        elif suffix in ['_sum']:
-            has_sum = True
-        elif suffix in ['_gsum']:
-            has_gsum = True
-            if s.value < 0:
-                has_negative_gsum = True
+            if suffix == '_bucket':
+                b = float(s.labels['le'])
+                if b < 0:
+                    has_negative_buckets = True
+                if bucket is not None and b <= bucket:
+                    raise ValueError("Buckets out of order: " + name)
+                if s.value < value:
+                    raise ValueError("Bucket values out of order: " + name)
+                bucket = b
+                value = s.value
+            elif suffix in ['_count', '_gcount']:
+                count = s.value
+            elif suffix in ['_sum']:
+                has_sum = True
+            elif suffix in ['_gsum']:
+                has_gsum = True
+                if s.value < 0:
+                    has_negative_gsum = True
 
     if group is not None:
         do_checks()
@@ -486,6 +551,7 @@ def text_fd_to_metric_families(fd):
         metric.samples = samples
         return metric
 
+    typ = None
     for line in fd:
         if line[-1] == '\n':
             line = line[:-1]
@@ -498,6 +564,7 @@ def text_fd_to_metric_families(fd):
 
         if line == '# EOF':
             eof = True
+            
         elif line.startswith('#'):
             parts = line.split(' ', 3)
             if len(parts) < 4:
@@ -518,7 +585,7 @@ def text_fd_to_metric_families(fd):
                 group_timestamp_samples = set()
                 samples = []
                 allowed_names = [parts[2]]
-
+            
             if parts[1] == 'HELP':
                 if documentation is not None:
                     raise ValueError("More than one HELP for metric: " + line)
@@ -537,7 +604,14 @@ def text_fd_to_metric_families(fd):
             else:
                 raise ValueError("Invalid line: " + line)
         else:
-            sample = _parse_sample(line)
+            if typ == 'histogram':
+                print("THis is typ",typ)
+                sample = _parse_nh_sample(line, tuple(type_suffixes['histogram']))
+                print("THIS IS THE SAMPLE", sample)
+            else:
+                sample = None
+            if sample is None:
+                sample = _parse_sample(line)
             if sample.name not in allowed_names:
                 if name is not None:
                     yield build_metric(name, documentation, typ, unit, samples)

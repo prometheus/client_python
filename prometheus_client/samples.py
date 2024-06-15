@@ -1,4 +1,4 @@
-from typing import Dict, NamedTuple, Optional, Union
+from typing import Dict, NamedTuple, Optional, Sequence, Tuple, Union
 
 
 class Timestamp:
@@ -33,6 +33,20 @@ class Timestamp:
     def __lt__(self, other: "Timestamp") -> bool:
         return self.nsec < other.nsec if self.sec == other.sec else self.sec < other.sec
 
+class BucketSpan(NamedTuple):
+    offset: int
+    length: int
+
+class NativeHistStructValue(NamedTuple):
+    count_value: float
+    sum_value: float
+    schema: int
+    zero_threshold: float
+    zero_count: float
+    pos_spans: Optional[Tuple[BucketSpan, BucketSpan ]] = None
+    neg_spans: Optional[Tuple[BucketSpan, BucketSpan ]] = None
+    pos_deltas: Optional[Sequence[int]] = None
+    neg_deltas: Optional[Sequence[int]] = None
 
 # Timestamp and exemplar are optional.
 # Value can be an int or a float.
@@ -44,10 +58,11 @@ class Exemplar(NamedTuple):
     value: float
     timestamp: Optional[Union[float, Timestamp]] = None
 
-
 class Sample(NamedTuple):
     name: str
-    labels: Dict[str, str]
-    value: float
+    labels: Union[Dict[str, str], None]
+    value: Union[float, NativeHistStructValue]
     timestamp: Optional[Union[float, Timestamp]] = None
     exemplar: Optional[Exemplar] = None
+
+

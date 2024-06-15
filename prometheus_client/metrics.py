@@ -1,3 +1,4 @@
+from datetime import timedelta
 import os
 from threading import Lock
 import time
@@ -15,7 +16,7 @@ from .metrics_core import (
     RESERVED_METRIC_LABEL_NAME_RE,
 )
 from .registry import Collector, CollectorRegistry, REGISTRY
-from .samples import Exemplar, Sample
+from .samples import BucketSpan, Exemplar, NativeHistStructValue, Sample
 from .utils import floatToGoString, INF
 
 T = TypeVar('T', bound='MetricWrapperBase')
@@ -595,6 +596,14 @@ class Histogram(MetricWrapperBase):
                  registry: Optional[CollectorRegistry] = REGISTRY,
                  _labelvalues: Optional[Sequence[str]] = None,
                  buckets: Sequence[Union[float, str]] = DEFAULT_BUCKETS,
+                 # native_hist_schema: Optional[int] = None, # create this dynamically?
+                 # native_hist_bucket_fact: Optional[float] = None,
+                  # native_hist_zero_threshold: Optional[float] = None,
+                 # native_hist_max_bucket_num: Optional[int] = None,
+                 # native_hist_min_reset_dur: Optional[timedelta] = None,
+                 # native_hist_max_zero_threshold: Optional[float] = None,
+                 # native_hist_max_exemplars: Optional[int] = None,
+                 # native_hist_exemplar_TTL: Optional[timedelta] = None,
                  ):
         self._prepare_buckets(buckets)
         super().__init__(

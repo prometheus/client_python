@@ -1,7 +1,8 @@
+from datetime import timedelta
 import re
 from typing import Dict, List, Optional, Sequence, Tuple, Union
 
-from .samples import Exemplar, Sample, Timestamp
+from .samples import BucketSpan, Exemplar, NativeHistStructValue, Sample, Timestamp
 
 METRIC_TYPES = (
     'counter', 'gauge', 'summary', 'histogram',
@@ -36,11 +37,14 @@ class Metric:
         self.type: str = typ
         self.samples: List[Sample] = []
 
-    def add_sample(self, name: str, labels: Dict[str, str], value: float, timestamp: Optional[Union[Timestamp, float]] = None, exemplar: Optional[Exemplar] = None) -> None:
+    def add_sample(self, name: str, labels: Union[Dict[str, str], None], value: Union[float, NativeHistStructValue], timestamp: Optional[Union[Timestamp, float]] = None, exemplar: Optional[Exemplar] = None) -> None:
         """Add a sample to the metric.
 
         Internal-only, do not use."""
-        self.samples.append(Sample(name, labels, value, timestamp, exemplar))
+        if not isinstance(value, NativeHistStructValue):
+            self.samples.append(Sample(name, labels, value, timestamp, exemplar))
+        else:
+            self.samples.append(Sample(name, labels, value))
 
     def __eq__(self, other: object) -> bool:
         return (isinstance(other, Metric)
@@ -236,6 +240,7 @@ class HistogramMetricFamily(Metric):
                  sum_value: Optional[float] = None,
                  labels: Optional[Sequence[str]] = None,
                  unit: str = '',
+                 native_hist_bucket_factor: Optional[float] = None
                  ):
         Metric.__init__(self, name, documentation, 'histogram', unit)
         if sum_value is not None and buckets is None:
@@ -282,8 +287,6 @@ class HistogramMetricFamily(Metric):
                 Sample(self.name + '_count', dict(zip(self._labelnames, labels)), buckets[-1][1], timestamp))
             self.samples.append(
                 Sample(self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value, timestamp))
-
-
 
 class GaugeHistogramMetricFamily(Metric):
     """A single gauge histogram and its samples.
