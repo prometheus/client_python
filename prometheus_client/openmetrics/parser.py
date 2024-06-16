@@ -399,10 +399,15 @@ def _parse_nh_sample(text, suffixes):
         return
 
 def _parse_nh_struct(text):
-
     pattern = r'(\w+):\s*([^,}]+)'
     
+    re_spans = re.compile(r'(positive_spans|negative_spans):\[(\d+:\d+,\d+:\d+)\]')
+    re_deltas = re.compile(r'(positive_deltas|negative_deltas):\[(-?\d+(?:,-?\d+)*)\]')
+
+    print('Matching text {}'.format(text))
     items = dict(re.findall(pattern, text))
+    spans = dict(re_spans.findall(text))
+    deltas = dict(re_deltas.findall(text))
 
     count_value = float(items['count'])
     sum_value = float(items['sum'])
@@ -410,10 +415,43 @@ def _parse_nh_struct(text):
     zero_threshold = float(items['zero_threshold'])
     zero_count = float(items['zero_count'])
 
-    pos_spans = tuple(BucketSpan(*map(int, span.split(':'))) for span in literal_eval(items['positive_spans'])) if 'positive_spans' in items else None
-    neg_spans = tuple(BucketSpan(*map(int, span.split(':'))) for span in literal_eval(items['negative_spans'])) if 'negative_spans' in items else None
-    pos_deltas = literal_eval(items['positive_deltas']) if 'positive_deltas' in items else None
-    neg_deltas = literal_eval(items['negative_deltas']) if 'negative_deltas' in items else None
+    try:
+        pos_spans_text = spans['positive_spans']
+    except KeyError:
+        pos_spans = None
+    else:
+        elems = pos_spans_text.split(',')
+        arg1 = [int(x) for x in elems[0].split(':')]
+        arg2 = [int(x) for x in elems[1].split(':')]
+        pos_spans = (BucketSpan(arg1[0], arg1[1]), BucketSpan(arg2[0], arg2[1]))
+    try:
+        neg_spans_text = spans['negative_spans']
+    except KeyError:
+        neg_spans = None
+    else:
+        elems = neg_spans_text.split(',')
+        arg1 = [int(x) for x in elems[0].split(':')]
+        arg2 = [int(x) for x in elems[1].split(':')]
+        neg_spans = (BucketSpan(arg1[0], arg1[1]), BucketSpan(arg2[0], arg2[1]))
+    print('Created pos_spans: {}'.format(pos_spans))
+    print('Created neg_spans: {}'.format(neg_spans))
+
+    try:
+        pos_deltas_text = deltas['positive_deltas']
+    except KeyError:
+        pos_deltas = None
+    else:
+        elems = pos_deltas_text.split(',')
+        pos_deltas = [int(x) for x in elems]
+    try:
+        neg_deltas_text = deltas['negative_deltas']
+    except KeyError:
+        neg_deltas = None
+    else:
+        elems = neg_deltas_text.split(',')
+        neg_deltas = [int(x) for x in elems]
+    print('Positive deltas: {}'.format(pos_deltas))
+    print('Negative deltas: {}'.format(neg_deltas))
 
     return NativeHistStructValue(
         count_value=count_value,
