@@ -402,16 +402,15 @@ def _parse_nh_struct(text):
     re_spans = re.compile(r'(positive_spans|negative_spans):\[(\d+:\d+,\d+:\d+)\]')
     re_deltas = re.compile(r'(positive_deltas|negative_deltas):\[(-?\d+(?:,-?\d+)*)\]')
 
-    print('Matching text {}'.format(text))
     items = dict(re.findall(pattern, text))
     spans = dict(re_spans.findall(text))
     deltas = dict(re_deltas.findall(text))
 
-    count_value = float(items['count'])
-    sum_value = float(items['sum'])
+    count_value = int(items['count'])
+    sum_value = int(items['sum'])
     schema = int(items['schema'])
     zero_threshold = float(items['zero_threshold'])
-    zero_count = float(items['zero_count'])
+    zero_count = int(items['zero_count'])
 
     try:
         pos_spans_text = spans['positive_spans']
@@ -431,26 +430,20 @@ def _parse_nh_struct(text):
         arg1 = [int(x) for x in elems[0].split(':')]
         arg2 = [int(x) for x in elems[1].split(':')]
         neg_spans = (BucketSpan(arg1[0], arg1[1]), BucketSpan(arg2[0], arg2[1]))
-    print('Created pos_spans: {}'.format(pos_spans))
-    print('Created neg_spans: {}'.format(neg_spans))
-
     try:
         pos_deltas_text = deltas['positive_deltas']
     except KeyError:
         pos_deltas = None
     else:
         elems = pos_deltas_text.split(',')
-        pos_deltas = [int(x) for x in elems]
+        pos_deltas = tuple([int(x) for x in elems])
     try:
         neg_deltas_text = deltas['negative_deltas']
     except KeyError:
         neg_deltas = None
     else:
         elems = neg_deltas_text.split(',')
-        neg_deltas = [int(x) for x in elems]
-    print('Positive deltas: {}'.format(pos_deltas))
-    print('Negative deltas: {}'.format(neg_deltas))
-
+        neg_deltas = tuple([int(x) for x in elems])
     return NativeHistStructValue(
         count_value=count_value,
         sum_value=sum_value,
@@ -480,7 +473,6 @@ def _group_for_sample(sample, name, typ):
         d = sample.labels.copy()
         del d['le']
         return d
-    print('Returning sample labels: {}'.format(sample.labels))
     return sample.labels
 
 
@@ -641,9 +633,7 @@ def text_fd_to_metric_families(fd):
                 raise ValueError("Invalid line: " + line)
         else:
             if typ == 'histogram':
-                print("THis is typ",typ)
                 sample = _parse_nh_sample(line, tuple(type_suffixes['histogram']))
-                print("THIS IS THE SAMPLE", sample)
             else:
                 # It's not a native histogram
                 sample = None
@@ -682,7 +672,6 @@ def text_fd_to_metric_families(fd):
                         or _isUncanonicalNumber(sample.labels['quantile']))):
                 raise ValueError("Invalid quantile label: " + line)
 
-            print("is nh?", is_nh)
             if not is_nh:
                 g = tuple(sorted(_group_for_sample(sample, name, typ).items()))
                 if group is not None and g != group and g in seen_groups:
@@ -724,7 +713,6 @@ def text_fd_to_metric_families(fd):
                 raise ValueError("Invalid line only histogram/gaugehistogram buckets and counters can have exemplars: " + line)
     
     if name is not None:
-        print('Building metric {}, {} samples'.format(name, len(samples)))
         yield build_metric(name, documentation, typ, unit, samples)
 
     if not eof:

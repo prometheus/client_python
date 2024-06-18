@@ -1,4 +1,4 @@
-from typing import Dict, NamedTuple, Optional, Sequence, Tuple, Union
+from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple, Union
 
 
 class Timestamp:
@@ -43,8 +43,8 @@ class NativeHistStructValue(NamedTuple):
     schema: int
     zero_threshold: float
     zero_count: float
-    pos_spans: Optional[Tuple[BucketSpan, BucketSpan ]] = None
-    neg_spans: Optional[Tuple[BucketSpan, BucketSpan ]] = None
+    pos_spans: Optional[Tuple[BucketSpan, BucketSpan]] = None
+    neg_spans: Optional[Tuple[BucketSpan, BucketSpan]] = None
     pos_deltas: Optional[Sequence[int]] = None
     neg_deltas: Optional[Sequence[int]] = None
 
