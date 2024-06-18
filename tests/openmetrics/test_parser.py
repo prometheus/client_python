@@ -177,14 +177,22 @@ a_bucket{le="+Inf"} 3 # {a="2345678901234567890123456789012345678901234567890123
         self.assertEqual([hfm], list(families))
     def test_native_histogram(self):
         families = text_string_to_metric_families("""# TYPE nativehistogram histogram
-# HELP nativehistogram Is a basic example of a native histogram.
+# HELP nativehistogram Is a basic example of a native histogram
 nativehistogram {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,positive_spans:[0:2,1:2],negative_spans:[0:2,1:2],positive_deltas:[2,1,-3,3],negative_deltas:[2,1,-2,3]}
 # EOF
 """)
+        families = list(families)
        
         hfm = HistogramMetricFamily("nativehistogram", "Is a basic example of a native histogram")
         hfm.add_sample("nativehistogram", None, NativeHistStructValue(24, 100, 0, 000.1, 4, BucketSpan({0:2},{1:2}),BucketSpan({0:2},{1:2}),(2,1,-3,3),(2,1,-2,3)))
-        self.assertEqual([hfm], list(families))
+        from pprint import pprint
+        print('\nDumping hfm')
+        pprint(hfm)
+        print('\nDumping family')
+        
+        pprint(families[0])
+        print('Done dumping hfm\n')
+        self.assertEqual([hfm], families)
   
     def test_simple_gaugehistogram(self):
         families = text_string_to_metric_families("""# TYPE a gaugehistogram
