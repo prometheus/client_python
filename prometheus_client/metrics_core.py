@@ -1,8 +1,7 @@
-from datetime import timedelta
 import re
 from typing import Dict, List, Optional, Sequence, Tuple, Union
 
-from .samples import BucketSpan, Exemplar, NativeHistStructValue, Sample, Timestamp
+from .samples import Exemplar, NativeHistStructValue, Sample, Timestamp
 
 METRIC_TYPES = (
     'counter', 'gauge', 'summary', 'histogram',
@@ -287,6 +286,7 @@ class HistogramMetricFamily(Metric):
                 Sample(self.name + '_count', dict(zip(self._labelnames, labels)), buckets[-1][1], timestamp))
             self.samples.append(
                 Sample(self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value, timestamp))
+
 
 class GaugeHistogramMetricFamily(Metric):
     """A single gauge histogram and its samples.

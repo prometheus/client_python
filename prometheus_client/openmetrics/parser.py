@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 
-from ast import literal_eval
 import io as StringIO
 import math
 import re
@@ -278,6 +277,7 @@ def _parse_sample(text):
     value, timestamp, exemplar = _parse_remaining_text(remaining_text)
     return Sample(name, labels, value, timestamp, exemplar)
 
+
 def _parse_remaining_text(text):
     split_text = text.split(" ", 1)
     val = _parse_value(split_text[0])
@@ -363,28 +363,28 @@ def _parse_remaining_text(text):
 
     return val, ts, exemplar
 
+
 def _parse_nh_sample(text, suffixes):
-    label_start = text.find("{")
+    labels_start = text.find("{")
     # check if it's a native histogram with labels
     re_nh_without_labels = re.compile(r'^[^{} ]+ {[^{}]+}$')
     re_nh_with_labels = re.compile(r'[^{} ]+{[^{}]+} {[^{}]+}$')
-    ph = text.find("}") + 2
     print('we are matching \'{}\''.format(text))
     if re_nh_with_labels.match(text):
-        label_end = text.find("}")
-        label = text[label_start + 1:label_end]
-        labels = _parse_labels(label)
-        name_end = label_start - 1
+        nh_value_start = text.rindex("{")
+        labels_end = nh_value_start - 2
+        labelstext = text[labels_start + 1:labels_end]
+        labels = _parse_labels(labelstext)
+        name_end = labels_start
         name = text[:name_end]
         if name.endswith(suffixes):
-            raise ValueError("the sample name of a native histogram with labels should have no suffixes", name)
-        nh_value_start = text.rindex("{")
+            raise ValueError("the sample name of a native histogram with labels should have no suffixes", name) 
         nh_value = text[nh_value_start:]
         value = _parse_nh_struct(nh_value)
         return Sample(name, labels, value)
     # check if it's a native histogram
     if re_nh_without_labels.match(text):
-        nh_value_start = label_start
+        nh_value_start = labels_start
         nh_value = text[nh_value_start:]
         name_end = nh_value_start - 1
         name = text[:name_end]
@@ -395,6 +395,7 @@ def _parse_nh_sample(text, suffixes):
     else:
         # it's not a native histogram
         return
+
 
 def _parse_nh_struct(text):
     pattern = r'(\w+):\s*([^,}]+)'
@@ -535,6 +536,7 @@ def _check_histogram(samples, name):
     if group is not None:
         do_checks()
 
+
 def text_fd_to_metric_families(fd):
     """Parse Prometheus text format from a file descriptor.
 
@@ -659,7 +661,7 @@ def text_fd_to_metric_families(fd):
                 raise ValueError("Stateset missing label: " + line)
             if (name + '_bucket' == sample.name
                     and (sample.labels.get('le', "NaN") == "NaN"
-                        or _isUncanonicalNumber(sample.labels['le']))):
+                         or _isUncanonicalNumber(sample.labels['le']))):
                 raise ValueError("Invalid le label: " + line)
             if (name + '_bucket' == sample.name
                     and (not isinstance(sample.value, int) and not sample.value.is_integer())):
@@ -669,7 +671,7 @@ def text_fd_to_metric_families(fd):
                 raise ValueError("Count value must be an integer: " + line)
             if (typ == 'summary' and name == sample.name
                     and (not (0 <= float(sample.labels.get('quantile', -1)) <= 1)
-                        or _isUncanonicalNumber(sample.labels['quantile']))):
+                         or _isUncanonicalNumber(sample.labels['quantile']))):
                 raise ValueError("Invalid quantile label: " + line)
 
             if not is_nh:
