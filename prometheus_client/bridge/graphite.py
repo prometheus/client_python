@@ -20,6 +20,13 @@ def _sanitize(s):
     return _INVALID_GRAPHITE_CHARS.sub('_', s)
 
 
+def safe_float_convert(value):
+    try:
+        return float(value)
+    except ValueError:
+        return None
+
+
 class _RegularPush(threading.Thread):
     def __init__(self, pusher, interval, prefix):
         super().__init__()
@@ -82,7 +89,9 @@ class GraphiteBridge:
                             for k, v in sorted(s.labels.items())])
                 else:
                     labelstr = ''
-                output.append(f'{prefixstr}{_sanitize(s.name)}{labelstr} {float(s.value)} {now}\n')
+                # using a safe float convert on s.value as a temporary workaround while figuring out what to do
+                # in case value is a native histogram structured value, if that's ever a possibility
+                output.append(f'{prefixstr}{_sanitize(s.name)}{labelstr} {safe_float_convert(s.value)} {now}\n')
 
         conn = socket.create_connection(self._address, self._timeout)
         conn.sendall(''.join(output).encode('ascii'))
@@ -92,3 +101,4 @@ class GraphiteBridge:
         t = _RegularPush(self, interval, prefix)
         t.daemon = True
         t.start()
+    
