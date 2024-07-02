@@ -200,6 +200,27 @@ hist_w_labels{foo="bar",baz="qux"} {count:24,sum:100,schema:0,zero_threshold:0.0
         hfm.add_sample("hist_w_labels", {"foo": "bar", "baz": "qux"}, NativeHistStructValue(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3)))
         self.assertEqual([hfm], families)
 
+    def test_native_histogram_with_classic_histogram(self):
+        families = text_string_to_metric_families("""# TYPE hist_w_classic histogram
+# HELP hist_w_classic Is a basic example of a native histogram coexisting with a classic histogram
+hist_w_classic{foo="bar"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,positive_spans:[0:2,1:2],negative_spans:[0:2,1:2],positive_deltas:[2,1,-3,3],negative_deltas:[2,1,-2,3]}
+hist_w_classic_bucket{foo="bar",le="0.001"} 4
+hist_w_classic_bucket{foo="bar",le="+Inf"} 24
+hist_w_classic_count{foo="bar"} 24
+hist_w_classic_sum{foo="bar"} 100
+# EOF
+""")
+        families = list(families)
+       
+        hfm = HistogramMetricFamily("hist_w_classic", "Is a basic example of a native histogram coexisting with a classic histogram")
+        hfm.add_sample("hist_w_classic", {"foo": "bar"}, NativeHistStructValue(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3)))
+        hfm.add_sample("hist_w_classic_bucket", {"foo": "bar", "le": "0.001"}, 4.0, None, None)
+        hfm.add_sample("hist_w_classic_bucket", {"foo": "bar", "le": "+Inf"}, 24.0, None, None)
+        hfm.add_sample("hist_w_classic_count", {"foo": "bar"}, 24.0, None, None)
+        hfm.add_sample("hist_w_classic_sum", {"foo": "bar"}, 100.0, None, None)
+        self.assertEqual([hfm], families)
+
+
     def test_simple_gaugehistogram(self):
         families = text_string_to_metric_families("""# TYPE a gaugehistogram
 # HELP a help
