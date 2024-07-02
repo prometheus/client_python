@@ -6,7 +6,9 @@ import math
 import re
 
 from ..metrics_core import Metric, METRIC_LABEL_NAME_RE
-from ..samples import BucketSpan, Exemplar, NativeHistStructValue, Sample, Timestamp
+from ..samples import (
+    BucketSpan, Exemplar, NativeHistStructValue, Sample, Timestamp,
+)
 from ..utils import floatToGoString
 
 

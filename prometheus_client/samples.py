@@ -64,7 +64,7 @@ class Exemplar(NamedTuple):
 
 class Sample(NamedTuple):
     name: str
-    labels: Union[Dict[str, str], None]
+    labels: Dict[str, str]
     value: Union[float, NativeHistStructValue]
     timestamp: Optional[Union[float, Timestamp]] = None
     exemplar: Optional[Exemplar] = None

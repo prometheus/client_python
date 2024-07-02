@@ -5,7 +5,9 @@ from .metrics_core import (
     SummaryMetricFamily, UnknownMetricFamily, UntypedMetricFamily,
 )
 from .registry import CollectorRegistry, REGISTRY
-from .samples import BucketSpan, Exemplar, NativeHistStructValue, Sample, Timestamp
+from .samples import (
+    BucketSpan, Exemplar, NativeHistStructValue, Sample, Timestamp,
+)
 
 __all__ = (
     'BucketSpan',

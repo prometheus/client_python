@@ -185,7 +185,7 @@ nativehistogram {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,pos
         families = list(families)
        
         hfm = HistogramMetricFamily("nativehistogram", "Is a basic example of a native histogram")
-        hfm.add_sample("nativehistogram", None, NativeHistStructValue(24, 100, 0, 0.001, 4, (BucketSpan(0,2),BucketSpan(1,2)),(BucketSpan(0,2), BucketSpan(1,2)),(2,1,-3,3),(2,1,-2,3)))
+        hfm.add_sample("nativehistogram", None, NativeHistStructValue(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3)))
         self.assertEqual([hfm], families)
 
     def test_native_histogram_with_labels(self):
@@ -197,7 +197,7 @@ hist_w_labels{foo="bar",baz="qux"} {count:24,sum:100,schema:0,zero_threshold:0.0
         families = list(families)
        
         hfm = HistogramMetricFamily("hist_w_labels", "Is a basic example of a native histogram with labels")
-        hfm.add_sample("hist_w_labels", {"foo": "bar", "baz": "qux"}, NativeHistStructValue(24, 100, 0, 0.001, 4, (BucketSpan(0,2),BucketSpan(1,2)),(BucketSpan(0,2), BucketSpan(1,2)),(2,1,-3,3),(2,1,-2,3)))
+        hfm.add_sample("hist_w_labels", {"foo": "bar", "baz": "qux"}, NativeHistStructValue(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3)))
         self.assertEqual([hfm], families)
 
     def test_simple_gaugehistogram(self):
