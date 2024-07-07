@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import copy
 from threading import Lock
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Union
 
 from .metrics_core import Metric
 from .samples import NativeHistStructValue
@@ -129,7 +129,7 @@ class CollectorRegistry(Collector):
         m.add_sample('target_info', self._target_info, 1)
         return m
 
-    def get_sample_value(self, name: str, labels: Optional[Dict[str, str]] = None) -> Optional[float|NativeHistStructValue]:
+    def get_sample_value(self, name: str, labels: Optional[Dict[str, str]] = None) -> Optional[Union[float, NativeHistStructValue]]:
         """Returns the sample value, or None if not found.
 
         This is inefficient, and intended only for use in unittests.

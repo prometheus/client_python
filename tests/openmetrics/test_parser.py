@@ -4,8 +4,8 @@ import unittest
 from prometheus_client.core import (
     BucketSpan, CollectorRegistry, CounterMetricFamily, Exemplar,
     GaugeHistogramMetricFamily, GaugeMetricFamily, HistogramMetricFamily,
-    InfoMetricFamily, Metric, NativeHistStructValue, Sample, StateSetMetricFamily,
-    SummaryMetricFamily, Timestamp,
+    InfoMetricFamily, Metric, NativeHistStructValue, Sample,
+    StateSetMetricFamily, SummaryMetricFamily, Timestamp,
 )
 from prometheus_client.openmetrics.exposition import generate_latest
 from prometheus_client.openmetrics.parser import text_string_to_metric_families
