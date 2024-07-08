@@ -595,7 +595,7 @@ class Histogram(MetricWrapperBase):
                  registry: Optional[CollectorRegistry] = REGISTRY,
                  _labelvalues: Optional[Sequence[str]] = None,
                  buckets: Sequence[Union[float, str]] = DEFAULT_BUCKETS,
-                 # native_hist_schema: Optional[int] = None, # create this dynamically?
+                 # native_hist_schema: Optional[int] = None,
                  # native_hist_bucket_fact: Optional[float] = None,
                  # native_hist_zero_threshold: Optional[float] = None,
                  # native_hist_max_bucket_num: Optional[int] = None,

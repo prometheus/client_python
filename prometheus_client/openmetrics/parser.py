@@ -583,7 +583,7 @@ def text_fd_to_metric_families(fd):
         metric.samples = samples
         return metric
 
-    is_nh = True
+    is_nh = False
     typ = None
     for line in fd:
         if line[-1] == '\n':
@@ -637,11 +637,14 @@ def text_fd_to_metric_families(fd):
                 raise ValueError("Invalid line: " + line)
         else:
             if typ == 'histogram':
+                # set to true to account for native histograms naming exceptions/sanitizing differences
+                is_nh = True
                 sample = _parse_nh_sample(line, tuple(type_suffixes['histogram']))
-            else:
                 # It's not a native histogram
-                sample = None
-            if sample is None:
+                if sample is None:
+                    is_nh = False
+                    sample = _parse_sample(line)              
+            else:
                 is_nh = False
                 sample = _parse_sample(line)
             if sample.name not in allowed_names and not is_nh:
