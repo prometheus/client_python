@@ -146,6 +146,7 @@ class _PrintHandler(WSGIRequestHandler):
     def log_message(self, format, *args):
         print(format % args)
 
+
 class ThreadingWSGIServer(ThreadingMixIn, WSGIServer):
     """Thread per request HTTP server."""
     # Make worker threads "fire and forget". Beginning with Python 3.7 this
