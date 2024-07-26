@@ -226,10 +226,9 @@ def start_wsgi_server(
 
     TmpServer.address_family, addr = _get_best_family(addr, port)
     app = make_wsgi_app(registry)
+    handler = _SilentHandler    # type: WSGIRequestHandler
     if debug:
         handler = _PrintHandler
-    else:
-        handler = _SilentHandler
     httpd = make_server(addr, port, app, TmpServer, handler_class=handler)
     if certfile and keyfile:
         context = _get_ssl_ctx(certfile, keyfile, protocol, client_cafile, client_capath, client_auth_required)
