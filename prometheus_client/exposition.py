@@ -140,6 +140,12 @@ class _SilentHandler(WSGIRequestHandler):
         """Log nothing."""
 
 
+class _PrintHandler(WSGIRequestHandler):
+    """WSGI handler that print log requests to console."""
+
+    def log_message(self, format, *args):
+        print(format % args)
+
 class ThreadingWSGIServer(ThreadingMixIn, WSGIServer):
     """Thread per request HTTP server."""
     # Make worker threads "fire and forget". Beginning with Python 3.7 this
@@ -210,6 +216,7 @@ def start_wsgi_server(
         client_capath: Optional[str] = None,
         protocol: int = ssl.PROTOCOL_TLS_SERVER,
         client_auth_required: bool = False,
+        debug: bool = False
 ) -> Tuple[WSGIServer, threading.Thread]:
     """Starts a WSGI server for prometheus metrics as a daemon thread."""
 
@@ -218,7 +225,10 @@ def start_wsgi_server(
 
     TmpServer.address_family, addr = _get_best_family(addr, port)
     app = make_wsgi_app(registry)
-    httpd = make_server(addr, port, app, TmpServer, handler_class=_SilentHandler)
+    handler = _SilentHandler
+    if debug:
+        handler = _PrintHandler
+    httpd = make_server(addr, port, app, TmpServer, handler_class=handler)
     if certfile and keyfile:
         context = _get_ssl_ctx(certfile, keyfile, protocol, client_cafile, client_capath, client_auth_required)
         httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
