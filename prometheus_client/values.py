@@ -1,5 +1,5 @@
 import os
-from threading import Lock
+from threading import RLock
 import warnings
 
 from .mmap_dict import mmap_key, MmapedDict
@@ -13,7 +13,7 @@ class MutexValue:
     def __init__(self, typ, metric_name, name, labelnames, labelvalues, help_text, **kwargs):
         self._value = 0.0
         self._exemplar = None
-        self._lock = Lock()
+        self._lock = RLock()
 
     def inc(self, amount):
         with self._lock:
@@ -50,7 +50,7 @@ def MultiProcessValue(process_identifier=os.getpid):
     # Use a single global lock when in multi-processing mode
     # as we presume this means there is no threading going on.
     # This avoids the need to also have mutexes in __MmapDict.
-    lock = Lock()
+    lock = RLock()
 
     class MmapedValue:
         """A float protected by a mutex backed by a per-process mmaped file."""
