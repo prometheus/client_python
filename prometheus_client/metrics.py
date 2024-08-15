@@ -23,12 +23,7 @@ F = TypeVar("F", bound=Callable[..., Any])
 
 
 def _build_full_name(metric_type, name, namespace, subsystem, unit):
-    full_name = ''
-    if namespace:
-        full_name += namespace + '_'
-    if subsystem:
-        full_name += subsystem + '_'
-    full_name += name
+    full_name = "_".join(filter(None, [namespace, subsystem, name]))
     if metric_type == 'counter' and full_name.endswith('_total'):
         full_name = full_name[:-6]  # Munge to OpenMetrics.
     if unit and not full_name.endswith("_" + unit):

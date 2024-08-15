@@ -156,10 +156,8 @@ def text_fd_to_metric_families(fd: TextIO) -> Iterable[Metric]:
             if name.endswith('_total'):
                 name = name[:-6]
             else:
-                new_samples = []
-                for s in samples:
-                    new_samples.append(Sample(s[0] + '_total', *s[1:]))
-                    samples = new_samples
+                new_samples = [Sample(s[0] + '_total', *s[1:]) for s in samples]
+                samples = new_samples
         metric = Metric(name, documentation, typ)
         metric.samples = samples
         return metric
