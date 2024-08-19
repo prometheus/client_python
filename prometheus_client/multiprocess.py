@@ -92,10 +92,11 @@ class MultiProcessCollector:
             sample_timestamps = defaultdict(float)
             buckets = defaultdict(lambda: defaultdict(float))
             samples_setdefault = samples.setdefault
+            generate_pidless_key = lambda x, y: (x, tuple(l for l in y if l[0] != 'pid'))
             for s in metric.samples:
                 name, labels, value, timestamp, exemplar = s
                 if metric.type == 'gauge':
-                    without_pid_key = (name, tuple(l for l in labels if l[0] != 'pid'))
+                    without_pid_key = generate_pidless_key(name, labels)
                     if metric._multiprocess_mode in ('min', 'livemin'):
                         current = samples_setdefault(without_pid_key, value)
                         if value < current:
@@ -150,7 +151,13 @@ class MultiProcessCollector:
                         samples[(metric.name + '_count', labels)] = acc
 
             # Convert to correct sample format.
-            metric.samples = [Sample(name_, dict(labels), value) for (name_, labels), value in samples.items()]
+            timestamped_samples = []
+            for (name_, labels), value in samples.items():
+                without_pid_key = generate_pidless_key(name_, labels)
+                timestamped_samples.append(
+                    Sample(name_, dict(labels), value, sample_timestamps[without_pid_key] or None)
+                )
+            metric.samples = timestamped_samples
         return metrics.values()
 
     def collect(self):
