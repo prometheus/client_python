@@ -4,8 +4,8 @@ import unittest
 from prometheus_client.core import (
     BucketSpan, CollectorRegistry, CounterMetricFamily, Exemplar,
     GaugeHistogramMetricFamily, GaugeMetricFamily, HistogramMetricFamily,
-    InfoMetricFamily, Metric, NativeHistStructValue, Sample,
-    StateSetMetricFamily, SummaryMetricFamily, Timestamp,
+    InfoMetricFamily, Metric, NativeHistogram, Sample, StateSetMetricFamily,
+    SummaryMetricFamily, Timestamp,
 )
 from prometheus_client.openmetrics.exposition import generate_latest
 from prometheus_client.openmetrics.parser import text_string_to_metric_families
@@ -185,7 +185,7 @@ nativehistogram {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,pos
         families = list(families)
        
         hfm = HistogramMetricFamily("nativehistogram", "Is a basic example of a native histogram")
-        hfm.add_sample("nativehistogram", None, NativeHistStructValue(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3)))
+        hfm.add_sample("nativehistogram", None, None, None, None, NativeHistogram(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3)))
         self.assertEqual([hfm], families)
 
     def test_native_histogram_with_labels(self):
@@ -197,7 +197,7 @@ hist_w_labels{foo="bar",baz="qux"} {count:24,sum:100,schema:0,zero_threshold:0.0
         families = list(families)
        
         hfm = HistogramMetricFamily("hist_w_labels", "Is a basic example of a native histogram with labels")
-        hfm.add_sample("hist_w_labels", {"foo": "bar", "baz": "qux"}, NativeHistStructValue(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3)))
+        hfm.add_sample("hist_w_labels", {"foo": "bar", "baz": "qux"}, None, None, None, NativeHistogram(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3)))
         self.assertEqual([hfm], families)
 
     def test_native_histogram_with_classic_histogram(self):
@@ -213,11 +213,11 @@ hist_w_classic_sum{foo="bar"} 100
         families = list(families)
        
         hfm = HistogramMetricFamily("hist_w_classic", "Is a basic example of a native histogram coexisting with a classic histogram")
-        hfm.add_sample("hist_w_classic", {"foo": "bar"}, NativeHistStructValue(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3)))
-        hfm.add_sample("hist_w_classic_bucket", {"foo": "bar", "le": "0.001"}, 4.0, None, None)
-        hfm.add_sample("hist_w_classic_bucket", {"foo": "bar", "le": "+Inf"}, 24.0, None, None)
-        hfm.add_sample("hist_w_classic_count", {"foo": "bar"}, 24.0, None, None)
-        hfm.add_sample("hist_w_classic_sum", {"foo": "bar"}, 100.0, None, None)
+        hfm.add_sample("hist_w_classic", {"foo": "bar"}, None, None, None, NativeHistogram(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3)))
+        hfm.add_sample("hist_w_classic_bucket", {"foo": "bar", "le": "0.001"}, 4.0, None, None, None)
+        hfm.add_sample("hist_w_classic_bucket", {"foo": "bar", "le": "+Inf"}, 24.0, None, None, None)
+        hfm.add_sample("hist_w_classic_count", {"foo": "bar"}, 24.0, None, None, None)
+        hfm.add_sample("hist_w_classic_sum", {"foo": "bar"}, 100.0, None, None, None)
         self.assertEqual([hfm], families)
     
     def test_native_plus_classic_histogram_two_labelsets(self):
@@ -238,16 +238,16 @@ hist_w_classic_two_sets_sum{foo="baz"} 100
         families = list(families)
        
         hfm = HistogramMetricFamily("hist_w_classic_two_sets", "Is an example of a native histogram plus a classic histogram with two label sets")
-        hfm.add_sample("hist_w_classic_two_sets", {"foo": "bar"}, NativeHistStructValue(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3)))
-        hfm.add_sample("hist_w_classic_two_sets_bucket", {"foo": "bar", "le": "0.001"}, 4.0, None, None)
-        hfm.add_sample("hist_w_classic_two_sets_bucket", {"foo": "bar", "le": "+Inf"}, 24.0, None, None)
-        hfm.add_sample("hist_w_classic_two_sets_count", {"foo": "bar"}, 24.0, None, None)
-        hfm.add_sample("hist_w_classic_two_sets_sum", {"foo": "bar"}, 100.0, None, None)
-        hfm.add_sample("hist_w_classic_two_sets", {"foo": "baz"}, NativeHistStructValue(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3)))
-        hfm.add_sample("hist_w_classic_two_sets_bucket", {"foo": "baz", "le": "0.001"}, 4.0, None, None)
-        hfm.add_sample("hist_w_classic_two_sets_bucket", {"foo": "baz", "le": "+Inf"}, 24.0, None, None)
-        hfm.add_sample("hist_w_classic_two_sets_count", {"foo": "baz"}, 24.0, None, None)
-        hfm.add_sample("hist_w_classic_two_sets_sum", {"foo": "baz"}, 100.0, None, None)
+        hfm.add_sample("hist_w_classic_two_sets", {"foo": "bar"}, None, None, None, NativeHistogram(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3)))
+        hfm.add_sample("hist_w_classic_two_sets_bucket", {"foo": "bar", "le": "0.001"}, 4.0, None, None, None)
+        hfm.add_sample("hist_w_classic_two_sets_bucket", {"foo": "bar", "le": "+Inf"}, 24.0, None, None, None)
+        hfm.add_sample("hist_w_classic_two_sets_count", {"foo": "bar"}, 24.0, None, None, None)
+        hfm.add_sample("hist_w_classic_two_sets_sum", {"foo": "bar"}, 100.0, None, None, None)
+        hfm.add_sample("hist_w_classic_two_sets", {"foo": "baz"}, None, None, None, NativeHistogram(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3)))
+        hfm.add_sample("hist_w_classic_two_sets_bucket", {"foo": "baz", "le": "0.001"}, 4.0, None, None, None)
+        hfm.add_sample("hist_w_classic_two_sets_bucket", {"foo": "baz", "le": "+Inf"}, 24.0, None, None, None)
+        hfm.add_sample("hist_w_classic_two_sets_count", {"foo": "baz"}, 24.0, None, None, None)
+        hfm.add_sample("hist_w_classic_two_sets_sum", {"foo": "baz"}, 100.0, None, None, None)
         self.assertEqual([hfm], families)
 
     def test_simple_gaugehistogram(self):
@@ -879,6 +879,7 @@ bar_bucket{a="c",le="+Inf"} 0.0
             ('# TYPE a histogram\na_bucket{le="+INF"} 0\n# EOF\n'),
             ('# TYPE a histogram\na_bucket{le="2"} 0\na_bucket{le="1"} 0\na_bucket{le="+Inf"} 0\n# EOF\n'),
             ('# TYPE a histogram\na_bucket{le="1"} 1\na_bucket{le="2"} 1\na_bucket{le="+Inf"} 0\n# EOF\n'),
+            ('# TYPE a histogram\na_bucket {} {}'),
             # Bad grouping or ordering.
             ('# TYPE a histogram\na_sum{a="1"} 0\na_sum{a="2"} 0\na_count{a="1"} 0\n# EOF\n'),
             ('# TYPE a histogram\na_bucket{a="1",le="1"} 0\na_bucket{a="2",le="+Inf""} '

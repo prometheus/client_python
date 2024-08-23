@@ -39,7 +39,7 @@ class BucketSpan(NamedTuple):
     length: int
 
 
-class NativeHistStructValue(NamedTuple):
+class NativeHistogram(NamedTuple):
     count_value: float
     sum_value: float
     schema: int
@@ -65,6 +65,7 @@ class Exemplar(NamedTuple):
 class Sample(NamedTuple):
     name: str
     labels: Dict[str, str]
-    value: Union[float, NativeHistStructValue]
+    value: float
     timestamp: Optional[Union[float, Timestamp]] = None
     exemplar: Optional[Exemplar] = None
+    native_histogram: Optional[NativeHistogram] = None

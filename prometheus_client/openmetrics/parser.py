@@ -6,9 +6,7 @@ import math
 import re
 
 from ..metrics_core import Metric, METRIC_LABEL_NAME_RE
-from ..samples import (
-    BucketSpan, Exemplar, NativeHistStructValue, Sample, Timestamp,
-)
+from ..samples import BucketSpan, Exemplar, NativeHistogram, Sample, Timestamp
 from ..utils import floatToGoString
 
 
@@ -373,6 +371,7 @@ def _parse_nh_sample(text, suffixes):
     re_nh_with_labels = re.compile(r'[^{} ]+{[^{}]+} {[^{}]+}$')
     print('we are matching \'{}\''.format(text))
     if re_nh_with_labels.match(text):
+        print('nh without labels matches')
         nh_value_start = text.rindex("{")
         labels_end = nh_value_start - 2
         labelstext = text[labels_start + 1:labels_end]
@@ -382,8 +381,8 @@ def _parse_nh_sample(text, suffixes):
         if name.endswith(suffixes):
             raise ValueError("the sample name of a native histogram with labels should have no suffixes", name) 
         nh_value = text[nh_value_start:]
-        value = _parse_nh_struct(nh_value)
-        return Sample(name, labels, value)
+        nat_hist_value = _parse_nh_struct(nh_value)
+        return Sample(name, labels, None, None, None, nat_hist_value)
     # check if it's a native histogram
     if re_nh_without_labels.match(text):
         nh_value_start = labels_start
@@ -392,8 +391,8 @@ def _parse_nh_sample(text, suffixes):
         name = text[:name_end]
         if name.endswith(suffixes):
             raise ValueError("the sample name of a native histogram should have no suffixes", name)
-        value = _parse_nh_struct(nh_value)
-        return Sample(name, None, value)      
+        nat_hist_value = _parse_nh_struct(nh_value)
+        return Sample(name, None, None, None, None, nat_hist_value)      
     else:
         # it's not a native histogram
         return
@@ -417,37 +416,37 @@ def _parse_nh_struct(text):
 
     try:
         pos_spans_text = spans['positive_spans']
-    except KeyError:
-        pos_spans = None
-    else:
         elems = pos_spans_text.split(',')
         arg1 = [int(x) for x in elems[0].split(':')]
         arg2 = [int(x) for x in elems[1].split(':')]
         pos_spans = (BucketSpan(arg1[0], arg1[1]), BucketSpan(arg2[0], arg2[1]))
+    except KeyError:
+        pos_spans = None
+       
     try:
         neg_spans_text = spans['negative_spans']
-    except KeyError:
-        neg_spans = None
-    else:
         elems = neg_spans_text.split(',')
         arg1 = [int(x) for x in elems[0].split(':')]
         arg2 = [int(x) for x in elems[1].split(':')]
         neg_spans = (BucketSpan(arg1[0], arg1[1]), BucketSpan(arg2[0], arg2[1]))
+    except KeyError:
+        neg_spans = None
+       
     try:
         pos_deltas_text = deltas['positive_deltas']
-    except KeyError:
-        pos_deltas = None
-    else:
         elems = pos_deltas_text.split(',')
         pos_deltas = tuple([int(x) for x in elems])
+    except KeyError:
+        pos_deltas = None
+       
     try:
         neg_deltas_text = deltas['negative_deltas']
-    except KeyError:
-        neg_deltas = None
-    else:
         elems = neg_deltas_text.split(',')
         neg_deltas = tuple([int(x) for x in elems])
-    return NativeHistStructValue(
+    except KeyError:
+        neg_deltas = None
+       
+    return NativeHistogram(
         count_value=count_value,
         sum_value=sum_value,
         schema=schema,
@@ -502,38 +501,39 @@ def _check_histogram(samples, name):
     for s in samples:
         suffix = s.name[len(name):]
         g = _group_for_sample(s, name, 'histogram')
-        if len(suffix) != 0:
-            if g != group or s.timestamp != timestamp:
-                if group is not None:
-                    do_checks()
-                count = None
-                bucket = None
-                has_negative_buckets = False
-                has_sum = False
-                has_gsum = False
-                has_negative_gsum = False
-                value = 0
-            group = g
-            timestamp = s.timestamp
+        if len(suffix) == 0:
+            continue
+        if g != group or s.timestamp != timestamp:
+            if group is not None:
+                do_checks()
+            count = None
+            bucket = None
+            has_negative_buckets = False
+            has_sum = False
+            has_gsum = False
+            has_negative_gsum = False
+            value = 0
+        group = g
+        timestamp = s.timestamp
 
-            if suffix == '_bucket':
-                b = float(s.labels['le'])
-                if b < 0:
-                    has_negative_buckets = True
-                if bucket is not None and b <= bucket:
-                    raise ValueError("Buckets out of order: " + name)
-                if s.value < value:
-                    raise ValueError("Bucket values out of order: " + name)
-                bucket = b
-                value = s.value
-            elif suffix in ['_count', '_gcount']:
-                count = s.value
-            elif suffix in ['_sum']:
-                has_sum = True
-            elif suffix in ['_gsum']:
-                has_gsum = True
-                if s.value < 0:
-                    has_negative_gsum = True
+        if suffix == '_bucket':
+            b = float(s.labels['le'])
+            if b < 0:
+                has_negative_buckets = True
+            if bucket is not None and b <= bucket:
+                raise ValueError("Buckets out of order: " + name)
+            if s.value < value:
+                raise ValueError("Bucket values out of order: " + name)
+            bucket = b
+            value = s.value
+        elif suffix in ['_count', '_gcount']:
+            count = s.value
+        elif suffix in ['_sum']:
+            has_sum = True
+        elif suffix in ['_gsum']:
+            has_gsum = True
+            if s.value < 0:
+                has_negative_gsum = True
 
     if group is not None:
         do_checks()

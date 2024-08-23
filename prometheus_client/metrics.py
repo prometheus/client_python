@@ -111,8 +111,8 @@ class MetricWrapperBase(Collector):
 
     def collect(self) -> Iterable[Metric]:
         metric = self._get_metric()
-        for suffix, labels, value, timestamp, exemplar in self._samples():
-            metric.add_sample(self._name + suffix, labels, value, timestamp, exemplar)
+        for suffix, labels, value, timestamp, exemplar, native_histogram_value in self._samples():
+            metric.add_sample(self._name + suffix, labels, value, timestamp, exemplar, native_histogram_value)
         return [metric]
 
     def __str__(self) -> str:
@@ -246,8 +246,8 @@ class MetricWrapperBase(Collector):
             metrics = self._metrics.copy()
         for labels, metric in metrics.items():
             series_labels = list(zip(self._labelnames, labels))
-            for suffix, sample_labels, value, timestamp, exemplar in metric._samples():
-                yield Sample(suffix, dict(series_labels + list(sample_labels.items())), value, timestamp, exemplar)
+            for suffix, sample_labels, value, timestamp, exemplar, native_histogram_value in metric._samples():
+                yield Sample(suffix, dict(series_labels + list(sample_labels.items())), value, timestamp, exemplar, native_histogram_value)
 
     def _child_samples(self) -> Iterable[Sample]:  # pragma: no cover
         raise NotImplementedError('_child_samples() must be implemented by %r' % self)
@@ -595,14 +595,6 @@ class Histogram(MetricWrapperBase):
                  registry: Optional[CollectorRegistry] = REGISTRY,
                  _labelvalues: Optional[Sequence[str]] = None,
                  buckets: Sequence[Union[float, str]] = DEFAULT_BUCKETS,
-                 # native_hist_schema: Optional[int] = None,
-                 # native_hist_bucket_fact: Optional[float] = None,
-                 # native_hist_zero_threshold: Optional[float] = None,
-                 # native_hist_max_bucket_num: Optional[int] = None,
-                 # native_hist_min_reset_dur: Optional[timedelta] = None,
-                 # native_hist_max_zero_threshold: Optional[float] = None,
-                 # native_hist_max_exemplars: Optional[int] = None,
-                 # native_hist_exemplar_TTL: Optional[timedelta] = None,
                  ):
         self._prepare_buckets(buckets)
         super().__init__(

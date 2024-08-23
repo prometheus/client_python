@@ -1,7 +1,7 @@
 import re
 from typing import Dict, List, Optional, Sequence, Tuple, Union
 
-from .samples import Exemplar, NativeHistStructValue, Sample, Timestamp
+from .samples import Exemplar, NativeHistogram, Sample, Timestamp
 
 METRIC_TYPES = (
     'counter', 'gauge', 'summary', 'histogram',
@@ -36,14 +36,11 @@ class Metric:
         self.type: str = typ
         self.samples: List[Sample] = []
 
-    def add_sample(self, name: str, labels: Dict[str, str], value: Union[float, NativeHistStructValue], timestamp: Optional[Union[Timestamp, float]] = None, exemplar: Optional[Exemplar] = None) -> None:
+    def add_sample(self, name: str, labels: Dict[str, str], value: float, timestamp: Optional[Union[Timestamp, float]] = None, exemplar: Optional[Exemplar] = None, native_histogram: Optional[NativeHistogram] = None) -> None:
         """Add a sample to the metric.
 
         Internal-only, do not use."""
-        if not isinstance(value, NativeHistStructValue):
-            self.samples.append(Sample(name, labels, value, timestamp, exemplar))
-        else:
-            self.samples.append(Sample(name, labels, value))
+        self.samples.append(Sample(name, labels, value, timestamp, exemplar, native_histogram))
 
     def __eq__(self, other: object) -> bool:
         return (isinstance(other, Metric)
