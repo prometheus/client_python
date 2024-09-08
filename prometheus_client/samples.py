@@ -34,11 +34,13 @@ class Timestamp:
         return self.nsec < other.nsec if self.sec == other.sec else self.sec < other.sec
 
 
+# BucketSpan is experimental and subject to change at any time.
 class BucketSpan(NamedTuple):
     offset: int
     length: int
 
 
+# NativeHistogram is experimental and subject to change at any time.
 class NativeHistogram(NamedTuple):
     count_value: float
     sum_value: float

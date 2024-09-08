@@ -92,4 +92,3 @@ class GraphiteBridge:
         t = _RegularPush(self, interval, prefix)
         t.daemon = True
         t.start()
-    

@@ -236,7 +236,6 @@ class HistogramMetricFamily(Metric):
                  sum_value: Optional[float] = None,
                  labels: Optional[Sequence[str]] = None,
                  unit: str = '',
-                 native_hist_bucket_factor: Optional[float] = None
                  ):
         Metric.__init__(self, name, documentation, 'histogram', unit)
         if sum_value is not None and buckets is None:

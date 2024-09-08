@@ -369,9 +369,7 @@ def _parse_nh_sample(text, suffixes):
     # check if it's a native histogram with labels
     re_nh_without_labels = re.compile(r'^[^{} ]+ {[^{}]+}$')
     re_nh_with_labels = re.compile(r'[^{} ]+{[^{}]+} {[^{}]+}$')
-    print('we are matching \'{}\''.format(text))
     if re_nh_with_labels.match(text):
-        print('nh without labels matches')
         nh_value_start = text.rindex("{")
         labels_end = nh_value_start - 2
         labelstext = text[labels_start + 1:labels_end]
