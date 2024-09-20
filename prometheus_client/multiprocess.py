@@ -93,7 +93,7 @@ class MultiProcessCollector:
             buckets = defaultdict(lambda: defaultdict(float))
             samples_setdefault = samples.setdefault
             for s in metric.samples:
-                name, labels, value, timestamp, exemplar = s
+                name, labels, value, timestamp, exemplar, native_histogram_value = s
                 if metric.type == 'gauge':
                     without_pid_key = (name, tuple(l for l in labels if l[0] != 'pid'))
                     if metric._multiprocess_mode in ('min', 'livemin'):

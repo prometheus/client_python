@@ -111,8 +111,8 @@ class MetricWrapperBase(Collector):
 
     def collect(self) -> Iterable[Metric]:
         metric = self._get_metric()
-        for suffix, labels, value, timestamp, exemplar in self._samples():
-            metric.add_sample(self._name + suffix, labels, value, timestamp, exemplar)
+        for suffix, labels, value, timestamp, exemplar, native_histogram_value in self._samples():
+            metric.add_sample(self._name + suffix, labels, value, timestamp, exemplar, native_histogram_value)
         return [metric]
 
     def __str__(self) -> str:
@@ -246,8 +246,8 @@ class MetricWrapperBase(Collector):
             metrics = self._metrics.copy()
         for labels, metric in metrics.items():
             series_labels = list(zip(self._labelnames, labels))
-            for suffix, sample_labels, value, timestamp, exemplar in metric._samples():
-                yield Sample(suffix, dict(series_labels + list(sample_labels.items())), value, timestamp, exemplar)
+            for suffix, sample_labels, value, timestamp, exemplar, native_histogram_value in metric._samples():
+                yield Sample(suffix, dict(series_labels + list(sample_labels.items())), value, timestamp, exemplar, native_histogram_value)
 
     def _child_samples(self) -> Iterable[Sample]:  # pragma: no cover
         raise NotImplementedError('_child_samples() must be implemented by %r' % self)

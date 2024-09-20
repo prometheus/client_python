@@ -6,7 +6,7 @@ import math
 import re
 
 from ..metrics_core import Metric, METRIC_LABEL_NAME_RE
-from ..samples import Exemplar, Sample, Timestamp
+from ..samples import BucketSpan, Exemplar, NativeHistogram, Sample, Timestamp
 from ..utils import floatToGoString
 
 
@@ -364,6 +364,99 @@ def _parse_remaining_text(text):
     return val, ts, exemplar
 
 
+def _parse_nh_sample(text, suffixes):
+    labels_start = text.find("{")
+    # check if it's a native histogram with labels
+    re_nh_without_labels = re.compile(r'^[^{} ]+ {[^{}]+}$')
+    re_nh_with_labels = re.compile(r'[^{} ]+{[^{}]+} {[^{}]+}$')
+    if re_nh_with_labels.match(text):
+        nh_value_start = text.rindex("{")
+        labels_end = nh_value_start - 2
+        labelstext = text[labels_start + 1:labels_end]
+        labels = _parse_labels(labelstext)
+        name_end = labels_start
+        name = text[:name_end]
+        if name.endswith(suffixes):
+            raise ValueError("the sample name of a native histogram with labels should have no suffixes", name) 
+        nh_value = text[nh_value_start:]
+        nat_hist_value = _parse_nh_struct(nh_value)
+        return Sample(name, labels, None, None, None, nat_hist_value)
+    # check if it's a native histogram
+    if re_nh_without_labels.match(text):
+        nh_value_start = labels_start
+        nh_value = text[nh_value_start:]
+        name_end = nh_value_start - 1
+        name = text[:name_end]
+        if name.endswith(suffixes):
+            raise ValueError("the sample name of a native histogram should have no suffixes", name)
+        nat_hist_value = _parse_nh_struct(nh_value)
+        return Sample(name, None, None, None, None, nat_hist_value)      
+    else:
+        # it's not a native histogram
+        return
+
+
+def _parse_nh_struct(text):
+    pattern = r'(\w+):\s*([^,}]+)'
+    
+    re_spans = re.compile(r'(positive_spans|negative_spans):\[(\d+:\d+,\d+:\d+)\]')
+    re_deltas = re.compile(r'(positive_deltas|negative_deltas):\[(-?\d+(?:,-?\d+)*)\]')
+
+    items = dict(re.findall(pattern, text))
+    spans = dict(re_spans.findall(text))
+    deltas = dict(re_deltas.findall(text))
+
+    count_value = int(items['count'])
+    sum_value = int(items['sum'])
+    schema = int(items['schema'])
+    zero_threshold = float(items['zero_threshold'])
+    zero_count = int(items['zero_count'])
+
+    try:
+        pos_spans_text = spans['positive_spans']
+        elems = pos_spans_text.split(',')
+        arg1 = [int(x) for x in elems[0].split(':')]
+        arg2 = [int(x) for x in elems[1].split(':')]
+        pos_spans = (BucketSpan(arg1[0], arg1[1]), BucketSpan(arg2[0], arg2[1]))
+    except KeyError:
+        pos_spans = None
+       
+    try:
+        neg_spans_text = spans['negative_spans']
+        elems = neg_spans_text.split(',')
+        arg1 = [int(x) for x in elems[0].split(':')]
+        arg2 = [int(x) for x in elems[1].split(':')]
+        neg_spans = (BucketSpan(arg1[0], arg1[1]), BucketSpan(arg2[0], arg2[1]))
+    except KeyError:
+        neg_spans = None
+       
+    try:
+        pos_deltas_text = deltas['positive_deltas']
+        elems = pos_deltas_text.split(',')
+        pos_deltas = tuple([int(x) for x in elems])
+    except KeyError:
+        pos_deltas = None
+       
+    try:
+        neg_deltas_text = deltas['negative_deltas']
+        elems = neg_deltas_text.split(',')
+        neg_deltas = tuple([int(x) for x in elems])
+    except KeyError:
+        neg_deltas = None
+       
+    return NativeHistogram(
+        count_value=count_value,
+        sum_value=sum_value,
+        schema=schema,
+        zero_threshold=zero_threshold,
+        zero_count=zero_count,
+        pos_spans=pos_spans,
+        neg_spans=neg_spans,
+        pos_deltas=pos_deltas,
+        neg_deltas=neg_deltas
+    )
+        
+
 def _group_for_sample(sample, name, typ):
     if typ == 'info':
         # We can't distinguish between groups for info metrics.
@@ -406,6 +499,8 @@ def _check_histogram(samples, name):
     for s in samples:
         suffix = s.name[len(name):]
         g = _group_for_sample(s, name, 'histogram')
+        if len(suffix) == 0:
+            continue
         if g != group or s.timestamp != timestamp:
             if group is not None:
                 do_checks()
@@ -486,6 +581,8 @@ def text_fd_to_metric_families(fd):
         metric.samples = samples
         return metric
 
+    is_nh = False
+    typ = None
     for line in fd:
         if line[-1] == '\n':
             line = line[:-1]
@@ -518,7 +615,7 @@ def text_fd_to_metric_families(fd):
                 group_timestamp_samples = set()
                 samples = []
                 allowed_names = [parts[2]]
-
+            
             if parts[1] == 'HELP':
                 if documentation is not None:
                     raise ValueError("More than one HELP for metric: " + line)
@@ -537,8 +634,18 @@ def text_fd_to_metric_families(fd):
             else:
                 raise ValueError("Invalid line: " + line)
         else:
-            sample = _parse_sample(line)
-            if sample.name not in allowed_names:
+            if typ == 'histogram':
+                # set to true to account for native histograms naming exceptions/sanitizing differences
+                is_nh = True
+                sample = _parse_nh_sample(line, tuple(type_suffixes['histogram']))
+                # It's not a native histogram
+                if sample is None:
+                    is_nh = False
+                    sample = _parse_sample(line)              
+            else:
+                is_nh = False
+                sample = _parse_sample(line)
+            if sample.name not in allowed_names and not is_nh:
                 if name is not None:
                     yield build_metric(name, documentation, typ, unit, samples)
                 # Start an unknown metric.
@@ -570,26 +677,29 @@ def text_fd_to_metric_families(fd):
                          or _isUncanonicalNumber(sample.labels['quantile']))):
                 raise ValueError("Invalid quantile label: " + line)
 
-            g = tuple(sorted(_group_for_sample(sample, name, typ).items()))
-            if group is not None and g != group and g in seen_groups:
-                raise ValueError("Invalid metric grouping: " + line)
-            if group is not None and g == group:
-                if (sample.timestamp is None) != (group_timestamp is None):
-                    raise ValueError("Mix of timestamp presence within a group: " + line)
-                if group_timestamp is not None and group_timestamp > sample.timestamp and typ != 'info':
-                    raise ValueError("Timestamps went backwards within a group: " + line)
+            if not is_nh:
+                g = tuple(sorted(_group_for_sample(sample, name, typ).items()))
+                if group is not None and g != group and g in seen_groups:
+                    raise ValueError("Invalid metric grouping: " + line)
+                if group is not None and g == group:
+                    if (sample.timestamp is None) != (group_timestamp is None):
+                        raise ValueError("Mix of timestamp presence within a group: " + line)
+                    if group_timestamp is not None and group_timestamp > sample.timestamp and typ != 'info':
+                        raise ValueError("Timestamps went backwards within a group: " + line)
+                else:
+                    group_timestamp_samples = set()
+
+                series_id = (sample.name, tuple(sorted(sample.labels.items())))
+                if sample.timestamp != group_timestamp or series_id not in group_timestamp_samples:
+                    # Not a duplicate due to timestamp truncation.
+                    samples.append(sample)
+                group_timestamp_samples.add(series_id)
+
+                group = g
+                group_timestamp = sample.timestamp
+                seen_groups.add(g)
             else:
-                group_timestamp_samples = set()
-
-            series_id = (sample.name, tuple(sorted(sample.labels.items())))
-            if sample.timestamp != group_timestamp or series_id not in group_timestamp_samples:
-                # Not a duplicate due to timestamp truncation.
                 samples.append(sample)
-            group_timestamp_samples.add(series_id)
-
-            group = g
-            group_timestamp = sample.timestamp
-            seen_groups.add(g)
 
             if typ == 'stateset' and sample.value not in [0, 1]:
                 raise ValueError("Stateset samples can only have values zero and one: " + line)
@@ -606,7 +716,7 @@ def text_fd_to_metric_families(fd):
                     (typ in ['histogram', 'gaugehistogram'] and sample.name.endswith('_bucket'))
                     or (typ in ['counter'] and sample.name.endswith('_total'))):
                 raise ValueError("Invalid line only histogram/gaugehistogram buckets and counters can have exemplars: " + line)
-
+    
     if name is not None:
         yield build_metric(name, documentation, typ, unit, samples)
 

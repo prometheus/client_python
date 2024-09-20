@@ -1,7 +1,7 @@
 import re
 from typing import Dict, List, Optional, Sequence, Tuple, Union
 
-from .samples import Exemplar, Sample, Timestamp
+from .samples import Exemplar, NativeHistogram, Sample, Timestamp
 
 METRIC_TYPES = (
     'counter', 'gauge', 'summary', 'histogram',
@@ -36,11 +36,11 @@ class Metric:
         self.type: str = typ
         self.samples: List[Sample] = []
 
-    def add_sample(self, name: str, labels: Dict[str, str], value: float, timestamp: Optional[Union[Timestamp, float]] = None, exemplar: Optional[Exemplar] = None) -> None:
+    def add_sample(self, name: str, labels: Dict[str, str], value: float, timestamp: Optional[Union[Timestamp, float]] = None, exemplar: Optional[Exemplar] = None, native_histogram: Optional[NativeHistogram] = None) -> None:
         """Add a sample to the metric.
 
         Internal-only, do not use."""
-        self.samples.append(Sample(name, labels, value, timestamp, exemplar))
+        self.samples.append(Sample(name, labels, value, timestamp, exemplar, native_histogram))
 
     def __eq__(self, other: object) -> bool:
         return (isinstance(other, Metric)
@@ -282,7 +282,6 @@ class HistogramMetricFamily(Metric):
                 Sample(self.name + '_count', dict(zip(self._labelnames, labels)), buckets[-1][1], timestamp))
             self.samples.append(
                 Sample(self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value, timestamp))
-
 
 
 class GaugeHistogramMetricFamily(Metric):

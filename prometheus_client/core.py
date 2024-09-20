@@ -5,9 +5,10 @@ from .metrics_core import (
     SummaryMetricFamily, UnknownMetricFamily, UntypedMetricFamily,
 )
 from .registry import CollectorRegistry, REGISTRY
-from .samples import Exemplar, Sample, Timestamp
+from .samples import BucketSpan, Exemplar, NativeHistogram, Sample, Timestamp
 
 __all__ = (
+    'BucketSpan',
     'CollectorRegistry',
     'Counter',
     'CounterMetricFamily',
@@ -21,6 +22,7 @@ __all__ = (
     'Info',
     'InfoMetricFamily',
     'Metric',
+    'NativeHistogram',
     'REGISTRY',
     'Sample',
     'StateSetMetricFamily',

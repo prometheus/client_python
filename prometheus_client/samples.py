@@ -1,4 +1,4 @@
-from typing import Dict, NamedTuple, Optional, Union
+from typing import Dict, NamedTuple, Optional, Sequence, Tuple, Union
 
 
 class Timestamp:
@@ -34,6 +34,25 @@ class Timestamp:
         return self.nsec < other.nsec if self.sec == other.sec else self.sec < other.sec
 
 
+# BucketSpan is experimental and subject to change at any time.
+class BucketSpan(NamedTuple):
+    offset: int
+    length: int
+
+
+# NativeHistogram is experimental and subject to change at any time.
+class NativeHistogram(NamedTuple):
+    count_value: float
+    sum_value: float
+    schema: int
+    zero_threshold: float
+    zero_count: float
+    pos_spans: Optional[Tuple[BucketSpan, BucketSpan]] = None
+    neg_spans: Optional[Tuple[BucketSpan, BucketSpan]] = None
+    pos_deltas: Optional[Sequence[int]] = None
+    neg_deltas: Optional[Sequence[int]] = None
+
+
 # Timestamp and exemplar are optional.
 # Value can be an int or a float.
 # Timestamp can be a float containing a unixtime in seconds,
@@ -51,3 +70,4 @@ class Sample(NamedTuple):
     value: float
     timestamp: Optional[Union[float, Timestamp]] = None
     exemplar: Optional[Exemplar] = None
+    native_histogram: Optional[NativeHistogram] = None
