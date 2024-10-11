@@ -724,6 +724,21 @@ class TestMetricFamilies(unittest.TestCase):
         self.custom_collector(cmf)
         self.assertEqual(2, self.registry.get_sample_value('c_total', {'a': 'b', 'c_total': 'd'}))
 
+    def test_counter_exemplars_oneline(self):
+        cmf = CounterMetricFamily('c_total', 'help', value=23, exemplar={"bob": "osbourne"})
+        self.custom_collector(cmf)
+        sample = [c.samples for c in self.registry.collect()][0][0]
+        self.assertDictEqual({"bob": "osbourne"}, sample.exemplar)
+
+    def test_counter_exemplars_add(self):
+        cmf = CounterMetricFamily('c_total', 'help')
+        cmf.add_metric([], 12, exemplar={"bob": "osbourne"}, created=23)
+        self.custom_collector(cmf)
+        total_sample, created_sample = [c.samples for c in self.registry.collect()][0]
+        self.assertEqual("c_created", created_sample.name)
+        self.assertDictEqual({"bob": "osbourne"}, total_sample.exemplar)
+        self.assertIsNone(created_sample.exemplar)
+
     def test_gauge(self):
         self.custom_collector(GaugeMetricFamily('g', 'help', value=1))
         self.assertEqual(1, self.registry.get_sample_value('g', {}))

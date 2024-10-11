@@ -116,6 +116,7 @@ class CounterMetricFamily(Metric):
                  labels: Optional[Sequence[str]] = None,
                  created: Optional[float] = None,
                  unit: str = '',
+                 exemplar: Optional[Exemplar] = None,
                  ):
         # Glue code for pre-OpenMetrics metrics.
         if name.endswith('_total'):
@@ -127,13 +128,14 @@ class CounterMetricFamily(Metric):
             labels = []
         self._labelnames = tuple(labels)
         if value is not None:
-            self.add_metric([], value, created)
+            self.add_metric([], value, created, exemplar=exemplar)
 
     def add_metric(self,
                    labels: Sequence[str],
                    value: float,
                    created: Optional[float] = None,
                    timestamp: Optional[Union[Timestamp, float]] = None,
+                   exemplar: Optional[Exemplar] = None,
                    ) -> None:
         """Add a metric to the metric family.
 
@@ -142,7 +144,7 @@ class CounterMetricFamily(Metric):
           value: The value of the metric
           created: Optional unix timestamp the child was created at.
         """
-        self.samples.append(Sample(self.name + '_total', dict(zip(self._labelnames, labels)), value, timestamp))
+        self.samples.append(Sample(self.name + '_total', dict(zip(self._labelnames, labels)), value, timestamp, exemplar))
         if created is not None:
             self.samples.append(Sample(self.name + '_created', dict(zip(self._labelnames, labels)), created, timestamp))
 
