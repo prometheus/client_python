@@ -367,14 +367,19 @@ def write_to_textfile(path: str, registry: CollectorRegistry) -> None:
     This is intended for use with the Node exporter textfile collector.
     The path must end in .prom for the textfile collector to process it."""
     tmppath = f'{path}.{os.getpid()}.{threading.current_thread().ident}'
-    with open(tmppath, 'wb') as f:
-        f.write(generate_latest(registry))
+    try:
+        with open(tmppath, 'wb') as f:
+            f.write(generate_latest(registry))
 
-    # rename(2) is atomic but fails on Windows if the destination file exists
-    if os.name == 'nt':
-        os.replace(tmppath, path)
-    else:
-        os.rename(tmppath, path)
+        # rename(2) is atomic but fails on Windows if the destination file exists
+        if os.name == 'nt':
+            os.replace(tmppath, path)
+        else:
+            os.rename(tmppath, path)
+    except Exception:
+        if os.path.exists(tmppath):
+            os.remove(tmppath)
+        raise
 
 
 def _make_handler(
