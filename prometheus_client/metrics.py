@@ -39,7 +39,6 @@ def _build_full_name(metric_type, name, namespace, subsystem, unit):
 
 
 def _validate_labelname(l):
-    print("status????     ", get_legacy_validation())
     if get_legacy_validation():
         if not METRIC_LABEL_NAME_RE.match(l):
             raise ValueError('Invalid label metric name: ' + l)

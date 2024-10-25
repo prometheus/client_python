@@ -42,14 +42,41 @@ def valid_metric_name(name: str) -> bool:
     global _legacy_validation
     if _legacy_validation:
         return METRIC_NAME_RE.match(name)
-    else:
-        if not name:
-            return False
-        try:
-            name.encode('utf-8')
-            return True
-        except UnicodeDecodeError:
-            return False
+    if not name:
+        return False
+    try:
+        name.encode('utf-8')
+        return True
+    except UnicodeDecodeError:
+        return False
+       
+
+def valid_metric_name_token(tok: str) -> bool:
+    global _legacy_validation
+    quoted = tok[0] == '"' and tok[-1] == '"'
+    if not quoted or _legacy_validation:
+        return METRIC_NAME_RE.match(tok)
+    if not tok:
+        return False
+    try:
+        tok.encode('utf-8')
+        return True
+    except UnicodeDecodeError:
+        return False 
+
+
+def valid_metric_label_name_token(tok: str) -> bool:
+    global _legacy_validation
+    quoted = tok[0] == '"' and tok[-1] == '"'
+    if not quoted or _legacy_validation:
+        return METRIC_LABEL_NAME_RE.match(tok)
+    if not tok:
+        return False
+    try:
+        tok.encode('utf-8')
+        return True
+    except UnicodeDecodeError:
+        return False
 
 
 class Metric:

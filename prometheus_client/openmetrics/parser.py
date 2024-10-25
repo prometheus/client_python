@@ -5,7 +5,7 @@ import io as StringIO
 import math
 import re
 
-from ..metrics_core import Metric, METRIC_LABEL_NAME_RE
+from ..metrics_core import Metric, valid_metric_name_token, valid_metric_label_name_token
 from ..samples import BucketSpan, Exemplar, NativeHistogram, Sample, Timestamp
 from ..utils import floatToGoString
 
@@ -143,7 +143,7 @@ def _parse_labels_with_state_machine(text):
                 state = 'labelvalueslash'
             elif char == '"':
                 ln = ''.join(labelname)
-                if not METRIC_LABEL_NAME_RE.match(ln):
+                if not valid_metric_label_name_token(ln):
                     raise ValueError("Invalid line, bad label name: " + text)
                 if ln in labels:
                     raise ValueError("Invalid line, duplicate label name: " + text)
@@ -223,7 +223,7 @@ def _parse_labels(text):
             # Replace escaping if needed
             if "\\" in label_value:
                 label_value = _replace_escaping(label_value)
-            if not METRIC_LABEL_NAME_RE.match(label_name):
+            if not valid_metric_label_name_token(label_name):
                 raise ValueError("invalid line, bad label name: " + text)
             if label_name in labels:
                 raise ValueError("invalid line, duplicate label name: " + text)
@@ -576,6 +576,8 @@ def text_fd_to_metric_families(fd):
             raise ValueError("Units not allowed for this metric type: " + name)
         if typ in ['histogram', 'gaugehistogram']:
             _check_histogram(samples, name)
+        if not valid_metric_name_token(name):
+            raise ValueError("Invalid metric name: " + name)
         metric = Metric(name, documentation, typ, unit)
         # TODO: check labelvalues are valid utf8
         metric.samples = samples
