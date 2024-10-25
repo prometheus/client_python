@@ -14,6 +14,9 @@ from prometheus_client.core import (
 )
 from prometheus_client.decorator import getargspec
 from prometheus_client.metrics import _get_use_created
+from prometheus_client.metrics_core import (
+    disable_legacy_validation, enable_legacy_validation
+)
 
 
 def is_locked(lock):
@@ -114,8 +117,12 @@ class TestCounter(unittest.TestCase):
         assert_not_observable(counter.inc)
 
     def test_exemplar_invalid_label_name(self):
+        enable_legacy_validation()
         self.assertRaises(ValueError, self.counter.inc, exemplar={':o)': 'smile'})
         self.assertRaises(ValueError, self.counter.inc, exemplar={'1': 'number'})
+        disable_legacy_validation()
+        self.counter.inc(exemplar={':o)': 'smile'})
+        self.counter.inc(exemplar={'1': 'number'})
 
     def test_exemplar_unicode(self):
         # 128 characters should not raise, even using characters larger than 1 byte.
@@ -511,8 +518,12 @@ class TestHistogram(unittest.TestCase):
         self.assertEqual(1, value('hl_bucket', {'le': '+Inf', 'l': 'a'}))
 
     def test_exemplar_invalid_label_name(self):
+        enable_legacy_validation()
         self.assertRaises(ValueError, self.histogram.observe, 3.0, exemplar={':o)': 'smile'})
         self.assertRaises(ValueError, self.histogram.observe, 3.0, exemplar={'1': 'number'})
+        disable_legacy_validation()
+        self.histogram.observe(3.0, exemplar={':o)': 'smile'})
+        self.histogram.observe(3.0, exemplar={'1': 'number'})
 
     def test_exemplar_too_long(self):
         # 129 characters in total should fail.
@@ -655,12 +666,22 @@ class TestMetricWrapper(unittest.TestCase):
         self.assertRaises(ValueError, self.two_labels.labels, {'a': 'x'}, b='y')
 
     def test_invalid_names_raise(self):
+        enable_legacy_validation()
         self.assertRaises(ValueError, Counter, '', 'help')
         self.assertRaises(ValueError, Counter, '^', 'help')
         self.assertRaises(ValueError, Counter, '', 'help', namespace='&')
         self.assertRaises(ValueError, Counter, '', 'help', subsystem='(')
         self.assertRaises(ValueError, Counter, 'c_total', '', labelnames=['^'])
         self.assertRaises(ValueError, Counter, 'c_total', '', labelnames=['a:b'])
+        self.assertRaises(ValueError, Counter, 'c_total', '', labelnames=['__reserved'])
+        self.assertRaises(ValueError, Summary, 'c_total', '', labelnames=['quantile'])
+        disable_legacy_validation()
+        self.assertRaises(ValueError, Counter, '', 'help')
+        # self.assertRaises(ValueError, Counter, '^', 'help')
+        # self.assertRaises(ValueError, Counter, '', 'help', namespace='&')
+        # self.assertRaises(ValueError, Counter, '', 'help', subsystem='(')
+        # self.assertRaises(ValueError, Counter, 'c_total', '', labelnames=['^'])
+        # self.assertRaises(ValueError, Counter, 'c_total', '', labelnames=['a:b'])
         self.assertRaises(ValueError, Counter, 'c_total', '', labelnames=['__reserved'])
         self.assertRaises(ValueError, Summary, 'c_total', '', labelnames=['quantile'])
 
@@ -713,6 +734,10 @@ class TestMetricFamilies(unittest.TestCase):
     def test_counter(self):
         self.custom_collector(CounterMetricFamily('c_total', 'help', value=1))
         self.assertEqual(1, self.registry.get_sample_value('c_total', {}))
+        
+    def test_counter_utf8(self):
+        self.custom_collector(CounterMetricFamily('my.metric', 'help', value=1))
+        self.assertEqual(1, self.registry.get_sample_value('my.metric_total', {}))
 
     def test_counter_total(self):
         self.custom_collector(CounterMetricFamily('c_total', 'help', value=1))

@@ -46,6 +46,7 @@ class CollectorRegistry(Collector):
             for name in names:
                 self._names_to_collectors[name] = collector
             self._collector_to_names[collector] = names
+            print("ok2?", self._names_to_collectors, self._collector_to_names)
 
     def unregister(self, collector: Collector) -> None:
         """Remove a collector from the registry."""
@@ -137,6 +138,7 @@ class CollectorRegistry(Collector):
             labels = {}
         for metric in self.collect():
             for s in metric.samples:
+                print("ok?", s)
                 if s.name == name and s.labels == labels:
                     return s.value
         return None

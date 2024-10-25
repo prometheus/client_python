@@ -11,8 +11,8 @@ import warnings
 from . import values  # retain this import style for testability
 from .context_managers import ExceptionCounter, InprogressTracker, Timer
 from .metrics_core import (
-    Metric, METRIC_LABEL_NAME_RE, METRIC_NAME_RE,
-    RESERVED_METRIC_LABEL_NAME_RE,
+    get_legacy_validation, Metric, METRIC_LABEL_NAME_RE, METRIC_NAME_RE,
+    RESERVED_METRIC_LABEL_NAME_RE
 )
 from .registry import Collector, CollectorRegistry, REGISTRY
 from .samples import Exemplar, Sample
@@ -39,10 +39,19 @@ def _build_full_name(metric_type, name, namespace, subsystem, unit):
 
 
 def _validate_labelname(l):
-    if not METRIC_LABEL_NAME_RE.match(l):
-        raise ValueError('Invalid label metric name: ' + l)
-    if RESERVED_METRIC_LABEL_NAME_RE.match(l):
-        raise ValueError('Reserved label metric name: ' + l)
+    print("status????     ", get_legacy_validation())
+    if get_legacy_validation():
+        if not METRIC_LABEL_NAME_RE.match(l):
+            raise ValueError('Invalid label metric name: ' + l)
+        if RESERVED_METRIC_LABEL_NAME_RE.match(l):
+            raise ValueError('Reserved label metric name: ' + l)
+    else:
+        try:
+            l.encode('utf-8')
+        except UnicodeDecodeError:
+            raise ValueError('Invalid label metric name: ' + l)
+        if RESERVED_METRIC_LABEL_NAME_RE.match(l):
+            raise ValueError('Reserved label metric name: ' + l)
 
 
 def _validate_labelnames(cls, labelnames):
@@ -81,6 +90,7 @@ def enable_created_metrics():
     """Enable exporting _created metrics on counters, histograms, and summaries."""
     global _use_created
     _use_created = True
+
 
 
 class MetricWrapperBase(Collector):
@@ -139,8 +149,14 @@ class MetricWrapperBase(Collector):
         self._documentation = documentation
         self._unit = unit
 
-        if not METRIC_NAME_RE.match(self._name):
-            raise ValueError('Invalid metric name: ' + self._name)
+        if get_legacy_validation():
+            if not METRIC_NAME_RE.match(self._name):
+                raise ValueError('Invalid metric name2: ' + self._name)
+        else:
+            try:
+                self._name.encode('utf-8')
+            except UnicodeDecodeError:
+                raise ValueError('Invalid metric name3: ' + self._name)
 
         if self._is_parent():
             # Prepare the fields needed for child metrics.
@@ -292,7 +308,7 @@ class Counter(MetricWrapperBase):
         # Count only one type of exception
         with c.count_exceptions(ValueError):
             pass
-            
+
     You can also reset the counter to zero in case your logical "process" restarts
     without restarting the actual python process.
 
