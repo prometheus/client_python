@@ -5,9 +5,14 @@ import io as StringIO
 import math
 import re
 
-from ..metrics_core import Metric, METRIC_LABEL_NAME_RE
+from ..metrics_core import Metric
+from ..parser import (
+    _last_unquoted_char, _next_unquoted_char, _parse_value, _split_quoted,
+    _unquote_unescape, parse_labels,
+)
 from ..samples import BucketSpan, Exemplar, NativeHistogram, Sample, Timestamp
 from ..utils import floatToGoString
+from ..validation import _is_valid_legacy_metric_name, _validate_metric_name
 
 
 def text_string_to_metric_families(text):
@@ -73,16 +78,6 @@ def _unescape_help(text):
     return ''.join(result)
 
 
-def _parse_value(value):
-    value = ''.join(value)
-    if value != value.strip() or '_' in value:
-        raise ValueError(f"Invalid value: {value!r}")
-    try:
-        return int(value)
-    except ValueError:
-        return float(value)
-
-
 def _parse_timestamp(timestamp):
     timestamp = ''.join(timestamp)
     if not timestamp:
@@ -113,165 +108,31 @@ def _is_character_escaped(s, charpos):
     return num_bslashes % 2 == 1
 
 
-def _parse_labels_with_state_machine(text):
-    # The { has already been parsed.
-    state = 'startoflabelname'
-    labelname = []
-    labelvalue = []
-    labels = {}
-    labels_len = 0
-
-    for char in text:
-        if state == 'startoflabelname':
-            if char == '}':
-                state = 'endoflabels'
-            else:
-                state = 'labelname'
-                labelname.append(char)
-        elif state == 'labelname':
-            if char == '=':
-                state = 'labelvaluequote'
-            else:
-                labelname.append(char)
-        elif state == 'labelvaluequote':
-            if char == '"':
-                state = 'labelvalue'
-            else:
-                raise ValueError("Invalid line: " + text)
-        elif state == 'labelvalue':
-            if char == '\\':
-                state = 'labelvalueslash'
-            elif char == '"':
-                ln = ''.join(labelname)
-                if not METRIC_LABEL_NAME_RE.match(ln):
-                    raise ValueError("Invalid line, bad label name: " + text)
-                if ln in labels:
-                    raise ValueError("Invalid line, duplicate label name: " + text)
-                labels[ln] = ''.join(labelvalue)
-                labelname = []
-                labelvalue = []
-                state = 'endoflabelvalue'
-            else:
-                labelvalue.append(char)
-        elif state == 'endoflabelvalue':
-            if char == ',':
-                state = 'labelname'
-            elif char == '}':
-                state = 'endoflabels'
-            else:
-                raise ValueError("Invalid line: " + text)
-        elif state == 'labelvalueslash':
-            state = 'labelvalue'
-            if char == '\\':
-                labelvalue.append('\\')
-            elif char == 'n':
-                labelvalue.append('\n')
-            elif char == '"':
-                labelvalue.append('"')
-            else:
-                labelvalue.append('\\' + char)
-        elif state == 'endoflabels':
-            if char == ' ':
-                break
-            else:
-                raise ValueError("Invalid line: " + text)
-        labels_len += 1
-    return labels, labels_len
-
-
-def _parse_labels(text):
-    labels = {}
-
-    # Raise error if we don't have valid labels
-    if text and "=" not in text:
-        raise ValueError
-
-    # Copy original labels
-    sub_labels = text
-    try:
-        # Process one label at a time
-        while sub_labels:
-            # The label name is before the equal
-            value_start = sub_labels.index("=")
-            label_name = sub_labels[:value_start]
-            sub_labels = sub_labels[value_start + 1:]
-
-            # Check for missing quotes 
-            if not sub_labels or sub_labels[0] != '"':
-                raise ValueError
-
-            # The first quote is guaranteed to be after the equal
-            value_substr = sub_labels[1:]
-
-            # Check for extra commas
-            if not label_name or label_name[0] == ',':
-                raise ValueError
-            if not value_substr or value_substr[-1] == ',':
-                raise ValueError
-
-            # Find the last unescaped quote
-            i = 0
-            while i < len(value_substr):
-                i = value_substr.index('"', i)
-                if not _is_character_escaped(value_substr[:i], i):
-                    break
-                i += 1
-
-            # The label value is between the first and last quote
-            quote_end = i + 1
-            label_value = sub_labels[1:quote_end]
-            # Replace escaping if needed
-            if "\\" in label_value:
-                label_value = _replace_escaping(label_value)
-            if not METRIC_LABEL_NAME_RE.match(label_name):
-                raise ValueError("invalid line, bad label name: " + text)
-            if label_name in labels:
-                raise ValueError("invalid line, duplicate label name: " + text)
-            labels[label_name] = label_value
-
-            # Remove the processed label from the sub-slice for next iteration
-            sub_labels = sub_labels[quote_end + 1:]
-            if sub_labels.startswith(","):
-                next_comma = 1
-            else:
-                next_comma = 0
-            sub_labels = sub_labels[next_comma:]
-
-            # Check for missing commas
-            if sub_labels and next_comma == 0:
-                raise ValueError
-            
-        return labels
-
-    except ValueError:
-        raise ValueError("Invalid labels: " + text)
-
-
 def _parse_sample(text):
     separator = " # "
     # Detect the labels in the text
-    label_start = text.find("{")
+    label_start = _next_unquoted_char(text, '{')
     if label_start == -1 or separator in text[:label_start]:
         # We don't have labels, but there could be an exemplar.
-        name_end = text.index(" ")
+        name_end = _next_unquoted_char(text, ' ')
         name = text[:name_end]
+        if not _is_valid_legacy_metric_name(name):
+            raise ValueError("invalid metric name:" + text)
         # Parse the remaining text after the name
         remaining_text = text[name_end + 1:]
         value, timestamp, exemplar = _parse_remaining_text(remaining_text)
         return Sample(name, {}, value, timestamp, exemplar)
-    # The name is before the labels
     name = text[:label_start]
-    if separator not in text:
-        # Line doesn't contain an exemplar
-        # We can use `rindex` to find `label_end`
-        label_end = text.rindex("}")
-        label = text[label_start + 1:label_end]
-        labels = _parse_labels(label)
-    else:
-        # Line potentially contains an exemplar
-        # Fallback to parsing labels with a state machine
-        labels, labels_len = _parse_labels_with_state_machine(text[label_start + 1:])
-        label_end = labels_len + len(name)
+    label_end = _next_unquoted_char(text, '}')
+    labels = parse_labels(text[label_start + 1:label_end], True)
+    if not name:
+        # Name might be in the labels
+        if '__name__' not in labels:
+            raise ValueError
+        name = labels['__name__']
+        del labels['__name__']
+    elif '__name__' in labels:
+        raise ValueError("metric name specified more than once")
     # Parsing labels succeeded, continue parsing the remaining text
     remaining_text = text[label_end + 2:]
     value, timestamp, exemplar = _parse_remaining_text(remaining_text)
@@ -294,7 +155,12 @@ def _parse_remaining_text(text):
     text = split_text[1]
 
     it = iter(text)
+    in_quotes = False
     for char in it:
+        if char == '"':
+            in_quotes = not in_quotes
+        if in_quotes:
+            continue
         if state == 'timestamp':
             if char == '#' and not timestamp:
                 state = 'exemplarspace'
@@ -314,8 +180,9 @@ def _parse_remaining_text(text):
                 raise ValueError("Invalid line: " + text)
         elif state == 'exemplarstartoflabels':
             if char == '{':
-                label_start, label_end = text.index("{"), text.rindex("}")
-                exemplar_labels = _parse_labels(text[label_start + 1:label_end])
+                label_start = _next_unquoted_char(text, '{')
+                label_end = _last_unquoted_char(text, '}')
+                exemplar_labels = parse_labels(text[label_start + 1:label_end], True)
                 state = 'exemplarparsedlabels'
             else:
                 raise ValueError("Invalid line: " + text)
@@ -365,35 +232,77 @@ def _parse_remaining_text(text):
 
 
 def _parse_nh_sample(text, suffixes):
-    labels_start = text.find("{")
-    # check if it's a native histogram with labels
-    re_nh_without_labels = re.compile(r'^[^{} ]+ {[^{}]+}$')
-    re_nh_with_labels = re.compile(r'[^{} ]+{[^{}]+} {[^{}]+}$')
-    if re_nh_with_labels.match(text):
-        nh_value_start = text.rindex("{")
-        labels_end = nh_value_start - 2
+    """Determines if the line has a native histogram sample, and parses it if so."""
+    labels_start = _next_unquoted_char(text, '{')
+    labels_end = -1
+
+    # Finding a native histogram sample requires careful parsing of
+    # possibly-quoted text, which can appear in metric names, label names, and
+    # values.
+    # 
+    # First, we need to determine if there are metric labels. Find the space
+    # between the metric definition and the rest of the line. Look for unquoted
+    # space or {.
+    i = 0
+    has_metric_labels = False
+    i = _next_unquoted_char(text, ' {')
+    if i == -1:
+        return
+
+    # If the first unquoted char was a {, then that is the metric labels (which
+    # could contain a UTF-8 metric name).
+    if text[i] == '{':
+        has_metric_labels = True
+        # Consume the labels -- jump ahead to the close bracket.
+        labels_end = i = _next_unquoted_char(text, '}', i)
+        if labels_end == -1:
+            raise ValueError
+    
+    # If there is no subsequent unquoted {, then it's definitely not a nh.
+    nh_value_start = _next_unquoted_char(text, '{', i + 1)
+    if nh_value_start == -1:
+        return
+    
+    # Edge case: if there is an unquoted # between the metric definition and the {,
+    # then this is actually an exemplar
+    exemplar = _next_unquoted_char(text, '#', i + 1)
+    if exemplar != -1 and exemplar < nh_value_start:
+        return
+    
+    nh_value_end = _next_unquoted_char(text, '}', nh_value_start)
+    if nh_value_end == -1:
+        raise ValueError
+    
+    if has_metric_labels:
         labelstext = text[labels_start + 1:labels_end]
-        labels = _parse_labels(labelstext)
+        labels = parse_labels(labelstext, True)
         name_end = labels_start
         name = text[:name_end]
         if name.endswith(suffixes):
-            raise ValueError("the sample name of a native histogram with labels should have no suffixes", name) 
+            raise ValueError("the sample name of a native histogram with labels should have no suffixes", name)
+        if not name:
+            # Name might be in the labels
+            if '__name__' not in labels:
+                raise ValueError
+            name = labels['__name__']
+            del labels['__name__']
+            # Edge case: the only "label" is the name definition.
+            if not labels:
+                labels = None
+             
         nh_value = text[nh_value_start:]
         nat_hist_value = _parse_nh_struct(nh_value)
         return Sample(name, labels, None, None, None, nat_hist_value)
     # check if it's a native histogram
-    if re_nh_without_labels.match(text):
-        nh_value_start = labels_start
+    else:
         nh_value = text[nh_value_start:]
         name_end = nh_value_start - 1
         name = text[:name_end]
         if name.endswith(suffixes):
             raise ValueError("the sample name of a native histogram should have no suffixes", name)
+        # Not possible for UTF-8 name here, that would have been caught as having a labelset.
         nat_hist_value = _parse_nh_struct(nh_value)
         return Sample(name, None, None, None, None, nat_hist_value)      
-    else:
-        # it's not a native histogram
-        return
 
 
 def _parse_nh_struct(text):
@@ -576,6 +485,7 @@ def text_fd_to_metric_families(fd):
             raise ValueError("Units not allowed for this metric type: " + name)
         if typ in ['histogram', 'gaugehistogram']:
             _check_histogram(samples, name)
+        _validate_metric_name(name)
         metric = Metric(name, documentation, typ, unit)
         # TODO: check labelvalues are valid utf8
         metric.samples = samples
@@ -596,16 +506,19 @@ def text_fd_to_metric_families(fd):
         if line == '# EOF':
             eof = True
         elif line.startswith('#'):
-            parts = line.split(' ', 3)
+            parts = _split_quoted(line, ' ', 3)
             if len(parts) < 4:
                 raise ValueError("Invalid line: " + line)
-            if parts[2] == name and samples:
+            candidate_name, quoted = _unquote_unescape(parts[2])
+            if not quoted and not _is_valid_legacy_metric_name(candidate_name):
+                raise ValueError
+            if candidate_name == name and samples:
                 raise ValueError("Received metadata after samples: " + line)
-            if parts[2] != name:
+            if candidate_name != name:
                 if name is not None:
                     yield build_metric(name, documentation, typ, unit, samples)
                 # New metric
-                name = parts[2]
+                name = candidate_name
                 unit = None
                 typ = None
                 documentation = None
@@ -614,7 +527,7 @@ def text_fd_to_metric_families(fd):
                 group_timestamp = None
                 group_timestamp_samples = set()
                 samples = []
-                allowed_names = [parts[2]]
+                allowed_names = [candidate_name]
             
             if parts[1] == 'HELP':
                 if documentation is not None:
@@ -649,7 +562,10 @@ def text_fd_to_metric_families(fd):
                 if name is not None:
                     yield build_metric(name, documentation, typ, unit, samples)
                 # Start an unknown metric.
-                name = sample.name
+                candidate_name, quoted = _unquote_unescape(sample.name)
+                if not quoted and not _is_valid_legacy_metric_name(candidate_name):
+                    raise ValueError
+                name = candidate_name
                 documentation = None
                 unit = None
                 typ = 'unknown'

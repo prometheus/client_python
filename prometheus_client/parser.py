@@ -1,9 +1,13 @@
 import io as StringIO
 import re
+import string
 from typing import Dict, Iterable, List, Match, Optional, TextIO, Tuple
 
 from .metrics_core import Metric
 from .samples import Sample
+from .validation import (
+    _is_valid_legacy_metric_name, _validate_labelname, _validate_metric_name,
+)
 
 
 def text_string_to_metric_families(text: str) -> Iterable[Metric]:
@@ -45,54 +49,169 @@ def _is_character_escaped(s: str, charpos: int) -> bool:
     return num_bslashes % 2 == 1
 
 
-def _parse_labels(labels_string: str) -> Dict[str, str]:
+def parse_labels(labels_string: str, openmetrics: bool = False) -> Dict[str, str]:
     labels: Dict[str, str] = {}
-    # Return if we don't have valid labels
-    if "=" not in labels_string:
-        return labels
-
-    escaping = False
-    if "\\" in labels_string:
-        escaping = True
 
     # Copy original labels
-    sub_labels = labels_string
+    sub_labels = labels_string.strip()
+    if openmetrics and sub_labels and sub_labels[0] == ',':
+        raise ValueError("leading comma: " + labels_string)
     try:
         # Process one label at a time
         while sub_labels:
-            # The label name is before the equal
-            value_start = sub_labels.index("=")
-            label_name = sub_labels[:value_start]
-            sub_labels = sub_labels[value_start + 1:].lstrip()
-            # Find the first quote after the equal
-            quote_start = sub_labels.index('"') + 1
-            value_substr = sub_labels[quote_start:]
+            # The label name is before the equal, or if there's no equal, that's the
+            # metric name.
+            
+            term, sub_labels = _next_term(sub_labels, openmetrics)
+            if not term:
+                if openmetrics:
+                    raise ValueError("empty term in line: " + labels_string)
+                continue
+            
+            quoted_name = False
+            operator_pos = _next_unquoted_char(term, '=')
+            if operator_pos == -1:
+                quoted_name = True
+                label_name = "__name__"
+            else:
+                value_start = _next_unquoted_char(term, '=')
+                label_name, quoted_name = _unquote_unescape(term[:value_start])
+                term = term[value_start + 1:]
+                
+            if not quoted_name and not _is_valid_legacy_metric_name(label_name):
+                raise ValueError("unquoted UTF-8 metric name")
+                
+            # Check for missing quotes 
+            term = term.strip()
+            if not term or term[0] != '"':
+                raise ValueError
 
-            # Find the last unescaped quote
-            i = 0
-            while i < len(value_substr):
-                i = value_substr.index('"', i)
-                if not _is_character_escaped(value_substr, i):
+            # The first quote is guaranteed to be after the equal.
+            # Find the last unescaped quote.
+            i = 1
+            while i < len(term):
+                i = term.index('"', i)
+                if not _is_character_escaped(term[:i], i):
                     break
                 i += 1
 
             # The label value is between the first and last quote
             quote_end = i + 1
-            label_value = sub_labels[quote_start:quote_end]
-            # Replace escaping if needed
-            if escaping:
-                label_value = _replace_escaping(label_value)
-            labels[label_name.strip()] = label_value
-
-            # Remove the processed label from the sub-slice for next iteration
-            sub_labels = sub_labels[quote_end + 1:]
-            next_comma = sub_labels.find(",") + 1
-            sub_labels = sub_labels[next_comma:].lstrip()
-
+            if quote_end != len(term):
+                raise ValueError("unexpected text after quote: " + labels_string)
+            label_value, _ = _unquote_unescape(term[:quote_end])
+            if label_name == '__name__':
+                _validate_metric_name(label_name)
+            else:
+                _validate_labelname(label_name)
+            if label_name in labels:
+                raise ValueError("invalid line, duplicate label name: " + labels_string)
+            labels[label_name] = label_value
         return labels
-
     except ValueError:
-        raise ValueError("Invalid labels: %s" % labels_string)
+        raise ValueError("Invalid labels: " + labels_string)
+    
+
+def _next_term(text: str, openmetrics: bool) -> Tuple[str, str]:
+    """Extract the next comma-separated label term from the text.
+    
+    Returns the stripped term and the stripped remainder of the string, 
+    including the comma.
+    
+    Raises ValueError if the term is empty and we're in openmetrics mode.
+    """
+    
+    # There may be a leading comma, which is fine here.
+    if text[0] == ',':
+        text = text[1:]
+        if not text:
+            return "", ""
+        if text[0] == ',':
+            raise ValueError("multiple commas")
+    splitpos = _next_unquoted_char(text, ',}')
+    if splitpos == -1:
+        splitpos = len(text)
+    term = text[:splitpos]
+    if not term and openmetrics:
+        raise ValueError("empty term:", term)
+    
+    sublabels = text[splitpos:]
+    return term.strip(), sublabels.strip()
+
+
+def _next_unquoted_char(text: str, chs: str, startidx: int = 0) -> int:
+    """Return position of next unquoted character in tuple, or -1 if not found.
+    
+    It is always assumed that the first character being checked is not already
+    inside quotes.
+    """
+    i = startidx
+    in_quotes = False
+    if chs is None:
+        chs = string.whitespace
+    while i < len(text):
+        if text[i] == '"' and not _is_character_escaped(text, i):
+            in_quotes = not in_quotes
+        if not in_quotes:
+            if text[i] in chs:
+                return i
+        i += 1
+    return -1
+
+
+def _last_unquoted_char(text: str, chs: str) -> int:
+    """Return position of last unquoted character in list, or -1 if not found."""
+    i = len(text) - 1
+    in_quotes = False
+    if chs is None:
+        chs = string.whitespace
+    while i > 0:
+        if text[i] == '"' and not _is_character_escaped(text, i):
+            in_quotes = not in_quotes
+            
+        if not in_quotes:
+            if text[i] in chs:
+                return i
+        i -= 1
+    return -1
+
+
+def _split_quoted(text, separator, maxsplit=0):
+    """Splits on split_ch similarly to strings.split, skipping separators if
+    they are inside quotes.
+    """
+
+    tokens = ['']
+    x = 0
+    while x < len(text):
+        split_pos = _next_unquoted_char(text, separator, x)
+        if split_pos == -1:
+            tokens[-1] = text[x:]
+            x = len(text)
+            continue
+        if maxsplit > 0 and len(tokens) > maxsplit:
+            tokens[-1] = text[x:]
+            break
+        tokens[-1] = text[x:split_pos]
+        x = split_pos + 1
+        tokens.append('')
+    return tokens
+
+
+def _unquote_unescape(text):
+    """Returns the string, and true if it was quoted."""
+    if not text:
+        return text, False
+    quoted = False
+    text = text.strip()
+    if text[0] == '"':
+        if len(text) == 1 or text[-1] != '"':
+            raise ValueError("missing close quote")
+        text = text[1:-1]
+        quoted = True
+    if "\\" in text:
+        text = _replace_escaping(text)
+    return text, quoted
 
 
 # If we have multiple values only consider the first
@@ -104,34 +223,50 @@ def _parse_value_and_timestamp(s: str) -> Tuple[float, Optional[float]]:
     values = [value.strip() for value in s.split(separator) if value.strip()]
     if not values:
         return float(s), None
-    value = float(values[0])
-    timestamp = (float(values[-1]) / 1000) if len(values) > 1 else None
+    value = _parse_value(values[0])
+    timestamp = (_parse_value(values[-1]) / 1000) if len(values) > 1 else None
     return value, timestamp
 
 
-def _parse_sample(text: str) -> Sample:
-    # Detect the labels in the text
+def _parse_value(value):
+    value = ''.join(value)
+    if value != value.strip() or '_' in value:
+        raise ValueError(f"Invalid value: {value!r}")
     try:
-        label_start, label_end = text.index("{"), text.rindex("}")
-        # The name is before the labels
-        name = text[:label_start].strip()
-        # We ignore the starting curly brace
-        label = text[label_start + 1:label_end]
-        # The value is after the label end (ignoring curly brace)
-        value, timestamp = _parse_value_and_timestamp(text[label_end + 1:])
-        return Sample(name, _parse_labels(label), value, timestamp)
-
-    # We don't have labels
+        return int(value)
     except ValueError:
-        # Detect what separator is used
-        separator = " "
-        if separator not in text:
-            separator = "\t"
-        name_end = text.index(separator)
-        name = text[:name_end]
-        # The value is after the name
-        value, timestamp = _parse_value_and_timestamp(text[name_end:])
+        return float(value)
+    
+
+def _parse_sample(text):
+    separator = " # "
+    # Detect the labels in the text
+    label_start = _next_unquoted_char(text, '{')
+    if label_start == -1 or separator in text[:label_start]:
+        # We don't have labels, but there could be an exemplar.
+        name_end = _next_unquoted_char(text, ' \t')
+        name = text[:name_end].strip()
+        if not _is_valid_legacy_metric_name(name):
+            raise ValueError("invalid metric name:" + text)
+        # Parse the remaining text after the name
+        remaining_text = text[name_end + 1:]
+        value, timestamp = _parse_value_and_timestamp(remaining_text)
         return Sample(name, {}, value, timestamp)
+    name = text[:label_start].strip()
+    label_end = _next_unquoted_char(text, '}')
+    labels = parse_labels(text[label_start + 1:label_end], False)
+    if not name:
+        # Name might be in the labels
+        if '__name__' not in labels:
+            raise ValueError
+        name = labels['__name__']
+        del labels['__name__']
+    elif '__name__' in labels:
+        raise ValueError("metric name specified more than once")
+    # Parsing labels succeeded, continue parsing the remaining text
+    remaining_text = text[label_end + 1:]
+    value, timestamp = _parse_value_and_timestamp(remaining_text)
+    return Sample(name, labels, value, timestamp)
 
 
 def text_fd_to_metric_families(fd: TextIO) -> Iterable[Metric]:
@@ -168,28 +303,35 @@ def text_fd_to_metric_families(fd: TextIO) -> Iterable[Metric]:
         line = line.strip()
 
         if line.startswith('#'):
-            parts = line.split(None, 3)
+            parts = _split_quoted(line, None, 3)
             if len(parts) < 2:
                 continue
+            candidate_name, quoted = '', False
+            if len(parts) > 2:
+                candidate_name, quoted = _unquote_unescape(parts[2])
+                if not quoted and not _is_valid_legacy_metric_name(candidate_name):
+                    raise ValueError
             if parts[1] == 'HELP':
-                if parts[2] != name:
+                if candidate_name != name:
                     if name != '':
                         yield build_metric(name, documentation, typ, samples)
                     # New metric
-                    name = parts[2]
+                    name = candidate_name
                     typ = 'untyped'
                     samples = []
-                    allowed_names = [parts[2]]
+                    allowed_names = [candidate_name]
                 if len(parts) == 4:
                     documentation = _replace_help_escaping(parts[3])
                 else:
                     documentation = ''
             elif parts[1] == 'TYPE':
-                if parts[2] != name:
+                if len(parts) < 4:
+                    raise ValueError
+                if candidate_name != name:
                     if name != '':
                         yield build_metric(name, documentation, typ, samples)
                     # New metric
-                    name = parts[2]
+                    name = candidate_name
                     documentation = ''
                     samples = []
                 typ = parts[3]
