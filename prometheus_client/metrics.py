@@ -15,7 +15,7 @@ from .registry import Collector, CollectorRegistry, REGISTRY
 from .samples import Exemplar, Sample
 from .utils import floatToGoString, INF
 from .validation import (
-    validate_metric_name, validate_exemplar, validate_labelnames
+    validate_exemplar, validate_labelnames, validate_metric_name
 )
 
 T = TypeVar('T', bound='MetricWrapperBase')
