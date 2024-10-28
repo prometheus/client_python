@@ -14,7 +14,7 @@ from prometheus_client.core import (
 )
 from prometheus_client.decorator import getargspec
 from prometheus_client.metrics import _get_use_created
-from prometheus_client.metrics_core import (
+from prometheus_client.validation import (
     disable_legacy_validation, enable_legacy_validation
 )
 
