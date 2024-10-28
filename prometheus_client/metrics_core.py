@@ -1,82 +1,12 @@
-import os
-import re
 from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 from .samples import Exemplar, NativeHistogram, Sample, Timestamp
+from .validation import validate_metric_name
 
 METRIC_TYPES = (
     'counter', 'gauge', 'summary', 'histogram',
     'gaugehistogram', 'unknown', 'info', 'stateset',
 )
-METRIC_NAME_RE = re.compile(r'^[a-zA-Z_:][a-zA-Z0-9_:]*$')
-METRIC_LABEL_NAME_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
-RESERVED_METRIC_LABEL_NAME_RE = re.compile(r'^__.*$')
-
-
-def _init_legacy_validation() -> bool:
-    print("getting value!", os.environ.get("PROMETHEUS_LEGACY_NAME_VALIDATION", 'False').lower() in ('true', '1', 't'))
-    return os.environ.get("PROMETHEUS_LEGACY_NAME_VALIDATION", 'False').lower() in ('true', '1', 't')
-
-
-_legacy_validation = _init_legacy_validation()
-
-
-def get_legacy_validation() -> bool:
-    global _legacy_validation
-    return _legacy_validation
-
-
-def disable_legacy_validation():
-    """Disable legacy name validation, instead allowing all UTF8 characters."""
-    global _legacy_validation
-    _legacy_validation = False
-
-
-def enable_legacy_validation():
-    """Enable legacy name validation instead of allowing all UTF8 characters."""
-    global _legacy_validation
-    _legacy_validation = True
-
-
-def valid_metric_name(name: str) -> bool:
-    global _legacy_validation
-    if _legacy_validation:
-        return METRIC_NAME_RE.match(name)
-    if not name:
-        return False
-    try:
-        name.encode('utf-8')
-        return True
-    except UnicodeDecodeError:
-        return False
-       
-
-def valid_metric_name_token(tok: str) -> bool:
-    global _legacy_validation
-    quoted = tok[0] == '"' and tok[-1] == '"'
-    if not quoted or _legacy_validation:
-        return METRIC_NAME_RE.match(tok)
-    if not tok:
-        return False
-    try:
-        tok.encode('utf-8')
-        return True
-    except UnicodeDecodeError:
-        return False 
-
-
-def valid_metric_label_name_token(tok: str) -> bool:
-    global _legacy_validation
-    quoted = tok[0] == '"' and tok[-1] == '"'
-    if not quoted or _legacy_validation:
-        return METRIC_LABEL_NAME_RE.match(tok)
-    if not tok:
-        return False
-    try:
-        tok.encode('utf-8')
-        return True
-    except UnicodeDecodeError:
-        return False
 
 
 class Metric:
@@ -91,7 +21,7 @@ class Metric:
     def __init__(self, name: str, documentation: str, typ: str, unit: str = ''):
         if unit and not name.endswith("_" + unit):
             name += "_" + unit
-        if not valid_metric_name(name):
+        if not validate_metric_name(name):
             raise ValueError('Invalid metric name: ' + name)
         self.name: str = name
         self.documentation: str = documentation

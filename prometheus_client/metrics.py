@@ -10,13 +10,13 @@ import warnings
 
 from . import values  # retain this import style for testability
 from .context_managers import ExceptionCounter, InprogressTracker, Timer
-from .metrics_core import (
-    get_legacy_validation, Metric, METRIC_LABEL_NAME_RE, METRIC_NAME_RE,
-    RESERVED_METRIC_LABEL_NAME_RE
-)
+from .metrics_core import Metric
 from .registry import Collector, CollectorRegistry, REGISTRY
 from .samples import Exemplar, Sample
 from .utils import floatToGoString, INF
+from .validation import (
+    validate_metric_name, validate_exemplar, validate_labelnames
+)
 
 T = TypeVar('T', bound='MetricWrapperBase')
 F = TypeVar("F", bound=Callable[..., Any])
@@ -38,39 +38,6 @@ def _build_full_name(metric_type, name, namespace, subsystem, unit):
     return full_name
 
 
-def _validate_labelname(l):
-    if get_legacy_validation():
-        if not METRIC_LABEL_NAME_RE.match(l):
-            raise ValueError('Invalid label metric name: ' + l)
-        if RESERVED_METRIC_LABEL_NAME_RE.match(l):
-            raise ValueError('Reserved label metric name: ' + l)
-    else:
-        try:
-            l.encode('utf-8')
-        except UnicodeDecodeError:
-            raise ValueError('Invalid label metric name: ' + l)
-        if RESERVED_METRIC_LABEL_NAME_RE.match(l):
-            raise ValueError('Reserved label metric name: ' + l)
-
-
-def _validate_labelnames(cls, labelnames):
-    labelnames = tuple(labelnames)
-    for l in labelnames:
-        _validate_labelname(l)
-        if l in cls._reserved_labelnames:
-            raise ValueError('Reserved label metric name: ' + l)
-    return labelnames
-
-
-def _validate_exemplar(exemplar):
-    runes = 0
-    for k, v in exemplar.items():
-        _validate_labelname(k)
-        runes += len(k)
-        runes += len(v)
-    if runes > 128:
-        raise ValueError('Exemplar labels have %d UTF-8 characters, exceeding the limit of 128')
-
 
 def _get_use_created() -> bool:
     return os.environ.get("PROMETHEUS_DISABLE_CREATED_SERIES", 'False').lower() not in ('true', '1', 't')
@@ -89,7 +56,6 @@ def enable_created_metrics():
     """Enable exporting _created metrics on counters, histograms, and summaries."""
     global _use_created
     _use_created = True
-
 
 
 class MetricWrapperBase(Collector):
@@ -142,20 +108,14 @@ class MetricWrapperBase(Collector):
                  _labelvalues: Optional[Sequence[str]] = None,
                  ) -> None:
         self._name = _build_full_name(self._type, name, namespace, subsystem, unit)
-        self._labelnames = _validate_labelnames(self, labelnames)
+        self._labelnames = validate_labelnames(self, labelnames)
         self._labelvalues = tuple(_labelvalues or ())
         self._kwargs: Dict[str, Any] = {}
         self._documentation = documentation
         self._unit = unit
 
-        if get_legacy_validation():
-            if not METRIC_NAME_RE.match(self._name):
-                raise ValueError('Invalid metric name2: ' + self._name)
-        else:
-            try:
-                self._name.encode('utf-8')
-            except UnicodeDecodeError:
-                raise ValueError('Invalid metric name3: ' + self._name)
+        if not validate_metric_name(self._name):
+            raise ValueError('Invalid metric name: ' + self._name)
 
         if self._is_parent():
             # Prepare the fields needed for child metrics.
@@ -307,7 +267,7 @@ class Counter(MetricWrapperBase):
         # Count only one type of exception
         with c.count_exceptions(ValueError):
             pass
-
+            
     You can also reset the counter to zero in case your logical "process" restarts
     without restarting the actual python process.
 
@@ -328,7 +288,7 @@ class Counter(MetricWrapperBase):
             raise ValueError('Counters can only be incremented by non-negative amounts.')
         self._value.inc(amount)
         if exemplar:
-            _validate_exemplar(exemplar)
+            validate_exemplar(exemplar)
             self._value.set_exemplar(Exemplar(exemplar, amount, time.time()))
 
     def reset(self) -> None:
@@ -667,7 +627,7 @@ class Histogram(MetricWrapperBase):
             if amount <= bound:
                 self._buckets[i].inc(1)
                 if exemplar:
-                    _validate_exemplar(exemplar)
+                    validate_exemplar(exemplar)
                     self._buckets[i].set_exemplar(Exemplar(exemplar, amount, time.time()))
                 break
 

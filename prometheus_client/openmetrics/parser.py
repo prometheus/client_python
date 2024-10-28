@@ -5,7 +5,7 @@ import io as StringIO
 import math
 import re
 
-from ..metrics_core import Metric, valid_metric_name_token, valid_metric_label_name_token
+from ..metrics_core import Metric, valid_metric_label_name_token, valid_metric_name_token
 from ..samples import BucketSpan, Exemplar, NativeHistogram, Sample, Timestamp
 from ..utils import floatToGoString
 
