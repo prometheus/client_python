@@ -266,6 +266,7 @@ def generate_latest(registry: CollectorRegistry = REGISTRY) -> bytes:
         try:
             mname = metric.name
             mtype = metric.type
+
             # Munging from OpenMetrics into Prometheus format.
             if mtype == 'counter':
                 mname = mname + '_total'
@@ -280,7 +281,7 @@ def generate_latest(registry: CollectorRegistry = REGISTRY) -> bytes:
                 mtype = 'histogram'
             elif mtype == 'unknown':
                 mtype = 'untyped'
-
+            
             output.append('# HELP {} {}\n'.format(
                 mname, metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
             output.append(f'# TYPE {mname} {mtype}\n')
