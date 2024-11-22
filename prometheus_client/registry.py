@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import copy
 from threading import Lock
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Set
 
 from .metrics_core import Metric
 
@@ -16,6 +16,14 @@ class Collector(ABC):
 class _EmptyCollector(Collector):
     def collect(self) -> Iterable[Metric]:
         return []
+
+
+class DuplicateTimeseries(ValueError):
+    def __init__(self, duplicates: Set[str]):
+        msg = 'Duplicated timeseries in CollectorRegistry: {}'.format(
+            duplicates)
+        super().__init__(msg)
+        self.duplicates: Set[str] = duplicates
 
 
 class CollectorRegistry(Collector):
@@ -40,9 +48,7 @@ class CollectorRegistry(Collector):
             names = self._get_names(collector)
             duplicates = set(self._names_to_collectors).intersection(names)
             if duplicates:
-                raise ValueError(
-                    'Duplicated timeseries in CollectorRegistry: {}'.format(
-                        duplicates))
+                raise DuplicateTimeseries(duplicates)
             for name in names:
                 self._names_to_collectors[name] = collector
             self._collector_to_names[collector] = names
