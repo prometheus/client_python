@@ -7,8 +7,8 @@ import pytest
 
 from prometheus_client import metrics
 from prometheus_client.core import (
-    CollectorRegistry, Counter, CounterMetricFamily, Enum, Gauge,
-    GaugeHistogramMetricFamily, GaugeMetricFamily, Histogram,
+    CollectorRegistry, Counter, CounterMetricFamily, DuplicateTimeseries, Enum,
+    Gauge, GaugeHistogramMetricFamily, GaugeMetricFamily, Histogram,
     HistogramMetricFamily, Info, InfoMetricFamily, Metric, Sample,
     StateSetMetricFamily, Summary, SummaryMetricFamily, UntypedMetricFamily,
 )
@@ -916,41 +916,41 @@ class TestCollectorRegistry(unittest.TestCase):
     def test_duplicate_metrics_raises(self):
         registry = CollectorRegistry()
         Counter('c_total', 'help', registry=registry)
-        self.assertRaises(ValueError, Counter, 'c_total', 'help', registry=registry)
-        self.assertRaises(ValueError, Gauge, 'c_total', 'help', registry=registry)
-        self.assertRaises(ValueError, Gauge, 'c_created', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Counter, 'c_total', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Gauge, 'c_total', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Gauge, 'c_created', 'help', registry=registry)
 
         Gauge('g_created', 'help', registry=registry)
-        self.assertRaises(ValueError, Gauge, 'g_created', 'help', registry=registry)
-        self.assertRaises(ValueError, Counter, 'g', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Gauge, 'g_created', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Counter, 'g', 'help', registry=registry)
 
         Summary('s', 'help', registry=registry)
-        self.assertRaises(ValueError, Summary, 's', 'help', registry=registry)
-        self.assertRaises(ValueError, Gauge, 's_created', 'help', registry=registry)
-        self.assertRaises(ValueError, Gauge, 's_sum', 'help', registry=registry)
-        self.assertRaises(ValueError, Gauge, 's_count', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Summary, 's', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Gauge, 's_created', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Gauge, 's_sum', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Gauge, 's_count', 'help', registry=registry)
         # We don't currently expose quantiles, but let's prevent future
         # clashes anyway.
-        self.assertRaises(ValueError, Gauge, 's', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Gauge, 's', 'help', registry=registry)
 
         Histogram('h', 'help', registry=registry)
-        self.assertRaises(ValueError, Histogram, 'h', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Histogram, 'h', 'help', registry=registry)
         # Clashes aggaint various suffixes.
-        self.assertRaises(ValueError, Summary, 'h', 'help', registry=registry)
-        self.assertRaises(ValueError, Gauge, 'h_count', 'help', registry=registry)
-        self.assertRaises(ValueError, Gauge, 'h_sum', 'help', registry=registry)
-        self.assertRaises(ValueError, Gauge, 'h_bucket', 'help', registry=registry)
-        self.assertRaises(ValueError, Gauge, 'h_created', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Summary, 'h', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Gauge, 'h_count', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Gauge, 'h_sum', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Gauge, 'h_bucket', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Gauge, 'h_created', 'help', registry=registry)
         # The name of the histogram itself is also taken.
-        self.assertRaises(ValueError, Gauge, 'h', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Gauge, 'h', 'help', registry=registry)
 
         Info('i', 'help', registry=registry)
-        self.assertRaises(ValueError, Gauge, 'i_info', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Gauge, 'i_info', 'help', registry=registry)
 
     def test_unregister_works(self):
         registry = CollectorRegistry()
         s = Summary('s', 'help', registry=registry)
-        self.assertRaises(ValueError, Gauge, 's_count', 'help', registry=registry)
+        self.assertRaises(DuplicateTimeseries, Gauge, 's_count', 'help', registry=registry)
         registry.unregister(s)
         Gauge('s_count', 'help', registry=registry)
 

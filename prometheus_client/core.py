@@ -4,7 +4,7 @@ from .metrics_core import (
     HistogramMetricFamily, InfoMetricFamily, Metric, StateSetMetricFamily,
     SummaryMetricFamily, UnknownMetricFamily, UntypedMetricFamily,
 )
-from .registry import CollectorRegistry, REGISTRY
+from .registry import CollectorRegistry, DuplicateTimeseries, REGISTRY
 from .samples import BucketSpan, Exemplar, NativeHistogram, Sample, Timestamp
 
 __all__ = (
@@ -12,6 +12,7 @@ __all__ = (
     'CollectorRegistry',
     'Counter',
     'CounterMetricFamily',
+    'DuplicateTimeseries',
     'Enum',
     'Exemplar',
     'Gauge',
