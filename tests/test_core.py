@@ -13,6 +13,7 @@ from prometheus_client.core import (
     StateSetMetricFamily, Summary, SummaryMetricFamily, UntypedMetricFamily,
 )
 from prometheus_client.decorator import getargspec
+from prometheus_client.errors import PrometheusClientRuntimeError
 from prometheus_client.metrics import _get_use_created
 from prometheus_client.validation import (
     disable_legacy_validation, enable_legacy_validation,
@@ -133,6 +134,19 @@ class TestCounter(unittest.TestCase):
             'zyxwvutsrqponmlkjihgfedcba': '26+16 characters',
             'y123456': '7+15 characters',
         })
+
+    def test_single_thread_deadlock_detection(self):
+        counter = self.counter
+
+        class Tracked(float):
+            def __radd__(self, other):
+                counter.inc(10)
+                return self + other
+
+        expected_msg = 'Attempt to enter a non reentrant context from a single thread.'
+        self.assertRaisesRegex(
+            PrometheusClientRuntimeError, expected_msg, counter.inc, Tracked(100)
+        )
 
 
 class TestDisableCreated(unittest.TestCase):
@@ -1004,7 +1018,20 @@ class TestCollectorRegistry(unittest.TestCase):
         m = Metric('target', 'Target metadata', 'info')
         m.samples = [Sample('target_info', {'foo': 'bar'}, 1)]
         for _ in registry.restricted_registry(['target_info', 's_sum']).collect():
-            self.assertFalse(registry._lock.locked())
+            self.assertFalse(registry._lock._locked())
+
+    def test_registry_deadlock_detection(self):
+        registry = CollectorRegistry(auto_describe=True)
+
+        class RecursiveCollector:
+            def collect(self):
+                Counter('x', 'help', registry=registry)
+                return [CounterMetricFamily('c_total', 'help', value=1)]
+
+        expected_msg = 'Attempt to enter a non reentrant context from a single thread.'
+        self.assertRaisesRegex(
+            PrometheusClientRuntimeError, expected_msg, registry.register, RecursiveCollector()
+        )
 
 
 if __name__ == '__main__':
