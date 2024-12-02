@@ -20,6 +20,7 @@ from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
 from .openmetrics import exposition as openmetrics
 from .registry import CollectorRegistry, REGISTRY
 from .utils import floatToGoString
+from .validation import _is_valid_legacy_metric_name
 
 __all__ = (
     'CONTENT_TYPE_LATEST',
@@ -247,19 +248,26 @@ start_http_server = start_wsgi_server
 def generate_latest(registry: CollectorRegistry = REGISTRY) -> bytes:
     """Returns the metrics from the registry in latest text format as a string."""
 
-    def sample_line(line):
-        if line.labels:
-            labelstr = '{{{0}}}'.format(','.join(
+    def sample_line(samples):
+        if samples.labels:
+            labelstr = '{0}'.format(','.join(
                 ['{}="{}"'.format(
-                    k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
-                    for k, v in sorted(line.labels.items())]))
+                    openmetrics.escape_label_name(k), openmetrics._escape(v))
+                    for k, v in sorted(samples.labels.items())]))
         else:
             labelstr = ''
         timestamp = ''
-        if line.timestamp is not None:
+        if samples.timestamp is not None:
             # Convert to milliseconds.
-            timestamp = f' {int(float(line.timestamp) * 1000):d}'
-        return f'{line.name}{labelstr} {floatToGoString(line.value)}{timestamp}\n'
+            timestamp = f' {int(float(samples.timestamp) * 1000):d}'
+        if _is_valid_legacy_metric_name(samples.name):
+            if labelstr:
+                labelstr = '{{{0}}}'.format(labelstr)
+            return f'{samples.name}{labelstr} {floatToGoString(samples.value)}{timestamp}\n'
+        maybe_comma = ''
+        if labelstr:
+            maybe_comma = ','
+        return f'{{{openmetrics.escape_metric_name(samples.name)}{maybe_comma}{labelstr}}} {floatToGoString(samples.value)}{timestamp}\n'
 
     output = []
     for metric in registry.collect():
@@ -282,8 +290,8 @@ def generate_latest(registry: CollectorRegistry = REGISTRY) -> bytes:
                 mtype = 'untyped'
 
             output.append('# HELP {} {}\n'.format(
-                mname, metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
-            output.append(f'# TYPE {mname} {mtype}\n')
+                openmetrics.escape_metric_name(mname), metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
+            output.append(f'# TYPE {openmetrics.escape_metric_name(mname)} {mtype}\n')
 
             om_samples: Dict[str, List[str]] = {}
             for s in metric.samples:
@@ -299,9 +307,9 @@ def generate_latest(registry: CollectorRegistry = REGISTRY) -> bytes:
             raise
 
         for suffix, lines in sorted(om_samples.items()):
-            output.append('# HELP {}{} {}\n'.format(metric.name, suffix,
-                                                    metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
-            output.append(f'# TYPE {metric.name}{suffix} gauge\n')
+            output.append('# HELP {} {}\n'.format(openmetrics.escape_metric_name(metric.name + suffix),
+                                                  metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
+            output.append(f'# TYPE {openmetrics.escape_metric_name(metric.name + suffix)} gauge\n')
             output.extend(lines)
     return ''.join(output).encode('utf-8')
 

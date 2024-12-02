@@ -33,6 +33,12 @@ class TestGenerateText(unittest.TestCase):
         c.inc()
         self.assertEqual(b'# HELP cc A counter\n# TYPE cc counter\ncc_total 1.0\ncc_created 123.456\n# EOF\n',
                          generate_latest(self.registry))
+        
+    def test_counter_utf8(self):
+        c = Counter('cc.with.dots', 'A counter', registry=self.registry)
+        c.inc()
+        self.assertEqual(b'# HELP "cc.with.dots" A counter\n# TYPE "cc.with.dots" counter\n{"cc.with.dots_total"} 1.0\n{"cc.with.dots_created"} 123.456\n# EOF\n',
+                         generate_latest(self.registry))
 
     def test_counter_total(self):
         c = Counter('cc_total', 'A counter', registry=self.registry)

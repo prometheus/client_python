@@ -1,15 +1,12 @@
-import re
 from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 from .samples import Exemplar, NativeHistogram, Sample, Timestamp
+from .validation import _validate_metric_name
 
 METRIC_TYPES = (
     'counter', 'gauge', 'summary', 'histogram',
     'gaugehistogram', 'unknown', 'info', 'stateset',
 )
-METRIC_NAME_RE = re.compile(r'^[a-zA-Z_:][a-zA-Z0-9_:]*$')
-METRIC_LABEL_NAME_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
-RESERVED_METRIC_LABEL_NAME_RE = re.compile(r'^__.*$')
 
 
 class Metric:
@@ -24,8 +21,7 @@ class Metric:
     def __init__(self, name: str, documentation: str, typ: str, unit: str = ''):
         if unit and not name.endswith("_" + unit):
             name += "_" + unit
-        if not METRIC_NAME_RE.match(name):
-            raise ValueError('Invalid metric name: ' + name)
+        _validate_metric_name(name)
         self.name: str = name
         self.documentation: str = documentation
         self.unit: str = unit
