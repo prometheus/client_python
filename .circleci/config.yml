@@ -75,7 +75,6 @@ workflows:
           matrix:
             parameters:
                python:
-                 - "3.8.18"
                  - "3.9.18"
                  - "3.10"
                  - "3.11"
@@ -89,4 +88,4 @@ workflows:
           matrix:
             parameters:
                python:
-                 - "3.8"
+                 - "3.9"
