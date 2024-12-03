@@ -200,7 +200,8 @@ class MetricWrapperBase(Collector):
             raise ValueError('Incorrect label count (expected %d, got %s)' % (len(self._labelnames), labelvalues))
         labelvalues = tuple(str(l) for l in labelvalues)
         with self._lock:
-            del self._metrics[labelvalues]
+            if labelvalues in self._metrics:
+                del self._metrics[labelvalues]
 
     def clear(self) -> None:
         """Remove all labelsets from the metric"""
