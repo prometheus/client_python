@@ -19,14 +19,6 @@ from prometheus_client.validation import (
 )
 
 
-def is_locked(lock):
-    "Tries to obtain a lock, returns True on success, False on failure."
-    locked = lock.acquire(blocking=False)
-    if locked:
-        lock.release()
-    return not locked
-
-
 def assert_not_observable(fn, *args, **kwargs):
     """
     Assert that a function call falls with a ValueError exception containing
@@ -1012,7 +1004,7 @@ class TestCollectorRegistry(unittest.TestCase):
         m = Metric('target', 'Target metadata', 'info')
         m.samples = [Sample('target_info', {'foo': 'bar'}, 1)]
         for _ in registry.restricted_registry(['target_info', 's_sum']).collect():
-            self.assertFalse(is_locked(registry._lock))
+            self.assertFalse(registry._lock.locked())
 
 
 if __name__ == '__main__':
