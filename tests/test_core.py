@@ -135,19 +135,6 @@ class TestCounter(unittest.TestCase):
             'y123456': '7+15 characters',
         })
 
-    def test_single_thread_deadlock_detection(self):
-        counter = self.counter
-
-        class Tracked(float):
-            def __radd__(self, other):
-                counter.inc(10)
-                return self + other
-
-        expected_msg = 'Attempt to enter a non reentrant context from a single thread.'
-        self.assertRaisesRegex(
-            PrometheusClientRuntimeError, expected_msg, counter.inc, Tracked(100)
-        )
-
 
 class TestDisableCreated(unittest.TestCase):
     def setUp(self):

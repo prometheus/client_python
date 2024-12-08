@@ -1,4 +1,5 @@
 import os
+from threading import Lock
 import time
 import types
 from typing import (
@@ -12,7 +13,7 @@ from .context_managers import ExceptionCounter, InprogressTracker, Timer
 from .metrics_core import Metric
 from .registry import Collector, CollectorRegistry, REGISTRY
 from .samples import Exemplar, Sample
-from .utils import floatToGoString, INF, WarnLock
+from .utils import floatToGoString, INF
 from .validation import (
     _validate_exemplar, _validate_labelnames, _validate_metric_name,
 )
@@ -119,7 +120,7 @@ class MetricWrapperBase(Collector):
 
         if self._is_parent():
             # Prepare the fields needed for child metrics.
-            self._lock = WarnLock()
+            self._lock = Lock()
             self._metrics: Dict[Sequence[str], T] = {}
 
         if self._is_observable():
@@ -672,7 +673,7 @@ class Info(MetricWrapperBase):
 
     def _metric_init(self):
         self._labelname_set = set(self._labelnames)
-        self._lock = WarnLock()
+        self._lock = Lock()
         self._value = {}
 
     def info(self, val: Dict[str, str]) -> None:
@@ -734,7 +735,7 @@ class Enum(MetricWrapperBase):
 
     def _metric_init(self) -> None:
         self._value = 0
-        self._lock = WarnLock()
+        self._lock = Lock()
 
     def state(self, state: str) -> None:
         """Set enum metric state."""
