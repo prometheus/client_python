@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
 import copy
-from threading import Lock
 from typing import Dict, Iterable, List, Optional
 
 from .metrics_core import Metric
+from .utils import WarnLock
 
 
 # Ideally this would be a Protocol, but Protocols are only available in Python >= 3.8.
@@ -30,7 +30,7 @@ class CollectorRegistry(Collector):
         self._collector_to_names: Dict[Collector, List[str]] = {}
         self._names_to_collectors: Dict[str, Collector] = {}
         self._auto_describe = auto_describe
-        self._lock = Lock()
+        self._lock = WarnLock()
         self._target_info: Optional[Dict[str, str]] = {}
         self.set_target_info(target_info)
 
