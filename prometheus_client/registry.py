@@ -18,6 +18,14 @@ class _EmptyCollector(Collector):
         return []
 
 
+class DuplicateTimeseries(ValueError):
+    def __init__(self, duplicates: List[str]):
+        msg = 'Duplicated timeseries in CollectorRegistry: {}'.format(
+            duplicates)
+        super().__init__(msg)
+        self.duplicates: List[str] = duplicates
+
+
 class CollectorRegistry(Collector):
     """Metric collector registry.
 
@@ -40,9 +48,7 @@ class CollectorRegistry(Collector):
             names = self._get_names(collector)
             duplicates = set(self._names_to_collectors).intersection(names)
             if duplicates:
-                raise ValueError(
-                    'Duplicated timeseries in CollectorRegistry: {}'.format(
-                        duplicates))
+                raise DuplicateTimeseries(duplicates)
             for name in names:
                 self._names_to_collectors[name] = collector
             self._collector_to_names[collector] = names
