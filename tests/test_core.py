@@ -1,6 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
-import os
 import inspect
+import os
 import time
 import unittest
 
