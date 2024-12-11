@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+import inspect
 import os
 import time
 import unittest
@@ -12,7 +13,6 @@ from prometheus_client.core import (
     HistogramMetricFamily, Info, InfoMetricFamily, Metric, Sample,
     StateSetMetricFamily, Summary, SummaryMetricFamily, UntypedMetricFamily,
 )
-from prometheus_client.decorator import getargspec
 from prometheus_client.metrics import _get_use_created
 from prometheus_client.validation import (
     disable_legacy_validation, enable_legacy_validation,
@@ -51,10 +51,10 @@ class TestCounter(unittest.TestCase):
         self.assertNotEqual(0, self.registry.get_sample_value('c_total'))
         created = self.registry.get_sample_value('c_created')
         time.sleep(0.05)
-        self.counter.reset()        
+        self.counter.reset()
         self.assertEqual(0, self.registry.get_sample_value('c_total'))
         created_after_reset = self.registry.get_sample_value('c_created')
-        self.assertLess(created, created_after_reset)       
+        self.assertLess(created, created_after_reset)
 
     def test_repr(self):
         self.assertEqual(repr(self.counter), "prometheus_client.metrics.Counter(c)")
@@ -70,7 +70,7 @@ class TestCounter(unittest.TestCase):
             else:
                 raise TypeError
 
-        self.assertEqual((["r"], None, None, None), getargspec(f))
+        self.assertEqual("(r)", str(inspect.signature(f)))
 
         try:
             f(False)
@@ -201,7 +201,7 @@ class TestGauge(unittest.TestCase):
         def f():
             self.assertEqual(1, self.registry.get_sample_value('g'))
 
-        self.assertEqual(([], None, None, None), getargspec(f))
+        self.assertEqual("()", str(inspect.signature(f)))
 
         f()
         self.assertEqual(0, self.registry.get_sample_value('g'))
@@ -233,7 +233,7 @@ class TestGauge(unittest.TestCase):
         def f():
             time.sleep(.001)
 
-        self.assertEqual(([], None, None, None), getargspec(f))
+        self.assertEqual("()", str(inspect.signature(f)))
 
         f()
         self.assertNotEqual(0, self.registry.get_sample_value('g'))
@@ -312,7 +312,7 @@ class TestSummary(unittest.TestCase):
         def f():
             pass
 
-        self.assertEqual(([], None, None, None), getargspec(f))
+        self.assertEqual("()", str(inspect.signature(f)))
 
         f()
         self.assertEqual(1, self.registry.get_sample_value('s_count'))
@@ -465,7 +465,7 @@ class TestHistogram(unittest.TestCase):
         def f():
             pass
 
-        self.assertEqual(([], None, None, None), getargspec(f))
+        self.assertEqual("()", str(inspect.signature(f)))
 
         f()
         self.assertEqual(1, self.registry.get_sample_value('h_count'))

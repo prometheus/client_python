@@ -29,6 +29,9 @@ setup(
     extras_require={
         'twisted': ['twisted'],
     },
+    install_requires=[
+        'typing-extensions>=4; python_version<"3.10"',
+    ],
     test_suite="tests",
     python_requires=">=3.9",
     classifiers=[
