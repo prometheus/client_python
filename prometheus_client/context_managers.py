@@ -1,14 +1,21 @@
 import functools
+import sys
 from timeit import default_timer
 from types import TracebackType
 from typing import (
-    Any, Callable, Literal, Optional, Tuple, Type, TYPE_CHECKING, TypeVar,
-    Union,
+    Callable, Literal, Optional, Tuple, Type, TYPE_CHECKING, TypeVar, Union,
 )
+
+if sys.version_info >= (3, 10):
+    from typing import ParamSpec
+else:
+    from typing_extensions import ParamSpec
 
 if TYPE_CHECKING:
     from . import Counter
-    F = TypeVar("F", bound=Callable[..., Any])
+
+TParam = ParamSpec("TParam")
+TResult = TypeVar("TResult")
 
 
 class ExceptionCounter:
@@ -24,9 +31,9 @@ class ExceptionCounter:
             self._counter.inc()
         return False
 
-    def __call__(self, f: "F") -> "F":
+    def __call__(self, f: Callable[TParam, TResult]) -> Callable[TParam, TResult]:
         @functools.wraps(f)
-        def wrapped(*args: Any, **kwargs: Any) -> Any:
+        def wrapped(*args: TParam.args, **kwargs: TParam.kwargs) -> TResult:
             with self:
                 return f(*args, **kwargs)
         return wrapped  # type: ignore
@@ -42,9 +49,9 @@ class InprogressTracker:
     def __exit__(self, typ, value, traceback):
         self._gauge.dec()
 
-    def __call__(self, f: "F") -> "F":
+    def __call__(self, f: Callable[TParam, TResult]) -> Callable[TParam, TResult]:
         @functools.wraps(f)
-        def wrapped(*args: Any, **kwargs: Any) -> Any:
+        def wrapped(*args: TParam.args, **kwargs: TParam.kwargs) -> TResult:
             with self:
                 return f(*args, **kwargs)
         return wrapped  # type: ignore
@@ -71,9 +78,9 @@ class Timer:
     def labels(self, *args, **kw):
         self._metric = self._metric.labels(*args, **kw)
 
-    def __call__(self, f: "F") -> "F":
+    def __call__(self, f: Callable[TParam, TResult]) -> Callable[TParam, TResult]:
         @functools.wraps(f)
-        def wrapped(*args: Any, **kwargs: Any) -> Any:
+        def wrapped(*args: TParam.args, **kwargs: TParam.kwargs) -> TResult:
             # Obtaining new instance of timer every time
             # ensures thread safety and reentrancy.
             with self._new_timer():
