@@ -48,9 +48,14 @@ class ASGITest(TestCase):
             asyncio.get_event_loop().run_until_complete(
                 self.communicator.wait()
             )
-            
+
+    async def create_communicator(self, app):
+        return ApplicationCommunicator(app, self.scope)
+
     def seed_app(self, app):
-        self.communicator = ApplicationCommunicator(app, self.scope)
+        self.communicator = asyncio.get_event_loop().run_until_complete(
+            self.create_communicator(app)
+        )
 
     def send_input(self, payload):
         asyncio.get_event_loop().run_until_complete(
@@ -148,9 +153,9 @@ class ASGITest(TestCase):
         increments = 2
         self.increment_metrics(metric_name, help_text, increments)
         app = make_asgi_app(self.registry)
-        self.seed_app(app)
         # Send input with gzip header.
         self.scope["headers"] = [(b"accept-encoding", b"gzip")]
+        self.seed_app(app)
         self.send_input({"type": "http.request", "body": b""})
         # Assert outputs are compressed.
         outputs = self.get_all_output()
@@ -164,9 +169,9 @@ class ASGITest(TestCase):
         self.increment_metrics(metric_name, help_text, increments)
         # Disable compression explicitly.
         app = make_asgi_app(self.registry, disable_compression=True)
-        self.seed_app(app)
         # Send input with gzip header.
         self.scope["headers"] = [(b"accept-encoding", b"gzip")]
+        self.seed_app(app)
         self.send_input({"type": "http.request", "body": b""})
         # Assert outputs are not compressed.
         outputs = self.get_all_output()
@@ -175,8 +180,8 @@ class ASGITest(TestCase):
     def test_openmetrics_encoding(self):
         """Response content type is application/openmetrics-text when appropriate Accept header is in request"""
         app = make_asgi_app(self.registry)
-        self.seed_app(app)
         self.scope["headers"] = [(b"Accept", b"application/openmetrics-text")]
+        self.seed_app(app)
         self.send_input({"type": "http.request", "body": b""})
 
         content_type = self.get_response_header_value('Content-Type').split(";")[0]
