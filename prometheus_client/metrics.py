@@ -19,7 +19,6 @@ from .validation import (
 )
 
 T = TypeVar('T', bound='MetricWrapperBase')
-F = TypeVar("F", bound=Callable[..., Any])
 
 
 def _build_full_name(metric_type, name, namespace, subsystem, unit):
