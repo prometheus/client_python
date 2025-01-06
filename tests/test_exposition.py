@@ -47,6 +47,17 @@ cc_total 1.0
 # TYPE cc_created gauge
 cc_created 123.456
 """, generate_latest(self.registry))
+        
+    def test_counter_utf8(self):
+        c = Counter('utf8.cc', 'A counter', registry=self.registry)
+        c.inc()
+        self.assertEqual(b"""# HELP "utf8.cc_total" A counter
+# TYPE "utf8.cc_total" counter
+{"utf8.cc_total"} 1.0
+# HELP "utf8.cc_created" A counter
+# TYPE "utf8.cc_created" gauge
+{"utf8.cc_created"} 123.456
+""", generate_latest(self.registry))
 
     def test_counter_name_unit_append(self):
         c = Counter('requests', 'Request counter', unit="total", registry=self.registry)

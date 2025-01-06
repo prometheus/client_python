@@ -75,11 +75,11 @@ workflows:
           matrix:
             parameters:
                python:
-                 - "3.8.18"
                  - "3.9.18"
                  - "3.10"
                  - "3.11"
                  - "3.12"
+                 - "3.13"
       - test_nooptionals:
           matrix:
             parameters:
@@ -89,4 +89,4 @@ workflows:
           matrix:
             parameters:
                python:
-                 - "3.8"
+                 - "3.9"

@@ -25,6 +25,22 @@ a 1
 """)
         self.assertEqualMetrics([CounterMetricFamily("a", "help", value=1)], list(families))
 
+    def test_utf8_counter(self):
+        families = text_string_to_metric_families("""# TYPE "a.b" counter
+# HELP "a.b" help
+{"a.b"} 1
+""")
+        self.assertEqualMetrics([CounterMetricFamily("a.b", "help", value=1)], list(families))
+
+    def test_complex_name_counter(self):
+        families = text_string_to_metric_families("""# TYPE "my.counter{} # = \\" \\n" counter
+# HELP "my.counter{} # = \\" \\n" help
+{"my.counter{} # = \\" \\n", "awful. }}{{ # HELP EOF name"="\\n yikes } \\" value"} 1
+""")
+        metric = CounterMetricFamily("my.counter{} # = \" \n", "help", labels={'awful. }}{{ # HELP EOF name': '\n yikes } " value'})
+        metric.add_sample("my.counter{} # = \" \n_total", {'awful. }}{{ # HELP EOF name': '\n yikes } " value'}, 1)
+        self.assertEqual([metric], list(families))
+
     def test_simple_gauge(self):
         families = text_string_to_metric_families("""# TYPE a gauge
 # HELP a help
@@ -322,6 +338,15 @@ prometheus_local_storage_chunk_ops_total{type="persist"} 981408.0
 prometheus_local_storage_chunk_ops_total{type="pin"} 32662.0
 prometheus_local_storage_chunk_ops_total{type="transcode"} 980180.0
 prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
+# HELP "my.utf8.metric.#{}=" A fancy metric with dots.
+# TYPE "my.utf8.metric.#{}=" summary
+{"my.utf8.metric.#{}=",quantile="0"} 0.013300656000000001
+{"my.utf8.metric.#{}=",quantile="0.25"} 0.013638736
+{"my.utf8.metric.#{}=",quantile="0.5"} 0.013759906
+{"my.utf8.metric.#{}=",quantile="0.75"} 0.013962066
+{"my.utf8.metric.#{}=",quantile="1"} 0.021383540000000003
+{"my.utf8.metric.#{}=_sum"} 56.12904785
+{"my.utf8.metric.#{}=_count"} 7476.0
 """
         families = list(text_string_to_metric_families(text))
 

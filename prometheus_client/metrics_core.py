@@ -1,15 +1,12 @@
-import re
 from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 from .samples import Exemplar, NativeHistogram, Sample, Timestamp
+from .validation import _validate_metric_name
 
 METRIC_TYPES = (
     'counter', 'gauge', 'summary', 'histogram',
     'gaugehistogram', 'unknown', 'info', 'stateset',
 )
-METRIC_NAME_RE = re.compile(r'^[a-zA-Z_:][a-zA-Z0-9_:]*$')
-METRIC_LABEL_NAME_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
-RESERVED_METRIC_LABEL_NAME_RE = re.compile(r'^__.*$')
 
 
 class Metric:
@@ -24,8 +21,7 @@ class Metric:
     def __init__(self, name: str, documentation: str, typ: str, unit: str = ''):
         if unit and not name.endswith("_" + unit):
             name += "_" + unit
-        if not METRIC_NAME_RE.match(name):
-            raise ValueError('Invalid metric name: ' + name)
+        _validate_metric_name(name)
         self.name: str = name
         self.documentation: str = documentation
         self.unit: str = unit
@@ -116,6 +112,7 @@ class CounterMetricFamily(Metric):
                  labels: Optional[Sequence[str]] = None,
                  created: Optional[float] = None,
                  unit: str = '',
+                 exemplar: Optional[Exemplar] = None,
                  ):
         # Glue code for pre-OpenMetrics metrics.
         if name.endswith('_total'):
@@ -127,13 +124,14 @@ class CounterMetricFamily(Metric):
             labels = []
         self._labelnames = tuple(labels)
         if value is not None:
-            self.add_metric([], value, created)
+            self.add_metric([], value, created, exemplar=exemplar)
 
     def add_metric(self,
                    labels: Sequence[str],
                    value: float,
                    created: Optional[float] = None,
                    timestamp: Optional[Union[Timestamp, float]] = None,
+                   exemplar: Optional[Exemplar] = None,
                    ) -> None:
         """Add a metric to the metric family.
 
@@ -142,7 +140,7 @@ class CounterMetricFamily(Metric):
           value: The value of the metric
           created: Optional unix timestamp the child was created at.
         """
-        self.samples.append(Sample(self.name + '_total', dict(zip(self._labelnames, labels)), value, timestamp))
+        self.samples.append(Sample(self.name + '_total', dict(zip(self._labelnames, labels)), value, timestamp, exemplar))
         if created is not None:
             self.samples.append(Sample(self.name + '_created', dict(zip(self._labelnames, labels)), created, timestamp))
 

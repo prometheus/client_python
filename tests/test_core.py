@@ -14,14 +14,9 @@ from prometheus_client.core import (
 )
 from prometheus_client.decorator import getargspec
 from prometheus_client.metrics import _get_use_created
-
-
-def is_locked(lock):
-    "Tries to obtain a lock, returns True on success, False on failure."
-    locked = lock.acquire(blocking=False)
-    if locked:
-        lock.release()
-    return not locked
+from prometheus_client.validation import (
+    disable_legacy_validation, enable_legacy_validation,
+)
 
 
 def assert_not_observable(fn, *args, **kwargs):
@@ -114,8 +109,12 @@ class TestCounter(unittest.TestCase):
         assert_not_observable(counter.inc)
 
     def test_exemplar_invalid_label_name(self):
+        enable_legacy_validation()
         self.assertRaises(ValueError, self.counter.inc, exemplar={':o)': 'smile'})
         self.assertRaises(ValueError, self.counter.inc, exemplar={'1': 'number'})
+        disable_legacy_validation()
+        self.counter.inc(exemplar={':o)': 'smile'})
+        self.counter.inc(exemplar={'1': 'number'})
 
     def test_exemplar_unicode(self):
         # 128 characters should not raise, even using characters larger than 1 byte.
@@ -510,9 +509,15 @@ class TestHistogram(unittest.TestCase):
         self.assertEqual(1, value('hl_count', {'l': 'a'}))
         self.assertEqual(1, value('hl_bucket', {'le': '+Inf', 'l': 'a'}))
 
-    def test_exemplar_invalid_label_name(self):
+    def test_exemplar_invalid_legacy_label_name(self):
+        enable_legacy_validation()
         self.assertRaises(ValueError, self.histogram.observe, 3.0, exemplar={':o)': 'smile'})
         self.assertRaises(ValueError, self.histogram.observe, 3.0, exemplar={'1': 'number'})
+
+    def test_exemplar_invalid_label_name(self):
+        disable_legacy_validation()
+        self.histogram.observe(3.0, exemplar={':o)': 'smile'})
+        self.histogram.observe(3.0, exemplar={'1': 'number'})
 
     def test_exemplar_too_long(self):
         # 129 characters in total should fail.
@@ -654,13 +659,22 @@ class TestMetricWrapper(unittest.TestCase):
         self.assertRaises(ValueError, self.two_labels.labels)
         self.assertRaises(ValueError, self.two_labels.labels, {'a': 'x'}, b='y')
 
-    def test_invalid_names_raise(self):
+    def test_invalid_legacy_names_raise(self):
+        enable_legacy_validation()
         self.assertRaises(ValueError, Counter, '', 'help')
         self.assertRaises(ValueError, Counter, '^', 'help')
         self.assertRaises(ValueError, Counter, '', 'help', namespace='&')
         self.assertRaises(ValueError, Counter, '', 'help', subsystem='(')
         self.assertRaises(ValueError, Counter, 'c_total', '', labelnames=['^'])
         self.assertRaises(ValueError, Counter, 'c_total', '', labelnames=['a:b'])
+        self.assertRaises(ValueError, Counter, 'c_total', '', labelnames=['__reserved'])
+        self.assertRaises(ValueError, Summary, 'c_total', '', labelnames=['quantile'])
+
+    def test_invalid_names_raise(self):
+        disable_legacy_validation()
+        self.assertRaises(ValueError, Counter, '', 'help')
+        self.assertRaises(ValueError, Counter, '', 'help', namespace='&')
+        self.assertRaises(ValueError, Counter, '', 'help', subsystem='(')
         self.assertRaises(ValueError, Counter, 'c_total', '', labelnames=['__reserved'])
         self.assertRaises(ValueError, Summary, 'c_total', '', labelnames=['quantile'])
 
@@ -714,6 +728,10 @@ class TestMetricFamilies(unittest.TestCase):
         self.custom_collector(CounterMetricFamily('c_total', 'help', value=1))
         self.assertEqual(1, self.registry.get_sample_value('c_total', {}))
 
+    def test_counter_utf8(self):
+        self.custom_collector(CounterMetricFamily('my.metric', 'help', value=1))
+        self.assertEqual(1, self.registry.get_sample_value('my.metric_total', {}))
+
     def test_counter_total(self):
         self.custom_collector(CounterMetricFamily('c_total', 'help', value=1))
         self.assertEqual(1, self.registry.get_sample_value('c_total', {}))
@@ -723,6 +741,21 @@ class TestMetricFamilies(unittest.TestCase):
         cmf.add_metric(['b', 'd'], 2)
         self.custom_collector(cmf)
         self.assertEqual(2, self.registry.get_sample_value('c_total', {'a': 'b', 'c_total': 'd'}))
+
+    def test_counter_exemplars_oneline(self):
+        cmf = CounterMetricFamily('c_total', 'help', value=23, exemplar={"bob": "osbourne"})
+        self.custom_collector(cmf)
+        sample = [c.samples for c in self.registry.collect()][0][0]
+        self.assertDictEqual({"bob": "osbourne"}, sample.exemplar)
+
+    def test_counter_exemplars_add(self):
+        cmf = CounterMetricFamily('c_total', 'help')
+        cmf.add_metric([], 12, exemplar={"bob": "osbourne"}, created=23)
+        self.custom_collector(cmf)
+        total_sample, created_sample = [c.samples for c in self.registry.collect()][0]
+        self.assertEqual("c_created", created_sample.name)
+        self.assertDictEqual({"bob": "osbourne"}, total_sample.exemplar)
+        self.assertIsNone(created_sample.exemplar)
 
     def test_gauge(self):
         self.custom_collector(GaugeMetricFamily('g', 'help', value=1))
@@ -971,7 +1004,7 @@ class TestCollectorRegistry(unittest.TestCase):
         m = Metric('target', 'Target metadata', 'info')
         m.samples = [Sample('target_info', {'foo': 'bar'}, 1)]
         for _ in registry.restricted_registry(['target_info', 's_sum']).collect():
-            self.assertFalse(is_locked(registry._lock))
+            self.assertFalse(registry._lock.locked())
 
 
 if __name__ == '__main__':

@@ -1,5 +1,5 @@
 import os
-from threading import RLock
+from threading import Lock
 import time
 import types
 from typing import (
@@ -10,19 +10,21 @@ import warnings
 
 from . import values  # retain this import style for testability
 from .context_managers import ExceptionCounter, InprogressTracker, Timer
-from .metrics_core import (
-    Metric, METRIC_LABEL_NAME_RE, METRIC_NAME_RE,
-    RESERVED_METRIC_LABEL_NAME_RE,
-)
+from .metrics_core import Metric
 from .registry import Collector, CollectorRegistry, REGISTRY
 from .samples import Exemplar, Sample
 from .utils import floatToGoString, INF
+from .validation import (
+    _validate_exemplar, _validate_labelnames, _validate_metric_name,
+)
 
 T = TypeVar('T', bound='MetricWrapperBase')
 F = TypeVar("F", bound=Callable[..., Any])
 
 
 def _build_full_name(metric_type, name, namespace, subsystem, unit):
+    if not name:
+        raise ValueError('Metric name should not be empty')
     full_name = ''
     if namespace:
         full_name += namespace + '_'
@@ -37,31 +39,6 @@ def _build_full_name(metric_type, name, namespace, subsystem, unit):
         raise ValueError('Metric name is of a type that cannot have a unit: ' + full_name)
     return full_name
 
-
-def _validate_labelname(l):
-    if not METRIC_LABEL_NAME_RE.match(l):
-        raise ValueError('Invalid label metric name: ' + l)
-    if RESERVED_METRIC_LABEL_NAME_RE.match(l):
-        raise ValueError('Reserved label metric name: ' + l)
-
-
-def _validate_labelnames(cls, labelnames):
-    labelnames = tuple(labelnames)
-    for l in labelnames:
-        _validate_labelname(l)
-        if l in cls._reserved_labelnames:
-            raise ValueError('Reserved label metric name: ' + l)
-    return labelnames
-
-
-def _validate_exemplar(exemplar):
-    runes = 0
-    for k, v in exemplar.items():
-        _validate_labelname(k)
-        runes += len(k)
-        runes += len(v)
-    if runes > 128:
-        raise ValueError('Exemplar labels have %d UTF-8 characters, exceeding the limit of 128')
 
 
 def _get_use_created() -> bool:
@@ -139,12 +116,11 @@ class MetricWrapperBase(Collector):
         self._documentation = documentation
         self._unit = unit
 
-        if not METRIC_NAME_RE.match(self._name):
-            raise ValueError('Invalid metric name: ' + self._name)
+        _validate_metric_name(self._name)
 
         if self._is_parent():
             # Prepare the fields needed for child metrics.
-            self._lock = RLock()
+            self._lock = Lock()
             self._metrics: Dict[Sequence[str], T] = {}
 
         if self._is_observable():
@@ -224,7 +200,8 @@ class MetricWrapperBase(Collector):
             raise ValueError('Incorrect label count (expected %d, got %s)' % (len(self._labelnames), labelvalues))
         labelvalues = tuple(str(l) for l in labelvalues)
         with self._lock:
-            del self._metrics[labelvalues]
+            if labelvalues in self._metrics:
+                del self._metrics[labelvalues]
 
     def clear(self) -> None:
         """Remove all labelsets from the metric"""
@@ -697,7 +674,7 @@ class Info(MetricWrapperBase):
 
     def _metric_init(self):
         self._labelname_set = set(self._labelnames)
-        self._lock = RLock()
+        self._lock = Lock()
         self._value = {}
 
     def info(self, val: Dict[str, str]) -> None:
@@ -759,7 +736,7 @@ class Enum(MetricWrapperBase):
 
     def _metric_init(self) -> None:
         self._value = 0
-        self._lock = RLock()
+        self._lock = Lock()
 
     def state(self, state: str) -> None:
         """Set enum metric state."""
