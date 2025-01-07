@@ -307,12 +307,17 @@ def _parse_nh_sample(text, suffixes):
 
 def _parse_nh_struct(text):
     pattern = r'(\w+):\s*([^,}]+)'
-    #(Vesari)TODO: change here
-    re_spans = re.compile(r'(positive_spans|negative_spans):\[(\d+:\d+,\d+:\d+)\]')
+    re_spans = re.compile(r'(positive_spans|negative_spans):\[(\d+:\d+(,\d+:\d+)*)\]')
     re_deltas = re.compile(r'(positive_deltas|negative_deltas):\[(-?\d+(?:,-?\d+)*)\]')
 
     items = dict(re.findall(pattern, text))
-    spans = dict(re_spans.findall(text))
+    matches = re_spans.findall(text)
+    spans = {}
+    for match in matches:
+        key = match[0]
+        value = [tuple(map(int, pair.split(':'))) for pair in match[1].split(',')]
+        spans[key] = value
+   
     deltas = dict(re_deltas.findall(text))
 
     count_value = int(items['count'])
@@ -321,37 +326,49 @@ def _parse_nh_struct(text):
     zero_threshold = float(items['zero_threshold'])
     zero_count = int(items['zero_count'])
 
+    pos_spans_text = spans['positive_spans']
+    pos_spans = []
+    for start, end in pos_spans_text:
+        pos_spans.append(BucketSpan(start, end))
+    pos_spans_tuple = tuple(pos_spans)    
+    
+    neg_spans_text = spans['negative_spans']
+    neg_spans = []
+    for start, end in neg_spans_text:
+        neg_spans.append(BucketSpan(start, end))
+    neg_spans_tuple = tuple(neg_spans)
+
     try:
-        pos_spans_text = spans['positive_spans']
-        elems = pos_spans_text.split(',')
-        arg1 = [int(x) for x in elems[0].split(':')]
-        arg2 = [int(x) for x in elems[1].split(':')]
-        pos_spans = (BucketSpan(arg1[0], arg1[1]), BucketSpan(arg2[0], arg2[1]))
-    except KeyError:
-        pos_spans = None
-       
+        pos_deltas_text = deltas.get('positive_deltas')
+        if pos_deltas_text is not None and pos_deltas_text.strip():
+            elems = pos_deltas_text.split(',')
+            pos_deltas = tuple(int(x.strip()) for x in elems)
+        else:
+            pos_deltas = None
+    except (KeyError, ValueError):
+        pos_deltas = None    
+
     try:
-        neg_spans_text = spans['negative_spans']
-        elems = neg_spans_text.split(',')
-        arg1 = [int(x) for x in elems[0].split(':')]
-        arg2 = [int(x) for x in elems[1].split(':')]
-        neg_spans = (BucketSpan(arg1[0], arg1[1]), BucketSpan(arg2[0], arg2[1]))
-    except KeyError:
-        neg_spans = None
-       
-    try:
-        pos_deltas_text = deltas['positive_deltas']
-        elems = pos_deltas_text.split(',')
-        pos_deltas = tuple([int(x) for x in elems])
-    except KeyError:
-        pos_deltas = None
-       
-    try:
-        neg_deltas_text = deltas['negative_deltas']
-        elems = neg_deltas_text.split(',')
-        neg_deltas = tuple([int(x) for x in elems])
-    except KeyError:
-        neg_deltas = None
+        neg_deltas_text = deltas.get('negative_deltas')
+        if neg_deltas_text is not None and neg_deltas_text.strip():
+            elems = neg_deltas_text.split(',')
+            neg_deltas = tuple(int(x.strip()) for x in elems)
+        else:
+            neg_deltas = None
+    except (KeyError, ValueError):
+        neg_deltas = None    
+
+    print(NativeHistogram( # debugging lines
+        count_value=count_value,
+        sum_value=sum_value,
+        schema=schema,
+        zero_threshold=zero_threshold,
+        zero_count=zero_count,
+        pos_spans=pos_spans_tuple,
+        neg_spans=neg_spans_tuple,
+        pos_deltas=pos_deltas,
+        neg_deltas=neg_deltas
+    ))    
        
     return NativeHistogram(
         count_value=count_value,
@@ -359,11 +376,12 @@ def _parse_nh_struct(text):
         schema=schema,
         zero_threshold=zero_threshold,
         zero_count=zero_count,
-        pos_spans=pos_spans,
-        neg_spans=neg_spans,
+        pos_spans=pos_spans_tuple,
+        neg_spans=neg_spans_tuple,
         pos_deltas=pos_deltas,
         neg_deltas=neg_deltas
     )
+  
         
 
 def _group_for_sample(sample, name, typ):
