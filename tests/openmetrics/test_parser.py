@@ -251,7 +251,7 @@ nhsp {count:4,sum:6,schema:3,zero_threshold:2.938735877055719e-39,zero_count:1,p
         families = list(families)
        
         hfm = HistogramMetricFamily("nhsp", "Is a basic example of a native histogram with three spans")
-        hfm.add_sample("nhsp", None, None, None, None, NativeHistogram(4, 6, 3, 2.938735877055719e-39, 1, (BucketSpan(0, 1), BucketSpan(7, 1), BucketSpan(4, 1)), None, (1,0,0), None))
+        hfm.add_sample("nhsp", None, None, None, None, NativeHistogram(4, 6, 3, 2.938735877055719e-39, 1, (BucketSpan(0, 1), BucketSpan(7, 1), BucketSpan(4, 1)), None, (1, 0, 0), None))
         self.assertEqual([hfm], families)
 
     def test_native_histogram_with_labels(self):
