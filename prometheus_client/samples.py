@@ -1,4 +1,4 @@
-from typing import Dict, NamedTuple, Optional, Sequence, Tuple, Union
+from typing import Dict, NamedTuple, Optional, Sequence, Union
 
 
 class Timestamp:

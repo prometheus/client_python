@@ -343,6 +343,7 @@ def _parse_nh_struct(text):
         neg_deltas=neg_deltas
     )
   
+
 def _compose_spans(spans, spans_name):
     try:
         pos_spans_text = spans[spans_name]
@@ -354,6 +355,7 @@ def _compose_spans(spans, spans_name):
     except KeyError:
         pos_spans_tuple = None
         return pos_spans_tuple
+
 
 def _compose_deltas(deltas, deltas_name):
     try:
