@@ -326,62 +326,46 @@ def _parse_nh_struct(text):
     zero_threshold = float(items['zero_threshold'])
     zero_count = int(items['zero_count'])
 
-    pos_spans_text = spans['positive_spans']
-    pos_spans = []
-    for start, end in pos_spans_text:
-        pos_spans.append(BucketSpan(start, end))
-    pos_spans_tuple = tuple(pos_spans)    
-    
-    neg_spans_text = spans['negative_spans']
-    neg_spans = []
-    for start, end in neg_spans_text:
-        neg_spans.append(BucketSpan(start, end))
-    neg_spans_tuple = tuple(neg_spans)
-
-    try:
-        pos_deltas_text = deltas.get('positive_deltas')
-        if pos_deltas_text is not None and pos_deltas_text.strip():
-            elems = pos_deltas_text.split(',')
-            pos_deltas = tuple(int(x.strip()) for x in elems)
-        else:
-            pos_deltas = None
-    except (KeyError, ValueError):
-        pos_deltas = None    
-
-    try:
-        neg_deltas_text = deltas.get('negative_deltas')
-        if neg_deltas_text is not None and neg_deltas_text.strip():
-            elems = neg_deltas_text.split(',')
-            neg_deltas = tuple(int(x.strip()) for x in elems)
-        else:
-            neg_deltas = None
-    except (KeyError, ValueError):
-        neg_deltas = None    
-
-    print(NativeHistogram( # debugging lines
-        count_value=count_value,
-        sum_value=sum_value,
-        schema=schema,
-        zero_threshold=zero_threshold,
-        zero_count=zero_count,
-        pos_spans=pos_spans_tuple,
-        neg_spans=neg_spans_tuple,
-        pos_deltas=pos_deltas,
-        neg_deltas=neg_deltas
-    ))    
-       
+    pos_spans = _compose_spans(spans, 'positive_spans')
+    neg_spans = _compose_spans(spans, 'negative_spans')
+    pos_deltas = _compose_deltas(deltas, 'positive_deltas')
+    neg_deltas = _compose_deltas(deltas, 'negative_deltas')
+      
     return NativeHistogram(
         count_value=count_value,
         sum_value=sum_value,
         schema=schema,
         zero_threshold=zero_threshold,
         zero_count=zero_count,
-        pos_spans=pos_spans_tuple,
-        neg_spans=neg_spans_tuple,
+        pos_spans=pos_spans,
+        neg_spans=neg_spans,
         pos_deltas=pos_deltas,
         neg_deltas=neg_deltas
     )
   
+def _compose_spans(spans, spans_name):
+    try:
+        pos_spans_text = spans[spans_name]
+        pos_spans = []
+        for start, end in pos_spans_text:
+            pos_spans.append(BucketSpan(start, end))
+        pos_spans_tuple = tuple(pos_spans)
+        return pos_spans_tuple
+    except KeyError:
+        pos_spans_tuple = None
+        return pos_spans_tuple
+
+def _compose_deltas(deltas, deltas_name):
+    try:
+        pos_deltas_text = deltas.get(deltas_name)
+        if pos_deltas_text is not None and pos_deltas_text.strip():
+            elems = pos_deltas_text.split(',')
+            pos_deltas = tuple(int(x.strip()) for x in elems)
+            return pos_deltas
+        else:
+            pos_deltas = None
+    except (KeyError, ValueError):
+        return None
         
 
 def _group_for_sample(sample, name, typ):
