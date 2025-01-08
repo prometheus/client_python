@@ -6,8 +6,8 @@ weight: 3
 The [Pushgateway](https://github.com/prometheus/pushgateway)
 allows ephemeral and batch jobs to expose their metrics to Prometheus.
 Since Prometheus may not be able to scrape such a target, the targets can
-push their metrics to a separate instance of the Pushgateway, which then
-exposes these metrics to Prometheus.
+push their metrics to a separate instance of the Pushgateway,
+which then exposes these metrics to Prometheus.
 
 ```python
 from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
