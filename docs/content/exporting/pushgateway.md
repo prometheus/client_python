@@ -5,6 +5,9 @@ weight: 3
 
 The [Pushgateway](https://github.com/prometheus/pushgateway)
 allows ephemeral and batch jobs to expose their metrics to Prometheus.
+Since Prometheus may not be able to scrape such a target, the targets can
+push their metrics to a separate instance of the Pushgateway, which then
+exposes these metrics to Prometheus.
 
 ```python
 from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
@@ -18,10 +21,14 @@ push_to_gateway('localhost:9091', job='batchA', registry=registry)
 A separate registry is used, as the default registry may contain other metrics
 such as those from the Process Collector.
 
-Pushgateway functions take a grouping key. `push_to_gateway` replaces metrics
-with the same grouping key, `pushadd_to_gateway` only replaces metrics with the
-same name and grouping key and `delete_from_gateway` deletes metrics with the
-given job and grouping key. See the
+Pushgateway functions take a grouping key.
+1. `push_to_gateway` replaces metrics
+with the same grouping key
+2. `pushadd_to_gateway` only replaces metrics with the
+same name and grouping key
+3. `delete_from_gateway` deletes metrics with the
+given job and grouping key.
+See the
 [Pushgateway documentation](https://github.com/prometheus/pushgateway/blob/master/README.md)
 for more information.
 
