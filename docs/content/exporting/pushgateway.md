@@ -28,12 +28,12 @@ with the same grouping key
 same name and grouping key
 3. `delete_from_gateway` deletes metrics with the
 given job and grouping key.
+4. `instance_ip_grouping_key` returns a grouping key with the instance label set
+to the host's IP address.
+
 See the
 [Pushgateway documentation](https://github.com/prometheus/pushgateway/blob/master/README.md)
 for more information.
-
-`instance_ip_grouping_key` returns a grouping key with the instance label set
-to the host's IP address.
 
 # Handlers for authentication
 
