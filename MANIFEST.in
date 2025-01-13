@@ -1,4 +1,0 @@
-graft tests
-global-exclude *.py[cod]
-prune __pycache__
-prune */__pycache__

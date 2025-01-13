@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "prometheus_client"
+version = "0.21.1"
+description = "Python client for the Prometheus monitoring system."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.9"
+authors = [
+    { name = "The Prometheus Authors", email = "prometheus-developers@googlegroups.com" },
+]
+keywords = [
+    "prometheus",
+    "monitoring",
+    "instrumentation",
+    "client",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: System Administrators",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: System :: Monitoring",
+    "License :: OSI Approved :: Apache Software License",
+]
+
+[project.optional-dependencies]
+twisted = [
+    "twisted",
+]
+
+[project.urls]
+Homepage = "https://github.com/prometheus/client_python"
+Documentation = "https://prometheus.github.io/client_python/"
+
+[tool.setuptools.package-data]
+prometheus_client = ['py.typed']
