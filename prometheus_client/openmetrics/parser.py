@@ -311,13 +311,7 @@ def _parse_nh_struct(text):
     re_deltas = re.compile(r'(positive_deltas|negative_deltas):\[(-?\d+(?:,-?\d+)*)\]')
 
     items = dict(re.findall(pattern, text))
-    matches = re_spans.findall(text)
-    spans = {}
-    for match in matches:
-        key = match[0]
-        value = [tuple(map(int, pair.split(':'))) for pair in match[1].split(',')]
-        spans[key] = value
-   
+    span_matches = re_spans.findall(text)
     deltas = dict(re_deltas.findall(text))
 
     count_value = int(items['count'])
@@ -326,8 +320,8 @@ def _parse_nh_struct(text):
     zero_threshold = float(items['zero_threshold'])
     zero_count = int(items['zero_count'])
 
-    pos_spans = _compose_spans(spans, 'positive_spans')
-    neg_spans = _compose_spans(spans, 'negative_spans')
+    pos_spans = _compose_spans(span_matches, 'positive_spans')
+    neg_spans = _compose_spans(span_matches, 'negative_spans')
     pos_deltas = _compose_deltas(deltas, 'positive_deltas')
     neg_deltas = _compose_deltas(deltas, 'negative_deltas')
       
@@ -344,30 +338,29 @@ def _parse_nh_struct(text):
     )
   
 
-def _compose_spans(spans, spans_name):
-    try:
-        pos_spans_text = spans[spans_name]
-        pos_spans = []
-        for start, end in pos_spans_text:
-            pos_spans.append(BucketSpan(start, end))
-        pos_spans_tuple = tuple(pos_spans)
-        return pos_spans_tuple
-    except KeyError:
-        pos_spans_tuple = None
-        return pos_spans_tuple
+def _compose_spans(span_matches, spans_name):
+    spans = {}
+    for match in span_matches:
+        key = match[0]
+        value = [tuple(map(int, pair.split(':'))) for pair in match[1].split(',')]
+        spans[key] = value
+    if spans_name not in spans:
+        return None
+    out_spans = []
+    for start, end in spans[spans_name]:
+        out_spans.append(BucketSpan(start, end))
+    out_spans_tuple = tuple(out_spans)
+    return out_spans_tuple
 
 
 def _compose_deltas(deltas, deltas_name):
-    try:
-        pos_deltas_text = deltas.get(deltas_name)
-        if pos_deltas_text is not None and pos_deltas_text.strip():
-            elems = pos_deltas_text.split(',')
-            pos_deltas = tuple(int(x.strip()) for x in elems)
-            return pos_deltas
-        else:
-            pos_deltas = None
-    except (KeyError, ValueError):
+    if deltas_name not in deltas:
         return None
+    out_deltas = deltas.get(deltas_name)
+    if out_deltas is not None and out_deltas.strip():
+        elems = out_deltas.split(',')
+    out_deltas_tuple = tuple(int(x.strip()) for x in elems)
+    return out_deltas_tuple
         
 
 def _group_for_sample(sample, name, typ):
