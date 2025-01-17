@@ -307,12 +307,11 @@ def _parse_nh_sample(text, suffixes):
 
 def _parse_nh_struct(text):
     pattern = r'(\w+):\s*([^,}]+)'
-    
-    re_spans = re.compile(r'(positive_spans|negative_spans):\[(\d+:\d+,\d+:\d+)\]')
+    re_spans = re.compile(r'(positive_spans|negative_spans):\[(\d+:\d+(,\d+:\d+)*)\]')
     re_deltas = re.compile(r'(positive_deltas|negative_deltas):\[(-?\d+(?:,-?\d+)*)\]')
 
     items = dict(re.findall(pattern, text))
-    spans = dict(re_spans.findall(text))
+    span_matches = re_spans.findall(text)
     deltas = dict(re_deltas.findall(text))
 
     count_value = int(items['count'])
@@ -321,38 +320,11 @@ def _parse_nh_struct(text):
     zero_threshold = float(items['zero_threshold'])
     zero_count = int(items['zero_count'])
 
-    try:
-        pos_spans_text = spans['positive_spans']
-        elems = pos_spans_text.split(',')
-        arg1 = [int(x) for x in elems[0].split(':')]
-        arg2 = [int(x) for x in elems[1].split(':')]
-        pos_spans = (BucketSpan(arg1[0], arg1[1]), BucketSpan(arg2[0], arg2[1]))
-    except KeyError:
-        pos_spans = None
-       
-    try:
-        neg_spans_text = spans['negative_spans']
-        elems = neg_spans_text.split(',')
-        arg1 = [int(x) for x in elems[0].split(':')]
-        arg2 = [int(x) for x in elems[1].split(':')]
-        neg_spans = (BucketSpan(arg1[0], arg1[1]), BucketSpan(arg2[0], arg2[1]))
-    except KeyError:
-        neg_spans = None
-       
-    try:
-        pos_deltas_text = deltas['positive_deltas']
-        elems = pos_deltas_text.split(',')
-        pos_deltas = tuple([int(x) for x in elems])
-    except KeyError:
-        pos_deltas = None
-       
-    try:
-        neg_deltas_text = deltas['negative_deltas']
-        elems = neg_deltas_text.split(',')
-        neg_deltas = tuple([int(x) for x in elems])
-    except KeyError:
-        neg_deltas = None
-       
+    pos_spans = _compose_spans(span_matches, 'positive_spans')
+    neg_spans = _compose_spans(span_matches, 'negative_spans')
+    pos_deltas = _compose_deltas(deltas, 'positive_deltas')
+    neg_deltas = _compose_deltas(deltas, 'negative_deltas')
+      
     return NativeHistogram(
         count_value=count_value,
         sum_value=sum_value,
@@ -364,6 +336,47 @@ def _parse_nh_struct(text):
         pos_deltas=pos_deltas,
         neg_deltas=neg_deltas
     )
+  
+
+def _compose_spans(span_matches, spans_name):
+    """Takes a list of span matches (expected to be a list of tuples) and a string 
+    (the expected span list name) and processes the list so that the values extracted 
+    from the span matches can be used to compose a tuple of BucketSpan objects"""
+    spans = {}
+    for match in span_matches:
+        # Extract the key from the match (first element of the tuple).
+        key = match[0]
+        # Extract the value from the match (second element of the tuple).
+        # Split the value string by commas to get individual pairs, 
+        # split each pair by ':' to get start and end, and convert them to integers.
+        value = [tuple(map(int, pair.split(':'))) for pair in match[1].split(',')]
+        # Store the processed value in the spans dictionary with the key.
+        spans[key] = value
+    if spans_name not in spans:
+        return None
+    out_spans = []
+    # Iterate over each start and end tuple in the list of tuples for the specified spans_name.
+    for start, end in spans[spans_name]:
+        # Compose a BucketSpan object with the start and end values 
+        # and append it to the out_spans list.
+        out_spans.append(BucketSpan(start, end))
+        # Convert to tuple
+    out_spans_tuple = tuple(out_spans)
+    return out_spans_tuple
+
+
+def _compose_deltas(deltas, deltas_name):
+    """Takes a list of deltas matches (a dictionary) and a string (the expected delta list name),
+    and processes its elements to compose a tuple of integers representing the deltas"""
+    if deltas_name not in deltas:
+        return None
+    out_deltas = deltas.get(deltas_name)
+    if out_deltas is not None and out_deltas.strip():
+        elems = out_deltas.split(',')
+    # Convert each element in the list elems to an integer 
+    # after stripping whitespace and create a tuple from these integers.
+    out_deltas_tuple = tuple(int(x.strip()) for x in elems)
+    return out_deltas_tuple
         
 
 def _group_for_sample(sample, name, typ):

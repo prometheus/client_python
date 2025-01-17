@@ -1,4 +1,4 @@
-from typing import Dict, NamedTuple, Optional, Sequence, Tuple, Union
+from typing import Dict, NamedTuple, Optional, Sequence, Union
 
 
 class Timestamp:
@@ -47,8 +47,8 @@ class NativeHistogram(NamedTuple):
     schema: int
     zero_threshold: float
     zero_count: float
-    pos_spans: Optional[Tuple[BucketSpan, BucketSpan]] = None
-    neg_spans: Optional[Tuple[BucketSpan, BucketSpan]] = None
+    pos_spans: Optional[Sequence[BucketSpan]] = None
+    neg_spans: Optional[Sequence[BucketSpan]] = None
     pos_deltas: Optional[Sequence[int]] = None
     neg_deltas: Optional[Sequence[int]] = None
 
