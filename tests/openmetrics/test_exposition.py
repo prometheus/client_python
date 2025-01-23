@@ -95,17 +95,17 @@ hh_created 123.456
 """, generate_latest(self.registry))
 
 
-    '''def test_native_histogram(self):
-        hfm = HistogramMetricFamily("nativehistogram", "Is a basic example of a native histogram")
-        hfm.add_sample("nativehistogram", None, None, None, None, NativeHistogram(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3)))
+    def test_native_histogram(self):
+        hfm = HistogramMetricFamily("nh", "nh")
+        hfm.add_sample("nh", None, None, None, None, NativeHistogram(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3)))
        # print(hfm)
         self.custom_collector(hfm)
         print("this is the GOT", generate_latest(self.registry)) # DEBUGGING LINE
-        self.assertEqual(b"""# HELP nativehistogram Is a basic example of a native histogram
-# TYPE nativehistogram histogram        
-nativehistogram {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,positive_spans:[0:2,1:2],negative_spans:[0:2,1:2],positive_deltas:[2,1,-3,3],negative_deltas:[2,1,-2,3]}
+        self.assertEqual(b"""# HELP nh nh
+# TYPE nh histogram
+nh {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,positive_spans:[0:2,1:2],negative_spans:[0:2,1:2],positive_deltas:[2,1,-3,3],negative_deltas:[2,1,-2,3]}
 # EOF
-""", generate_latest(self.registry))'''
+""", generate_latest(self.registry))
 
     def test_nh_no_observation(self):
         hfm = HistogramMetricFamily("nhnoobs", "nhnoobs")

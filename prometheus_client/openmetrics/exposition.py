@@ -89,18 +89,20 @@ def generate_latest(registry):
                         negative_spans = ','.join([f'{ns[0]}:{ns[1]}' for ns in s.native_histogram.neg_spans])                  
                         negative_deltas = ','.join(str(nd) for nd in s.native_histogram.neg_deltas)
                     
-                    nh_sample_template = '{{count:{},sum:{},schema:{},zero_threshold:{},zero_count:{}}}'
+                    nh_sample_template = '{{' + 'count:{},sum:{},schema:{},zero_threshold:{},zero_count:{}'
                     if positive_spans != '':
-                        nh_sample_template += ',positive_spans:[{{{}}}]'
+                        nh_sample_template += ',positive_spans:[{}]'
                     if negative_spans != '':
-                       nh_sample_template += ',negative_spans:[{{{}}}]'
+                        nh_sample_template += ',negative_spans:[{}]'
                     if positive_deltas != '':
-                       nh_sample_template += ',positive_deltas:[{{{}}}]'
-                       if negative_deltas == '':
-                           nh_sample_template += '}}'
+                        nh_sample_template += ',positive_deltas:[{}]'
+                        if negative_deltas == '':
+                            nh_sample_template += '}}'
                     if negative_deltas != '':
-                       nh_sample_template += ',negative_deltas:[{{{}}}]'
-                       nh_sample_template += '}}'
+                        nh_sample_template += ',negative_deltas:[{}]'
+                        nh_sample_template += '}}'
+                    else:
+                        nh_sample_template += '}}'    
                       
                     native_histogram = nh_sample_template.format(
                         s.native_histogram.count_value,
