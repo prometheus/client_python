@@ -26,6 +26,7 @@ def generate_latest(registry):
     for metric in registry.collect():
         try:
             mname = metric.name
+            # (Vesari): TODO: this is wrong. TYPE should come before HELP!!!!
             output.append('# HELP {} {}\n'.format(
                 escape_metric_name(mname), _escape(metric.documentation)))
             output.append(f'# TYPE {escape_metric_name(mname)} {metric.type}\n')
@@ -67,24 +68,72 @@ def generate_latest(registry):
                             floatToGoString(s.exemplar.value),
                         )
                 else:
-                    exemplarstr = ''
+                    exemplarstr = ''   
+                
                 timestamp = ''
                 if s.timestamp is not None:
                     timestamp = f' {s.timestamp}'
+
+                native_histogram = ''
+                positive_spans = ''
+                positive_deltas = ''
+                negative_spans = ''
+                negative_deltas = ''      
+                if s.native_histogram:
+                    if s.name is not metric.name:
+                        raise ValueError(f"Metric {metric.name} is native histogram, but sample name is not valid")         
+                    if s.native_histogram.pos_spans:
+                        positive_spans = ','.join([f'{ps[0]}:{ps[1]}' for ps in s.native_histogram.pos_spans])
+                        positive_deltas = ','.join(str(pd) for pd in s.native_histogram.pos_deltas)
+                    if s.native_histogram.neg_spans:        
+                        negative_spans = ','.join([f'{ns[0]}:{ns[1]}' for ns in s.native_histogram.neg_spans])                  
+                        negative_deltas = ','.join(str(nd) for nd in s.native_histogram.neg_deltas)
+                    
+                    nh_sample_template = '{{count:{},sum:{},schema:{},zero_threshold:{},zero_count:{}}}'
+                    if positive_spans != '':
+                        nh_sample_template += ',positive_spans:[{{{}}}]'
+                    if negative_spans != '':
+                       nh_sample_template += ',negative_spans:[{{{}}}]'
+                    if positive_deltas != '':
+                       nh_sample_template += ',positive_deltas:[{{{}}}]'
+                       if negative_deltas == '':
+                           nh_sample_template += '}}'
+                    if negative_deltas != '':
+                       nh_sample_template += ',negative_deltas:[{{{}}}]'
+                       nh_sample_template += '}}'
+                      
+                    native_histogram = nh_sample_template.format(
+                        s.native_histogram.count_value,
+                        s.native_histogram.sum_value,
+                        s.native_histogram.schema,
+                        s.native_histogram.zero_threshold,
+                        s.native_histogram.zero_count,
+                        positive_spans,
+                        negative_spans,
+                        positive_deltas,
+                        negative_deltas,
+                    )   
+                   
+                value = ''    
+                if s.value is not None or not s.native_histogram:
+                    value = floatToGoString(s.value)       
                 if _is_valid_legacy_metric_name(s.name):
-                    output.append('{}{} {}{}{}\n'.format(
+                    output.append('{}{} {}{}{}{}\n'.format(
                         s.name,
                         labelstr,
-                        floatToGoString(s.value),
+                        value,
                         timestamp,
                         exemplarstr,
+                        native_histogram
                     ))
+
                 else:
-                    output.append('{} {}{}{}\n'.format(
+                    output.append('{} {}{}{}{}\n'.format(
                         labelstr,
-                        floatToGoString(s.value),
+                        value,
                         timestamp,
                         exemplarstr,
+                        native_histogram
                     ))
         except Exception as exception:
             exception.args = (exception.args or ('',)) + (metric,)
