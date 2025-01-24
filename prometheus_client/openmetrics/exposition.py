@@ -41,7 +41,7 @@ def generate_latest(registry):
                     labelstr = ''
                 
                 if s.labels:
-                    items = sorted(s.labels.items())
+                    items = s.labels.items()
                     labelstr += ','.join(
                         ['{}="{}"'.format(
                             escape_label_name(k), _escape(v))
@@ -81,9 +81,7 @@ def generate_latest(registry):
                 negative_deltas = ''
                 pos = False
                 neg = False      
-                if s.native_histogram:
-                    if s.name is not metric.name:
-                        raise ValueError(f"Metric {metric.name} is native histogram, but sample name is not valid")                 
+                if s.native_histogram:                
                     # Initialize basic nh template
                     nh_sample_template = '{{count:{},sum:{},schema:{},zero_threshold:{},zero_count:{}'
 
