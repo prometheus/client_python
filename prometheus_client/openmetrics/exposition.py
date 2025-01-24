@@ -78,44 +78,61 @@ def generate_latest(registry):
                 positive_spans = ''
                 positive_deltas = ''
                 negative_spans = ''
-                negative_deltas = ''      
+                negative_deltas = ''
+                pos = False
+                neg = False      
                 if s.native_histogram:
                     if s.name is not metric.name:
-                        raise ValueError(f"Metric {metric.name} is native histogram, but sample name is not valid")         
-                    if s.native_histogram.pos_spans:
-                        positive_spans = ','.join([f'{ps[0]}:{ps[1]}' for ps in s.native_histogram.pos_spans])
-                        positive_deltas = ','.join(str(pd) for pd in s.native_histogram.pos_deltas)
-                    if s.native_histogram.neg_spans:        
-                        negative_spans = ','.join([f'{ns[0]}:{ns[1]}' for ns in s.native_histogram.neg_spans])                  
-                        negative_deltas = ','.join(str(nd) for nd in s.native_histogram.neg_deltas)
-                    
-                    nh_sample_template = '{{' + 'count:{},sum:{},schema:{},zero_threshold:{},zero_count:{}'
-                    if positive_spans != '':
-                        nh_sample_template += ',positive_spans:[{}]'
-                    if negative_spans != '':
-                        nh_sample_template += ',negative_spans:[{}]'
-                    if positive_deltas != '':
-                        nh_sample_template += ',positive_deltas:[{}]'
-                        if negative_deltas == '':
-                            nh_sample_template += '}}'
-                    if negative_deltas != '':
-                        nh_sample_template += ',negative_deltas:[{}]'
-                        nh_sample_template += '}}'
-                    else:
-                        nh_sample_template += '}}'    
-                      
-                    native_histogram = nh_sample_template.format(
+                        raise ValueError(f"Metric {metric.name} is native histogram, but sample name is not valid")                 
+                    # Initialize basic nh template
+                    nh_sample_template = '{{count:{},sum:{},schema:{},zero_threshold:{},zero_count:{}'
+
+                    args = [
                         s.native_histogram.count_value,
                         s.native_histogram.sum_value,
                         s.native_histogram.schema,
                         s.native_histogram.zero_threshold,
                         s.native_histogram.zero_count,
-                        positive_spans,
-                        negative_spans,
-                        positive_deltas,
-                        negative_deltas,
-                    )   
-                   
+                    ]
+
+                    # Signal presence for pos/neg spans/deltas
+                    pos = False
+                    neg = False
+
+                    # If there are pos spans, append them to the template and args
+                    if s.native_histogram.pos_spans:
+                        positive_spans = ','.join([f'{ps[0]}:{ps[1]}' for ps in s.native_histogram.pos_spans])
+                        positive_deltas = ','.join(f'{pd}' for pd in s.native_histogram.pos_deltas)
+                        nh_sample_template += ',positive_spans:[{}]'
+                        args.append(positive_spans)
+                        pos = True
+
+                    # If there are neg spans exist, append them to the template and args
+                    if s.native_histogram.neg_spans:
+                        negative_spans = ','.join([f'{ns[0]}:{ns[1]}' for ns in s.native_histogram.neg_spans])
+                        negative_deltas = ','.join(str(nd) for nd in s.native_histogram.neg_deltas)
+                        nh_sample_template += ',negative_spans:[{}]'
+                        args.append(negative_spans)
+                        neg = True
+
+                    # Append pos deltas if pos spans were added
+                    if pos:
+                        nh_sample_template += ',positive_deltas:[{}]'
+                        args.append(positive_deltas)
+
+                    # Append neg deltas if neg spans were added
+                    if neg:
+                        nh_sample_template += ',negative_deltas:[{}]'
+                        args.append(negative_deltas)
+
+                    # Add closing brace
+                    nh_sample_template += '}}'
+
+                    # Format the template with the args
+                    native_histogram = nh_sample_template.format(*args)
+
+                print("These are the pos deltas", positive_deltas) #DEBUGGING LINE       
+                print("The is the nh", native_histogram) #DEBUGGING LINE
                 value = ''    
                 if s.value is not None or not s.native_histogram:
                     value = floatToGoString(s.value)       

@@ -98,14 +98,13 @@ hh_created 123.456
     def test_native_histogram(self):
         hfm = HistogramMetricFamily("nh", "nh")
         hfm.add_sample("nh", None, None, None, None, NativeHistogram(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3)))
-       # print(hfm)
         self.custom_collector(hfm)
-        print("this is the GOT", generate_latest(self.registry)) # DEBUGGING LINE
         self.assertEqual(b"""# HELP nh nh
 # TYPE nh histogram
 nh {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,positive_spans:[0:2,1:2],negative_spans:[0:2,1:2],positive_deltas:[2,1,-3,3],negative_deltas:[2,1,-2,3]}
 # EOF
 """, generate_latest(self.registry))
+
 
     def test_nh_no_observation(self):
         hfm = HistogramMetricFamily("nhnoobs", "nhnoobs")
@@ -117,6 +116,19 @@ nhnoobs {count:0,sum:0,schema:3,zero_threshold:2.938735877055719e-39,zero_count:
 # EOF
 """, generate_latest(self.registry))
 
+
+    def test_nh_longer_spans(self):
+        hfm = HistogramMetricFamily("nhsp", "Is a basic example of a native histogram with three spans")
+        hfm.add_sample("nhsp", None, None, None, None, NativeHistogram(4, 6, 3, 2.938735877055719e-39, 1, (BucketSpan(0, 1), BucketSpan(7, 1), BucketSpan(4, 1)), None, (1, 0, 0), None))
+        self.custom_collector(hfm)
+        print("this is the GOT", generate_latest(self.registry)) # DEBUGGING LINE
+        self.assertEqual(b"""# HELP nhsp Is a basic example of a native histogram with three spans
+# TYPE nhsp histogram
+nhsp {count:4,sum:6,schema:3,zero_threshold:2.938735877055719e-39,zero_count:1,positive_spans:[0:1,7:1,4:1],positive_deltas:[1,0,0]}
+# EOF
+""", generate_latest(self.registry))
+
+    
 
     def test_histogram_negative_buckets(self):
         s = Histogram('hh', 'A histogram', buckets=[-1, -0.5, 0, 0.5, 1], registry=self.registry)
