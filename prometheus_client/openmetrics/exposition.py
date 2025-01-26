@@ -32,7 +32,46 @@ def generate_latest(registry):
             if metric.unit:
                 output.append(f'# UNIT {escape_metric_name(mname)} {metric.unit}\n')    
             for s in metric.samples:
-                labelstr, exemplarstr, timestamp = _expose_classic_metrics_sample(metric, s)
+                if not _is_valid_legacy_metric_name(s.name):
+                    labelstr = escape_metric_name(s.name)
+                    if s.labels:
+                        labelstr += ', '
+                else:
+                    labelstr = ''
+                        
+                if s.labels:
+                    items = s.labels.items()
+                    labelstr += ','.join(
+                        ['{}="{}"'.format(
+                            escape_label_name(k), _escape(v))
+                            for k, v in items])        
+                if labelstr:
+                    labelstr = "{" + labelstr + "}"
+                            
+                if s.exemplar:
+                    if not _is_valid_exemplar_metric(metric, s):
+                        raise ValueError(f"Metric {metric.name} has exemplars, but is not a histogram bucket or counter")
+                    labels = '{{{0}}}'.format(','.join(
+                        ['{}="{}"'.format(
+                            k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
+                            for k, v in sorted(s.exemplar.labels.items())]))
+                    if s.exemplar.timestamp is not None:
+                        exemplarstr = ' # {} {} {}'.format(
+                            labels,
+                            floatToGoString(s.exemplar.value),
+                            s.exemplar.timestamp,
+                        )
+                    else:
+                        exemplarstr = ' # {} {}'.format(
+                            labels,
+                            floatToGoString(s.exemplar.value),
+                        )
+                else:
+                    exemplarstr = ''   
+                        
+                timestamp = ''
+                if s.timestamp is not None:
+                    timestamp = f' {s.timestamp}'
                 
                 native_histogram = ''
                 positive_spans = ''
@@ -141,45 +180,4 @@ def _escape(s: str) -> str:
     return s.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"')
 
 
-def _expose_classic_metrics_sample(metric, sample) -> tuple[str, str, str]:
-    if not _is_valid_legacy_metric_name(sample.name):
-        labelstr = escape_metric_name(sample.name)
-        if sample.labels:
-            labelstr += ', '
-    else:
-        labelstr = ''
-            
-    if sample.labels:
-        items = sample.labels.items()
-        labelstr += ','.join(
-            ['{}="{}"'.format(
-                escape_label_name(k), _escape(v))
-                for k, v in items])        
-    if labelstr:
-        labelstr = "{" + labelstr + "}"
-                
-    if sample.exemplar:
-        if not _is_valid_exemplar_metric(metric, sample):
-            raise ValueError(f"Metric {metric.name} has exemplars, but is not a histogram bucket or counter")
-        labels = '{{{0}}}'.format(','.join(
-            ['{}="{}"'.format(
-                k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
-                for k, v in sorted(sample.exemplar.labels.items())]))
-        if sample.exemplar.timestamp is not None:
-            exemplarstr = ' # {} {} {}'.format(
-                labels,
-                floatToGoString(sample.exemplar.value),
-                sample.exemplar.timestamp,
-            )
-        else:
-            exemplarstr = ' # {} {}'.format(
-                labels,
-                floatToGoString(sample.exemplar.value),
-            )
-    else:
-        exemplarstr = ''   
-            
-    timestamp = ''
-    if sample.timestamp is not None:
-        timestamp = f' {sample.timestamp}'
-    return labelstr, exemplarstr, timestamp 
+      
