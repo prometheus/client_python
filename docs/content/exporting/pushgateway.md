@@ -23,9 +23,9 @@ such as those from the Process Collector.
 
 Pushgateway functions take a grouping key.
 1. `push_to_gateway` replaces metrics
-with the same grouping key
+with the same grouping key.
 2. `pushadd_to_gateway` only replaces metrics with the
-same name and grouping key
+same name and grouping key.
 3. `delete_from_gateway` deletes metrics with the
 given job and grouping key.
 4. `instance_ip_grouping_key` returns a grouping key with the instance label set
