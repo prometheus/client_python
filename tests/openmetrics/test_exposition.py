@@ -5,7 +5,8 @@ from prometheus_client import (
     CollectorRegistry, Counter, Enum, Gauge, Histogram, Info, Metric, Summary,
 )
 from prometheus_client.core import (
-    Exemplar, GaugeHistogramMetricFamily, Timestamp,
+    BucketSpan, Exemplar, GaugeHistogramMetricFamily, HistogramMetricFamily,
+    NativeHistogram, Timestamp,
 )
 from prometheus_client.openmetrics.exposition import generate_latest
 
@@ -91,6 +92,125 @@ hh_bucket{le="+Inf"} 1.0
 hh_count 1.0
 hh_sum 0.05
 hh_created 123.456
+# EOF
+""", generate_latest(self.registry))
+
+
+    def test_native_histogram(self):
+        hfm = HistogramMetricFamily("nh", "nh")
+        hfm.add_sample("nh", None, None, None, None, NativeHistogram(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3)))
+        self.custom_collector(hfm)
+        self.assertEqual(b"""# HELP nh nh
+# TYPE nh histogram
+nh {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,positive_spans:[0:2,1:2],negative_spans:[0:2,1:2],positive_deltas:[2,1,-3,3],negative_deltas:[2,1,-2,3]}
+# EOF
+""", generate_latest(self.registry))
+
+
+    def test_nh_no_observation(self):
+        hfm = HistogramMetricFamily("nhnoobs", "nhnoobs")
+        hfm.add_sample("nhnoobs", None, None, None, None, NativeHistogram(0, 0, 3, 2.938735877055719e-39, 0))
+        self.custom_collector(hfm)
+        self.assertEqual(b"""# HELP nhnoobs nhnoobs
+# TYPE nhnoobs histogram
+nhnoobs {count:0,sum:0,schema:3,zero_threshold:2.938735877055719e-39,zero_count:0}
+# EOF
+""", generate_latest(self.registry))
+
+
+    def test_nh_longer_spans(self):
+        hfm = HistogramMetricFamily("nhsp", "Is a basic example of a native histogram with three spans")
+        hfm.add_sample("nhsp", None, None, None, None, NativeHistogram(4, 6, 3, 2.938735877055719e-39, 1, (BucketSpan(0, 1), BucketSpan(7, 1), BucketSpan(4, 1)), None, (1, 0, 0), None))
+        self.custom_collector(hfm)
+        self.assertEqual(b"""# HELP nhsp Is a basic example of a native histogram with three spans
+# TYPE nhsp histogram
+nhsp {count:4,sum:6,schema:3,zero_threshold:2.938735877055719e-39,zero_count:1,positive_spans:[0:1,7:1,4:1],positive_deltas:[1,0,0]}
+# EOF
+""", generate_latest(self.registry))
+   
+    def test_native_histogram_utf8(self):
+        hfm = HistogramMetricFamily("native{histogram", "Is a basic example of a native histogram")
+        hfm.add_sample("native{histogram", None, None, None, None, NativeHistogram(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3)))
+        self.custom_collector(hfm)
+        self.assertEqual(b"""# HELP "native{histogram" Is a basic example of a native histogram
+# TYPE "native{histogram" histogram
+{"native{histogram"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,positive_spans:[0:2,1:2],negative_spans:[0:2,1:2],positive_deltas:[2,1,-3,3],negative_deltas:[2,1,-2,3]}
+# EOF
+""", generate_latest(self.registry))
+    
+    def test_native_histogram_utf8_stress(self):
+        hfm = HistogramMetricFamily("native{histogram", "Is a basic example of a native histogram")
+        hfm.add_sample("native{histogram", {'xx{} # {}': ' EOF # {}}}'}, None, None, None, NativeHistogram(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3)))
+        self.custom_collector(hfm)
+        self.assertEqual(b"""# HELP "native{histogram" Is a basic example of a native histogram
+# TYPE "native{histogram" histogram
+{"native{histogram", "xx{} # {}"=" EOF # {}}}"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,positive_spans:[0:2,1:2],negative_spans:[0:2,1:2],positive_deltas:[2,1,-3,3],negative_deltas:[2,1,-2,3]}
+# EOF
+""", generate_latest(self.registry))
+
+    def test_native_histogram_with_labels(self):
+        hfm = HistogramMetricFamily("hist_w_labels", "Is a basic example of a native histogram with labels")
+        hfm.add_sample("hist_w_labels", {"foo": "bar", "baz": "qux"}, None, None, None, NativeHistogram(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3)))
+        self.custom_collector(hfm)
+        self.assertEqual(b"""# HELP hist_w_labels Is a basic example of a native histogram with labels
+# TYPE hist_w_labels histogram
+hist_w_labels{foo="bar",baz="qux"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,positive_spans:[0:2,1:2],negative_spans:[0:2,1:2],positive_deltas:[2,1,-3,3],negative_deltas:[2,1,-2,3]}
+# EOF
+""", generate_latest(self.registry))
+    
+    def test_native_histogram_with_labels_utf8(self):
+        hfm = HistogramMetricFamily("hist.w.labels", "Is a basic example of a native histogram with labels")
+        hfm.add_sample("hist.w.labels", {"foo": "bar", "baz": "qux"}, None, None, None, NativeHistogram(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3)))
+        self.custom_collector(hfm)
+        self.assertEqual(b"""# HELP "hist.w.labels" Is a basic example of a native histogram with labels
+# TYPE "hist.w.labels" histogram
+{"hist.w.labels", foo="bar",baz="qux"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,positive_spans:[0:2,1:2],negative_spans:[0:2,1:2],positive_deltas:[2,1,-3,3],negative_deltas:[2,1,-2,3]}
+# EOF
+""", generate_latest(self.registry))
+
+    def test_native_histogram_with_classic_histogram(self):
+        hfm = HistogramMetricFamily("hist_w_classic", "Is a basic example of a native histogram coexisting with a classic histogram")
+        hfm.add_sample("hist_w_classic", {"foo": "bar"}, None, None, None, NativeHistogram(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3)))
+        hfm.add_sample("hist_w_classic_bucket", {"foo": "bar", "le": "0.001"}, 4.0, None, None, None)
+        hfm.add_sample("hist_w_classic_bucket", {"foo": "bar", "le": "+Inf"}, 24.0, None, None, None)
+        hfm.add_sample("hist_w_classic_count", {"foo": "bar"}, 24.0, None, None, None)
+        hfm.add_sample("hist_w_classic_sum", {"foo": "bar"}, 100.0, None, None, None)
+        self.custom_collector(hfm)
+        self.assertEqual(b"""# HELP hist_w_classic Is a basic example of a native histogram coexisting with a classic histogram
+# TYPE hist_w_classic histogram
+hist_w_classic{foo="bar"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,positive_spans:[0:2,1:2],negative_spans:[0:2,1:2],positive_deltas:[2,1,-3,3],negative_deltas:[2,1,-2,3]}
+hist_w_classic_bucket{foo="bar",le="0.001"} 4.0
+hist_w_classic_bucket{foo="bar",le="+Inf"} 24.0
+hist_w_classic_count{foo="bar"} 24.0
+hist_w_classic_sum{foo="bar"} 100.0
+# EOF
+""", generate_latest(self.registry))
+
+    def test_native_plus_classic_histogram_two_labelsets(self):
+        hfm = HistogramMetricFamily("hist_w_classic_two_sets", "Is an example of a native histogram plus a classic histogram with two label sets")
+        hfm.add_sample("hist_w_classic_two_sets", {"foo": "bar"}, None, None, None, NativeHistogram(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3)))
+        hfm.add_sample("hist_w_classic_two_sets_bucket", {"foo": "bar", "le": "0.001"}, 4.0, None, None, None)
+        hfm.add_sample("hist_w_classic_two_sets_bucket", {"foo": "bar", "le": "+Inf"}, 24.0, None, None, None)
+        hfm.add_sample("hist_w_classic_two_sets_count", {"foo": "bar"}, 24.0, None, None, None)
+        hfm.add_sample("hist_w_classic_two_sets_sum", {"foo": "bar"}, 100.0, None, None, None)
+        hfm.add_sample("hist_w_classic_two_sets", {"foo": "baz"}, None, None, None, NativeHistogram(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3)))
+        hfm.add_sample("hist_w_classic_two_sets_bucket", {"foo": "baz", "le": "0.001"}, 4.0, None, None, None)
+        hfm.add_sample("hist_w_classic_two_sets_bucket", {"foo": "baz", "le": "+Inf"}, 24.0, None, None, None)
+        hfm.add_sample("hist_w_classic_two_sets_count", {"foo": "baz"}, 24.0, None, None, None)
+        hfm.add_sample("hist_w_classic_two_sets_sum", {"foo": "baz"}, 100.0, None, None, None)
+        self.custom_collector(hfm)
+        self.assertEqual(b"""# HELP hist_w_classic_two_sets Is an example of a native histogram plus a classic histogram with two label sets
+# TYPE hist_w_classic_two_sets histogram
+hist_w_classic_two_sets{foo="bar"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,positive_spans:[0:2,1:2],negative_spans:[0:2,1:2],positive_deltas:[2,1,-3,3],negative_deltas:[2,1,-2,3]}
+hist_w_classic_two_sets_bucket{foo="bar",le="0.001"} 4.0
+hist_w_classic_two_sets_bucket{foo="bar",le="+Inf"} 24.0
+hist_w_classic_two_sets_count{foo="bar"} 24.0
+hist_w_classic_two_sets_sum{foo="bar"} 100.0
+hist_w_classic_two_sets{foo="baz"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,positive_spans:[0:2,1:2],negative_spans:[0:2,1:2],positive_deltas:[2,1,-3,3],negative_deltas:[2,1,-2,3]}
+hist_w_classic_two_sets_bucket{foo="baz",le="0.001"} 4.0
+hist_w_classic_two_sets_bucket{foo="baz",le="+Inf"} 24.0
+hist_w_classic_two_sets_count{foo="baz"} 24.0
+hist_w_classic_two_sets_sum{foo="baz"} 100.0
 # EOF
 """, generate_latest(self.registry))
 
