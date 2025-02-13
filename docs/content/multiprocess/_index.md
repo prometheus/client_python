@@ -49,8 +49,7 @@ MY_COUNTER = Counter('my_counter', 'Description of my counter')
 # Expose metrics.
 def app(environ, start_response):
     registry = CollectorRegistry()
-    multiprocess.MultiProcessCollector(registry)
-    data = generate_latest(registry)
+    data = generate_latest(multiprocess.MultiProcessCollector(registry))
     status = '200 OK'
     response_headers = [
         ('Content-type', CONTENT_TYPE_LATEST),
