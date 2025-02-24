@@ -513,9 +513,9 @@ class TestHistogram(unittest.TestCase):
         enable_legacy_validation()
         self.assertRaises(ValueError, self.histogram.observe, 3.0, exemplar={':o)': 'smile'})
         self.assertRaises(ValueError, self.histogram.observe, 3.0, exemplar={'1': 'number'})
+        disable_legacy_validation()
 
     def test_exemplar_invalid_label_name(self):
-        disable_legacy_validation()
         self.histogram.observe(3.0, exemplar={':o)': 'smile'})
         self.histogram.observe(3.0, exemplar={'1': 'number'})
 
@@ -669,9 +669,9 @@ class TestMetricWrapper(unittest.TestCase):
         self.assertRaises(ValueError, Counter, 'c_total', '', labelnames=['a:b'])
         self.assertRaises(ValueError, Counter, 'c_total', '', labelnames=['__reserved'])
         self.assertRaises(ValueError, Summary, 'c_total', '', labelnames=['quantile'])
+        disable_legacy_validation()
 
     def test_invalid_names_raise(self):
-        disable_legacy_validation()
         self.assertRaises(ValueError, Counter, '', 'help')
         self.assertRaises(ValueError, Counter, '', 'help', namespace='&')
         self.assertRaises(ValueError, Counter, '', 'help', subsystem='(')
