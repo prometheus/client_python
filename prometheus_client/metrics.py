@@ -13,7 +13,7 @@ from .context_managers import ExceptionCounter, InprogressTracker, Timer
 from .metrics_core import Metric
 from .registry import Collector, CollectorRegistry, REGISTRY
 from .samples import Exemplar, Sample
-from .utils import floatToGoString, INF
+from .utils import floatToGoString, getMultiprocDir, INF
 from .validation import (
     _validate_exemplar, _validate_labelnames, _validate_metric_name,
 )
@@ -108,6 +108,7 @@ class MetricWrapperBase(Collector):
                  unit: str = '',
                  registry: Optional[CollectorRegistry] = REGISTRY,
                  _labelvalues: Optional[Sequence[str]] = None,
+                 multiprocess_dir: Optional[str] = ''
                  ) -> None:
         self._name = _build_full_name(self._type, name, namespace, subsystem, unit)
         self._labelnames = _validate_labelnames(self, labelnames)
@@ -115,6 +116,7 @@ class MetricWrapperBase(Collector):
         self._kwargs: Dict[str, Any] = {}
         self._documentation = documentation
         self._unit = unit
+        self._multiprocess_dir = multiprocess_dir
 
         _validate_metric_name(self._name)
 
@@ -182,12 +184,13 @@ class MetricWrapperBase(Collector):
                     labelnames=self._labelnames,
                     unit=self._unit,
                     _labelvalues=labelvalues,
+                    multiprocess_dir=self._multiprocess_dir,
                     **self._kwargs
                 )
             return self._metrics[labelvalues]
 
     def remove(self, *labelvalues: Any) -> None:
-        if 'prometheus_multiproc_dir' in os.environ or 'PROMETHEUS_MULTIPROC_DIR' in os.environ:
+        if getMultiprocDir():
             warnings.warn(
                 "Removal of labels has not been implemented in  multi-process mode yet.",
                 UserWarning)
@@ -205,7 +208,7 @@ class MetricWrapperBase(Collector):
 
     def clear(self) -> None:
         """Remove all labelsets from the metric"""
-        if 'prometheus_multiproc_dir' in os.environ or 'PROMETHEUS_MULTIPROC_DIR' in os.environ:
+        if getMultiprocDir():
             warnings.warn(
                 "Clearing labels has not been implemented in multi-process mode yet",
                 UserWarning)
@@ -269,7 +272,7 @@ class Counter(MetricWrapperBase):
         # Count only one type of exception
         with c.count_exceptions(ValueError):
             pass
-            
+
     You can also reset the counter to zero in case your logical "process" restarts
     without restarting the actual python process.
 
@@ -280,7 +283,7 @@ class Counter(MetricWrapperBase):
 
     def _metric_init(self) -> None:
         self._value = values.ValueClass(self._type, self._name, self._name + '_total', self._labelnames,
-                                        self._labelvalues, self._documentation)
+                                        self._labelvalues, self._documentation, multiprocess_dir=self._multiprocess_dir)
         self._created = time.time()
 
     def inc(self, amount: float = 1, exemplar: Optional[Dict[str, str]] = None) -> None:
@@ -369,6 +372,7 @@ class Gauge(MetricWrapperBase):
                  registry: Optional[CollectorRegistry] = REGISTRY,
                  _labelvalues: Optional[Sequence[str]] = None,
                  multiprocess_mode: Literal['all', 'liveall', 'min', 'livemin', 'max', 'livemax', 'sum', 'livesum', 'mostrecent', 'livemostrecent'] = 'all',
+                 multiprocess_dir: Optional[str] = ''
                  ):
         self._multiprocess_mode = multiprocess_mode
         if multiprocess_mode not in self._MULTIPROC_MODES:
@@ -382,6 +386,7 @@ class Gauge(MetricWrapperBase):
             unit=unit,
             registry=registry,
             _labelvalues=_labelvalues,
+            multiprocess_dir=multiprocess_dir
         )
         self._kwargs['multiprocess_mode'] = self._multiprocess_mode
         self._is_most_recent = self._multiprocess_mode in self._MOST_RECENT_MODES
@@ -389,7 +394,7 @@ class Gauge(MetricWrapperBase):
     def _metric_init(self) -> None:
         self._value = values.ValueClass(
             self._type, self._name, self._name, self._labelnames, self._labelvalues,
-            self._documentation, multiprocess_mode=self._multiprocess_mode
+            self._documentation, multiprocess_mode=self._multiprocess_mode, multiprocess_dir=self._multiprocess_dir
         )
 
     def inc(self, amount: float = 1) -> None:
@@ -488,8 +493,9 @@ class Summary(MetricWrapperBase):
 
     def _metric_init(self) -> None:
         self._count = values.ValueClass(self._type, self._name, self._name + '_count', self._labelnames,
-                                        self._labelvalues, self._documentation)
-        self._sum = values.ValueClass(self._type, self._name, self._name + '_sum', self._labelnames, self._labelvalues, self._documentation)
+                                        self._labelvalues, self._documentation, multiprocess_dir=self._multiprocess_dir)
+        self._sum = values.ValueClass(self._type, self._name, self._name + '_sum', self._labelnames, 
+                                      self._labelvalues, self._documentation, multiprocess_dir=self._multiprocess_dir)
         self._created = time.time()
 
     def observe(self, amount: float) -> None:
@@ -572,6 +578,7 @@ class Histogram(MetricWrapperBase):
                  registry: Optional[CollectorRegistry] = REGISTRY,
                  _labelvalues: Optional[Sequence[str]] = None,
                  buckets: Sequence[Union[float, str]] = DEFAULT_BUCKETS,
+                 multiprocess_dir: Optional[str] = ''
                  ):
         self._prepare_buckets(buckets)
         super().__init__(
@@ -583,6 +590,7 @@ class Histogram(MetricWrapperBase):
             unit=unit,
             registry=registry,
             _labelvalues=_labelvalues,
+            multiprocess_dir=multiprocess_dir
         )
         self._kwargs['buckets'] = buckets
 
@@ -602,7 +610,7 @@ class Histogram(MetricWrapperBase):
         self._buckets: List[values.ValueClass] = []
         self._created = time.time()
         bucket_labelnames = self._labelnames + ('le',)
-        self._sum = values.ValueClass(self._type, self._name, self._name + '_sum', self._labelnames, self._labelvalues, self._documentation)
+        self._sum = values.ValueClass(self._type, self._name, self._name + '_sum', self._labelnames, self._labelvalues, self._documentation, multiprocess_dir=self._multiprocess_dir)
         for b in self._upper_bounds:
             self._buckets.append(values.ValueClass(
                 self._type,
@@ -610,7 +618,8 @@ class Histogram(MetricWrapperBase):
                 self._name + '_bucket',
                 bucket_labelnames,
                 self._labelvalues + (floatToGoString(b),),
-                self._documentation)
+                self._documentation, 
+                multiprocess_dir=self._multiprocess_dir)
             )
 
     def observe(self, amount: float, exemplar: Optional[Dict[str, str]] = None) -> None:
@@ -717,6 +726,7 @@ class Enum(MetricWrapperBase):
                  registry: Optional[CollectorRegistry] = REGISTRY,
                  _labelvalues: Optional[Sequence[str]] = None,
                  states: Optional[Sequence[str]] = None,
+                 multiprocess_dir: Optional[str] = ''
                  ):
         super().__init__(
             name=name,
@@ -727,6 +737,7 @@ class Enum(MetricWrapperBase):
             unit=unit,
             registry=registry,
             _labelvalues=_labelvalues,
+            multiprocess_dir=multiprocess_dir
         )
         if name in labelnames:
             raise ValueError(f'Overlapping labels for Enum metric: {name}')
