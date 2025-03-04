@@ -7,7 +7,7 @@ from .metrics import Gauge
 from .metrics_core import Metric
 from .mmap_dict import MmapedDict
 from .samples import Sample
-from .utils import floatToGoString, getMultiprocDir
+from .utils import _getMultiprocDir, floatToGoString
 
 try:  # Python3
     FileNotFoundError
@@ -21,7 +21,7 @@ class MultiProcessCollector:
 
     def __init__(self, registry, path=None):
         if path is None:
-            path = getMultiprocDir()
+            path = _getMultiprocDir()
         if not path or not os.path.isdir(path):
             raise ValueError('env PROMETHEUS_MULTIPROC_DIR is not set or not a directory')
         self._path = path
@@ -160,7 +160,7 @@ _LIVE_GAUGE_MULTIPROCESS_MODES = {m for m in Gauge._MULTIPROC_MODES if m.startsw
 def mark_process_dead(pid, path=None):
     """Do bookkeeping for when one process dies in a multi-process setup."""
     if path is None:
-        path = getMultiprocDir()
+        path = _getMultiprocDir()
     for mode in _LIVE_GAUGE_MULTIPROCESS_MODES:
         for f in glob.glob(os.path.join(path, f'gauge_{mode}_{pid}.db')):
             os.remove(f)

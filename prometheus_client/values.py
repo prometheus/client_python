@@ -2,7 +2,7 @@ import os
 from threading import Lock
 
 from .mmap_dict import mmap_key, MmapedDict
-from .utils import getMultiprocDir
+from .utils import _getMultiprocDir
 
 
 class MutexValue:
@@ -58,7 +58,7 @@ def MultiProcessValue(process_identifier=os.getpid):
         _multiprocess = True
 
         def __init__(self, typ, metric_name, name, labelnames, labelvalues, help_text, multiprocess_mode='', multiprocess_dir='', **kwargs):
-            self._params = typ, metric_name, name, labelnames, labelvalues, help_text, multiprocess_mode, multiprocess_dir or getMultiprocDir()
+            self._params = typ, metric_name, name, labelnames, labelvalues, help_text, multiprocess_mode, multiprocess_dir or _getMultiprocDir()
             with lock:
                 self.__check_for_pid_change()
                 self.__reset()
@@ -127,7 +127,7 @@ def get_value_class():
     # This needs to be chosen before the first metric is constructed,
     # and as that may be in some arbitrary library the user/admin has
     # no control over we use an environment variable.
-    if getMultiprocDir():
+    if _getMultiprocDir():
         return MultiProcessValue()
     else:
         return MutexValue

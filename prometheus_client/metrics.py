@@ -13,7 +13,7 @@ from .context_managers import ExceptionCounter, InprogressTracker, Timer
 from .metrics_core import Metric
 from .registry import Collector, CollectorRegistry, REGISTRY
 from .samples import Exemplar, Sample
-from .utils import floatToGoString, getMultiprocDir, INF
+from .utils import _getMultiprocDir, floatToGoString, INF
 from .validation import (
     _validate_exemplar, _validate_labelnames, _validate_metric_name,
 )
@@ -190,7 +190,7 @@ class MetricWrapperBase(Collector):
             return self._metrics[labelvalues]
 
     def remove(self, *labelvalues: Any) -> None:
-        if getMultiprocDir():
+        if _getMultiprocDir():
             warnings.warn(
                 "Removal of labels has not been implemented in  multi-process mode yet.",
                 UserWarning)
@@ -208,7 +208,7 @@ class MetricWrapperBase(Collector):
 
     def clear(self) -> None:
         """Remove all labelsets from the metric"""
-        if getMultiprocDir():
+        if _getMultiprocDir():
             warnings.warn(
                 "Clearing labels has not been implemented in multi-process mode yet",
                 UserWarning)
