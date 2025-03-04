@@ -28,7 +28,4 @@ def floatToGoString(d):
 
 
 def _getMultiprocDir() -> str:
-    if 'prometheus_multiproc_dir' in os.environ and 'PROMETHEUS_MULTIPROC_DIR' not in os.environ:
-        os.environ['PROMETHEUS_MULTIPROC_DIR'] = os.environ['prometheus_multiproc_dir']
-        warnings.warn("prometheus_multiproc_dir variable has been deprecated in favor of the upper case naming PROMETHEUS_MULTIPROC_DIR", DeprecationWarning)
-    return os.environ.get('PROMETHEUS_MULTIPROC_DIR', '')
+    return os.environ.get('PROMETHEUS_MULTIPROC_DIR', '') or os.environ.get('prometheus_multiproc_dir', '')

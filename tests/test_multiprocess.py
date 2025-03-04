@@ -17,7 +17,7 @@ from prometheus_client.values import (
 )
 
 
-class TestMultiProcessDeprecation(unittest.TestCase):
+class TestMultiProcessLowercase(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
 
@@ -26,19 +26,6 @@ class TestMultiProcessDeprecation(unittest.TestCase):
         os.environ.pop('PROMETHEUS_MULTIPROC_DIR', None)
         values.ValueClass = MutexValue
         shutil.rmtree(self.tempdir)
-
-    def test_deprecation_warning(self):
-        os.environ['prometheus_multiproc_dir'] = self.tempdir
-        with warnings.catch_warnings(record=True) as w:
-            values.ValueClass = get_value_class()
-            registry = CollectorRegistry()
-            collector = MultiProcessCollector(registry)
-            Counter('c', 'help', registry=None)
-
-            assert os.environ['PROMETHEUS_MULTIPROC_DIR'] == self.tempdir
-            assert len(w) == 1
-            assert issubclass(w[-1].category, DeprecationWarning)
-            assert "PROMETHEUS_MULTIPROC_DIR" in str(w[-1].message)
 
     def test_mark_process_dead_respects_lowercase(self):
         os.environ['prometheus_multiproc_dir'] = self.tempdir
