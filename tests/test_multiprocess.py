@@ -37,6 +37,7 @@ class TestMultiProcessLowercase(unittest.TestCase):
 class TestMultiProcess(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
+        self.tempdir_multiproc = tempfile.mkdtemp()
         os.environ['PROMETHEUS_MULTIPROC_DIR'] = self.tempdir
         values.ValueClass = MultiProcessValue(lambda: 123)
         self.registry = CollectorRegistry()
@@ -49,6 +50,7 @@ class TestMultiProcess(unittest.TestCase):
     def tearDown(self):
         del os.environ['PROMETHEUS_MULTIPROC_DIR']
         shutil.rmtree(self.tempdir)
+        shutil.rmtree(self.tempdir_multiproc)
         values.ValueClass = MutexValue
 
     def test_counter_adds(self):
@@ -383,6 +385,37 @@ class TestMultiProcess(unittest.TestCase):
             assert "Removal of labels has not been implemented" in str(w[0].message)
             assert issubclass(w[-1].category, UserWarning)
             assert "Clearing labels has not been implemented" in str(w[-1].message)
+
+    def test_multiproc_dir(self):
+        pid = 0
+        values.ValueClass = MultiProcessValue(lambda: pid)
+
+        def files(path):
+            fs = os.listdir(path)
+            fs.sort()
+            return fs
+
+        s1 = Summary('s1', 's1', registry=None)
+        c1 = Counter('c1', 'c1', registry=None, multiprocess_dir=self.tempdir_multiproc)
+
+        self.assertEqual(files(self.tempdir), ['summary_0.db'])
+        self.assertEqual(files(self.tempdir_multiproc), ['counter_0.db'])
+
+        pid = 1
+        c2 = Counter('c2', 'c2', registry=None, multiprocess_dir=self.tempdir_multiproc)
+
+        self.assertEqual(files(self.tempdir_multiproc), ['counter_0.db', 'counter_1.db'])
+
+        c1.inc(1)
+
+        metrics = {m.name: m for m in self.collector.collect()}
+        self.assertNotIn('c1', metrics)
+
+        multiproc_collector = MultiProcessCollector(self.registry, path=self.tempdir_multiproc)
+        multiproc_metrics = {m.name: m for m in multiproc_collector.collect()}
+        self.assertEqual(
+            multiproc_metrics['c1'].samples, [Sample('c1_total', {}, 1.0)]
+        )
 
 
 class TestMmapedDict(unittest.TestCase):
