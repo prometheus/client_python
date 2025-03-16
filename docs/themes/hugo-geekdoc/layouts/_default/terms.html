@@ -1,4 +1,5 @@
 {{ define "main" }}
+  <div id="main-content" tabindex="-1">
   {{ range .Paginator.Pages.ByTitle }}
     <article class="gdoc-post">
       <header class="gdoc-post__header">
@@ -28,5 +29,6 @@
       </footer>
     </article>
   {{ end }}
+  </div>
   {{ partial "pagination.html" . }}
 {{ end }}

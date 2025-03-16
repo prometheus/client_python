@@ -1,4 +1,5 @@
 {{- $value := default 0 (.Get "value") -}}
+{{- $type := default "main" (.Get "type") }}
 {{- $title := .Get "title" -}}
 {{- $icon := .Get "icon" -}}
 
@@ -15,7 +16,7 @@
   </div>
   <div class="gdoc-progress__wrap">
     <div
-      class="gdoc-progress__bar"
+      class="gdoc-progress__bar {{ $type | lower }}"
       data-percent="{{ $value }}"
       style="width: {{ $value }}%;"
     ></div>

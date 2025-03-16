@@ -1,0 +1,53 @@
+---
+edit_page: Rediger side
+
+nav_navigation: Navigation
+nav_tags: Tags
+nav_more: Mere
+nav_top: Til toppen
+
+form_placeholder_search: Søg
+
+error_page_title: Faret vild? Bare rolig
+error_message_title: Lost?
+error_message_code: Fejl 404
+error_message_text: >
+  Det du leder efter kan ikke findes. Bare rolig, du kan komme tilbage til
+  <a class="gdoc-error__link" href="{{ . }}">forsiden</a>.
+
+button_toggle_dark: Skift Dark/Light/Auto mode
+button_nav_open: Åben navigation
+button_nav_close: Luk navigation
+button_menu_open: Åben menubar
+button_menu_close: Luk menubar
+button_homepage: Tilbage til forsiden
+
+title_anchor_prefix: "Link til:"
+
+posts_read_more: Læs fulde indlæg
+posts_read_time:
+  one: "Et minut at gennemlæse"
+  other: "{{ . }} minutter at gennemlæse"
+posts_update_prefix: Opdateret den
+posts_count:
+  one: "Et indlæg"
+  other: "{{ . }} indlæg"
+posts_tagged_with: Alle indslag tagget med '{{ . }}'
+
+footer_build_with: >
+  Bygget med <a href="https://gohugo.io/" class="gdoc-footer__link">Hugo</a> og
+  <svg class="gdoc-icon gdoc_heart"><use xlink:href="#gdoc_heart"></use></svg>
+footer_legal_notice: Forretningsbetingelser
+footer_privacy_policy: Privatlivspolitik
+footer_content_license_prefix: >
+  Indhold licenseret under
+
+language_switch_no_tranlation_prefix: "Indlæg ikke oversat:"
+
+propertylist_required: påkrævet
+propertylist_optional: valgfri
+propertylist_default: udgangspunkt
+
+pagination_page_prev: forrige
+pagination_page_next: næste
+pagination_page_state: "{{ .PageNumber }}/{{ .TotalPages }}"
