@@ -22,6 +22,10 @@
   </head>
 
   <body itemscope itemtype="https://schema.org/WebPage">
+    <div class="w-full flex justify-center">
+      <a href="#main-content" id="gdoc-to-main" class="gdoc-markdown__link">Skip to main content</a>
+    </div>
+
     {{ partial "svg-icon-symbols" . }}
 
 
@@ -46,9 +50,16 @@
           {{ template "main" . }}
 
 
+          {{ $showPrevNext := (default true .Site.Params.geekdocNextPrev) }}
+          {{ if $showPrevNext }}
           <div class="gdoc-page__footer flex flex-wrap justify-between">
-            {{ partial "menu-nextprev" . }}
+            {{ if .Site.Params.geekdocMenuBundle }}
+              {{ partial "menu-bundle-np" . }}
+            {{ else }}
+              {{ partial "menu-filetree-np" . }}
+            {{ end }}
           </div>
+          {{ end }}
         </div>
       </main>
 
