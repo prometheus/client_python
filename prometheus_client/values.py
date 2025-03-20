@@ -47,8 +47,7 @@ def MultiProcessValue(process_identifier=os.getpid):
     files = {}
     values = []
     pid = {'value': process_identifier()}
-    # Use a single global lock when in multi-processing mode
-    # as we presume this means there is no threading going on.
+    # Use a single global lock when in multi-processing mode.
     # This avoids the need to also have mutexes in __MmapDict.
     lock = Lock()
 
