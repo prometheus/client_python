@@ -14,6 +14,7 @@ This comes with a number of limitations:
   - Registering metrics to a registry later used by a `MultiProcessCollector`
     may cause duplicate metrics to be exported
 - Custom collectors do not work (e.g. cpu and memory metrics)
+- Gauges cannot use `set_function`
 - Info and Enum metrics do not work
 - The pushgateway cannot be used
 - Gauges cannot use the `pid` label
