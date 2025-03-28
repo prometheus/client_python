@@ -58,6 +58,7 @@ class MultiProcessCollector:
 
         for f in files:
             parts = os.path.basename(f).split('_')
+            ctime = os.path.getctime(f)
             typ = parts[0]
             try:
                 file_values = MmapedDict.read_all_values_from_file(f)
@@ -80,6 +81,13 @@ class MultiProcessCollector:
                     pid = parts[2][:-3]
                     metric._multiprocess_mode = parts[1]
                     metric.add_sample(name, labels_key + (('pid', pid),), value, timestamp)
+                if typ == 'histogram':
+                    metric.add_sample(name, labels_key, value)
+                    if name.endswith('_sum'):
+                        metric.add_sample(metric_name + '_created', labels_key, ctime)
+                if typ == 'counter':
+                    metric.add_sample(name, labels_key, value)
+                    metric.add_sample(metric_name + '_created', labels_key, ctime)
                 else:
                     # The duplicates and labels are fixed in the next for.
                     metric.add_sample(name, labels_key, value)
@@ -94,6 +102,13 @@ class MultiProcessCollector:
             samples_setdefault = samples.setdefault
             for s in metric.samples:
                 name, labels, value, timestamp, exemplar = s
+                if name.endswith('_created'):
+                    without_pid_key = (name, tuple(l for l in labels if l[0] != 'pid'))
+                    current = samples_setdefault(without_pid_key, value)
+                    if value < current:
+                        samples[without_pid_key] = value
+                    continue
+
                 if metric.type == 'gauge':
                     without_pid_key = (name, tuple(l for l in labels if l[0] != 'pid'))
                     if metric._multiprocess_mode in ('min', 'livemin'):
