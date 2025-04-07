@@ -132,7 +132,7 @@ def make_wsgi_app(registry: CollectorRegistry = REGISTRY, disable_compression: b
         elif environ['PATH_INFO'] == '/favicon.ico':
             # Serve empty response for browsers
             status = '200 OK'
-            headers = [('', '')]
+            headers = []
             output = b''
         else:
             # Note: For backwards compatibility, the URI path for GET is not
