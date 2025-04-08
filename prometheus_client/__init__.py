@@ -5,7 +5,7 @@ from . import (
     process_collector, registry,
 )
 from .exposition import (
-    CONTENT_TYPE_LATEST, delete_from_gateway, generate_latest,
+    CONTENT_TYPE_PLAIN, delete_from_gateway, generate_latest,
     instance_ip_grouping_key, make_asgi_app, make_wsgi_app, MetricsHandler,
     push_to_gateway, pushadd_to_gateway, start_http_server, start_wsgi_server,
     write_to_textfile,
@@ -32,7 +32,7 @@ __all__ = (
     'Enum',
     'enable_created_metrics',
     'disable_created_metrics',
-    'CONTENT_TYPE_LATEST',
+    'CONTENT_TYPE_PLAIN',
     'generate_latest',
     'MetricsHandler',
     'make_wsgi_app',
