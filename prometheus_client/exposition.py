@@ -1,5 +1,6 @@
 import base64
 from contextlib import closing
+from functools import partial
 import gzip
 from http.server import BaseHTTPRequestHandler
 import os
@@ -17,13 +18,16 @@ from urllib.request import (
 )
 from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
 
+from packaging.version import Version
+
 from .openmetrics import exposition as openmetrics
 from .registry import CollectorRegistry, REGISTRY
 from .utils import floatToGoString
-from .validation import _is_valid_legacy_metric_name
 
 __all__ = (
     'CONTENT_TYPE_LATEST',
+    'CONTENT_TYPE_PLAIN_0_0_4',
+    'CONTENT_TYPE_PLAIN_1_0_0',
     'delete_from_gateway',
     'generate_latest',
     'instance_ip_grouping_key',
@@ -37,8 +41,13 @@ __all__ = (
     'write_to_textfile',
 )
 
-CONTENT_TYPE_LATEST = 'text/plain; version=0.0.4; charset=utf-8'
-"""Content type of the latest text format"""
+CONTENT_TYPE_PLAIN_0_0_4 = 'text/plain; version=0.0.4; charset=utf-8'
+"""Content type of the compatibility format"""
+
+CONTENT_TYPE_PLAIN_1_0_0 = 'text/plain; version=1.0.0; charset=utf-8'
+"""Content type of the latest format"""
+
+CONTENT_TYPE_LATEST = CONTENT_TYPE_PLAIN_1_0_0
 
 
 class _PrometheusRedirectHandler(HTTPRedirectHandler):
@@ -245,14 +254,23 @@ def start_wsgi_server(
 start_http_server = start_wsgi_server
 
 
-def generate_latest(registry: CollectorRegistry = REGISTRY) -> bytes:
-    """Returns the metrics from the registry in latest text format as a string."""
+def generate_latest(registry: CollectorRegistry = REGISTRY, escaping: str = openmetrics.UNDERSCORES) -> bytes:
+    """
+    Generates the exposition format using the basic Prometheus text format.
+
+    Params:
+        registry: CollectorRegistry to export data from.
+        escaping: Escaping scheme used for metric and label names.
+
+    Returns: UTF-8 encoded string containing the metrics in text format.
+    """
 
     def sample_line(samples):
         if samples.labels:
             labelstr = '{0}'.format(','.join(
+                # Label values always support UTF-8
                 ['{}="{}"'.format(
-                    openmetrics.escape_label_name(k), openmetrics._escape(v))
+                    openmetrics.escape_label_name(k, escaping), openmetrics._escape(v, openmetrics.ALLOWUTF8, False))
                     for k, v in sorted(samples.labels.items())]))
         else:
             labelstr = ''
@@ -260,14 +278,14 @@ def generate_latest(registry: CollectorRegistry = REGISTRY) -> bytes:
         if samples.timestamp is not None:
             # Convert to milliseconds.
             timestamp = f' {int(float(samples.timestamp) * 1000):d}'
-        if _is_valid_legacy_metric_name(samples.name):
+        if escaping != openmetrics.ALLOWUTF8 or openmetrics._is_valid_legacy_metric_name(samples.name):
             if labelstr:
                 labelstr = '{{{0}}}'.format(labelstr)
-            return f'{samples.name}{labelstr} {floatToGoString(samples.value)}{timestamp}\n'
+            return f'{openmetrics.escape_metric_name(samples.name, escaping)}{labelstr} {floatToGoString(samples.value)}{timestamp}\n'
         maybe_comma = ''
         if labelstr:
             maybe_comma = ','
-        return f'{{{openmetrics.escape_metric_name(samples.name)}{maybe_comma}{labelstr}}} {floatToGoString(samples.value)}{timestamp}\n'
+        return f'{{{openmetrics.escape_metric_name(samples.name, escaping)}{maybe_comma}{labelstr}}} {floatToGoString(samples.value)}{timestamp}\n'
 
     output = []
     for metric in registry.collect():
@@ -290,8 +308,8 @@ def generate_latest(registry: CollectorRegistry = REGISTRY) -> bytes:
                 mtype = 'untyped'
 
             output.append('# HELP {} {}\n'.format(
-                openmetrics.escape_metric_name(mname), metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
-            output.append(f'# TYPE {openmetrics.escape_metric_name(mname)} {mtype}\n')
+                openmetrics.escape_metric_name(mname, escaping), metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
+            output.append(f'# TYPE {openmetrics.escape_metric_name(mname, escaping)} {mtype}\n')
 
             om_samples: Dict[str, List[str]] = {}
             for s in metric.samples:
@@ -307,20 +325,79 @@ def generate_latest(registry: CollectorRegistry = REGISTRY) -> bytes:
             raise
 
         for suffix, lines in sorted(om_samples.items()):
-            output.append('# HELP {} {}\n'.format(openmetrics.escape_metric_name(metric.name + suffix),
+            output.append('# HELP {} {}\n'.format(openmetrics.escape_metric_name(metric.name + suffix, escaping),
                                                   metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
-            output.append(f'# TYPE {openmetrics.escape_metric_name(metric.name + suffix)} gauge\n')
+            output.append(f'# TYPE {openmetrics.escape_metric_name(metric.name + suffix, escaping)} gauge\n')
             output.extend(lines)
     return ''.join(output).encode('utf-8')
 
 
 def choose_encoder(accept_header: str) -> Tuple[Callable[[CollectorRegistry], bytes], str]:
+    # Python client library accepts a narrower range of content-types than
+    # Prometheus does.
     accept_header = accept_header or ''
+    escaping = openmetrics.UNDERSCORES
     for accepted in accept_header.split(','):
         if accepted.split(';')[0].strip() == 'application/openmetrics-text':
-            return (openmetrics.generate_latest,
-                    openmetrics.CONTENT_TYPE_LATEST)
-    return generate_latest, CONTENT_TYPE_LATEST
+            toks = accepted.split(';')
+            version = _get_version(toks)
+            escaping = _get_escaping(toks)
+            # Only return an escaping header if we have a good version and
+            # mimetype.
+            if not version:
+                return (partial(openmetrics.generate_latest, escaping=openmetrics.UNDERSCORES), openmetrics.CONTENT_TYPE_LATEST)
+            if version and Version(version) >= Version('1.0.0'):
+                return (partial(openmetrics.generate_latest, escaping=escaping),
+                        openmetrics.CONTENT_TYPE_LATEST + '; escaping=' + str(escaping))
+        elif accepted.split(';')[0].strip() == 'text/plain':
+            toks = accepted.split(';')
+            version = _get_version(toks)
+            escaping = _get_escaping(toks)
+            # Only return an escaping header if we have a good version and
+            # mimetype.
+            if version and Version(version) >= Version('1.0.0'):
+                return (partial(generate_latest, escaping=escaping),
+                        CONTENT_TYPE_LATEST + '; escaping=' + str(escaping))
+    return generate_latest, CONTENT_TYPE_PLAIN_0_0_4
+
+
+def _get_version(accept_header: List[str]) -> str:
+    """Return the version tag from the Accept header.
+
+    If no version is specified, returns empty string."""
+
+    for tok in accept_header:
+        if '=' not in tok:
+            continue
+        key, value = tok.strip().split('=', 1)
+        if key == 'version':
+            return value
+    return ""
+
+
+def _get_escaping(accept_header: List[str]) -> str:
+    """Return the escaping scheme from the Accept header.
+
+    If no escaping scheme is specified or the scheme is not one of the allowed
+    strings, defaults to UNDERSCORES."""
+
+    for tok in accept_header:
+        if '=' not in tok:
+            continue
+        key, value = tok.strip().split('=', 1)
+        if key != 'escaping':
+            continue
+        if value == openmetrics.ALLOWUTF8:
+            return openmetrics.ALLOWUTF8
+        elif value == openmetrics.UNDERSCORES:
+            return openmetrics.UNDERSCORES
+        elif value == openmetrics.DOTS:
+            return openmetrics.DOTS
+        elif value == openmetrics.VALUES:
+            return openmetrics.VALUES
+        else:
+            return openmetrics.UNDERSCORES
+    return openmetrics.UNDERSCORES
 
 
 def gzip_accepted(accept_encoding_header: str) -> bool:
@@ -369,7 +446,7 @@ class MetricsHandler(BaseHTTPRequestHandler):
         return MyMetricsHandler
 
 
-def write_to_textfile(path: str, registry: CollectorRegistry) -> None:
+def write_to_textfile(path: str, registry: CollectorRegistry, escaping: str = openmetrics.ALLOWUTF8) -> None:
     """Write metrics to the given path.
 
     This is intended for use with the Node exporter textfile collector.
@@ -377,7 +454,7 @@ def write_to_textfile(path: str, registry: CollectorRegistry) -> None:
     tmppath = f'{path}.{os.getpid()}.{threading.current_thread().ident}'
     try:
         with open(tmppath, 'wb') as f:
-            f.write(generate_latest(registry))
+            f.write(generate_latest(registry, escaping))
 
         # rename(2) is atomic but fails on Windows if the destination file exists
         if os.name == 'nt':
@@ -645,7 +722,7 @@ def _use_gateway(
 
     handler(
         url=url, method=method, timeout=timeout,
-        headers=[('Content-Type', CONTENT_TYPE_LATEST)], data=data,
+        headers=[('Content-Type', CONTENT_TYPE_PLAIN_0_0_4)], data=data,
     )()
 
 

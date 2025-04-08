@@ -1,13 +1,18 @@
 import time
 import unittest
 
+import pytest
+
 from prometheus_client import (
     CollectorRegistry, Counter, Enum, Gauge, Histogram, Info, Metric, Summary,
 )
 from prometheus_client.core import (
     Exemplar, GaugeHistogramMetricFamily, Timestamp,
 )
-from prometheus_client.openmetrics.exposition import generate_latest
+from prometheus_client.openmetrics.exposition import (
+    ALLOWUTF8, DOTS, escape_label_name, escape_metric_name, generate_latest,
+    UNDERSCORES, VALUES,
+)
 
 
 class TestGenerateText(unittest.TestCase):
@@ -33,12 +38,22 @@ class TestGenerateText(unittest.TestCase):
         c.inc()
         self.assertEqual(b'# HELP cc A counter\n# TYPE cc counter\ncc_total 1.0\ncc_created 123.456\n# EOF\n',
                          generate_latest(self.registry))
-        
+
     def test_counter_utf8(self):
         c = Counter('cc.with.dots', 'A counter', registry=self.registry)
         c.inc()
         self.assertEqual(b'# HELP "cc.with.dots" A counter\n# TYPE "cc.with.dots" counter\n{"cc.with.dots_total"} 1.0\n{"cc.with.dots_created"} 123.456\n# EOF\n',
-                         generate_latest(self.registry))
+                         generate_latest(self.registry, ALLOWUTF8))
+
+    def test_counter_utf8_escaped_underscores(self):
+        c = Counter('utf8.cc', 'A counter', registry=self.registry)
+        c.inc()
+        assert b"""# HELP utf8_cc A counter
+# TYPE utf8_cc counter
+utf8_cc_total 1.0
+utf8_cc_created 123.456
+# EOF
+""" == generate_latest(self.registry, UNDERSCORES)
 
     def test_counter_total(self):
         c = Counter('cc_total', 'A counter', registry=self.registry)
@@ -280,6 +295,148 @@ ts{foo="e"} 0.0 123.000456000
 ts{foo="f"} 0.0 123.000000456
 # EOF
 """, generate_latest(self.registry))
+
+
+@pytest.mark.parametrize("scenario", [
+    {
+        "name": "empty string",
+        "input": "",
+        "expectedUnderscores": "",
+        "expectedDots": "",
+        "expectedValue": "",
+    },
+    {
+        "name": "legacy valid metric name",
+        "input": "no:escaping_required",
+        "expectedUnderscores": "no:escaping_required",
+        "expectedDots": "no:escaping__required",
+        "expectedValue": "no:escaping_required",
+    },
+    {
+        "name": "metric name with dots",
+        "input": "mysystem.prod.west.cpu.load",
+        "expectedUnderscores": "mysystem_prod_west_cpu_load",
+        "expectedDots": "mysystem_dot_prod_dot_west_dot_cpu_dot_load",
+        "expectedValue": "U__mysystem_2e_prod_2e_west_2e_cpu_2e_load",
+    },
+    {
+        "name": "metric name with dots and underscore",
+        "input": "mysystem.prod.west.cpu.load_total",
+        "expectedUnderscores": "mysystem_prod_west_cpu_load_total",
+        "expectedDots": "mysystem_dot_prod_dot_west_dot_cpu_dot_load__total",
+        "expectedValue": "U__mysystem_2e_prod_2e_west_2e_cpu_2e_load__total",
+    },
+    {
+        "name": "metric name with dots and colon",
+        "input": "http.status:sum",
+        "expectedUnderscores": "http_status:sum",
+        "expectedDots": "http_dot_status:sum",
+        "expectedValue": "U__http_2e_status:sum",
+    },
+    {
+        "name": "metric name with spaces and emoji",
+        "input": "label with 😱",
+        "expectedUnderscores": "label_with__",
+        "expectedDots": "label__with____",
+        "expectedValue": "U__label_20_with_20__1f631_",
+    },
+    {
+        "name": "metric name with unicode characters > 0x100",
+        "input": "花火",
+        "expectedUnderscores": "__",
+        "expectedDots": "____",
+        "expectedValue": "U___82b1__706b_",
+    },
+    {
+        "name": "metric name with spaces and edge-case value",
+        "input": "label with \u0100",
+        "expectedUnderscores": "label_with__",
+        "expectedDots": "label__with____",
+        "expectedValue": "U__label_20_with_20__100_",
+    },
+])
+def test_escape_metric_name(scenario):
+    input = scenario["input"]
+
+    got = escape_metric_name(input, UNDERSCORES)
+    assert got == scenario["expectedUnderscores"], f"[{scenario['name']}] Underscore escaping failed"
+
+    got = escape_metric_name(input, DOTS)
+    assert got == scenario["expectedDots"], f"[{scenario['name']}] Dots escaping failed"
+
+    got = escape_metric_name(input, VALUES)
+    assert got == scenario["expectedValue"], f"[{scenario['name']}] Value encoding failed"
+
+
+@pytest.mark.parametrize("scenario", [
+    {
+        "name": "empty string",
+        "input": "",
+        "expectedUnderscores": "",
+        "expectedDots": "",
+        "expectedValue": "",
+    },
+    {
+        "name": "legacy valid label name",
+        "input": "no_escaping_required",
+        "expectedUnderscores": "no_escaping_required",
+        "expectedDots": "no__escaping__required",
+        "expectedValue": "no_escaping_required",
+    },
+    {
+        "name": "label name with dots",
+        "input": "mysystem.prod.west.cpu.load",
+        "expectedUnderscores": "mysystem_prod_west_cpu_load",
+        "expectedDots": "mysystem_dot_prod_dot_west_dot_cpu_dot_load",
+        "expectedValue": "U__mysystem_2e_prod_2e_west_2e_cpu_2e_load",
+    },
+    {
+        "name": "label name with dots and underscore",
+        "input": "mysystem.prod.west.cpu.load_total",
+        "expectedUnderscores": "mysystem_prod_west_cpu_load_total",
+        "expectedDots": "mysystem_dot_prod_dot_west_dot_cpu_dot_load__total",
+        "expectedValue": "U__mysystem_2e_prod_2e_west_2e_cpu_2e_load__total",
+    },
+    {
+        "name": "label name with dots and colon",
+        "input": "http.status:sum",
+        "expectedUnderscores": "http_status_sum",
+        "expectedDots": "http_dot_status__sum",
+        "expectedValue": "U__http_2e_status_3a_sum",
+    },
+    {
+        "name": "label name with spaces and emoji",
+        "input": "label with 😱",
+        "expectedUnderscores": "label_with__",
+        "expectedDots": "label__with____",
+        "expectedValue": "U__label_20_with_20__1f631_",
+    },
+    {
+        "name": "label name with unicode characters > 0x100",
+        "input": "花火",
+        "expectedUnderscores": "__",
+        "expectedDots": "____",
+        "expectedValue": "U___82b1__706b_",
+    },
+    {
+        "name": "label name with spaces and edge-case value",
+        "input": "label with \u0100",
+        "expectedUnderscores": "label_with__",
+        "expectedDots": "label__with____",
+        "expectedValue": "U__label_20_with_20__100_",
+    },
+])
+def test_escape_label_name(scenario):
+    input = scenario["input"]
+
+    got = escape_label_name(input, UNDERSCORES)
+    assert got == scenario["expectedUnderscores"], f"[{scenario['name']}] Underscore escaping failed"
+
+    got = escape_label_name(input, DOTS)
+    assert got == scenario["expectedDots"], f"[{scenario['name']}] Dots escaping failed"
+
+    got = escape_label_name(input, VALUES)
+    assert got == scenario["expectedValue"], f"[{scenario['name']}] Value encoding failed"
 
 
 if __name__ == '__main__':
