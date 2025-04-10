@@ -103,7 +103,7 @@ class CollectorRegistry(Collector):
         only samples with the given names.
 
         Intended usage is:
-            generate_latest(REGISTRY.restricted_registry(['a_timeseries']))
+            generate_latest(REGISTRY.restricted_registry(['a_timeseries']), escaping)
 
         Experimental."""
         names = set(names)
