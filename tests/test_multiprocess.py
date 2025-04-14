@@ -5,10 +5,13 @@ import tempfile
 import unittest
 import warnings
 
+import pytest
+
 from prometheus_client import mmap_dict, values
 from prometheus_client.core import (
     CollectorRegistry, Counter, Gauge, Histogram, Sample, Summary,
 )
+import prometheus_client.multiprocess as multiprocess
 from prometheus_client.multiprocess import (
     mark_process_dead, MultiProcessCollector,
 )
@@ -396,6 +399,61 @@ class TestMultiProcess(unittest.TestCase):
             assert "Removal of labels has not been implemented" in str(w[0].message)
             assert issubclass(w[-1].category, UserWarning)
             assert "Clearing labels has not been implemented" in str(w[-1].message)
+
+
+@pytest.fixture
+def tempdir():
+    tempdir = tempfile.mkdtemp()
+    os.environ['PROMETHEUS_MULTIPROC_DIR'] = tempdir
+    values.ValueClass = MultiProcessValue(lambda: 123)
+    yield tempdir
+    del os.environ['PROMETHEUS_MULTIPROC_DIR']
+    shutil.rmtree(tempdir)
+    values.ValueClass = MutexValue
+
+
+@pytest.fixture
+def registry() -> CollectorRegistry:
+    return CollectorRegistry()
+
+
+@pytest.fixture
+def collector(tempdir, registry):
+    return MultiProcessCollector(registry)
+
+
+@pytest.fixture
+def no_speedup():
+    tmp = multiprocess._speedups
+    multiprocess._speedups = False
+    yield tmp
+    multiprocess._speedups = tmp
+
+
+def setup_benchmark():
+    labels = {i: i for i in 'abcd'}
+    for pid in range(1000):
+        values.ValueClass = MultiProcessValue(lambda: pid)
+
+        c = Counter('c', 'help', labelnames=labels.keys(), registry=None)
+        g = Gauge('g', 'help', labelnames=labels.keys(), registry=None)
+        h = Histogram('h', 'help', labelnames=labels.keys(), registry=None)
+
+        c.labels(**labels).inc(1)
+        g.labels(**labels).set(1)
+        h.labels(**labels).observe(1)
+
+
+def test_native_collect_performance(benchmark, collector, no_speedup):
+    setup_benchmark()
+    benchmark(collector.collect)
+
+
+def test_speedup_collect_performance(benchmark, collector):
+    if not multiprocess._speedups:
+        pytest.skip("prometheus_client_python_speedups not installed")
+    setup_benchmark()
+    benchmark(collector.collect)
 
 
 class TestMmapedDict(unittest.TestCase):
