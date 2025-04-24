@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+import math
 import os
 import time
 import unittest
@@ -14,6 +15,7 @@ from prometheus_client.core import (
 )
 from prometheus_client.decorator import getargspec
 from prometheus_client.metrics import _get_use_created
+from prometheus_client.samples import BucketSpan, NativeHistogram
 from prometheus_client.validation import (
     disable_legacy_validation, enable_legacy_validation,
 )
@@ -525,6 +527,268 @@ class TestHistogram(unittest.TestCase):
             'zyxwvutsrqponmlkjihgfedcba': '26+16 characters',
             'y123456': '7+15 characters',
         })
+
+
+@pytest.mark.parametrize(
+    "kwargs,observations,expected",
+    [
+        pytest.param({}, [1, 2, 3], None, id="no sparse buckets"),
+        pytest.param(
+            {"native_histogram_initial_schema": 3},
+            [],
+            NativeHistogram(
+                count_value=0,
+                sum_value=0,
+                schema=3,
+                zero_threshold=2.938735877055719e-39,
+                zero_count=0,
+            ),
+            id="no observations",
+        ),
+        pytest.param(
+            {"native_histogram_initial_schema": 3},
+            [0, 1, 2, 3],
+            NativeHistogram(
+                count_value=4,
+                sum_value=6.0,
+                schema=3,
+                zero_threshold=2.938735877055719e-39,
+                zero_count=1,
+                pos_spans=[
+                    BucketSpan(offset=0, length=1),
+                    BucketSpan(offset=7, length=1),
+                    BucketSpan(offset=4, length=1),
+                ],
+                pos_deltas=[1, 0, 0],
+            ),
+            id="schema 3",
+        ),
+        pytest.param(
+            {"native_histogram_initial_schema": 2},
+            [0, 1, 1.2, 1.4, 1.8, 2],
+            NativeHistogram(
+                count_value=6,
+                sum_value=7.4,
+                schema=2,
+                zero_threshold=2.938735877055719e-39,
+                zero_count=1,
+                pos_spans=[
+                    BucketSpan(offset=0, length=5),
+                ],
+                pos_deltas=[1, -1, 2, -2, 2],
+            ),
+            id="schema 2",
+        ),
+        pytest.param(
+            {"native_histogram_initial_schema": -1},
+            [
+                0.0156251,
+                0.0625,  # Bucket -2: (0.015625, 0.0625)
+                0.1,
+                0.25,  # Bucket -1: (0.0625, 0.25]
+                0.5,
+                1,  # Bucket 0: (0.25, 1]
+                1.5,
+                2,
+                3,
+                3.5,  # Bucket 1: (1, 4]
+                5,
+                6,
+                7,  # Bucket 2: (4, 16]
+                33.33,  # Bucket 3: (16, 64]
+            ],
+            NativeHistogram(
+                count_value=14,
+                sum_value=63.2581251,
+                schema=-1,
+                zero_threshold=2.938735877055719e-39,
+                zero_count=0,
+                pos_spans=[
+                    BucketSpan(offset=-2, length=6),
+                ],
+                pos_deltas=[2, 0, 0, 2, -1, -2],
+            ),
+            id="schema -1",
+        ),
+        pytest.param(
+            {"native_histogram_initial_schema": -2},
+            [
+                0.0156251,
+                0.0625,  # Bucket -1: (0.015625, 0.0625]
+                0.1,
+                0.25,
+                0.5,
+                1,  # Bucket 0: (0.0625, 1]
+                1.5,
+                2,
+                3,
+                3.5,
+                5,
+                6,
+                7,  # Bucket 1: (1, 16]
+                33.33,  # Bucket 2: (16, 256]
+            ],
+            NativeHistogram(
+                count_value=14,
+                sum_value=63.2581251,
+                schema=-2,
+                zero_threshold=2.938735877055719e-39,
+                zero_count=0,
+                pos_spans=[
+                    BucketSpan(offset=-1, length=4),
+                ],
+                pos_deltas=[2, 2, 3, -6],
+            ),
+            id="schema -2",
+        ),
+        pytest.param(
+            {"native_histogram_initial_schema": 2},
+            [0, -1, -1.2, -1.4, -1.8, -2],
+            NativeHistogram(
+                count_value=6,
+                sum_value=-7.4,
+                schema=2,
+                zero_threshold=2.938735877055719e-39,
+                zero_count=1,
+                neg_spans=[
+                    BucketSpan(offset=0, length=5),
+                ],
+                neg_deltas=[1, -1, 2, -2, 2],
+            ),
+            id="negative buckets",
+        ),
+        pytest.param(
+            {"native_histogram_initial_schema": 2},
+            [0, -1, -1.2, -1.4, -1.8, -2, 1, 1.2, 1.4, 1.8, 2],
+            NativeHistogram(
+                count_value=11,
+                sum_value=0.0,
+                schema=2,
+                zero_threshold=2.938735877055719e-39,
+                zero_count=1,
+                pos_spans=[
+                    BucketSpan(offset=0, length=5),
+                ],
+                pos_deltas=[1, -1, 2, -2, 2],
+                neg_spans=[
+                    BucketSpan(offset=0, length=5),
+                ],
+                neg_deltas=[1, -1, 2, -2, 2],
+            ),
+            id="negative and positive buckets",
+        ),
+        pytest.param(
+            {
+                "native_histogram_initial_schema": 2,
+                "native_histogram_zero_threshold": 1.4,
+            },
+            [0, -1, -1.2, -1.4, -1.8, -2, 1, 1.2, 1.4, 1.8, 2],
+            NativeHistogram(
+                count_value=11,
+                sum_value=0.0,
+                schema=2,
+                zero_threshold=1.4,
+                zero_count=7,
+                pos_spans=[
+                    BucketSpan(offset=4, length=1),
+                ],
+                pos_deltas=[2],
+                neg_spans=[
+                    BucketSpan(offset=4, length=1),
+                ],
+                neg_deltas=[2],
+            ),
+            id="wide zero bucket",
+        ),
+        pytest.param(
+            {
+                "native_histogram_initial_schema": 2,
+            },
+            [0, 1, 1.2, 1.4, 1.8, 2, math.inf],
+            NativeHistogram(
+                count_value=7,
+                sum_value=math.inf,
+                schema=2,
+                zero_threshold=2.938735877055719e-39,
+                zero_count=1,
+                pos_spans=[
+                    BucketSpan(offset=0, length=5),
+                    BucketSpan(offset=4092, length=1),
+                ],
+                pos_deltas=[1, -1, 2, -2, 2, -1],
+            ),
+            id="+Inf observation",
+        ),
+        pytest.param(
+            {
+                "native_histogram_initial_schema": 2,
+            },
+            [0, 1, 1.2, 1.4, 1.8, 2, -math.inf],
+            NativeHistogram(
+                count_value=7,
+                sum_value=-math.inf,
+                schema=2,
+                zero_threshold=2.938735877055719e-39,
+                zero_count=1,
+                pos_spans=[
+                    BucketSpan(offset=0, length=5),
+                ],
+                pos_deltas=[1, -1, 2, -2, 2],
+                neg_spans=[
+                    BucketSpan(offset=4097, length=1),
+                ],
+                neg_deltas=[1],
+            ),
+            id="-Inf observation",
+        ),
+        pytest.param(
+            {
+                "native_histogram_initial_schema": 2,
+                "native_histogram_max_buckets": 4,
+            },
+            [0, 1, 1.1, 1.2, 1.4, 1.8, 2, 3],
+            NativeHistogram(
+                count_value=8,
+                sum_value=11.5,
+                schema=1,
+                zero_threshold=2.938735877055719e-39,
+                zero_count=1,
+                pos_spans=[
+                    BucketSpan(offset=0, length=5),
+                ],
+                pos_deltas=[1, 2, -1, -2, 1],
+            ),
+            id="buckets limited by halving resolution",
+        ),
+        pytest.param(
+            {
+                "native_histogram_initial_schema": 2,
+                "native_histogram_max_buckets": 4,
+            },
+            [0, -1, -1.1, -1.2, -1.4, -1.8, -2, -3],
+            NativeHistogram(
+                count_value=8,
+                sum_value=-11.5,
+                schema=1,
+                zero_threshold=2.938735877055719e-39,
+                zero_count=1,
+                neg_spans=[
+                    BucketSpan(offset=0, length=5),
+                ],
+                neg_deltas=[1, 2, -1, -2, 1],
+            ),
+            id="buckets limited by halving resolution, negative observations",
+        ),
+    ],
+)
+def test_native_histograms(kwargs, observations, expected):
+    registry = CollectorRegistry()
+    h = Histogram("hist", "help", registry=registry, **kwargs)
+    for obs in observations:
+        h.observe(obs)
+
+    result = registry.get_native_histogram_value("hist")
+    assert expected == result
 
 
 class TestInfo(unittest.TestCase):

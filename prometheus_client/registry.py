@@ -3,7 +3,8 @@ import copy
 from threading import Lock
 from typing import Dict, Iterable, List, Optional
 
-from .metrics_core import Metric
+from prometheus_client.metrics_core import Metric
+from prometheus_client.samples import NativeHistogram
 
 
 # Ideally this would be a Protocol, but Protocols are only available in Python >= 3.8.
@@ -139,6 +140,19 @@ class CollectorRegistry(Collector):
             for s in metric.samples:
                 if s.name == name and s.labels == labels:
                     return s.value
+        return None
+
+    def get_native_histogram_value(self, name: str, labels: Optional[Dict[str, str]] = None) -> Optional[NativeHistogram]:
+        """Returns the sample's native histogram value, or None if not found.
+
+        This is inefficient, and intended only for use in unittests.
+        """
+        if labels is None:
+            labels = {}
+        for metric in self.collect():
+            for s in metric.samples:
+                if s.name == name and s.labels == labels:
+                    return s.native_histogram
         return None
 
 
