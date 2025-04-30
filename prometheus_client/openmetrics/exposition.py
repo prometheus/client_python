@@ -41,8 +41,9 @@ def generate_latest(registry, escaping):
     for metric in registry.collect():
         try:
             mname = metric.name
+            print("or is it here", metric.documentation, escape_label_name(metric.documentation, ALLOWUTF8))
             output.append('# HELP {} {}\n'.format(
-                escape_metric_name(mname, escaping), escape_label_name(metric.documentation, ALLOWUTF8)))
+                escape_metric_name(mname, escaping), _escape(metric.documentation, ALLOWUTF8, _is_legacy_labelname_rune)))
             output.append(f'# TYPE {escape_metric_name(mname, escaping)} {metric.type}\n')
             if metric.unit:
                 output.append(f'# UNIT {escape_metric_name(mname, escaping)} {metric.unit}\n')
@@ -59,7 +60,7 @@ def generate_latest(registry, escaping):
                     # Label values always support UTF-8
                     labelstr += ','.join(
                         ['{}="{}"'.format(
-                            escape_label_name(k, escaping), escape_label_name(v, ALLOWUTF8))
+                            escape_label_name(k, escaping), _escape(v, ALLOWUTF8, _is_legacy_labelname_rune))
                             for k, v in items])
                 if labelstr:
                     labelstr = "{" + labelstr + "}"
@@ -89,7 +90,7 @@ def generate_latest(registry, escaping):
                     timestamp = f' {s.timestamp}'
                 if (escaping != ALLOWUTF8) or _is_valid_legacy_metric_name(s.name):
                     output.append('{}{} {}{}{}\n'.format(
-                        escape_label_name(s.name, escaping),
+                        _escape(s.name, escaping, _is_legacy_labelname_rune),
                         labelstr,
                         floatToGoString(s.value),
                         timestamp,
@@ -114,11 +115,14 @@ def escape_metric_name(s: str, escaping: str) -> str:
     """Escapes the metric name and puts it in quotes iff the name does not
     conform to the legacy Prometheus character set.
     """
+    print("hi", s)
     if len(s) == 0:
         return s
     if escaping == ALLOWUTF8:
         if not _is_valid_legacy_metric_name(s):
+            print("lgtm?")
             return '"{}"'.format(_escape(s, escaping, _is_legacy_metric_rune))
+        print("need to escape")
         return _escape(s, escaping, _is_legacy_metric_rune)
     elif escaping == UNDERSCORES:
         if _is_valid_legacy_metric_name(s):
@@ -141,6 +145,7 @@ def escape_label_name(s: str, escaping: str) -> str:
         return s
     if escaping == ALLOWUTF8:
         if not _is_valid_legacy_labelname(s):
+            print("adding quotes here")
             return '"{}"'.format(_escape(s, escaping, _is_legacy_labelname_rune))
         return _escape(s, escaping, _is_legacy_labelname_rune)
     elif escaping == UNDERSCORES:

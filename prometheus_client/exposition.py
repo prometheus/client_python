@@ -265,7 +265,7 @@ def generate_latest(registry: CollectorRegistry = REGISTRY, escaping: str = open
             labelstr = '{0}'.format(','.join(
                 # Label values always support UTF-8
                 ['{}="{}"'.format(
-                    openmetrics.escape_label_name(k, escaping), openmetrics._escape_label_name(v, openmetrics.ALLOWUTF8))
+                    openmetrics.escape_label_name(k, escaping), openmetrics._escape(v, openmetrics.ALLOWUTF8, False))
                     for k, v in sorted(samples.labels.items())]))
         else:
             labelstr = ''
