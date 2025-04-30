@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 from io import StringIO
-from typing import Callable
 from sys import maxunicode
+from typing import Callable
 
 from ..utils import floatToGoString
 from ..validation import (

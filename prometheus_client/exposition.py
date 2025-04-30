@@ -2,7 +2,6 @@ import base64
 from contextlib import closing
 import gzip
 from http.server import BaseHTTPRequestHandler
-from packaging.version import Version
 import os
 import socket
 from socketserver import ThreadingMixIn
@@ -17,6 +16,8 @@ from urllib.request import (
     Request,
 )
 from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
+
+from packaging.version import Version
 
 from .openmetrics import exposition as openmetrics
 from .registry import CollectorRegistry, REGISTRY
