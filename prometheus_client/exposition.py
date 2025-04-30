@@ -2,6 +2,7 @@ import base64
 from contextlib import closing
 import gzip
 from http.server import BaseHTTPRequestHandler
+from packaging.version import Version
 import os
 import socket
 from socketserver import ThreadingMixIn
@@ -20,7 +21,6 @@ from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
 from .openmetrics import exposition as openmetrics
 from .registry import CollectorRegistry, REGISTRY
 from .utils import floatToGoString
-from .validation import _is_valid_legacy_metric_name
 
 __all__ = (
     'CONTENT_TYPE_PLAIN',
@@ -38,7 +38,10 @@ __all__ = (
 )
 
 CONTENT_TYPE_PLAIN = 'text/plain; version=0.0.4; charset=utf-8'
-"""Content type of the latest text format"""
+"""Content type of the compatibility format"""
+
+CONTENT_TYPE_LATEST = 'text/plain; version=1.0.0; charset=utf-8'
+"""Content type of the latest format"""
 
 
 class _PrometheusRedirectHandler(HTTPRedirectHandler):
@@ -252,7 +255,7 @@ def generate_latest(registry: CollectorRegistry = REGISTRY, escaping: str = open
     Params:
         registry: CollectorRegistry to export data from.
         escaping: Escaping scheme used for metric and label names.
-    
+
     Returns: UTF-8 encoded string containing the metrics in text format.
     """
 
@@ -261,7 +264,7 @@ def generate_latest(registry: CollectorRegistry = REGISTRY, escaping: str = open
             labelstr = '{0}'.format(','.join(
                 # Label values always support UTF-8
                 ['{}="{}"'.format(
-                    openmetrics.escape_label_name(k, escaping), openmetrics._escape(v, openmetrics.ALLOWUTF8, False))
+                    openmetrics.escape_label_name(k, escaping), openmetrics._escape_label_name(v, openmetrics.ALLOWUTF8))
                     for k, v in sorted(samples.labels.items())]))
         else:
             labelstr = ''
@@ -269,7 +272,7 @@ def generate_latest(registry: CollectorRegistry = REGISTRY, escaping: str = open
         if samples.timestamp is not None:
             # Convert to milliseconds.
             timestamp = f' {int(float(samples.timestamp) * 1000):d}'
-        if escaping != openmetrics.ALLOWUTF8 or _is_valid_legacy_metric_name(samples.name):
+        if escaping != openmetrics.ALLOWUTF8 or openmetrics._is_valid_legacy_metric_name(samples.name):
             if labelstr:
                 labelstr = '{{{0}}}'.format(labelstr)
             return f'{openmetrics.escape_metric_name(samples.name, escaping)}{labelstr} {floatToGoString(samples.value)}{timestamp}\n'
@@ -335,7 +338,7 @@ def choose_encoder(accept_header: str) -> Tuple[Callable[[CollectorRegistry], by
             escaping = _get_escaping(toks)
             # Only return an escaping header if we have a good version and
             # mimetype.
-            if version == '1.0.0':
+            if Version(version) >= Version('1.0.0'):
                 return (openmetrics.generate_latest_fn(escaping), 
                         openmetrics.CONTENT_TYPE_LATEST + '; escaping=' + str(escaping))
     return generate_latest, CONTENT_TYPE_PLAIN
@@ -345,7 +348,7 @@ def _get_version(accept_header: List[str]) -> str:
     """Return the version tag from the Accept header.
 
     If no escaping scheme is specified, returns empty string."""
-    
+
     for tok in accept_header:
         if '=' not in tok:
             continue
@@ -353,14 +356,14 @@ def _get_version(accept_header: List[str]) -> str:
         if key == 'version':
             return value
     return ""
-            
+
 
 def _get_escaping(accept_header: List[str]) -> str:
     """Return the escaping scheme from the Accept header.
 
     If no escaping scheme is specified or the scheme is not one of the allowed
     strings, defaults to UNDERSCORES."""
-    
+
     for tok in accept_header:
         if '=' not in tok:
             continue
@@ -378,7 +381,7 @@ def _get_escaping(accept_header: List[str]) -> str:
         else:
             return openmetrics.UNDERSCORES
     return openmetrics.UNDERSCORES
-                
+
 
 def gzip_accepted(accept_encoding_header: str) -> bool:
     accept_encoding_header = accept_encoding_header or ''

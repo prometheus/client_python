@@ -38,13 +38,13 @@ class TestGenerateText(unittest.TestCase):
         c.inc()
         self.assertEqual(b'# HELP cc A counter\n# TYPE cc counter\ncc_total 1.0\ncc_created 123.456\n# EOF\n',
                          generate_latest(self.registry, ALLOWUTF8))
-        
+
     def test_counter_utf8(self):
         c = Counter('cc.with.dots', 'A counter', registry=self.registry)
         c.inc()
         self.assertEqual(b'# HELP "cc.with.dots" A counter\n# TYPE "cc.with.dots" counter\n{"cc.with.dots_total"} 1.0\n{"cc.with.dots_created"} 123.456\n# EOF\n',
                          generate_latest(self.registry, ALLOWUTF8))
-        
+
     def test_counter_utf8_escaped_underscores(self):
         c = Counter('utf8.cc', 'A counter', registry=self.registry)
         c.inc()
@@ -357,7 +357,7 @@ ts{foo="f"} 0.0 123.000000456
 ])
 def test_escape_metric_name(scenario):
     input = scenario["input"]
-    
+
     got = escape_metric_name(input, UNDERSCORES)
     assert got == scenario["expectedUnderscores"], f"[{scenario['name']}] Underscore escaping failed"
 
@@ -366,8 +366,8 @@ def test_escape_metric_name(scenario):
 
     got = escape_metric_name(input, VALUES)
     assert got == scenario["expectedValue"], f"[{scenario['name']}] Value encoding failed"
-    
-    
+
+
 @pytest.mark.parametrize("scenario", [
     {
         "name": "empty string",
@@ -428,7 +428,7 @@ def test_escape_metric_name(scenario):
 ])
 def test_escape_label_name(scenario):
     input = scenario["input"]
-    
+
     got = escape_label_name(input, UNDERSCORES)
     assert got == scenario["expectedUnderscores"], f"[{scenario['name']}] Underscore escaping failed"
 

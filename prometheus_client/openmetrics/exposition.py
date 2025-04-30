@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from io import StringIO
+from typing import Callable
 from sys import maxunicode
 
 from ..utils import floatToGoString
@@ -32,7 +33,7 @@ def _is_valid_exemplar_metric(metric, sample):
 def generate_latest_fn(escaping):
     '''Returns a generate_latest function that will always use the given escaping.'''
     return lambda registry: generate_latest(registry, escaping)
-    
+
 
 def generate_latest(registry, escaping):
     '''Returns the metrics from the registry in latest text format as a string.'''
@@ -41,7 +42,7 @@ def generate_latest(registry, escaping):
         try:
             mname = metric.name
             output.append('# HELP {} {}\n'.format(
-                escape_metric_name(mname, escaping), _escape(metric.documentation, ALLOWUTF8, False)))
+                escape_metric_name(mname, escaping), escape_label_name(metric.documentation, ALLOWUTF8)))
             output.append(f'# TYPE {escape_metric_name(mname, escaping)} {metric.type}\n')
             if metric.unit:
                 output.append(f'# UNIT {escape_metric_name(mname, escaping)} {metric.unit}\n')
@@ -52,17 +53,17 @@ def generate_latest(registry, escaping):
                         labelstr += ', '
                 else:
                     labelstr = ''
-                
+
                 if s.labels:
                     items = sorted(s.labels.items())
                     # Label values always support UTF-8
                     labelstr += ','.join(
                         ['{}="{}"'.format(
-                            escape_label_name(k, escaping), _escape(v, ALLOWUTF8, False))
+                            escape_label_name(k, escaping), escape_label_name(v, ALLOWUTF8))
                             for k, v in items])
                 if labelstr:
                     labelstr = "{" + labelstr + "}"
-                    
+
                 if s.exemplar:
                     if not _is_valid_exemplar_metric(metric, s):
                         raise ValueError(f"Metric {metric.name} has exemplars, but is not a histogram bucket or counter")
@@ -88,7 +89,7 @@ def generate_latest(registry, escaping):
                     timestamp = f' {s.timestamp}'
                 if (escaping != ALLOWUTF8) or _is_valid_legacy_metric_name(s.name):
                     output.append('{}{} {}{}{}\n'.format(
-                        _escape(s.name, escaping, False),
+                        escape_label_name(s.name, escaping),
                         labelstr,
                         floatToGoString(s.value),
                         timestamp,
@@ -117,18 +118,18 @@ def escape_metric_name(s: str, escaping: str) -> str:
         return s
     if escaping == ALLOWUTF8:
         if not _is_valid_legacy_metric_name(s):
-            return '"{}"'.format(_escape(s, escaping, False))
-        return _escape(s, escaping, False)
+            return '"{}"'.format(_escape(s, escaping, _is_legacy_metric_rune))
+        return _escape(s, escaping, _is_legacy_metric_rune)
     elif escaping == UNDERSCORES:
         if _is_valid_legacy_metric_name(s):
             return s
-        return _escape(s, escaping, False)
+        return _escape(s, escaping, _is_legacy_metric_rune)
     elif escaping == DOTS:
-        return _escape(s, escaping, False)
+        return _escape(s, escaping, _is_legacy_metric_rune)
     elif escaping == VALUES:
         if _is_valid_legacy_metric_name(s):
             return s
-        return _escape(s, escaping, False)
+        return _escape(s, escaping, _is_legacy_metric_rune)
     return s
 
 
@@ -140,29 +141,31 @@ def escape_label_name(s: str, escaping: str) -> str:
         return s
     if escaping == ALLOWUTF8:
         if not _is_valid_legacy_labelname(s):
-            return '"{}"'.format(_escape(s, escaping, True))
-        return _escape(s, escaping, True)
+            return '"{}"'.format(_escape(s, escaping, _is_legacy_labelname_rune))
+        return _escape(s, escaping, _is_legacy_labelname_rune)
     elif escaping == UNDERSCORES:
         if _is_valid_legacy_labelname(s):
             return s
-        return _escape(s, escaping, True)
+        return _escape(s, escaping, _is_legacy_labelname_rune)
     elif escaping == DOTS:
-        return _escape(s, escaping, True)
+        return _escape(s, escaping, _is_legacy_labelname_rune)
     elif escaping == VALUES:
         if _is_valid_legacy_labelname(s):
             return s
-        return _escape(s, escaping, True)
+        return _escape(s, escaping, _is_legacy_labelname_rune)
     return s
 
 
-def _escape(s: str, escaping: str, is_labelname: bool) -> str:
-    """Performs backslash escaping on backslash, newline, and double-quote characters."""
+def _escape(s: str, escaping: str, valid_rune_fn: Callable[[str, int], bool]) -> str:
+    """Performs backslash escaping on backslash, newline, and double-quote characters.
+
+    valid_rune_fn takes the input character and its index in the containig string."""
     if escaping == ALLOWUTF8:
         return s.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"')
     elif escaping == UNDERSCORES:
         escaped = StringIO()
         for i, b in enumerate(s):
-            if _is_valid_legacy_rune(b, i, is_labelname):
+            if valid_rune_fn(b, i):
                 escaped.write(b)
             else:
                 escaped.write('_')
@@ -174,7 +177,7 @@ def _escape(s: str, escaping: str, is_labelname: bool) -> str:
                 escaped.write('__')
             elif b == '.':
                 escaped.write('_dot_')
-            elif _is_valid_legacy_rune(b, i, is_labelname):
+            elif valid_rune_fn(b, i):
                 escaped.write(b)
             else:
                 escaped.write('__')
@@ -185,7 +188,7 @@ def _escape(s: str, escaping: str, is_labelname: bool) -> str:
         for i, b in enumerate(s):
             if b == '_':
                 escaped.write("__")
-            elif _is_valid_legacy_rune(b, i, is_labelname):
+            elif valid_rune_fn(b, i):
                 escaped.write(b)
             elif not _is_valid_utf8(b):
                 escaped.write("_FFFD_")
@@ -197,17 +200,19 @@ def _escape(s: str, escaping: str, is_labelname: bool) -> str:
     return s
 
 
-def _is_valid_legacy_rune(b: str, i: int, is_labelname: bool) -> bool:
+def _is_legacy_metric_rune(b: str, i: int) -> bool:
+    return _is_legacy_labelname_rune(b, i) or b == ':'
+
+
+def _is_legacy_labelname_rune(b: str, i: int) -> bool:
     if len(b) != 1:
         raise ValueError("Input 'b' must be a single character.")
-    if (
+    return (
         ('a' <= b <= 'z')
         or ('A' <= b <= 'Z')
         or (b == '_')
         or ('0' <= b <= '9' and i > 0)
-    ):
-        return True
-    return not is_labelname and b == ':'
+    )
 
 
 _SURROGATE_MIN = 0xD800
