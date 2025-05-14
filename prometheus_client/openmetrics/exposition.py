@@ -30,7 +30,7 @@ def generate_latest(registry):
                 escape_metric_name(mname), _escape(metric.documentation)))
             output.append(f'# TYPE {escape_metric_name(mname)} {metric.type}\n')
             if metric.unit:
-                output.append(f'# UNIT {escape_metric_name(mname)} {metric.unit}\n')    
+                output.append(f'# UNIT {escape_metric_name(mname)} {metric.unit}\n')
             for s in metric.samples:
                 if not _is_valid_legacy_metric_name(s.name):
                     labelstr = escape_metric_name(s.name)
@@ -40,11 +40,11 @@ def generate_latest(registry):
                     labelstr = ''
                         
                 if s.labels:
-                    items = s.labels.items()
+                    items = sorted(s.labels.items())
                     labelstr += ','.join(
                         ['{}="{}"'.format(
                             escape_label_name(k), _escape(v))
-                            for k, v in items])        
+                            for k, v in items])
                 if labelstr:
                     labelstr = "{" + labelstr + "}"
                             
@@ -67,7 +67,7 @@ def generate_latest(registry):
                             floatToGoString(s.exemplar.value),
                         )
                 else:
-                    exemplarstr = ''   
+                    exemplarstr = ''
                         
                 timestamp = ''
                 if s.timestamp is not None:
@@ -81,7 +81,7 @@ def generate_latest(registry):
                 pos = False
                 neg = False
                      
-                if s.native_histogram:                
+                if s.native_histogram:
                     # Initialize basic nh template
                     nh_sample_template = '{{count:{},sum:{},schema:{},zero_threshold:{},zero_count:{}'
 
@@ -127,27 +127,27 @@ def generate_latest(registry):
                     nh_sample_template += '}}'
 
                     # Format the template with the args
-                    native_histogram = nh_sample_template.format(*args)    
+                    native_histogram = nh_sample_template.format(*args)
 
-                value = ''    
-                if s.value is not None or not s.native_histogram:
-                    value = floatToGoString(s.value)
+                value = ''
+                if s.native_histogram:
+                   value = native_histogram
+                elif s.value is not None:
+                    value = floatToGoString(s.value)    
                 if _is_valid_legacy_metric_name(s.name):
-                    output.append('{}{} {}{}{}{}\n'.format(
+                    output.append('{}{} {}{}{}\n'.format(
                         s.name,
                         labelstr,
                         value,
                         timestamp,
                         exemplarstr,
-                        native_histogram
                     ))
                 else:
-                    output.append('{} {}{}{}{}\n'.format(
+                    output.append('{} {}{}{}\n'.format(
                         labelstr,
                         value,
                         timestamp,
-                        exemplarstr,
-                        native_histogram
+                        exemplarstr
                     ))
         except Exception as exception:
             exception.args = (exception.args or ('',)) + (metric,)
@@ -178,6 +178,3 @@ def escape_label_name(s: str) -> str:
 def _escape(s: str) -> str:
     """Performs backslash escaping on backslash, newline, and double-quote characters."""
     return s.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"')
-
-
-      
