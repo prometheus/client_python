@@ -40,6 +40,17 @@ class BucketSpan(NamedTuple):
     length: int
 
 
+# Timestamp and exemplar are optional.
+# Value can be an int or a float.
+# Timestamp can be a float containing a unixtime in seconds,
+# a Timestamp object, or None.
+# Exemplar can be an Exemplar object, or None.
+class Exemplar(NamedTuple):
+    labels: Dict[str, str]
+    value: float
+    timestamp: Optional[Union[float, Timestamp]] = None
+
+
 # NativeHistogram is experimental and subject to change at any time.
 class NativeHistogram(NamedTuple):
     count_value: float
@@ -51,17 +62,7 @@ class NativeHistogram(NamedTuple):
     neg_spans: Optional[Sequence[BucketSpan]] = None
     pos_deltas: Optional[Sequence[int]] = None
     neg_deltas: Optional[Sequence[int]] = None
-
-
-# Timestamp and exemplar are optional.
-# Value can be an int or a float.
-# Timestamp can be a float containing a unixtime in seconds,
-# a Timestamp object, or None.
-# Exemplar can be an Exemplar object, or None.
-class Exemplar(NamedTuple):
-    labels: Dict[str, str]
-    value: float
-    timestamp: Optional[Union[float, Timestamp]] = None
+    nh_exemplars: Optional[Sequence[Exemplar]] = None
 
 
 class Sample(NamedTuple):

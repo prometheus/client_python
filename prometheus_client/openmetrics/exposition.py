@@ -49,23 +49,7 @@ def generate_latest(registry):
                     labelstr = "{" + labelstr + "}"
                             
                 if s.exemplar:
-                    if not _is_valid_exemplar_metric(metric, s):
-                        raise ValueError(f"Metric {metric.name} has exemplars, but is not a histogram bucket or counter")
-                    labels = '{{{0}}}'.format(','.join(
-                        ['{}="{}"'.format(
-                            k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
-                            for k, v in sorted(s.exemplar.labels.items())]))
-                    if s.exemplar.timestamp is not None:
-                        exemplarstr = ' # {} {} {}'.format(
-                            labels,
-                            floatToGoString(s.exemplar.value),
-                            s.exemplar.timestamp,
-                        )
-                    else:
-                        exemplarstr = ' # {} {}'.format(
-                            labels,
-                            floatToGoString(s.exemplar.value),
-                        )
+                    exemplarstr = _compose_exemplar_string(metric, s, s.exemplar)
                 else:
                     exemplarstr = ''
                         
@@ -93,17 +77,12 @@ def generate_latest(registry):
                         s.native_histogram.zero_count,
                     ]
 
-                    # Signal presence for pos/neg spans/deltas
-                    pos = False
-                    neg = False
-
                     # If there are pos spans, append them to the template and args
                     if s.native_histogram.pos_spans:
                         positive_spans = ','.join([f'{ps[0]}:{ps[1]}' for ps in s.native_histogram.pos_spans])
                         positive_deltas = ','.join(f'{pd}' for pd in s.native_histogram.pos_deltas)
                         nh_sample_template += ',positive_spans:[{}]'
                         args.append(positive_spans)
-                        pos = True
 
                     # If there are neg spans exist, append them to the template and args
                     if s.native_histogram.neg_spans:
@@ -111,36 +90,40 @@ def generate_latest(registry):
                         negative_deltas = ','.join(str(nd) for nd in s.native_histogram.neg_deltas)
                         nh_sample_template += ',negative_spans:[{}]'
                         args.append(negative_spans)
-                        neg = True
 
                     # Append pos deltas if pos spans were added
-                    if pos:
+                    if s.native_histogram.pos_spans:
                         nh_sample_template += ',positive_deltas:[{}]'
                         args.append(positive_deltas)
 
                     # Append neg deltas if neg spans were added
-                    if neg:
+                    if s.native_histogram.neg_spans:
                         nh_sample_template += ',negative_deltas:[{}]'
                         args.append(negative_deltas)
-
+                          
                     # Add closing brace
                     nh_sample_template += '}}'
 
                     # Format the template with the args
                     native_histogram = nh_sample_template.format(*args)
+                    
+                    if s.native_histogram.nh_exemplars:
+                        for nh_ex in s.native_histogram.nh_exemplars:
+                           nh_exemplarstr = _compose_exemplar_string(metric, s, nh_ex)
+                           native_histogram += nh_exemplarstr
 
                 value = ''
                 if s.native_histogram:
                    value = native_histogram
                 elif s.value is not None:
-                    value = floatToGoString(s.value)    
+                    value = floatToGoString(s.value)
                 if _is_valid_legacy_metric_name(s.name):
                     output.append('{}{} {}{}{}\n'.format(
                         s.name,
                         labelstr,
                         value,
                         timestamp,
-                        exemplarstr,
+                        exemplarstr
                     ))
                 else:
                     output.append('{} {}{}{}\n'.format(
@@ -178,3 +161,26 @@ def escape_label_name(s: str) -> str:
 def _escape(s: str) -> str:
     """Performs backslash escaping on backslash, newline, and double-quote characters."""
     return s.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"')
+
+
+def _compose_exemplar_string(metric, sample, exemplar) -> str:
+    """Constructs an exemplar string."""
+    if not _is_valid_exemplar_metric(metric, sample):
+        raise ValueError(f"Metric {metric.name} has exemplars, but is not a histogram bucket or counter")
+    labels = '{{{0}}}'.format(','.join(
+        ['{}="{}"'.format(
+            k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
+            for k, v in sorted(exemplar.labels.items())]))
+    if exemplar.timestamp is not None:
+        exemplarstr = ' # {} {} {}'.format(
+            labels,
+            floatToGoString(exemplar.value),
+            exemplar.timestamp,
+    )
+    else:
+        exemplarstr = ' # {} {}'.format(
+            labels,
+            floatToGoString(exemplar.value),
+        )
+
+    return exemplarstr

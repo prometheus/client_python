@@ -106,6 +106,16 @@ nh {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,positive_spans:[
 # EOF
 """, generate_latest(self.registry))
 
+    
+    def test_nh_histogram_with_exemplars(self) -> None:
+        hfm = HistogramMetricFamily("nh", "nh")
+        hfm.add_sample("nh", {}, 0, None, None, NativeHistogram(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3), (Exemplar({"trace_id": "KOO5S4vxi0o"}, 0.67), Exemplar({"trace_id": "oHg5SJYRHA0"}, 9.8, float(Timestamp(1520879607, 0.789 * 1e9))))))
+        self.custom_collector(hfm)
+        self.assertEqual(b"""# HELP nh nh
+# TYPE nh histogram
+nh {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,positive_spans:[0:2,1:2],negative_spans:[0:2,1:2],positive_deltas:[2,1,-3,3],negative_deltas:[2,1,-2,3]} # {trace_id="KOO5S4vxi0o"} 0.67 # {trace_id="oHg5SJYRHA0"} 9.8 1520879607.789
+# EOF
+""", generate_latest(self.registry))
 
     def test_nh_no_observation(self) -> None:
         hfm = HistogramMetricFamily("nhnoobs", "nhnoobs")
