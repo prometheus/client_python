@@ -7,7 +7,7 @@ import unittest
 import pytest
 
 from prometheus_client import (
-    CollectorRegistry, CONTENT_TYPE_LATEST, core, Counter, delete_from_gateway,
+    CollectorRegistry, CONTENT_TYPE_PLAIN, core, Counter, delete_from_gateway,
     Enum, Gauge, generate_latest, Histogram, Info, instance_ip_grouping_key,
     Metric, push_to_gateway, pushadd_to_gateway, Summary,
 )
@@ -46,7 +46,7 @@ cc_total 1.0
 # HELP cc_created A counter
 # TYPE cc_created gauge
 cc_created 123.456
-""", generate_latest(self.registry))
+""", generate_latest(self.registry, openmetrics.ALLOWUTF8))
         
     def test_counter_utf8(self):
         c = Counter('utf8.cc', 'A counter', registry=self.registry)
@@ -57,7 +57,18 @@ cc_created 123.456
 # HELP "utf8.cc_created" A counter
 # TYPE "utf8.cc_created" gauge
 {"utf8.cc_created"} 123.456
-""", generate_latest(self.registry))
+""", generate_latest(self.registry, openmetrics.ALLOWUTF8))
+        
+    def test_counter_utf8_escaped_underscores(self):
+        c = Counter('utf8.cc', 'A counter', registry=self.registry)
+        c.inc()
+        assert b"""# HELP utf8_cc_total A counter
+# TYPE utf8_cc_total counter
+utf8_cc_total 1.0
+# HELP utf8_cc_created A counter
+# TYPE utf8_cc_created gauge
+utf8_cc_created 123.456
+""" == generate_latest(self.registry, openmetrics.UNDERSCORES)
 
     def test_counter_name_unit_append(self):
         c = Counter('requests', 'Request counter', unit="total", registry=self.registry)
@@ -68,7 +79,7 @@ requests_total_total 1.0
 # HELP requests_total_created Request counter
 # TYPE requests_total_created gauge
 requests_total_created 123.456
-""", generate_latest(self.registry))
+""", generate_latest(self.registry, openmetrics.ALLOWUTF8))
 
     def test_counter_total(self):
         c = Counter('cc_total', 'A counter', registry=self.registry)
@@ -79,12 +90,12 @@ cc_total 1.0
 # HELP cc_created A counter
 # TYPE cc_created gauge
 cc_created 123.456
-""", generate_latest(self.registry))
+""", generate_latest(self.registry, openmetrics.ALLOWUTF8))
 
     def test_gauge(self):
         g = Gauge('gg', 'A gauge', registry=self.registry)
         g.set(17)
-        self.assertEqual(b'# HELP gg A gauge\n# TYPE gg gauge\ngg 17.0\n', generate_latest(self.registry))
+        self.assertEqual(b'# HELP gg A gauge\n# TYPE gg gauge\ngg 17.0\n', generate_latest(self.registry, openmetrics.ALLOWUTF8))
 
     def test_summary(self):
         s = Summary('ss', 'A summary', ['a', 'b'], registry=self.registry)
@@ -96,7 +107,7 @@ ss_sum{a="c",b="d"} 17.0
 # HELP ss_created A summary
 # TYPE ss_created gauge
 ss_created{a="c",b="d"} 123.456
-""", generate_latest(self.registry))
+""", generate_latest(self.registry, openmetrics.ALLOWUTF8))
 
     def test_histogram(self):
         s = Histogram('hh', 'A histogram', registry=self.registry)
@@ -123,7 +134,7 @@ hh_sum 0.05
 # HELP hh_created A histogram
 # TYPE hh_created gauge
 hh_created 123.456
-""", generate_latest(self.registry))
+""", generate_latest(self.registry, openmetrics.ALLOWUTF8))
 
     def test_gaugehistogram(self):
         self.custom_collector(GaugeHistogramMetricFamily('gh', 'help', buckets=[('1.0', 4), ('+Inf', 5)], gsum_value=7))
@@ -137,32 +148,32 @@ gh_gcount 5.0
 # HELP gh_gsum help
 # TYPE gh_gsum gauge
 gh_gsum 7.0
-""", generate_latest(self.registry))
+""", generate_latest(self.registry, openmetrics.ALLOWUTF8))
 
     def test_info(self):
         i = Info('ii', 'A info', ['a', 'b'], registry=self.registry)
         i.labels('c', 'd').info({'foo': 'bar'})
         self.assertEqual(b'# HELP ii_info A info\n# TYPE ii_info gauge\nii_info{a="c",b="d",foo="bar"} 1.0\n',
-                         generate_latest(self.registry))
+                         generate_latest(self.registry, openmetrics.ALLOWUTF8))
 
     def test_enum(self):
         i = Enum('ee', 'An enum', ['a', 'b'], registry=self.registry, states=['foo', 'bar'])
         i.labels('c', 'd').state('bar')
         self.assertEqual(
             b'# HELP ee An enum\n# TYPE ee gauge\nee{a="c",b="d",ee="foo"} 0.0\nee{a="c",b="d",ee="bar"} 1.0\n',
-            generate_latest(self.registry))
+            generate_latest(self.registry, openmetrics.ALLOWUTF8))
 
     def test_unicode(self):
         c = Gauge('cc', '\u4500', ['l'], registry=self.registry)
         c.labels('\u4500').inc()
         self.assertEqual(b'# HELP cc \xe4\x94\x80\n# TYPE cc gauge\ncc{l="\xe4\x94\x80"} 1.0\n',
-                         generate_latest(self.registry))
+                         generate_latest(self.registry, openmetrics.ALLOWUTF8))
 
     def test_escaping(self):
         g = Gauge('cc', 'A\ngaug\\e', ['a'], registry=self.registry)
         g.labels('\\x\n"').inc(1)
         self.assertEqual(b'# HELP cc A\\ngaug\\\\e\n# TYPE cc gauge\ncc{a="\\\\x\\n\\""} 1.0\n',
-                         generate_latest(self.registry))
+                         generate_latest(self.registry, openmetrics.ALLOWUTF8))
 
     def test_nonnumber(self):
         class MyNumber:
@@ -180,7 +191,7 @@ gh_gsum 7.0
 
         self.registry.register(MyCollector())
         self.assertEqual(b'# HELP nonnumber Non number\n# TYPE nonnumber untyped\nnonnumber 123.0\n',
-                         generate_latest(self.registry))
+                         generate_latest(self.registry, openmetrics.ALLOWUTF8))
 
     def test_timestamp(self):
         class MyCollector:
@@ -203,7 +214,7 @@ ts{foo="c"} 0.0 123000
 ts{foo="d"} 0.0 123456
 ts{foo="e"} 0.0 123000
 ts{foo="f"} 0.0 123000
-""", generate_latest(self.registry))
+""", generate_latest(self.registry, openmetrics.ALLOWUTF8))
 
 
 class TestPushGateway(unittest.TestCase):
@@ -264,70 +275,70 @@ class TestPushGateway(unittest.TestCase):
         push_to_gateway(self.address, "my_job", self.registry)
         self.assertEqual(self.requests[0][0].command, 'PUT')
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
     def test_push_schemeless_url(self):
         push_to_gateway(self.address.replace('http://', ''), "my_job", self.registry)
         self.assertEqual(self.requests[0][0].command, 'PUT')
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
     def test_push_with_groupingkey(self):
         push_to_gateway(self.address, "my_job", self.registry, {'a': 9})
         self.assertEqual(self.requests[0][0].command, 'PUT')
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job/a/9')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
     def test_push_with_groupingkey_empty_label(self):
         push_to_gateway(self.address, "my_job", self.registry, {'a': ''})
         self.assertEqual(self.requests[0][0].command, 'PUT')
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job/a@base64/=')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
     def test_push_with_complex_groupingkey(self):
         push_to_gateway(self.address, "my_job", self.registry, {'a': 9, 'b': 'a/ z'})
         self.assertEqual(self.requests[0][0].command, 'PUT')
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job/a/9/b@base64/YS8geg==')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
     def test_push_with_complex_job(self):
         push_to_gateway(self.address, "my/job", self.registry)
         self.assertEqual(self.requests[0][0].command, 'PUT')
         self.assertEqual(self.requests[0][0].path, '/metrics/job@base64/bXkvam9i')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
     def test_pushadd(self):
         pushadd_to_gateway(self.address, "my_job", self.registry)
         self.assertEqual(self.requests[0][0].command, 'POST')
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
     def test_pushadd_with_groupingkey(self):
         pushadd_to_gateway(self.address, "my_job", self.registry, {'a': 9})
         self.assertEqual(self.requests[0][0].command, 'POST')
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job/a/9')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
     def test_delete(self):
         delete_from_gateway(self.address, "my_job")
         self.assertEqual(self.requests[0][0].command, 'DELETE')
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN)
         self.assertEqual(self.requests[0][1], b'')
 
     def test_delete_with_groupingkey(self):
         delete_from_gateway(self.address, "my_job", {'a': 9})
         self.assertEqual(self.requests[0][0].command, 'DELETE')
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job/a/9')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN)
         self.assertEqual(self.requests[0][1], b'')
 
     def test_push_with_handler(self):
@@ -340,7 +351,7 @@ class TestPushGateway(unittest.TestCase):
         push_to_gateway(self.address, "my_job", self.registry, handler=my_test_handler)
         self.assertEqual(self.requests[0][0].command, 'PUT')
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN)
         self.assertEqual(self.requests[0][0].headers.get('x-test-header'), 'foobar')
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
@@ -351,7 +362,7 @@ class TestPushGateway(unittest.TestCase):
         push_to_gateway(self.address, "my_job_with_basic_auth", self.registry, handler=my_auth_handler)
         self.assertEqual(self.requests[0][0].command, 'PUT')
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job_with_basic_auth')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
     def test_push_with_tls_auth_handler(self):
@@ -362,7 +373,7 @@ class TestPushGateway(unittest.TestCase):
         push_to_gateway(self.address, "my_job_with_tls_auth", self.registry, handler=my_auth_handler)
         self.assertEqual(self.requests[0][0].command, 'PUT')
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job_with_tls_auth')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
     def test_push_with_redirect_handler(self):
@@ -372,7 +383,7 @@ class TestPushGateway(unittest.TestCase):
         push_to_gateway(self.address, "my_job_with_redirect", self.registry, handler=my_redirect_handler)
         self.assertEqual(self.requests[0][0].command, 'PUT')
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job_with_redirect')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_LATEST)
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
         # ensure the redirect preserved request settings from the initial request.
@@ -423,7 +434,7 @@ class Collector:
 
 def _expect_metric_exception(registry, expected_error):
     try:
-        generate_latest(registry)
+        generate_latest(registry, openmetrics.ALLOWUTF8)
     except expected_error as exception:
         assert isinstance(exception.args[-1], core.Metric)
         # Got a valid error as expected, return quietly
@@ -485,9 +496,153 @@ def test_histogram_metric_families(MetricFamily, registry, buckets, sum_value, e
 
 
 def test_choose_encoder():
-    assert choose_encoder(None) == (generate_latest, CONTENT_TYPE_LATEST)
-    assert choose_encoder(CONTENT_TYPE_LATEST) == (generate_latest, CONTENT_TYPE_LATEST)
-    assert choose_encoder(openmetrics.CONTENT_TYPE_LATEST) == (openmetrics.generate_latest, openmetrics.CONTENT_TYPE_LATEST)
+    assert choose_encoder(None)[1] == CONTENT_TYPE_PLAIN
+    assert choose_encoder(CONTENT_TYPE_PLAIN)[1] == CONTENT_TYPE_PLAIN
+    assert choose_encoder(openmetrics.CONTENT_TYPE_LATEST)[1] == (openmetrics.CONTENT_TYPE_LATEST + '; escaping=underscores')
+    assert choose_encoder(openmetrics.CONTENT_TYPE_LATEST + '; escaping=allow-utf-8')[1] == (openmetrics.CONTENT_TYPE_LATEST + '; escaping=allow-utf-8')
+    assert choose_encoder(openmetrics.CONTENT_TYPE_LATEST + '; escaping=dots')[1] == (openmetrics.CONTENT_TYPE_LATEST + '; escaping=dots')
+
+
+@pytest.mark.parametrize("scenario", [
+    {
+        "name": "empty string",
+        "input": "",
+        "expectedUnderscores": "",
+        "expectedDots": "",
+        "expectedValue": "",
+    },
+    {
+        "name": "legacy valid metric name",
+        "input": "no:escaping_required",
+        "expectedUnderscores": "no:escaping_required",
+        "expectedDots": "no:escaping__required",
+        "expectedValue": "no:escaping_required",
+    },
+    {
+        "name": "metric name with dots",
+        "input": "mysystem.prod.west.cpu.load",
+        "expectedUnderscores": "mysystem_prod_west_cpu_load",
+        "expectedDots": "mysystem_dot_prod_dot_west_dot_cpu_dot_load",
+        "expectedValue": "U__mysystem_2e_prod_2e_west_2e_cpu_2e_load",
+    },
+    {
+        "name": "metric name with dots and underscore",
+        "input": "mysystem.prod.west.cpu.load_total",
+        "expectedUnderscores": "mysystem_prod_west_cpu_load_total",
+        "expectedDots": "mysystem_dot_prod_dot_west_dot_cpu_dot_load__total",
+        "expectedValue": "U__mysystem_2e_prod_2e_west_2e_cpu_2e_load__total",
+    },
+    {
+        "name": "metric name with dots and colon",
+        "input": "http.status:sum",
+        "expectedUnderscores": "http_status:sum",
+        "expectedDots": "http_dot_status:sum",
+        "expectedValue": "U__http_2e_status:sum",
+    },
+    {
+        "name": "metric name with spaces and emoji",
+        "input": "label with 😱",
+        "expectedUnderscores": "label_with__",
+        "expectedDots": "label__with____",
+        "expectedValue": "U__label_20_with_20__1f631_",
+    },
+    {
+        "name": "metric name with unicode characters > 0x100",
+        "input": "花火",
+        "expectedUnderscores": "__",
+        "expectedDots": "____",
+        "expectedValue": "U___82b1__706b_",
+    },
+    {
+        "name": "metric name with spaces and edge-case value",
+        "input": "label with \u0100",
+        "expectedUnderscores": "label_with__",
+        "expectedDots": "label__with____",
+        "expectedValue": "U__label_20_with_20__100_",
+    },
+])
+def test_escape_metric_name(scenario):
+    input = scenario["input"]
+    
+    got = openmetrics.escape_metric_name(input, openmetrics.UNDERSCORES)
+    assert got == scenario["expectedUnderscores"], f"[{scenario['name']}] Underscore escaping failed"
+
+    got = openmetrics.escape_metric_name(input, openmetrics.DOTS)
+    assert got == scenario["expectedDots"], f"[{scenario['name']}] Dots escaping failed"
+
+    got = openmetrics.escape_metric_name(input, openmetrics.VALUES)
+    assert got == scenario["expectedValue"], f"[{scenario['name']}] Value encoding failed"
+    
+    
+@pytest.mark.parametrize("scenario", [
+    {
+        "name": "empty string",
+        "input": "",
+        "expectedUnderscores": "",
+        "expectedDots": "",
+        "expectedValue": "",
+    },
+    {
+        "name": "legacy valid label name",
+        "input": "no_escaping_required",
+        "expectedUnderscores": "no_escaping_required",
+        "expectedDots": "no__escaping__required",
+        "expectedValue": "no_escaping_required",
+    },
+    {
+        "name": "label name with dots",
+        "input": "mysystem.prod.west.cpu.load",
+        "expectedUnderscores": "mysystem_prod_west_cpu_load",
+        "expectedDots": "mysystem_dot_prod_dot_west_dot_cpu_dot_load",
+        "expectedValue": "U__mysystem_2e_prod_2e_west_2e_cpu_2e_load",
+    },
+    {
+        "name": "label name with dots and underscore",
+        "input": "mysystem.prod.west.cpu.load_total",
+        "expectedUnderscores": "mysystem_prod_west_cpu_load_total",
+        "expectedDots": "mysystem_dot_prod_dot_west_dot_cpu_dot_load__total",
+        "expectedValue": "U__mysystem_2e_prod_2e_west_2e_cpu_2e_load__total",
+    },
+    {
+        "name": "label name with dots and colon",
+        "input": "http.status:sum",
+        "expectedUnderscores": "http_status_sum",
+        "expectedDots": "http_dot_status__sum",
+        "expectedValue": "U__http_2e_status_3a_sum",
+    },
+    {
+        "name": "label name with spaces and emoji",
+        "input": "label with 😱",
+        "expectedUnderscores": "label_with__",
+        "expectedDots": "label__with____",
+        "expectedValue": "U__label_20_with_20__1f631_",
+    },
+    {
+        "name": "label name with unicode characters > 0x100",
+        "input": "花火",
+        "expectedUnderscores": "__",
+        "expectedDots": "____",
+        "expectedValue": "U___82b1__706b_",
+    },
+    {
+        "name": "label name with spaces and edge-case value",
+        "input": "label with \u0100",
+        "expectedUnderscores": "label_with__",
+        "expectedDots": "label__with____",
+        "expectedValue": "U__label_20_with_20__100_",
+    },
+])
+def test_escape_label_name(scenario):
+    input = scenario["input"]
+    
+    got = openmetrics.escape_label_name(input, openmetrics.UNDERSCORES)
+    assert got == scenario["expectedUnderscores"], f"[{scenario['name']}] Underscore escaping failed"
+
+    got = openmetrics.escape_label_name(input, openmetrics.DOTS)
+    assert got == scenario["expectedDots"], f"[{scenario['name']}] Dots escaping failed"
+
+    got = openmetrics.escape_label_name(input, openmetrics.VALUES)
+    assert got == scenario["expectedValue"], f"[{scenario['name']}] Value encoding failed"
 
 
 if __name__ == '__main__':
