@@ -133,7 +133,7 @@ def generate_latest(registry):
                     if s.native_histogram.nh_exemplars:
                         for nh_ex in s.native_histogram.nh_exemplars:
                             nh_exemplarstr = _compose_exemplar_string(metric, s, nh_ex)
-                            native_histogram += nh_exemplarstr
+                            exemplarstr += nh_exemplarstr
 
                 value = ''
                 if s.native_histogram:
