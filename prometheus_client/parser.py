@@ -308,6 +308,9 @@ def text_fd_to_metric_families(fd: TextIO) -> Iterable[Metric]:
                 continue
             candidate_name, quoted = '', False
             if len(parts) > 2:
+                # Ignore comment tokens
+                if parts[1] != 'TYPE' and parts[1] != 'HELP':
+                    continue
                 candidate_name, quoted = _unquote_unescape(parts[2])
                 if not quoted and not _is_valid_legacy_metric_name(candidate_name):
                     raise ValueError
@@ -342,9 +345,6 @@ def text_fd_to_metric_families(fd: TextIO) -> Iterable[Metric]:
                     'histogram': ['_count', '_sum', '_bucket'],
                 }.get(typ, [''])
                 allowed_names = [name + n for n in allowed_names]
-            else:
-                # Ignore other comment tokens
-                pass
         elif line == '':
             # Ignore blank lines
             pass
