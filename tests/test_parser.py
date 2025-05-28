@@ -120,6 +120,17 @@ a 1
 """)
         self.assertEqualMetrics([CounterMetricFamily("a", "help", value=1)], list(families))
 
+
+    def test_comments_parts_are_not_validated_against_legacy_metric_name(self):
+        # https://github.com/prometheus/client_python/issues/1108
+        families = text_string_to_metric_families("""
+# A simple. comment line where third token cannot be matched against METRIC_NAME_RE under validation.py
+# 3565 12345/4436467 another random comment line where third token cannot be matched against METRIC_NAME_RE under validation.py
+""")
+        self.assertEqualMetrics([], list(families))
+
+
+
     def test_tabs(self):
         families = text_string_to_metric_families("""#\tTYPE\ta\tcounter
 #\tHELP\ta\thelp
