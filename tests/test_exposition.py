@@ -7,9 +7,10 @@ import unittest
 import pytest
 
 from prometheus_client import (
-    CollectorRegistry, CONTENT_TYPE_LATEST, CONTENT_TYPE_PLAIN_0_0_4, CONTENT_TYPE_PLAIN_1_0_0, core, Counter, delete_from_gateway,
-    Enum, Gauge, generate_latest, Histogram, Info, instance_ip_grouping_key,
-    Metric, push_to_gateway, pushadd_to_gateway, Summary,
+    CollectorRegistry, CONTENT_TYPE_LATEST, CONTENT_TYPE_PLAIN_0_0_4,
+    CONTENT_TYPE_PLAIN_1_0_0, core, Counter, delete_from_gateway, Enum, Gauge,
+    generate_latest, Histogram, Info, instance_ip_grouping_key, Metric,
+    push_to_gateway, pushadd_to_gateway, Summary,
 )
 from prometheus_client.core import GaugeHistogramMetricFamily, Timestamp
 from prometheus_client.exposition import (
