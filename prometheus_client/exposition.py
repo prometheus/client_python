@@ -24,7 +24,9 @@ from .registry import CollectorRegistry, REGISTRY
 from .utils import floatToGoString
 
 __all__ = (
-    'CONTENT_TYPE_PLAIN',
+    'CONTENT_TYPE_LATEST',
+    'CONTENT_TYPE_PLAIN_0_0_4',
+    'CONTENT_TYPE_PLAIN_1_0_0',
     'delete_from_gateway',
     'generate_latest',
     'instance_ip_grouping_key',
@@ -38,11 +40,13 @@ __all__ = (
     'write_to_textfile',
 )
 
-CONTENT_TYPE_PLAIN = 'text/plain; version=0.0.4; charset=utf-8'
+CONTENT_TYPE_PLAIN_0_0_4 = 'text/plain; version=0.0.4; charset=utf-8'
 """Content type of the compatibility format"""
 
-CONTENT_TYPE_LATEST = 'text/plain; version=1.0.0; charset=utf-8'
+CONTENT_TYPE_PLAIN_1_0_0 = 'text/plain; version=1.0.0; charset=utf-8'
 """Content type of the latest format"""
+
+CONTENT_TYPE_LATEST = CONTENT_TYPE_PLAIN_1_0_0
 
 
 class _PrometheusRedirectHandler(HTTPRedirectHandler):
@@ -342,7 +346,16 @@ def choose_encoder(accept_header: str) -> Tuple[Callable[[CollectorRegistry], by
             if Version(version) >= Version('1.0.0'):
                 return (openmetrics.generate_latest_fn(escaping), 
                         openmetrics.CONTENT_TYPE_LATEST + '; escaping=' + str(escaping))
-    return generate_latest, CONTENT_TYPE_PLAIN
+        elif accepted.split(';')[0].strip() == 'text/plain':
+            toks = accepted.split(';')
+            version = _get_version(toks)
+            escaping = _get_escaping(toks)
+            # Only return an escaping header if we have a good version and
+            # mimetype.
+            if Version(version) >= Version('1.0.0'):
+                return (openmetrics.generate_latest_fn(escaping),
+                        CONTENT_TYPE_LATEST + '; escaping=' + str(escaping))
+    return generate_latest, CONTENT_TYPE_PLAIN_0_0_4
 
 
 def _get_version(accept_header: List[str]) -> str:
@@ -706,7 +719,7 @@ def _use_gateway(
 
     handler(
         url=url, method=method, timeout=timeout,
-        headers=[('Content-Type', CONTENT_TYPE_PLAIN)], data=data,
+        headers=[('Content-Type', CONTENT_TYPE_PLAIN_0_0_4)], data=data,
     )()
 
 

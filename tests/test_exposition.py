@@ -7,7 +7,7 @@ import unittest
 import pytest
 
 from prometheus_client import (
-    CollectorRegistry, CONTENT_TYPE_PLAIN, core, Counter, delete_from_gateway,
+    CollectorRegistry, CONTENT_TYPE_LATEST, CONTENT_TYPE_PLAIN_0_0_4, CONTENT_TYPE_PLAIN_1_0_0, core, Counter, delete_from_gateway,
     Enum, Gauge, generate_latest, Histogram, Info, instance_ip_grouping_key,
     Metric, push_to_gateway, pushadd_to_gateway, Summary,
 )
@@ -275,70 +275,70 @@ class TestPushGateway(unittest.TestCase):
         push_to_gateway(self.address, "my_job", self.registry)
         self.assertEqual(self.requests[0][0].command, 'PUT')
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN)
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN_0_0_4)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
     def test_push_schemeless_url(self):
         push_to_gateway(self.address.replace('http://', ''), "my_job", self.registry)
         self.assertEqual(self.requests[0][0].command, 'PUT')
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN)
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN_0_0_4)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
     def test_push_with_groupingkey(self):
         push_to_gateway(self.address, "my_job", self.registry, {'a': 9})
         self.assertEqual(self.requests[0][0].command, 'PUT')
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job/a/9')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN)
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN_0_0_4)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
     def test_push_with_groupingkey_empty_label(self):
         push_to_gateway(self.address, "my_job", self.registry, {'a': ''})
         self.assertEqual(self.requests[0][0].command, 'PUT')
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job/a@base64/=')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN)
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN_0_0_4)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
     def test_push_with_complex_groupingkey(self):
         push_to_gateway(self.address, "my_job", self.registry, {'a': 9, 'b': 'a/ z'})
         self.assertEqual(self.requests[0][0].command, 'PUT')
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job/a/9/b@base64/YS8geg==')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN)
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN_0_0_4)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
     def test_push_with_complex_job(self):
         push_to_gateway(self.address, "my/job", self.registry)
         self.assertEqual(self.requests[0][0].command, 'PUT')
         self.assertEqual(self.requests[0][0].path, '/metrics/job@base64/bXkvam9i')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN)
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN_0_0_4)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
     def test_pushadd(self):
         pushadd_to_gateway(self.address, "my_job", self.registry)
         self.assertEqual(self.requests[0][0].command, 'POST')
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN)
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN_0_0_4)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
     def test_pushadd_with_groupingkey(self):
         pushadd_to_gateway(self.address, "my_job", self.registry, {'a': 9})
         self.assertEqual(self.requests[0][0].command, 'POST')
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job/a/9')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN)
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN_0_0_4)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
     def test_delete(self):
         delete_from_gateway(self.address, "my_job")
         self.assertEqual(self.requests[0][0].command, 'DELETE')
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN)
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN_0_0_4)
         self.assertEqual(self.requests[0][1], b'')
 
     def test_delete_with_groupingkey(self):
         delete_from_gateway(self.address, "my_job", {'a': 9})
         self.assertEqual(self.requests[0][0].command, 'DELETE')
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job/a/9')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN)
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN_0_0_4)
         self.assertEqual(self.requests[0][1], b'')
 
     def test_push_with_handler(self):
@@ -351,7 +351,7 @@ class TestPushGateway(unittest.TestCase):
         push_to_gateway(self.address, "my_job", self.registry, handler=my_test_handler)
         self.assertEqual(self.requests[0][0].command, 'PUT')
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN)
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN_0_0_4)
         self.assertEqual(self.requests[0][0].headers.get('x-test-header'), 'foobar')
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
@@ -362,7 +362,7 @@ class TestPushGateway(unittest.TestCase):
         push_to_gateway(self.address, "my_job_with_basic_auth", self.registry, handler=my_auth_handler)
         self.assertEqual(self.requests[0][0].command, 'PUT')
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job_with_basic_auth')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN)
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN_0_0_4)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
     def test_push_with_tls_auth_handler(self):
@@ -373,7 +373,7 @@ class TestPushGateway(unittest.TestCase):
         push_to_gateway(self.address, "my_job_with_tls_auth", self.registry, handler=my_auth_handler)
         self.assertEqual(self.requests[0][0].command, 'PUT')
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job_with_tls_auth')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN)
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN_0_0_4)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
     def test_push_with_redirect_handler(self):
@@ -383,7 +383,7 @@ class TestPushGateway(unittest.TestCase):
         push_to_gateway(self.address, "my_job_with_redirect", self.registry, handler=my_redirect_handler)
         self.assertEqual(self.requests[0][0].command, 'PUT')
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job_with_redirect')
-        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN)
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN_0_0_4)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
         # ensure the redirect preserved request settings from the initial request.
@@ -496,11 +496,15 @@ def test_histogram_metric_families(MetricFamily, registry, buckets, sum_value, e
 
 
 def test_choose_encoder():
-    assert choose_encoder(None)[1] == CONTENT_TYPE_PLAIN
-    assert choose_encoder(CONTENT_TYPE_PLAIN)[1] == CONTENT_TYPE_PLAIN
-    assert choose_encoder(openmetrics.CONTENT_TYPE_LATEST)[1] == (openmetrics.CONTENT_TYPE_LATEST + '; escaping=underscores')
+    assert choose_encoder(None)[1] == CONTENT_TYPE_PLAIN_0_0_4
+    assert choose_encoder(CONTENT_TYPE_PLAIN_0_0_4)[1] == CONTENT_TYPE_PLAIN_0_0_4
+    assert choose_encoder(openmetrics.CONTENT_TYPE_LATEST)[1] == ('application/openmetrics-text; version=1.0.0; charset=utf-8; escaping=underscores')
     assert choose_encoder(openmetrics.CONTENT_TYPE_LATEST + '; escaping=allow-utf-8')[1] == (openmetrics.CONTENT_TYPE_LATEST + '; escaping=allow-utf-8')
     assert choose_encoder(openmetrics.CONTENT_TYPE_LATEST + '; escaping=dots')[1] == (openmetrics.CONTENT_TYPE_LATEST + '; escaping=dots')
+    assert choose_encoder(CONTENT_TYPE_LATEST)[1] == CONTENT_TYPE_PLAIN_1_0_0 + '; escaping=underscores'
+    assert choose_encoder(CONTENT_TYPE_PLAIN_1_0_0)[1] == ('text/plain; version=1.0.0; charset=utf-8; escaping=underscores')
+    assert choose_encoder(CONTENT_TYPE_PLAIN_1_0_0 + '; escaping=allow-utf-8')[1] == (CONTENT_TYPE_PLAIN_1_0_0 + '; escaping=allow-utf-8')
+    assert choose_encoder(CONTENT_TYPE_PLAIN_1_0_0 + '; escaping=dots')[1] == (CONTENT_TYPE_PLAIN_1_0_0 + '; escaping=dots')
 
 
 @pytest.mark.parametrize("scenario", [

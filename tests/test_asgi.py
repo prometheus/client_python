@@ -2,7 +2,7 @@ import gzip
 from unittest import skipUnless, TestCase
 
 from prometheus_client import CollectorRegistry, Counter
-from prometheus_client.exposition import CONTENT_TYPE_PLAIN
+from prometheus_client.exposition import CONTENT_TYPE_PLAIN_0_0_4
 
 try:
     # Python >3.5 only
@@ -104,7 +104,7 @@ class ASGITest(TestCase):
         # Headers
         num_of_headers = 2 if compressed else 1
         self.assertEqual(len(response_start['headers']), num_of_headers)
-        self.assertIn((b"Content-Type", CONTENT_TYPE_PLAIN.encode('utf8')), response_start['headers'])
+        self.assertIn((b"Content-Type", CONTENT_TYPE_PLAIN_0_0_4.encode('utf8')), response_start['headers'])
         if compressed:
             self.assertIn((b"Content-Encoding", b"gzip"), response_start['headers'])
         # Body
