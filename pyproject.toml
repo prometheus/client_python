@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=77.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,7 +7,11 @@ name = "prometheus_client"
 version = "0.22.0"
 description = "Python client for the Prometheus monitoring system."
 readme = "README.md"
-license = { file = "LICENSE" }
+license = "Apache-2.0 AND BSD-2-Clause"
+license-files = [
+	"LICENSE",
+	"NOTICE",
+]
 requires-python = ">=3.9"
 authors = [
     { name = "The Prometheus Authors", email = "prometheus-developers@googlegroups.com" },
@@ -33,7 +37,6 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: System :: Monitoring",
-    "License :: OSI Approved :: Apache Software License",
 ]
 
 [project.optional-dependencies]
