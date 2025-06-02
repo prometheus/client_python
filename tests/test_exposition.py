@@ -506,6 +506,9 @@ def test_choose_encoder():
     assert choose_encoder(CONTENT_TYPE_PLAIN_1_0_0)[1] == ('text/plain; version=1.0.0; charset=utf-8; escaping=underscores')
     assert choose_encoder(CONTENT_TYPE_PLAIN_1_0_0 + '; escaping=allow-utf-8')[1] == (CONTENT_TYPE_PLAIN_1_0_0 + '; escaping=allow-utf-8')
     assert choose_encoder(CONTENT_TYPE_PLAIN_1_0_0 + '; escaping=dots')[1] == (CONTENT_TYPE_PLAIN_1_0_0 + '; escaping=dots')
+    # No Version
+    assert choose_encoder('application/openmetrics-text; charset=utf-8; escaping=allow-utf-8')[1] == 'text/plain; version=0.0.4; charset=utf-8'
+    assert choose_encoder('text/plain; charset=utf-8; escaping=allow-utf-8')[1] == 'text/plain; version=0.0.4; charset=utf-8'
 
 
 @pytest.mark.parametrize("scenario", [

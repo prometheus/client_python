@@ -30,12 +30,7 @@ def _is_valid_exemplar_metric(metric, sample):
     return False
 
 
-def generate_latest_fn(escaping):
-    '''Returns a generate_latest function that will always use the given escaping.'''
-    return lambda registry: generate_latest(registry, escaping)
-
-
-def generate_latest(registry, escaping):
+def generate_latest(registry, escaping=UNDERSCORES):
     '''Returns the metrics from the registry in latest text format as a string.'''
     output = []
     for metric in registry.collect():
@@ -110,7 +105,7 @@ def generate_latest(registry, escaping):
     return ''.join(output).encode('utf-8')
 
 
-def escape_metric_name(s: str, escaping: str) -> str:
+def escape_metric_name(s: str, escaping: str = UNDERSCORES) -> str:
     """Escapes the metric name and puts it in quotes iff the name does not
     conform to the legacy Prometheus character set.
     """
@@ -133,7 +128,7 @@ def escape_metric_name(s: str, escaping: str) -> str:
     return s
 
 
-def escape_label_name(s: str, escaping: str) -> str:
+def escape_label_name(s: str, escaping: str = UNDERSCORES) -> str:
     """Escapes the label name and puts it in quotes iff the name does not
     conform to the legacy Prometheus character set.
     """

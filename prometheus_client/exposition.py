@@ -1,5 +1,6 @@
 import base64
 from contextlib import closing
+from functools import partial
 import gzip
 from http.server import BaseHTTPRequestHandler
 import os
@@ -343,8 +344,8 @@ def choose_encoder(accept_header: str) -> Tuple[Callable[[CollectorRegistry], by
             escaping = _get_escaping(toks)
             # Only return an escaping header if we have a good version and
             # mimetype.
-            if Version(version) >= Version('1.0.0'):
-                return (openmetrics.generate_latest_fn(escaping), 
+            if version and Version(version) >= Version('1.0.0'):
+                return (partial(openmetrics.generate_latest, escaping=escaping),
                         openmetrics.CONTENT_TYPE_LATEST + '; escaping=' + str(escaping))
         elif accepted.split(';')[0].strip() == 'text/plain':
             toks = accepted.split(';')
@@ -352,8 +353,8 @@ def choose_encoder(accept_header: str) -> Tuple[Callable[[CollectorRegistry], by
             escaping = _get_escaping(toks)
             # Only return an escaping header if we have a good version and
             # mimetype.
-            if Version(version) >= Version('1.0.0'):
-                return (openmetrics.generate_latest_fn(escaping),
+            if version and Version(version) >= Version('1.0.0'):
+                return (partial(generate_latest, escaping=escaping),
                         CONTENT_TYPE_LATEST + '; escaping=' + str(escaping))
     return generate_latest, CONTENT_TYPE_PLAIN_0_0_4
 
@@ -361,7 +362,7 @@ def choose_encoder(accept_header: str) -> Tuple[Callable[[CollectorRegistry], by
 def _get_version(accept_header: List[str]) -> str:
     """Return the version tag from the Accept header.
 
-    If no escaping scheme is specified, returns empty string."""
+    If no version is specified, returns empty string."""
 
     for tok in accept_header:
         if '=' not in tok:
