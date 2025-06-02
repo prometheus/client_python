@@ -1,4 +1,5 @@
 import time
+from typing import Any
 import unittest
 
 from prometheus_client import (
@@ -22,7 +23,7 @@ class TestGenerateText(unittest.TestCase):
     def tearDown(self):
         time.time = self.old_time
 
-    def custom_collector(self, metric_family) -> None:
+    def custom_collector(self, metric_family: Any) -> None:
         class CustomCollector:
             def collect(self):
                 return [metric_family]
