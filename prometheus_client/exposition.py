@@ -344,6 +344,8 @@ def choose_encoder(accept_header: str) -> Tuple[Callable[[CollectorRegistry], by
             escaping = _get_escaping(toks)
             # Only return an escaping header if we have a good version and
             # mimetype.
+            if not version:
+                return (partial(openmetrics.generate_latest, escaping=openmetrics.UNDERSCORES), openmetrics.CONTENT_TYPE_LATEST)
             if version and Version(version) >= Version('1.0.0'):
                 return (partial(openmetrics.generate_latest, escaping=escaping),
                         openmetrics.CONTENT_TYPE_LATEST + '; escaping=' + str(escaping))
