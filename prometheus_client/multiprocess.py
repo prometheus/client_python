@@ -10,6 +10,13 @@ from .mmap_dict import MmapedDict
 from .samples import Sample
 from .utils import floatToGoString
 
+_speedups = False
+try:
+    import prometheus_client_python_speedups
+    _speedups = True
+except:
+    pass
+
 try:  # Python3
     FileNotFoundError
 except NameError:  # Python >= 2.5
@@ -155,6 +162,14 @@ class MultiProcessCollector:
 
     def collect(self):
         files = glob.glob(os.path.join(self._path, '*.db'))
+        if _speedups:
+            metrics = prometheus_client_python_speedups.merge(files)
+            native_metrics = []
+            for metric in metrics:
+                native_metric = Metric(metric.name, metric.documentation, metric.typ)
+                native_metric.samples = [Sample(sample.name, sample.labels, sample.value) for sample in metric.samples]
+                native_metrics.append(native_metric)
+            return native_metrics
         return self.merge(files, accumulate=True)
 
 
