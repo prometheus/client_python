@@ -6,6 +6,7 @@ from prometheus_client.core import (
     HistogramMetricFamily, Metric, Sample, SummaryMetricFamily,
 )
 from prometheus_client.exposition import generate_latest
+from prometheus_client.openmetrics.exposition import ALLOWUTF8
 from prometheus_client.parser import text_string_to_metric_families
 
 
@@ -367,7 +368,7 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
 
         registry = CollectorRegistry()
         registry.register(TextCollector())
-        self.assertEqual(text.encode('utf-8'), generate_latest(registry))
+        self.assertEqual(text.encode('utf-8'), generate_latest(registry, ALLOWUTF8))
 
 
 if __name__ == '__main__':

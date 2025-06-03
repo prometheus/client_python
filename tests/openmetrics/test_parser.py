@@ -7,7 +7,7 @@ from prometheus_client.core import (
     InfoMetricFamily, Metric, NativeHistogram, Sample, StateSetMetricFamily,
     SummaryMetricFamily, Timestamp,
 )
-from prometheus_client.openmetrics.exposition import generate_latest
+from prometheus_client.openmetrics.exposition import ALLOWUTF8, generate_latest
 from prometheus_client.openmetrics.parser import text_string_to_metric_families
 
 
@@ -723,7 +723,7 @@ bar_bucket{a="c",le="+Inf"} 0.0
 
         registry = CollectorRegistry()
         registry.register(TextCollector())
-        self.assertEqual(text.encode('utf-8'), generate_latest(registry))
+        self.assertEqual(text.encode('utf-8'), generate_latest(registry, ALLOWUTF8))
 
     def test_invalid_input(self):
         for case in [
