@@ -502,13 +502,6 @@ class TestChooseEncoder(unittest.TestCase):
         c = Counter('dotted.counter', 'A counter', registry=self.registry)
         c.inc()
 
-        # Mock time so _created values are fixed.
-        self.old_time = time.time
-        time.time = lambda: 123.456
-
-    def tearDown(self):
-        time.time = self.old_time
-
     def custom_collector(self, metric_family):
         class CustomCollector:
             def collect(self):
