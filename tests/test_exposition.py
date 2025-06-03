@@ -48,7 +48,7 @@ cc_total 1.0
 # TYPE cc_created gauge
 cc_created 123.456
 """, generate_latest(self.registry, openmetrics.ALLOWUTF8))
-        
+
     def test_counter_utf8(self):
         c = Counter('utf8.cc', 'A counter', registry=self.registry)
         c.inc()
@@ -59,7 +59,7 @@ cc_created 123.456
 # TYPE "utf8.cc_created" gauge
 {"utf8.cc_created"} 123.456
 """, generate_latest(self.registry, openmetrics.ALLOWUTF8))
-        
+
     def test_counter_utf8_escaped_underscores(self):
         c = Counter('utf8.cc', 'A counter', registry=self.registry)
         c.inc()
@@ -496,19 +496,116 @@ def test_histogram_metric_families(MetricFamily, registry, buckets, sum_value, e
     _expect_metric_exception(registry, error)
 
 
-def test_choose_encoder():
-    assert choose_encoder(None)[1] == CONTENT_TYPE_PLAIN_0_0_4
-    assert choose_encoder(CONTENT_TYPE_PLAIN_0_0_4)[1] == CONTENT_TYPE_PLAIN_0_0_4
-    assert choose_encoder(openmetrics.CONTENT_TYPE_LATEST)[1] == ('application/openmetrics-text; version=1.0.0; charset=utf-8; escaping=underscores')
-    assert choose_encoder(openmetrics.CONTENT_TYPE_LATEST + '; escaping=allow-utf-8')[1] == (openmetrics.CONTENT_TYPE_LATEST + '; escaping=allow-utf-8')
-    assert choose_encoder(openmetrics.CONTENT_TYPE_LATEST + '; escaping=dots')[1] == (openmetrics.CONTENT_TYPE_LATEST + '; escaping=dots')
-    assert choose_encoder(CONTENT_TYPE_LATEST)[1] == CONTENT_TYPE_PLAIN_1_0_0 + '; escaping=underscores'
-    assert choose_encoder(CONTENT_TYPE_PLAIN_1_0_0)[1] == ('text/plain; version=1.0.0; charset=utf-8; escaping=underscores')
-    assert choose_encoder(CONTENT_TYPE_PLAIN_1_0_0 + '; escaping=allow-utf-8')[1] == (CONTENT_TYPE_PLAIN_1_0_0 + '; escaping=allow-utf-8')
-    assert choose_encoder(CONTENT_TYPE_PLAIN_1_0_0 + '; escaping=dots')[1] == (CONTENT_TYPE_PLAIN_1_0_0 + '; escaping=dots')
-    # No Version
-    assert choose_encoder('application/openmetrics-text; charset=utf-8; escaping=allow-utf-8')[1] == 'application/openmetrics-text; version=1.0.0; charset=utf-8'
-    assert choose_encoder('text/plain; charset=utf-8; escaping=allow-utf-8')[1] == 'text/plain; version=0.0.4; charset=utf-8'
+class TestChooseEncoder(unittest.TestCase):
+    def setUp(self):
+        self.registry = CollectorRegistry()
+        c = Counter('dotted.counter', 'A counter', registry=self.registry)
+        c.inc()
+
+        # Mock time so _created values are fixed.
+        self.old_time = time.time
+        time.time = lambda: 123.456
+
+    def tearDown(self):
+        time.time = self.old_time
+
+    def custom_collector(self, metric_family):
+        class CustomCollector:
+            def collect(self):
+                return [metric_family]
+
+        self.registry.register(CustomCollector())
+
+    def assert_is_escaped(self, exp):
+        self.assertRegex(exp, r'.*\ndotted_counter_total 1.0\n.*')
+
+    def assert_is_utf8(self, exp):
+        self.assertRegex(exp, r'.*\n{"dotted.counter_total"} 1.0\n.*')
+
+    def assert_is_prom(self, exp):
+        self.assertNotRegex(exp, r'# EOF')
+
+    def assert_is_openmetrics(self, exp):
+        self.assertRegex(exp, r'# EOF')
+
+    def test_default_encoder(self):
+        generator, content_type = choose_encoder(None)
+        assert content_type == CONTENT_TYPE_PLAIN_0_0_4
+        exp = generator(self.registry).decode('utf-8')
+        self.assert_is_escaped(exp)
+        self.assert_is_prom(exp)
+
+    def test_plain_encoder(self):
+        generator, content_type = choose_encoder(CONTENT_TYPE_PLAIN_0_0_4)
+        assert content_type == CONTENT_TYPE_PLAIN_0_0_4
+        exp = generator(self.registry).decode('utf-8')
+        self.assert_is_escaped(exp)
+        self.assert_is_prom(exp)
+
+    def test_openmetrics_latest(self):
+        generator, content_type = choose_encoder(openmetrics.CONTENT_TYPE_LATEST)
+        assert content_type == 'application/openmetrics-text; version=1.0.0; charset=utf-8; escaping=underscores'
+        exp = generator(self.registry).decode('utf-8')
+        self.assert_is_escaped(exp)
+        self.assert_is_openmetrics(exp)
+
+    def test_openmetrics_utf8(self):
+        generator, content_type = choose_encoder(openmetrics.CONTENT_TYPE_LATEST + '; escaping=allow-utf-8')
+        assert content_type == openmetrics.CONTENT_TYPE_LATEST + '; escaping=allow-utf-8'
+        exp = generator(self.registry).decode('utf-8')
+        self.assert_is_utf8(exp)
+        self.assert_is_openmetrics(exp)
+
+    def test_openmetrics_dots_escaping(self):
+        generator, content_type = choose_encoder(openmetrics.CONTENT_TYPE_LATEST + '; escaping=dots')
+        assert content_type == openmetrics.CONTENT_TYPE_LATEST + '; escaping=dots'
+        exp = generator(self.registry).decode('utf-8')
+        self.assertRegex(exp, r'.*\ndotted_dot_counter__total 1.0\n.*')
+        self.assert_is_openmetrics(exp)
+
+    def test_prom_latest(self):
+        generator, content_type = choose_encoder(CONTENT_TYPE_LATEST)
+        assert content_type == CONTENT_TYPE_PLAIN_1_0_0 + '; escaping=underscores'
+        exp = generator(self.registry).decode('utf-8')
+        self.assert_is_escaped(exp)
+        self.assert_is_prom(exp)
+
+    def test_prom_plain_1_0_0(self):
+        generator, content_type = choose_encoder(CONTENT_TYPE_PLAIN_1_0_0)
+        assert content_type == CONTENT_TYPE_PLAIN_1_0_0 + '; escaping=underscores'
+        exp = generator(self.registry).decode('utf-8')
+        self.assert_is_escaped(exp)
+        self.assert_is_prom(exp)
+
+    def test_prom_utf8(self):
+        generator, content_type = choose_encoder(CONTENT_TYPE_PLAIN_1_0_0 + '; escaping=allow-utf-8')
+        assert content_type == CONTENT_TYPE_PLAIN_1_0_0 + '; escaping=allow-utf-8'
+        exp = generator(self.registry).decode('utf-8')
+        self.assert_is_utf8(exp)
+        self.assert_is_prom(exp)
+
+    def test_prom_dots_escaping(self):
+        generator, content_type = choose_encoder(CONTENT_TYPE_PLAIN_1_0_0 + '; escaping=dots')
+        assert content_type == CONTENT_TYPE_PLAIN_1_0_0 + '; escaping=dots'
+        exp = generator(self.registry).decode('utf-8')
+        self.assertRegex(exp, r'.*\ndotted_dot_counter__total 1.0\n.*')
+        self.assert_is_prom(exp)
+
+    def test_openmetrics_no_version(self):
+        generator, content_type = choose_encoder('application/openmetrics-text; charset=utf-8; escaping=allow-utf-8')
+        assert content_type == 'application/openmetrics-text; version=1.0.0; charset=utf-8'
+        exp = generator(self.registry).decode('utf-8')
+        # No version -- allow-utf-8 rejected.
+        self.assert_is_escaped(exp)
+        self.assert_is_openmetrics(exp)
+
+    def test_prom_no_version(self):
+        generator, content_type = choose_encoder('text/plain; charset=utf-8; escaping=allow-utf-8')
+        assert content_type == 'text/plain; version=0.0.4; charset=utf-8'
+        exp = generator(self.registry).decode('utf-8')
+        # No version -- allow-utf-8 rejected.
+        self.assert_is_escaped(exp)
+        self.assert_is_prom(exp)
 
 
 @pytest.mark.parametrize("scenario", [
@@ -571,7 +668,7 @@ def test_choose_encoder():
 ])
 def test_escape_metric_name(scenario):
     input = scenario["input"]
-    
+
     got = openmetrics.escape_metric_name(input, openmetrics.UNDERSCORES)
     assert got == scenario["expectedUnderscores"], f"[{scenario['name']}] Underscore escaping failed"
 
@@ -580,8 +677,8 @@ def test_escape_metric_name(scenario):
 
     got = openmetrics.escape_metric_name(input, openmetrics.VALUES)
     assert got == scenario["expectedValue"], f"[{scenario['name']}] Value encoding failed"
-    
-    
+
+
 @pytest.mark.parametrize("scenario", [
     {
         "name": "empty string",
@@ -642,7 +739,7 @@ def test_escape_metric_name(scenario):
 ])
 def test_escape_label_name(scenario):
     input = scenario["input"]
-    
+
     got = openmetrics.escape_label_name(input, openmetrics.UNDERSCORES)
     assert got == scenario["expectedUnderscores"], f"[{scenario['name']}] Underscore escaping failed"
 
