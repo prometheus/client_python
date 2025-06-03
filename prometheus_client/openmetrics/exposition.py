@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-
-
 from ..utils import floatToGoString
 from ..validation import (
     _is_valid_legacy_labelname, _is_valid_legacy_metric_name,

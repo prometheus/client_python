@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 from . import (
     exposition, gc_collector, metrics, metrics_core, platform_collector,
     process_collector, registry,
