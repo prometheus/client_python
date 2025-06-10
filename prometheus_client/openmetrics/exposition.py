@@ -81,12 +81,10 @@ def generate_latest(registry):
                     timestamp = f' {s.timestamp}'
                 
                 native_histogram = ''
-                positive_spans = ''
-                positive_deltas = ''
                 negative_spans = ''
                 negative_deltas = ''
-                pos = False
-                neg = False
+                positive_spans = ''
+                positive_deltas = ''
                      
                 if s.native_histogram:
                     # Initialize basic nh template
@@ -99,31 +97,25 @@ def generate_latest(registry):
                         s.native_histogram.zero_threshold,
                         s.native_histogram.zero_count,
                     ]
-
-                    # If there are pos spans, append them to the template and args
-                    if s.native_histogram.pos_spans:
-                        positive_spans = ','.join([f'{ps[0]}:{ps[1]}' for ps in s.native_histogram.pos_spans])
-                        positive_deltas = ','.join(f'{pd}' for pd in s.native_histogram.pos_deltas)
-                        nh_sample_template += ',positive_spans:[{}]'
-                        args.append(positive_spans)
-
-                    # If there are neg spans exist, append them to the template and args
+                  
+                    # If there are neg spans, append them and the neg deltas to the template and args
                     if s.native_histogram.neg_spans:
                         negative_spans = ','.join([f'{ns[0]}:{ns[1]}' for ns in s.native_histogram.neg_spans])
                         negative_deltas = ','.join(str(nd) for nd in s.native_histogram.neg_deltas)
                         nh_sample_template += ',negative_spans:[{}]'
                         args.append(negative_spans)
-
-                    # Append pos deltas if pos spans were added
-                    if s.native_histogram.pos_spans:
-                        nh_sample_template += ',positive_deltas:[{}]'
-                        args.append(positive_deltas)
-
-                    # Append neg deltas if neg spans were added
-                    if s.native_histogram.neg_spans:
                         nh_sample_template += ',negative_deltas:[{}]'
                         args.append(negative_deltas)
-                          
+
+                    # If there are pos spans, append them and the pos spans to the template and args
+                    if s.native_histogram.pos_spans:
+                        positive_spans = ','.join([f'{ps[0]}:{ps[1]}' for ps in s.native_histogram.pos_spans])
+                        positive_deltas = ','.join(f'{pd}' for pd in s.native_histogram.pos_deltas)
+                        nh_sample_template += ',positive_spans:[{}]'
+                        args.append(positive_spans)
+                        nh_sample_template += ',positive_deltas:[{}]'
+                        args.append(positive_deltas)                       
+                                                  
                     # Add closing brace
                     nh_sample_template += '}}'
 

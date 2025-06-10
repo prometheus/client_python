@@ -103,10 +103,9 @@ hh_created 123.456
         self.custom_collector(hfm)
         self.assertEqual(b"""# HELP nh nh
 # TYPE nh histogram
-nh {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,positive_spans:[0:2,1:2],negative_spans:[0:2,1:2],positive_deltas:[2,1,-3,3],negative_deltas:[2,1,-2,3]}
+nh {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,negative_spans:[0:2,1:2],negative_deltas:[2,1,-2,3],positive_spans:[0:2,1:2],positive_deltas:[2,1,-3,3]}
 # EOF
 """, generate_latest(self.registry))
-
     
     def test_nh_histogram_with_exemplars(self) -> None:
         hfm = HistogramMetricFamily("nh", "nh")
@@ -114,7 +113,7 @@ nh {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,positive_spans:[
         self.custom_collector(hfm)
         self.assertEqual(b"""# HELP nh nh
 # TYPE nh histogram
-nh {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,positive_spans:[0:2,1:2],negative_spans:[0:2,1:2],positive_deltas:[2,1,-3,3],negative_deltas:[2,1,-2,3]} # {trace_id="KOO5S4vxi0o"} 0.67 # {trace_id="oHg5SJYRHA0"} 9.8 1520879607.789
+nh {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,negative_spans:[0:2,1:2],negative_deltas:[2,1,-2,3],positive_spans:[0:2,1:2],positive_deltas:[2,1,-3,3]} # {trace_id="KOO5S4vxi0o"} 0.67 # {trace_id="oHg5SJYRHA0"} 9.8 1520879607.789
 # EOF
 """, generate_latest(self.registry))
 
@@ -145,7 +144,7 @@ nhsp {count:4,sum:6,schema:3,zero_threshold:2.938735877055719e-39,zero_count:1,p
         self.custom_collector(hfm)
         self.assertEqual(b"""# HELP "native{histogram" Is a basic example of a native histogram
 # TYPE "native{histogram" histogram
-{"native{histogram"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,positive_spans:[0:2,1:2],negative_spans:[0:2,1:2],positive_deltas:[2,1,-3,3],negative_deltas:[2,1,-2,3]}
+{"native{histogram"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,negative_spans:[0:2,1:2],negative_deltas:[2,1,-2,3],positive_spans:[0:2,1:2],positive_deltas:[2,1,-3,3]}
 # EOF
 """, generate_latest(self.registry))
     
@@ -155,7 +154,7 @@ nhsp {count:4,sum:6,schema:3,zero_threshold:2.938735877055719e-39,zero_count:1,p
         self.custom_collector(hfm)
         self.assertEqual(b"""# HELP "native{histogram" Is a basic example of a native histogram
 # TYPE "native{histogram" histogram
-{"native{histogram", "xx{} # {}"=" EOF # {}}}"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,positive_spans:[0:2,1:2],negative_spans:[0:2,1:2],positive_deltas:[2,1,-3,3],negative_deltas:[2,1,-2,3]}
+{"native{histogram", "xx{} # {}"=" EOF # {}}}"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,negative_spans:[0:2,1:2],negative_deltas:[2,1,-2,3],positive_spans:[0:2,1:2],positive_deltas:[2,1,-3,3]}
 # EOF
 """, generate_latest(self.registry))
 
@@ -165,7 +164,7 @@ nhsp {count:4,sum:6,schema:3,zero_threshold:2.938735877055719e-39,zero_count:1,p
         self.custom_collector(hfm)
         self.assertEqual(b"""# HELP hist_w_labels Is a basic example of a native histogram with labels
 # TYPE hist_w_labels histogram
-hist_w_labels{baz="qux",foo="bar"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,positive_spans:[0:2,1:2],negative_spans:[0:2,1:2],positive_deltas:[2,1,-3,3],negative_deltas:[2,1,-2,3]}
+hist_w_labels{baz="qux",foo="bar"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,negative_spans:[0:2,1:2],negative_deltas:[2,1,-2,3],positive_spans:[0:2,1:2],positive_deltas:[2,1,-3,3]}
 # EOF
 """, generate_latest(self.registry))
     
@@ -175,7 +174,7 @@ hist_w_labels{baz="qux",foo="bar"} {count:24,sum:100,schema:0,zero_threshold:0.0
         self.custom_collector(hfm)
         self.assertEqual(b"""# HELP "hist.w.labels" Is a basic example of a native histogram with labels
 # TYPE "hist.w.labels" histogram
-{"hist.w.labels", baz="qux",foo="bar"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,positive_spans:[0:2,1:2],negative_spans:[0:2,1:2],positive_deltas:[2,1,-3,3],negative_deltas:[2,1,-2,3]}
+{"hist.w.labels", baz="qux",foo="bar"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,negative_spans:[0:2,1:2],negative_deltas:[2,1,-2,3],positive_spans:[0:2,1:2],positive_deltas:[2,1,-3,3]}
 # EOF
 """, generate_latest(self.registry))
 
@@ -189,7 +188,7 @@ hist_w_labels{baz="qux",foo="bar"} {count:24,sum:100,schema:0,zero_threshold:0.0
         self.custom_collector(hfm)
         self.assertEqual(b"""# HELP hist_w_classic Is a basic example of a native histogram coexisting with a classic histogram
 # TYPE hist_w_classic histogram
-hist_w_classic{foo="bar"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,positive_spans:[0:2,1:2],negative_spans:[0:2,1:2],positive_deltas:[2,1,-3,3],negative_deltas:[2,1,-2,3]}
+hist_w_classic{foo="bar"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,negative_spans:[0:2,1:2],negative_deltas:[2,1,-2,3],positive_spans:[0:2,1:2],positive_deltas:[2,1,-3,3]}
 hist_w_classic_bucket{foo="bar",le="0.001"} 4.0
 hist_w_classic_bucket{foo="bar",le="+Inf"} 24.0
 hist_w_classic_count{foo="bar"} 24.0
@@ -212,12 +211,12 @@ hist_w_classic_sum{foo="bar"} 100.0
         self.custom_collector(hfm)
         self.assertEqual(b"""# HELP hist_w_classic_two_sets Is an example of a native histogram plus a classic histogram with two label sets
 # TYPE hist_w_classic_two_sets histogram
-hist_w_classic_two_sets{foo="bar"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,positive_spans:[0:2,1:2],negative_spans:[0:2,1:2],positive_deltas:[2,1,-3,3],negative_deltas:[2,1,-2,3]}
+hist_w_classic_two_sets{foo="bar"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,negative_spans:[0:2,1:2],negative_deltas:[2,1,-2,3],positive_spans:[0:2,1:2],positive_deltas:[2,1,-3,3]}
 hist_w_classic_two_sets_bucket{foo="bar",le="0.001"} 4.0
 hist_w_classic_two_sets_bucket{foo="bar",le="+Inf"} 24.0
 hist_w_classic_two_sets_count{foo="bar"} 24.0
 hist_w_classic_two_sets_sum{foo="bar"} 100.0
-hist_w_classic_two_sets{foo="baz"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,positive_spans:[0:2,1:2],negative_spans:[0:2,1:2],positive_deltas:[2,1,-3,3],negative_deltas:[2,1,-2,3]}
+hist_w_classic_two_sets{foo="baz"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,negative_spans:[0:2,1:2],negative_deltas:[2,1,-2,3],positive_spans:[0:2,1:2],positive_deltas:[2,1,-3,3]}
 hist_w_classic_two_sets_bucket{foo="baz",le="0.001"} 4.0
 hist_w_classic_two_sets_bucket{foo="baz",le="+Inf"} 24.0
 hist_w_classic_two_sets_count{foo="baz"} 24.0
