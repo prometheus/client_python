@@ -3,7 +3,7 @@ from unittest import TestCase
 from wsgiref.util import setup_testing_defaults
 
 from prometheus_client import CollectorRegistry, Counter, make_wsgi_app
-from prometheus_client.exposition import _bake_output, CONTENT_TYPE_LATEST
+from prometheus_client.exposition import _bake_output, CONTENT_TYPE_PLAIN_0_0_4
 
 
 class WSGITest(TestCase):
@@ -35,7 +35,7 @@ class WSGITest(TestCase):
         # Headers
         num_of_headers = 2 if compressed else 1
         self.assertEqual(len(self.captured_headers), num_of_headers)
-        self.assertIn(("Content-Type", CONTENT_TYPE_LATEST), self.captured_headers)
+        self.assertIn(("Content-Type", CONTENT_TYPE_PLAIN_0_0_4), self.captured_headers)
         if compressed:
             self.assertIn(("Content-Encoding", "gzip"), self.captured_headers)
         # Body
