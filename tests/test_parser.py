@@ -6,6 +6,7 @@ from prometheus_client.core import (
     HistogramMetricFamily, Metric, Sample, SummaryMetricFamily,
 )
 from prometheus_client.exposition import generate_latest
+from prometheus_client.openmetrics.exposition import ALLOWUTF8
 from prometheus_client.parser import text_string_to_metric_families
 
 
@@ -119,6 +120,17 @@ a 1
 a 1
 """)
         self.assertEqualMetrics([CounterMetricFamily("a", "help", value=1)], list(families))
+
+
+    def test_comments_parts_are_not_validated_against_legacy_metric_name(self):
+        # https://github.com/prometheus/client_python/issues/1108
+        families = text_string_to_metric_families("""
+# A simple. comment line where third token cannot be matched against METRIC_NAME_RE under validation.py
+# 3565 12345/4436467 another random comment line where third token cannot be matched against METRIC_NAME_RE under validation.py
+""")
+        self.assertEqualMetrics([], list(families))
+
+
 
     def test_tabs(self):
         families = text_string_to_metric_families("""#\tTYPE\ta\tcounter
@@ -356,7 +368,7 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
 
         registry = CollectorRegistry()
         registry.register(TextCollector())
-        self.assertEqual(text.encode('utf-8'), generate_latest(registry))
+        self.assertEqual(text.encode('utf-8'), generate_latest(registry, ALLOWUTF8))
 
 
 if __name__ == '__main__':

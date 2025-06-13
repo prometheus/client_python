@@ -1,6 +1,7 @@
 from unittest import skipUnless
 
 from prometheus_client import CollectorRegistry, Counter, generate_latest
+from prometheus_client.openmetrics.exposition import ALLOWUTF8
 
 try:
     from warnings import filterwarnings
@@ -47,6 +48,6 @@ class MetricsResourceTest(TestCase):
                        "with a transport that does not have an abortConnection method")
 
         d.addCallback(readBody)
-        d.addCallback(self.assertEqual, generate_latest(self.registry))
+        d.addCallback(self.assertEqual, generate_latest(self.registry, ALLOWUTF8))
 
         return d

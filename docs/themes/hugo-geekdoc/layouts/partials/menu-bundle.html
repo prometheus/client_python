@@ -52,7 +52,7 @@
                   <svg class="gdoc-icon {{ .icon }}"><use xlink:href="#{{ .icon }}"></use></svg>
                 {{ end }}
                 <a
-                  href="{{ if .external }}
+                  href="{{ if .external -}}
                     {{ .ref }}
                   {{- else -}}
                     {{ path.Join $this.RelPermalink $anchor }}
@@ -60,6 +60,9 @@
                   class="gdoc-nav__entry{{- if not .external }}
                     {{- if $isCurrent }}{{ printf " is-active" }}{{ end }}
                   {{- end }}"
+                  {{ if .rel -}}
+                    rel="{{ .rel }}"
+                  {{- end }}
                 >
                   {{ $name }}
                 </a>
@@ -68,7 +71,7 @@
                 <svg class="gdoc-icon toggle gdoc_keyboard_arrow_left">
                   <use xlink:href="#gdoc_keyboard_arrow_left"></use>
                 </svg>
-                <svg class="gdoc-icon toggle gdoc_keyboard_arrow_down hidden">
+                <svg class="gdoc-icon toggle gdoc_keyboard_arrow_down">
                   <use xlink:href="#gdoc_keyboard_arrow_down"></use>
                 </svg>
               {{ end }}

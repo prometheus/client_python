@@ -109,10 +109,9 @@ class TestCounter(unittest.TestCase):
         assert_not_observable(counter.inc)
 
     def test_exemplar_invalid_label_name(self):
-        enable_legacy_validation()
-        self.assertRaises(ValueError, self.counter.inc, exemplar={':o)': 'smile'})
-        self.assertRaises(ValueError, self.counter.inc, exemplar={'1': 'number'})
-        disable_legacy_validation()
+        with LegacyValidationContextManager():
+            self.assertRaises(ValueError, self.counter.inc, exemplar={':o)': 'smile'})
+            self.assertRaises(ValueError, self.counter.inc, exemplar={'1': 'number'})
         self.counter.inc(exemplar={':o)': 'smile'})
         self.counter.inc(exemplar={'1': 'number'})
 
@@ -510,12 +509,11 @@ class TestHistogram(unittest.TestCase):
         self.assertEqual(1, value('hl_bucket', {'le': '+Inf', 'l': 'a'}))
 
     def test_exemplar_invalid_legacy_label_name(self):
-        enable_legacy_validation()
-        self.assertRaises(ValueError, self.histogram.observe, 3.0, exemplar={':o)': 'smile'})
-        self.assertRaises(ValueError, self.histogram.observe, 3.0, exemplar={'1': 'number'})
-
+        with LegacyValidationContextManager():
+            self.assertRaises(ValueError, self.histogram.observe, 3.0, exemplar={':o)': 'smile'})
+            self.assertRaises(ValueError, self.histogram.observe, 3.0, exemplar={'1': 'number'})
+        
     def test_exemplar_invalid_label_name(self):
-        disable_legacy_validation()
         self.histogram.observe(3.0, exemplar={':o)': 'smile'})
         self.histogram.observe(3.0, exemplar={'1': 'number'})
 
@@ -660,18 +658,17 @@ class TestMetricWrapper(unittest.TestCase):
         self.assertRaises(ValueError, self.two_labels.labels, {'a': 'x'}, b='y')
 
     def test_invalid_legacy_names_raise(self):
-        enable_legacy_validation()
-        self.assertRaises(ValueError, Counter, '', 'help')
-        self.assertRaises(ValueError, Counter, '^', 'help')
-        self.assertRaises(ValueError, Counter, '', 'help', namespace='&')
-        self.assertRaises(ValueError, Counter, '', 'help', subsystem='(')
-        self.assertRaises(ValueError, Counter, 'c_total', '', labelnames=['^'])
-        self.assertRaises(ValueError, Counter, 'c_total', '', labelnames=['a:b'])
-        self.assertRaises(ValueError, Counter, 'c_total', '', labelnames=['__reserved'])
-        self.assertRaises(ValueError, Summary, 'c_total', '', labelnames=['quantile'])
+        with LegacyValidationContextManager():
+            self.assertRaises(ValueError, Counter, '', 'help')
+            self.assertRaises(ValueError, Counter, '^', 'help')
+            self.assertRaises(ValueError, Counter, '', 'help', namespace='&')
+            self.assertRaises(ValueError, Counter, '', 'help', subsystem='(')
+            self.assertRaises(ValueError, Counter, 'c_total', '', labelnames=['^'])
+            self.assertRaises(ValueError, Counter, 'c_total', '', labelnames=['a:b'])
+            self.assertRaises(ValueError, Counter, 'c_total', '', labelnames=['__reserved'])
+            self.assertRaises(ValueError, Summary, 'c_total', '', labelnames=['quantile'])
 
     def test_invalid_names_raise(self):
-        disable_legacy_validation()
         self.assertRaises(ValueError, Counter, '', 'help')
         self.assertRaises(ValueError, Counter, '', 'help', namespace='&')
         self.assertRaises(ValueError, Counter, '', 'help', subsystem='(')
@@ -1005,6 +1002,14 @@ class TestCollectorRegistry(unittest.TestCase):
         m.samples = [Sample('target_info', {'foo': 'bar'}, 1)]
         for _ in registry.restricted_registry(['target_info', 's_sum']).collect():
             self.assertFalse(registry._lock.locked())
+
+
+class LegacyValidationContextManager:
+    def __enter__(self):
+        enable_legacy_validation()
+
+    def __exit__(self, exc_type, exc_value, exc_tb):
+        disable_legacy_validation()
 
 
 if __name__ == '__main__':
