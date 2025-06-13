@@ -161,7 +161,7 @@ nhsp {count:4,sum:6,schema:3,zero_threshold:2.938735877055719e-39,zero_count:1,p
 # TYPE "native{histogram" histogram
 {"native{histogram"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,n_spans:[0:2,1:2],n_deltas:[2,1,-2,3],p_spans:[0:2,1:2],p_deltas:[2,1,-3,3]}
 # EOF
-""", generate_latest(self.registry))
+""", generate_latest(self.registry, ALLOWUTF8))
     
     def test_native_histogram_utf8_stress(self) -> None:
         hfm = HistogramMetricFamily("native{histogram", "Is a basic example of a native histogram")
@@ -171,7 +171,7 @@ nhsp {count:4,sum:6,schema:3,zero_threshold:2.938735877055719e-39,zero_count:1,p
 # TYPE "native{histogram" histogram
 {"native{histogram", "xx{} # {}"=" EOF # {}}}"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,n_spans:[0:2,1:2],n_deltas:[2,1,-2,3],p_spans:[0:2,1:2],p_deltas:[2,1,-3,3]}
 # EOF
-""", generate_latest(self.registry))
+""", generate_latest(self.registry, ALLOWUTF8))
 
     def test_native_histogram_with_labels(self) -> None:
         hfm = HistogramMetricFamily("hist_w_labels", "Is a basic example of a native histogram with labels")
@@ -191,7 +191,7 @@ hist_w_labels{baz="qux",foo="bar"} {count:24,sum:100,schema:0,zero_threshold:0.0
 # TYPE "hist.w.labels" histogram
 {"hist.w.labels", baz="qux",foo="bar"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,n_spans:[0:2,1:2],n_deltas:[2,1,-2,3],p_spans:[0:2,1:2],p_deltas:[2,1,-3,3]}
 # EOF
-""", generate_latest(self.registry))
+""", generate_latest(self.registry, ALLOWUTF8))
 
     def test_native_histogram_with_classic_histogram(self) -> None:
         hfm = HistogramMetricFamily("hist_w_classic", "Is a basic example of a native histogram coexisting with a classic histogram")
