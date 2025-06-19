@@ -1,3 +1,4 @@
+import math
 import os
 from threading import Lock
 import time
@@ -557,10 +558,16 @@ class Histogram(MetricWrapperBase):
 
     The default buckets are intended to cover a typical web/rpc request from milliseconds to seconds.
     They can be overridden by passing `buckets` keyword argument to `Histogram`.
+
+    In addition, native histograms are experimentally supported, but may change at any time. In order
+    to use native histograms, one must set `native_histogram_bucket_factor` to a value greater than 1.0.
+    When native histograms are enabled the classic histogram buckets are only collected if they are
+    explicitly set.
     """
     _type = 'histogram'
     _reserved_labelnames = ['le']
     DEFAULT_BUCKETS = (.005, .01, .025, .05, .075, .1, .25, .5, .75, 1.0, 2.5, 5.0, 7.5, 10.0, INF)
+    DEFAULT_NATIVE_HISTOGRAM_ZERO_THRESHOLD = 2.938735877055719e-39
 
     def __init__(self,
                  name: str,
@@ -571,9 +578,26 @@ class Histogram(MetricWrapperBase):
                  unit: str = '',
                  registry: Optional[CollectorRegistry] = REGISTRY,
                  _labelvalues: Optional[Sequence[str]] = None,
-                 buckets: Sequence[Union[float, str]] = DEFAULT_BUCKETS,
+                 buckets: Optional[Sequence[Union[float, str]]] = None,
+                 native_histogram_initial_schema: Optional[int] = None,
+                 native_histogram_max_buckets: int = 160,
+                 native_histogram_zero_threshold: float = DEFAULT_NATIVE_HISTOGRAM_ZERO_THRESHOLD,
+                 native_histogram_max_exemplars: int = 10,
                  ):
+        if native_histogram_initial_schema and (native_histogram_initial_schema > 8 or native_histogram_initial_schema < -4):
+            raise ValueError("native_histogram_initial_schema must be between -4 and 8 inclusive")
+
+        # Use the default buckets iff we are not using a native histogram.
+        if buckets is None and native_histogram_initial_schema is None:
+            buckets = self.DEFAULT_BUCKETS
+
         self._prepare_buckets(buckets)
+
+        self._schema = native_histogram_initial_schema
+        self._max_nh_buckets = native_histogram_max_buckets
+        self._zero_threshold = native_histogram_zero_threshold
+        self._max_nh_exemplars = native_histogram_max_exemplars,
+
         super().__init__(
             name=name,
             documentation=documentation,
@@ -586,7 +610,12 @@ class Histogram(MetricWrapperBase):
         )
         self._kwargs['buckets'] = buckets
 
-    def _prepare_buckets(self, source_buckets: Sequence[Union[float, str]]) -> None:
+    def _prepare_buckets(self, source_buckets: Optional[Sequence[Union[float, str]]]) -> None:
+        # Only native histograms are supported for this case.
+        if source_buckets is None:
+            self._upper_bounds = None
+            return
+
         buckets = [float(b) for b in source_buckets]
         if buckets != sorted(buckets):
             # This is probably an error on the part of the user,
@@ -601,17 +630,35 @@ class Histogram(MetricWrapperBase):
     def _metric_init(self) -> None:
         self._buckets: List[values.ValueClass] = []
         self._created = time.time()
-        bucket_labelnames = self._labelnames + ('le',)
-        self._sum = values.ValueClass(self._type, self._name, self._name + '_sum', self._labelnames, self._labelvalues, self._documentation)
-        for b in self._upper_bounds:
-            self._buckets.append(values.ValueClass(
-                self._type,
-                self._name,
-                self._name + '_bucket',
-                bucket_labelnames,
-                self._labelvalues + (floatToGoString(b),),
-                self._documentation)
-            )
+
+        if self._schema is not None:
+            self._native_histogram = values.NativeHistogramMutexValue(
+                    self._type,
+                    self._name,
+                    self._name,
+                    self._labelnames,
+                    self._labelvalues,
+                    self._documentation,
+                    self._schema,
+                    self._zero_threshold,
+                    self._max_nh_buckets,
+                    self._max_nh_exemplars,
+                    )
+
+        if self._upper_bounds is not None:
+            bucket_labelnames = self._labelnames + ('le',)
+            self._sum = values.ValueClass(self._type, self._name, self._name + '_sum', self._labelnames, self._labelvalues, self._documentation)
+            for b in self._upper_bounds:
+                self._buckets.append(values.ValueClass(
+                    self._type,
+                    self._name,
+                    self._name + '_bucket',
+                    bucket_labelnames,
+                    self._labelvalues + (floatToGoString(b),),
+                    self._documentation)
+                )
+
+
 
     def observe(self, amount: float, exemplar: Optional[Dict[str, str]] = None) -> None:
         """Observe the given amount.
@@ -624,14 +671,18 @@ class Histogram(MetricWrapperBase):
         for details.
         """
         self._raise_if_not_observable()
-        self._sum.inc(amount)
-        for i, bound in enumerate(self._upper_bounds):
-            if amount <= bound:
-                self._buckets[i].inc(1)
-                if exemplar:
-                    _validate_exemplar(exemplar)
-                    self._buckets[i].set_exemplar(Exemplar(exemplar, amount, time.time()))
-                break
+        if self._upper_bounds is not None:
+            self._sum.inc(amount)
+            for i, bound in enumerate(self._upper_bounds):
+                if amount <= bound:
+                    self._buckets[i].inc(1)
+                    if exemplar:
+                        _validate_exemplar(exemplar)
+                        self._buckets[i].set_exemplar(Exemplar(exemplar, amount, time.time()))
+                    break
+
+        if self._schema and not math.isnan(amount):
+            self._native_histogram.observe(amount)
 
     def time(self) -> Timer:
         """Time a block of code or function, and observe the duration in seconds.
@@ -642,15 +693,19 @@ class Histogram(MetricWrapperBase):
 
     def _child_samples(self) -> Iterable[Sample]:
         samples = []
-        acc = 0.0
-        for i, bound in enumerate(self._upper_bounds):
-            acc += self._buckets[i].get()
-            samples.append(Sample('_bucket', {'le': floatToGoString(bound)}, acc, None, self._buckets[i].get_exemplar()))
-        samples.append(Sample('_count', {}, acc, None, None))
-        if self._upper_bounds[0] >= 0:
-            samples.append(Sample('_sum', {}, self._sum.get(), None, None))
-        if _use_created:
-            samples.append(Sample('_created', {}, self._created, None, None))
+        if self._upper_bounds is not None:
+            acc = 0.0
+            for i, bound in enumerate(self._upper_bounds):
+                acc += self._buckets[i].get()
+                samples.append(Sample('_bucket', {'le': floatToGoString(bound)}, acc, None, self._buckets[i].get_exemplar()))
+            samples.append(Sample('_count', {}, acc, None, None))
+            if self._upper_bounds[0] >= 0:
+                samples.append(Sample('_sum', {}, self._sum.get(), None, None))
+            if _use_created:
+                samples.append(Sample('_created', {}, self._created, None, None))
+
+        if self._schema:
+            samples.append(Sample('', {}, 0.0, None, None, self._native_histogram.get()))
         return tuple(samples)
 
 
