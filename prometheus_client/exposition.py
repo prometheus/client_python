@@ -4,6 +4,7 @@ from functools import partial
 import gzip
 from http.server import BaseHTTPRequestHandler
 import os
+import shutil
 import socket
 from socketserver import ThreadingMixIn
 import ssl
@@ -446,21 +447,28 @@ class MetricsHandler(BaseHTTPRequestHandler):
         return MyMetricsHandler
 
 
-def write_to_textfile(path: str, registry: CollectorRegistry, escaping: str = openmetrics.ALLOWUTF8) -> None:
+def write_to_textfile(path: str, registry: CollectorRegistry, escaping: str = openmetrics.ALLOWUTF8, tmpdir: Optional[str] = None,) -> None:
     """Write metrics to the given path.
 
     This is intended for use with the Node exporter textfile collector.
     The path must end in .prom for the textfile collector to process it."""
-    tmppath = f'{path}.{os.getpid()}.{threading.current_thread().ident}'
+    if tmpdir is not None:
+        filename = os.path.basename(path)
+        tmppath = f'{os.path.join(tmpdir, filename)}.{os.getpid()}.{threading.current_thread().ident}'
+    else:
+        tmppath = f'{path}.{os.getpid()}.{threading.current_thread().ident}'
     try:
         with open(tmppath, 'wb') as f:
             f.write(generate_latest(registry, escaping))
 
         # rename(2) is atomic but fails on Windows if the destination file exists
-        if os.name == 'nt':
-            os.replace(tmppath, path)
+        if tmpdir is not None:
+            shutil.move(tmppath, path)
         else:
-            os.rename(tmppath, path)
+            if os.name == 'nt':
+                os.replace(tmppath, path)
+            else:
+                os.rename(tmppath, path)
     except Exception:
         if os.path.exists(tmppath):
             os.remove(tmppath)
