@@ -371,5 +371,59 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
         self.assertEqual(text.encode('utf-8'), generate_latest(registry, ALLOWUTF8))
 
 
+def test_benchmark_text_string_to_metric_families(benchmark):
+    text = """# HELP go_gc_duration_seconds A summary of the GC invocation durations.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 0.013300656000000001
+go_gc_duration_seconds{quantile="0.25"} 0.013638736
+go_gc_duration_seconds{quantile="0.5"} 0.013759906
+go_gc_duration_seconds{quantile="0.75"} 0.013962066
+go_gc_duration_seconds{quantile="1"} 0.021383540000000003
+go_gc_duration_seconds_sum 56.12904785
+go_gc_duration_seconds_count 7476.0
+# HELP go_goroutines Number of goroutines that currently exist.
+# TYPE go_goroutines gauge
+go_goroutines 166.0
+# HELP prometheus_local_storage_indexing_batch_duration_milliseconds Quantiles for batch indexing duration in milliseconds.
+# TYPE prometheus_local_storage_indexing_batch_duration_milliseconds summary
+prometheus_local_storage_indexing_batch_duration_milliseconds{quantile="0.5"} NaN
+prometheus_local_storage_indexing_batch_duration_milliseconds{quantile="0.9"} NaN
+prometheus_local_storage_indexing_batch_duration_milliseconds{quantile="0.99"} NaN
+prometheus_local_storage_indexing_batch_duration_milliseconds_sum 871.5665949999999
+prometheus_local_storage_indexing_batch_duration_milliseconds_count 229.0
+# HELP process_cpu_seconds_total Total user and system CPU time spent in seconds.
+# TYPE process_cpu_seconds_total counter
+process_cpu_seconds_total 29323.4
+# HELP process_virtual_memory_bytes Virtual memory size in bytes.
+# TYPE process_virtual_memory_bytes gauge
+process_virtual_memory_bytes 2.478268416e+09
+# HELP prometheus_build_info A metric with a constant '1' value labeled by version, revision, and branch from which Prometheus was built.
+# TYPE prometheus_build_info gauge
+prometheus_build_info{branch="HEAD",revision="ef176e5",version="0.16.0rc1"} 1.0
+# HELP prometheus_local_storage_chunk_ops_total The total number of chunk operations by their type.
+# TYPE prometheus_local_storage_chunk_ops_total counter
+prometheus_local_storage_chunk_ops_total{type="clone"} 28.0
+prometheus_local_storage_chunk_ops_total{type="create"} 997844.0
+prometheus_local_storage_chunk_ops_total{type="drop"} 1.345758e+06
+prometheus_local_storage_chunk_ops_total{type="load"} 1641.0
+prometheus_local_storage_chunk_ops_total{type="persist"} 981408.0
+prometheus_local_storage_chunk_ops_total{type="pin"} 32662.0
+prometheus_local_storage_chunk_ops_total{type="transcode"} 980180.0
+prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
+# TYPE hist histogram
+# HELP hist help
+hist_bucket{le="1"} 0
+hist_bucket{le="+Inf"} 3
+hist_count 3
+hist_sum 2
+"""
+
+    @benchmark
+    def _():
+        # We need to convert the generator to a full list in order to
+        # accurately measure the time to yield everything.
+        return list(text_string_to_metric_families(text))
+
+
 if __name__ == '__main__':
     unittest.main()
