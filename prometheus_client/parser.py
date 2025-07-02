@@ -253,7 +253,7 @@ def _parse_sample(text):
         value, timestamp = _parse_value_and_timestamp(remaining_text)
         return Sample(name, {}, value, timestamp)
     name = text[:label_start].strip()
-    label_end = _next_unquoted_char(text, '}')
+    label_end = _next_unquoted_char(text[label_start:], '}') + label_start
     labels = parse_labels(text[label_start + 1:label_end], False)
     if not name:
         # Name might be in the labels
