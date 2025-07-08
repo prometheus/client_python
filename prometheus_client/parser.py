@@ -62,44 +62,35 @@ def parse_labels(labels_string: str, openmetrics: bool = False) -> Dict[str, str
             # The label name is before the equal, or if there's no equal, that's the
             # metric name.
             
-            term, sub_labels = _next_term(sub_labels, openmetrics)
-            if not term:
+            name_term, value_term, sub_labels = _next_term(sub_labels, openmetrics)
+            if not value_term:
                 if openmetrics:
                     raise ValueError("empty term in line: " + labels_string)
                 continue
             
-            quoted_name = False
-            operator_pos = _next_unquoted_char(term, '=')
-            if operator_pos == -1:
-                quoted_name = True
-                label_name = "__name__"
-            else:
-                value_start = _next_unquoted_char(term, '=')
-                label_name, quoted_name = _unquote_unescape(term[:value_start])
-                term = term[value_start + 1:]
+            label_name, quoted_name = _unquote_unescape(name_term)
                 
             if not quoted_name and not _is_valid_legacy_metric_name(label_name):
                 raise ValueError("unquoted UTF-8 metric name")
                 
             # Check for missing quotes 
-            term = term.strip()
-            if not term or term[0] != '"':
+            if not value_term or value_term[0] != '"':
                 raise ValueError
 
             # The first quote is guaranteed to be after the equal.
-            # Find the last unescaped quote.
+            # Make sure that the next unescaped quote is the last character.
             i = 1
-            while i < len(term):
-                i = term.index('"', i)
-                if not _is_character_escaped(term[:i], i):
+            while i < len(value_term):
+                i = value_term.index('"', i)
+                if not _is_character_escaped(value_term[:i], i):
                     break
                 i += 1
-
             # The label value is between the first and last quote
             quote_end = i + 1
-            if quote_end != len(term):
+            if quote_end != len(value_term):
                 raise ValueError("unexpected text after quote: " + labels_string)
-            label_value, _ = _unquote_unescape(term[:quote_end])
+
+            label_value, _ = _unquote_unescape(value_term)
             if label_name == '__name__':
                 _validate_metric_name(label_name)
             else:
@@ -112,11 +103,10 @@ def parse_labels(labels_string: str, openmetrics: bool = False) -> Dict[str, str
         raise ValueError("Invalid labels: " + labels_string)
     
 
-def _next_term(text: str, openmetrics: bool) -> Tuple[str, str]:
-    """Extract the next comma-separated label term from the text.
-    
-    Returns the stripped term and the stripped remainder of the string, 
-    including the comma.
+def _next_term(text: str, openmetrics: bool) -> Tuple[str, str, str]:
+    """Extract the next comma-separated label term from the text. The results
+    are stripped terms for the label name, label value, and then the remainder
+    of the string including the final , or }.
     
     Raises ValueError if the term is empty and we're in openmetrics mode.
     """
@@ -125,41 +115,48 @@ def _next_term(text: str, openmetrics: bool) -> Tuple[str, str]:
     if text[0] == ',':
         text = text[1:]
         if not text:
-            return "", ""
+            return "", "", ""
         if text[0] == ',':
             raise ValueError("multiple commas")
-    splitpos = _next_unquoted_char(text, ',}')
+
+    splitpos = _next_unquoted_char(text, '=,}')
+    if splitpos >= 0 and text[splitpos] == "=":
+        labelname = text[:splitpos]
+        text = text[splitpos + 1:]
+        splitpos = _next_unquoted_char(text, ',}')
+    else:
+        labelname = "__name__"
+
     if splitpos == -1:
         splitpos = len(text)
     term = text[:splitpos]
     if not term and openmetrics:
         raise ValueError("empty term:", term)
     
-    sublabels = text[splitpos:]
-    return term.strip(), sublabels.strip()
+    rest = text[splitpos:]
+    return labelname, term.strip(), rest.strip()
 
 
-def _next_unquoted_char(text: str, chs: str, startidx: int = 0) -> int:
+def _next_unquoted_char(text: str, chs: Optional[str], startidx: int = 0) -> int:
     """Return position of next unquoted character in tuple, or -1 if not found.
     
     It is always assumed that the first character being checked is not already
     inside quotes.
     """
-    i = startidx
     in_quotes = False
     if chs is None:
         chs = string.whitespace
-    while i < len(text):
-        if text[i] == '"' and not _is_character_escaped(text, i):
+
+    for i, c in enumerate(text[startidx:]):
+        if c == '"' and not _is_character_escaped(text, startidx + i):
             in_quotes = not in_quotes
         if not in_quotes:
-            if text[i] in chs:
-                return i
-        i += 1
+            if c in chs:
+                return startidx + i
     return -1
 
 
-def _last_unquoted_char(text: str, chs: str) -> int:
+def _last_unquoted_char(text: str, chs: Optional[str]) -> int:
     """Return position of last unquoted character in list, or -1 if not found."""
     i = len(text) - 1
     in_quotes = False
@@ -253,7 +250,7 @@ def _parse_sample(text):
         value, timestamp = _parse_value_and_timestamp(remaining_text)
         return Sample(name, {}, value, timestamp)
     name = text[:label_start].strip()
-    label_end = _next_unquoted_char(text, '}')
+    label_end = _next_unquoted_char(text[label_start:], '}') + label_start
     labels = parse_labels(text[label_start + 1:label_end], False)
     if not name:
         # Name might be in the labels
