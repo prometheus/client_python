@@ -4,7 +4,6 @@ from functools import partial
 import gzip
 from http.server import BaseHTTPRequestHandler
 import os
-import shutil
 import socket
 from socketserver import ThreadingMixIn
 import ssl
@@ -447,11 +446,16 @@ class MetricsHandler(BaseHTTPRequestHandler):
         return MyMetricsHandler
 
 
-def write_to_textfile(path: str, registry: CollectorRegistry, escaping: str = openmetrics.ALLOWUTF8, tmpdir: Optional[str] = None,) -> None:
+def write_to_textfile(path: str, registry: CollectorRegistry, escaping: str = openmetrics.ALLOWUTF8, tmpdir: Optional[str] = None) -> None:
     """Write metrics to the given path.
 
     This is intended for use with the Node exporter textfile collector.
-    The path must end in .prom for the textfile collector to process it."""
+    The path must end in .prom for the textfile collector to process it.
+
+    An optional tmpdir parameter can be set to determine where the
+    metrics will be temporarily written to. If not set, it will be in
+    the same directory as the .prom file. If provided, the path MUST be
+    on the same filesystem."""
     if tmpdir is not None:
         filename = os.path.basename(path)
         tmppath = f'{os.path.join(tmpdir, filename)}.{os.getpid()}.{threading.current_thread().ident}'
@@ -462,13 +466,10 @@ def write_to_textfile(path: str, registry: CollectorRegistry, escaping: str = op
             f.write(generate_latest(registry, escaping))
 
         # rename(2) is atomic but fails on Windows if the destination file exists
-        if tmpdir is not None:
-            shutil.move(tmppath, path)
+        if os.name == 'nt':
+            os.replace(tmppath, path)
         else:
-            if os.name == 'nt':
-                os.replace(tmppath, path)
-            else:
-                os.rename(tmppath, path)
+            os.rename(tmppath, path)
     except Exception:
         if os.path.exists(tmppath):
             os.remove(tmppath)
