@@ -81,7 +81,6 @@ def generate_latest(registry, escaping=UNDERSCORES):
                             for k, v in items])
                 if labelstr:
                     labelstr = "{" + labelstr + "}"
-                            
                 if s.exemplar:
                     exemplarstr = _compose_exemplar_string(metric, s, s.exemplar)
                 else:
