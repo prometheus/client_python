@@ -85,7 +85,7 @@ def generate_latest(registry, escaping=UNDERSCORES):
                 if s.exemplar:
                     exemplarstr = _compose_exemplar_string(metric, s, s.exemplar)
                 else:
-                    exemplarstr = ''                        
+                    exemplarstr = ''
                 timestamp = ''
                 if s.timestamp is not None:
                     timestamp = f' {s.timestamp}'
