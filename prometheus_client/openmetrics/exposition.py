@@ -111,18 +111,18 @@ def generate_latest(registry, escaping=UNDERSCORES):
                     if s.native_histogram.neg_spans:
                         negative_spans = ','.join([f'{ns[0]}:{ns[1]}' for ns in s.native_histogram.neg_spans])
                         negative_deltas = ','.join(str(nd) for nd in s.native_histogram.neg_deltas)
-                        nh_sample_template += ',n_spans:[{}]'
+                        nh_sample_template += ',negative_spans:[{}]'
                         args.append(negative_spans)
-                        nh_sample_template += ',n_deltas:[{}]'
+                        nh_sample_template += ',negative_deltas:[{}]'
                         args.append(negative_deltas)
 
                     # If there are pos spans, append them and the pos spans to the template and args
                     if s.native_histogram.pos_spans:
                         positive_spans = ','.join([f'{ps[0]}:{ps[1]}' for ps in s.native_histogram.pos_spans])
                         positive_deltas = ','.join(f'{pd}' for pd in s.native_histogram.pos_deltas)
-                        nh_sample_template += ',p_spans:[{}]'
+                        nh_sample_template += ',positive_spans:[{}]'
                         args.append(positive_spans)
-                        nh_sample_template += ',p_deltas:[{}]'
+                        nh_sample_template += ',positive_deltas:[{}]'
                         args.append(positive_deltas)                       
                                                   
                     # Add closing brace
