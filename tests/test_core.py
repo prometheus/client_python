@@ -630,7 +630,7 @@ class TestMetricWrapper(unittest.TestCase):
         self.counter.remove(None)
         self.assertEqual(None, self.registry.get_sample_value('c_total', {'l': 'None'}))
 
-    def test_remove_matching(self):
+    def test_remove_by_labels(self):
         from prometheus_client import Counter
 
         c = Counter('c2', 'help', ['tenant', 'endpoint'], registry=self.registry)
@@ -638,28 +638,32 @@ class TestMetricWrapper(unittest.TestCase):
         c.labels('acme', '/checkout').inc()
         c.labels('globex', '/').inc()
 
- 
-        deleted = c.remove_by_labels({'tenant': 'acme'})
-        self.assertEqual(2, deleted)
+        ret = c.remove_by_labels({'tenant': 'acme'})
+        self.assertIsNone(ret)
 
         self.assertIsNone(self.registry.get_sample_value('c2_total', {'tenant': 'acme', 'endpoint': '/'}))
         self.assertIsNone(self.registry.get_sample_value('c2_total', {'tenant': 'acme', 'endpoint': '/checkout'}))
         self.assertEqual(1, self.registry.get_sample_value('c2_total', {'tenant': 'globex', 'endpoint': '/'}))
 
-    def test_remove_matching_invalid_label_name(self):
+
+    def test_remove_by_labels_invalid_label_name(self):
         from prometheus_client import Counter
         c = Counter('c3', 'help', ['tenant', 'endpoint'], registry=self.registry)
         c.labels('acme', '/').inc()
         with self.assertRaises(ValueError):
             c.remove_by_labels({'badkey': 'x'})
 
-    def test_remove_matching_empty_is_noop(self):
+
+    def test_remove_by_labels_empty_is_noop(self):
         from prometheus_client import Counter
         c = Counter('c4', 'help', ['tenant', 'endpoint'], registry=self.registry)
         c.labels('acme', '/').inc()
-        self.assertEqual(0, c.remove_by_labels({}))
-        self.assertEqual(1, self.registry.get_sample_value('c4_total', {'tenant': 'acme', 'endpoint': '/'}))
 
+        ret = c.remove_by_labels({})
+        self.assertIsNone(ret)
+        # Ensure the series is still present
+        self.assertEqual(1, self.registry.get_sample_value('c4_total', {'tenant': 'acme', 'endpoint': '/'}))
+        
     def test_non_string_labels_raises(self):
         class Test:
             __str__ = None
