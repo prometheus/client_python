@@ -639,7 +639,7 @@ class TestMetricWrapper(unittest.TestCase):
         c.labels('globex', '/').inc()
 
  
-        deleted = c.remove_matching({'tenant': 'acme'})
+        deleted = c.remove_by_labels({'tenant': 'acme'})
         self.assertEqual(2, deleted)
 
         self.assertIsNone(self.registry.get_sample_value('c2_total', {'tenant': 'acme', 'endpoint': '/'}))
@@ -651,13 +651,13 @@ class TestMetricWrapper(unittest.TestCase):
         c = Counter('c3', 'help', ['tenant', 'endpoint'], registry=self.registry)
         c.labels('acme', '/').inc()
         with self.assertRaises(ValueError):
-            c.remove_matching({'badkey': 'x'})
+            c.remove_by_labels({'badkey': 'x'})
 
     def test_remove_matching_empty_is_noop(self):
         from prometheus_client import Counter
         c = Counter('c4', 'help', ['tenant', 'endpoint'], registry=self.registry)
         c.labels('acme', '/').inc()
-        self.assertEqual(0, c.remove_matching({}))
+        self.assertEqual(0, c.remove_by_labels({}))
         self.assertEqual(1, self.registry.get_sample_value('c4_total', {'tenant': 'acme', 'endpoint': '/'}))
 
     def test_non_string_labels_raises(self):
