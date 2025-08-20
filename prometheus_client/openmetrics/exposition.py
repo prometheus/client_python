@@ -30,6 +30,29 @@ def _is_valid_exemplar_metric(metric, sample):
     return False
 
 
+def _compose_exemplar_string(metric, sample, exemplar):
+    """Constructs an exemplar string."""
+    if not _is_valid_exemplar_metric(metric, sample):
+        raise ValueError(f"Metric {metric.name} has exemplars, but is not a histogram bucket or counter")
+    labels = '{{{0}}}'.format(','.join(
+        ['{}="{}"'.format(
+            k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
+            for k, v in sorted(exemplar.labels.items())]))
+    if exemplar.timestamp is not None:
+        exemplarstr = ' # {} {} {}'.format(
+            labels,
+            floatToGoString(exemplar.value),
+            exemplar.timestamp,
+        )
+    else:
+        exemplarstr = ' # {} {}'.format(
+            labels,
+            floatToGoString(exemplar.value),
+        )
+
+    return exemplarstr
+
+
 def generate_latest(registry, escaping=UNDERSCORES):
     '''Returns the metrics from the registry in latest text format as a string.'''
     output = []
@@ -58,44 +81,80 @@ def generate_latest(registry, escaping=UNDERSCORES):
                             for k, v in items])
                 if labelstr:
                     labelstr = "{" + labelstr + "}"
-
                 if s.exemplar:
-                    if not _is_valid_exemplar_metric(metric, s):
-                        raise ValueError(f"Metric {metric.name} has exemplars, but is not a histogram bucket or counter")
-                    labels = '{{{0}}}'.format(','.join(
-                        ['{}="{}"'.format(
-                            k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
-                            for k, v in sorted(s.exemplar.labels.items())]))
-                    if s.exemplar.timestamp is not None:
-                        exemplarstr = ' # {} {} {}'.format(
-                            labels,
-                            floatToGoString(s.exemplar.value),
-                            s.exemplar.timestamp,
-                        )
-                    else:
-                        exemplarstr = ' # {} {}'.format(
-                            labels,
-                            floatToGoString(s.exemplar.value),
-                        )
+                    exemplarstr = _compose_exemplar_string(metric, s, s.exemplar)
                 else:
                     exemplarstr = ''
                 timestamp = ''
                 if s.timestamp is not None:
                     timestamp = f' {s.timestamp}'
+                
+                native_histogram = ''
+                negative_spans = ''
+                negative_deltas = ''
+                positive_spans = ''
+                positive_deltas = ''
+                     
+                if s.native_histogram:
+                    # Initialize basic nh template
+                    nh_sample_template = '{{count:{},sum:{},schema:{},zero_threshold:{},zero_count:{}'
+
+                    args = [
+                        s.native_histogram.count_value,
+                        s.native_histogram.sum_value,
+                        s.native_histogram.schema,
+                        s.native_histogram.zero_threshold,
+                        s.native_histogram.zero_count,
+                    ]
+                  
+                    # If there are neg spans, append them and the neg deltas to the template and args
+                    if s.native_histogram.neg_spans:
+                        negative_spans = ','.join([f'{ns[0]}:{ns[1]}' for ns in s.native_histogram.neg_spans])
+                        negative_deltas = ','.join(str(nd) for nd in s.native_histogram.neg_deltas)
+                        nh_sample_template += ',negative_spans:[{}]'
+                        args.append(negative_spans)
+                        nh_sample_template += ',negative_deltas:[{}]'
+                        args.append(negative_deltas)
+
+                    # If there are pos spans, append them and the pos spans to the template and args
+                    if s.native_histogram.pos_spans:
+                        positive_spans = ','.join([f'{ps[0]}:{ps[1]}' for ps in s.native_histogram.pos_spans])
+                        positive_deltas = ','.join(f'{pd}' for pd in s.native_histogram.pos_deltas)
+                        nh_sample_template += ',positive_spans:[{}]'
+                        args.append(positive_spans)
+                        nh_sample_template += ',positive_deltas:[{}]'
+                        args.append(positive_deltas)                       
+                                                  
+                    # Add closing brace
+                    nh_sample_template += '}}'
+
+                    # Format the template with the args
+                    native_histogram = nh_sample_template.format(*args)
+                    
+                    if s.native_histogram.nh_exemplars:
+                        for nh_ex in s.native_histogram.nh_exemplars:
+                            nh_exemplarstr = _compose_exemplar_string(metric, s, nh_ex)
+                            exemplarstr += nh_exemplarstr
+
+                value = ''
+                if s.native_histogram:
+                    value = native_histogram
+                elif s.value is not None:
+                    value = floatToGoString(s.value)
                 if (escaping != ALLOWUTF8) or _is_valid_legacy_metric_name(s.name):
                     output.append('{}{} {}{}{}\n'.format(
                         _escape(s.name, escaping, _is_legacy_labelname_rune),
                         labelstr,
-                        floatToGoString(s.value),
+                        value,
                         timestamp,
-                        exemplarstr,
+                        exemplarstr
                     ))
                 else:
                     output.append('{} {}{}{}\n'.format(
                         labelstr,
-                        floatToGoString(s.value),
+                        value,
                         timestamp,
-                        exemplarstr,
+                        exemplarstr
                     ))
         except Exception as exception:
             exception.args = (exception.args or ('',)) + (metric,)
