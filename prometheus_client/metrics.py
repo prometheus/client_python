@@ -613,7 +613,7 @@ class Histogram(MetricWrapperBase):
                 self._documentation)
             )
 
-    def observe(self, amount: float, exemplar: Optional[Dict[str, str]] = None) -> None:
+    def observe(self, amount: float, exemplar: Optional[Dict[str, str]] = None, count: int = 1) -> None:
         """Observe the given amount.
 
         The amount is usually positive or zero. Negative values are
@@ -624,10 +624,10 @@ class Histogram(MetricWrapperBase):
         for details.
         """
         self._raise_if_not_observable()
-        self._sum.inc(amount)
+        self._sum.inc(amount * count)
         for i, bound in enumerate(self._upper_bounds):
             if amount <= bound:
-                self._buckets[i].inc(1)
+                self._buckets[i].inc(count)
                 if exemplar:
                     _validate_exemplar(exemplar)
                     self._buckets[i].set_exemplar(Exemplar(exemplar, amount, time.time()))
