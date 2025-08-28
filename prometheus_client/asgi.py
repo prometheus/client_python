@@ -11,7 +11,7 @@ def make_asgi_app(registry: CollectorRegistry = REGISTRY, disable_compression: b
     async def prometheus_app(scope, receive, send):
         assert scope.get("type") == "http"
         # Prepare parameters
-        params = parse_qs(scope.get('query_string', b''))
+        params = parse_qs(scope.get('query_string', b'').decode("utf8"))
         accept_header = ",".join([
             value.decode("utf8") for (name, value) in scope.get('headers')
             if name.decode("utf8").lower() == 'accept'
