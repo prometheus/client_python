@@ -93,6 +93,16 @@ class ASGITest(TestCase):
         for _ in range(increments):
             c.inc()
 
+    def assert_metrics(self, output, metric_name, help_text, increments):
+        self.assertIn("# HELP " + metric_name + "_total " + help_text + "\n", output)
+        self.assertIn("# TYPE " + metric_name + "_total counter\n", output)
+        self.assertIn(metric_name + "_total " + str(increments) + ".0\n", output)
+
+    def assert_not_metrics(self, output, metric_name, help_text, increments):
+        self.assertNotIn("# HELP " + metric_name + "_total " + help_text + "\n", output)
+        self.assertNotIn("# TYPE " + metric_name + "_total counter\n", output)
+        self.assertNotIn(metric_name + "_total " + str(increments) + ".0\n", output)
+
     def assert_outputs(self, outputs, metric_name, help_text, increments, compressed):
         self.assertEqual(len(outputs), 2)
         response_start = outputs[0]
@@ -112,9 +122,8 @@ class ASGITest(TestCase):
             output = gzip.decompress(response_body['body']).decode('utf8')
         else:
             output = response_body['body'].decode('utf8')
-        self.assertIn("# HELP " + metric_name + "_total " + help_text + "\n", output)
-        self.assertIn("# TYPE " + metric_name + "_total counter\n", output)
-        self.assertIn(metric_name + "_total " + str(increments) + ".0\n", output)
+
+        self.assert_metrics(output, metric_name, help_text, increments)
 
     def validate_metrics(self, metric_name, help_text, increments):
         """
@@ -190,3 +199,36 @@ class ASGITest(TestCase):
 
         content_type = self.get_response_header_value('Content-Type').split(";")[0]
         assert content_type == "text/plain"
+
+    def test_qs_parsing(self):
+        """Only metrics that match the 'name[]' query string param appear"""
+
+        app = make_asgi_app(self.registry)
+        metrics = [
+            ("asdf", "first test metric", 1),
+            ("bsdf", "second test metric", 2)
+        ]
+
+        for m in metrics:
+            self.increment_metrics(*m)
+
+        for i_1 in range(len(metrics)):
+            self.seed_app(app)
+            self.scope['query_string'] = f"name[]={metrics[i_1][0]}_total".encode("utf-8")
+            self.send_default_request()
+
+            outputs = self.get_all_output()
+            response_body = outputs[1]
+            output = response_body['body'].decode('utf8')
+
+            self.assert_metrics(output, *metrics[i_1])
+
+            for i_2 in range(len(metrics)):
+                if i_1 == i_2:
+                    continue
+
+                self.assert_not_metrics(output, *metrics[i_2])
+
+            asyncio.get_event_loop().run_until_complete(
+                self.communicator.wait()
+            )
