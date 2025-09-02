@@ -4,6 +4,8 @@ from io import StringIO
 from sys import maxunicode
 from typing import Callable
 
+from packaging.version import Version
+
 from ..utils import floatToGoString
 from ..validation import (
     _is_valid_legacy_labelname, _is_valid_legacy_metric_name,
@@ -11,6 +13,8 @@ from ..validation import (
 
 CONTENT_TYPE_LATEST = 'application/openmetrics-text; version=1.0.0; charset=utf-8'
 """Content type of the latest OpenMetrics text format"""
+CONTENT_TYPE_LATEST_2_0 = 'application/openmetrics-text; version=2.0.0; charset=utf-8'
+"""Content type of the OpenMetrics 2.0 text format"""
 ESCAPING_HEADER_TAG = 'escaping'
 
 
@@ -53,7 +57,7 @@ def _compose_exemplar_string(metric, sample, exemplar):
     return exemplarstr
 
 
-def generate_latest(registry, escaping=UNDERSCORES):
+def generate_latest(registry, escaping=UNDERSCORES, version="1.0.0"):
     '''Returns the metrics from the registry in latest text format as a string.'''
     output = []
     for metric in registry.collect():
@@ -95,7 +99,7 @@ def generate_latest(registry, escaping=UNDERSCORES):
                 positive_spans = ''
                 positive_deltas = ''
                      
-                if s.native_histogram:
+                if s.native_histogram and Version(version) >= Version('2.0.0'):
                     # Initialize basic nh template
                     nh_sample_template = '{{count:{},sum:{},schema:{},zero_threshold:{},zero_count:{}'
 
@@ -137,7 +141,7 @@ def generate_latest(registry, escaping=UNDERSCORES):
                             exemplarstr += nh_exemplarstr
 
                 value = ''
-                if s.native_histogram:
+                if s.native_histogram and Version(version) >= Version('2.0.0'):
                     value = native_histogram
                 elif s.value is not None:
                     value = floatToGoString(s.value)
