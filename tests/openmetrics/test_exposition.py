@@ -83,7 +83,7 @@ ss_count{a="c",b="d"} 1.0
 ss_sum{a="c",b="d"} 17.0
 ss_created{a="c",b="d"} 123.456
 # EOF
-""", generate_latest(self.registry, version="2.0.0"))
+""", generate_latest(self.registry, version="1.0.0"))
 
     def test_histogram(self) -> None:
         s = Histogram('hh', 'A histogram', registry=self.registry)
@@ -109,7 +109,7 @@ hh_count 1.0
 hh_sum 0.05
 hh_created 123.456
 # EOF
-""", generate_latest(self.registry, version="2.0.0"))
+""", generate_latest(self.registry, version="1.0.0"))
 
 
     def test_native_histogram(self) -> None:
@@ -239,6 +239,32 @@ hist_w_classic_two_sets_sum{foo="baz"} 100.0
 # EOF
 """, generate_latest(self.registry, version="2.0.0"))
 
+    def test_native_plus_classic_histogram_two_labelsets_OM_1(self) -> None:
+        hfm = HistogramMetricFamily("hist_w_classic_two_sets", "Is an example of a native histogram plus a classic histogram with two label sets in OM 1.0.0")
+        hfm.add_sample("hist_w_classic_two_sets", {"foo": "bar"}, 0, None, None, NativeHistogram(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3)))
+        hfm.add_sample("hist_w_classic_two_sets_bucket", {"foo": "bar", "le": "0.001"}, 4.0, None, None, None)
+        hfm.add_sample("hist_w_classic_two_sets_bucket", {"foo": "bar", "le": "+Inf"}, 24.0, None, None, None)
+        hfm.add_sample("hist_w_classic_two_sets_count", {"foo": "bar"}, 24.0, None, None, None)
+        hfm.add_sample("hist_w_classic_two_sets_sum", {"foo": "bar"}, 100.0, None, None, None)
+        hfm.add_sample("hist_w_classic_two_sets", {"foo": "baz"}, 0, None, None, NativeHistogram(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3)))
+        hfm.add_sample("hist_w_classic_two_sets_bucket", {"foo": "baz", "le": "0.001"}, 4.0, None, None, None)
+        hfm.add_sample("hist_w_classic_two_sets_bucket", {"foo": "baz", "le": "+Inf"}, 24.0, None, None, None)
+        hfm.add_sample("hist_w_classic_two_sets_count", {"foo": "baz"}, 24.0, None, None, None)
+        hfm.add_sample("hist_w_classic_two_sets_sum", {"foo": "baz"}, 100.0, None, None, None)
+        self.custom_collector(hfm)
+        self.assertEqual(b"""# HELP hist_w_classic_two_sets Is an example of a native histogram plus a classic histogram with two label sets in OM 1.0.0
+# TYPE hist_w_classic_two_sets histogram
+hist_w_classic_two_sets_bucket{foo="bar",le="0.001"} 4.0
+hist_w_classic_two_sets_bucket{foo="bar",le="+Inf"} 24.0
+hist_w_classic_two_sets_count{foo="bar"} 24.0
+hist_w_classic_two_sets_sum{foo="bar"} 100.0
+hist_w_classic_two_sets_bucket{foo="baz",le="0.001"} 4.0
+hist_w_classic_two_sets_bucket{foo="baz",le="+Inf"} 24.0
+hist_w_classic_two_sets_count{foo="baz"} 24.0
+hist_w_classic_two_sets_sum{foo="baz"} 100.0
+# EOF
+""", generate_latest(self.registry, version="1.0.0"))
+
     def test_histogram_negative_buckets(self) -> None:
         s = Histogram('hh', 'A histogram', buckets=[-1, -0.5, 0, 0.5, 1], registry=self.registry)
         s.observe(-0.5)
@@ -273,7 +299,7 @@ hh_count 4.0
 hh_sum 8.0
 hh_created 123.456
 # EOF
-""", generate_latest(self.registry, version="2.0.0"))
+""", generate_latest(self.registry, version="1.0.0"))
 
     def test_counter_exemplar(self) -> None:
         c = Counter('cc', 'A counter', registry=self.registry)
@@ -283,7 +309,7 @@ hh_created 123.456
 cc_total 1.0 # {a="b"} 1.0 123.456
 cc_created 123.456
 # EOF
-""", generate_latest(self.registry, version="2.0.0"))
+""", generate_latest(self.registry, version="1.0.0"))
 
     def test_untyped_exemplar(self) -> None:
         class MyCollector:
@@ -331,7 +357,7 @@ gh_bucket{le="+Inf"} 5.0
 gh_gcount 5.0
 gh_gsum 7.0
 # EOF
-""", generate_latest(self.registry, version="2.0.0"))
+""", generate_latest(self.registry, version="1.0.0"))
 
     def test_gaugehistogram_negative_buckets(self) -> None:
         self.custom_collector(
@@ -343,7 +369,7 @@ gh_bucket{le="+Inf"} 5.0
 gh_gcount 5.0
 gh_gsum -7.0
 # EOF
-""", generate_latest(self.registry, version="2.0.0"))
+""", generate_latest(self.registry, version="1.0.0"))
 
     def test_info(self) -> None:
         i = Info('ii', 'A info', ['a', 'b'], registry=self.registry)
@@ -424,34 +450,25 @@ ts{foo="d"} 0.0 123.456000000
 ts{foo="e"} 0.0 123.000456000
 ts{foo="f"} 0.0 123.000000456
 # EOF
-""", generate_latest(self.registry, version="2.0.0"))
-
-    def test_native_histogram_not_emitted_in_v1(self) -> None:
-        # Test that native histograms are NOT emitted in version 1.0.0, but classic data is
-        hfm = HistogramMetricFamily("nh_v1", "nh v1")
-        hfm.add_sample("nh_v1", {}, 0, None, None, NativeHistogram(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3)))
-        self.custom_collector(hfm)
-        output = generate_latest(self.registry, version="1.0.0")
-        # Should emit classic histogram value, not native histogram format
-        self.assertEqual(b"""# HELP nh_v1 nh v1
-# TYPE nh_v1 histogram
-nh_v1 0.0
-# EOF
-""", output)
+""", generate_latest(self.registry, version="1.0.0"))
 
     def test_native_histogram_version_comparison(self) -> None:
-        # Test that same histogram data behaves differently based on version
         hfm = HistogramMetricFamily("nh_version", "nh version test")
         hfm.add_sample("nh_version", {}, 0, None, None, NativeHistogram(5, 10, 0, 0.01, 2, (BucketSpan(0, 1),), (BucketSpan(0, 1),), (3,), (4,)))
         self.custom_collector(hfm)
         
-        # Version 1.0.0 should NOT have native histogram format
-        output_v1 = generate_latest(self.registry, version="1.0.0")
-        self.assertNotIn(b'{count:', output_v1)
+        # Version 1.0.0 should omit native histogram samples entirely
+        self.assertEqual(b"""# HELP nh_version nh version test
+# TYPE nh_version histogram
+# EOF
+""", generate_latest(self.registry, version="1.0.0"))
         
-        # Version 2.0.0 should have native histogram format  
-        output_v2 = generate_latest(self.registry, version="2.0.0")
-        self.assertIn(b'{count:5,sum:10', output_v2)
+        # Version 2.0.0 should emit native histogram format
+        self.assertEqual(b"""# HELP nh_version nh version test
+# TYPE nh_version histogram
+nh_version {count:5,sum:10,schema:0,zero_threshold:0.01,zero_count:2,negative_spans:[0:1],negative_deltas:[4],positive_spans:[0:1],positive_deltas:[3]}
+# EOF
+""", generate_latest(self.registry, version="2.0.0"))
 
 
 @pytest.mark.parametrize("scenario", [

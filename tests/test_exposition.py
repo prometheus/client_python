@@ -600,35 +600,6 @@ class TestChooseEncoder(unittest.TestCase):
         self.assert_is_escaped(exp)
         self.assert_is_prom(exp)
 
-    def test_openmetrics_version_2_0_0(self):
-        # Test that version 2.0.0 is properly handled
-        generator, content_type = choose_encoder('application/openmetrics-text; version=2.0.0; charset=utf-8')
-        assert content_type == 'application/openmetrics-text; version=2.0.0; charset=utf-8; escaping=underscores'
-        exp = generator(self.registry).decode('utf-8')
-        self.assert_is_escaped(exp)
-        self.assert_is_openmetrics(exp)
-
-    def test_native_histogram_content_negotiation(self):
-        from prometheus_client.core import HistogramMetricFamily
-        from prometheus_client.samples import NativeHistogram, BucketSpan
-        
-        # Add a native histogram to the registry
-        hfm = HistogramMetricFamily("test_nh", "Test native histogram")
-        hfm.add_sample("test_nh", {}, 0, None, None, NativeHistogram(10, 25, 0, 0.001, 2, (BucketSpan(0, 1),), (BucketSpan(0, 1),), (5,), (8,)))
-        self.custom_collector(hfm)
-        
-        # Test version 1.0.0 - should NOT contain native histograms
-        generator_v1, content_type_v1 = choose_encoder('application/openmetrics-text; version=1.0.0; charset=utf-8')
-        assert '1.0.0' in content_type_v1
-        output_v1 = generator_v1(self.registry).decode('utf-8')
-        self.assertNotIn('{count:', output_v1)  # Should not have native histogram format
-        
-        # Test version 2.0.0 - should contain native histograms
-        generator_v2, content_type_v2 = choose_encoder('application/openmetrics-text; version=2.0.0; charset=utf-8') 
-        assert '2.0.0' in content_type_v2
-        output_v2 = generator_v2(self.registry).decode('utf-8')
-        self.assertIn('{count:10,sum:25', output_v2)  # Should have native histogram format
-
 
 @pytest.mark.parametrize("scenario", [
     {

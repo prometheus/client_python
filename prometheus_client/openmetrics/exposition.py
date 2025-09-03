@@ -12,7 +12,7 @@ from ..validation import (
 )
 
 CONTENT_TYPE_LATEST = 'application/openmetrics-text; version=1.0.0; charset=utf-8'
-"""Content type of the latest OpenMetrics text format"""
+"""Content type of the latest OpenMetrics 1.0 text format"""
 CONTENT_TYPE_LATEST_2_0 = 'application/openmetrics-text; version=2.0.0; charset=utf-8'
 """Content type of the OpenMetrics 2.0 text format"""
 ESCAPING_HEADER_TAG = 'escaping'
@@ -140,6 +140,10 @@ def generate_latest(registry, escaping=UNDERSCORES, version="1.0.0"):
                             nh_exemplarstr = _compose_exemplar_string(metric, s, nh_ex)
                             exemplarstr += nh_exemplarstr
 
+                # Skip native histogram samples entirely if version < 2.0.0
+                if s.native_histogram and Version(version) < Version('2.0.0'):
+                    continue
+                    
                 value = ''
                 if s.native_histogram and Version(version) >= Version('2.0.0'):
                     value = native_histogram
