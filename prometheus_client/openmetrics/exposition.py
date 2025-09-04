@@ -93,13 +93,17 @@ def generate_latest(registry, escaping=UNDERSCORES, version="1.0.0"):
                 if s.timestamp is not None:
                     timestamp = f' {s.timestamp}'
                 
+                # Skip native histogram samples entirely if version < 2.0.0
+                if s.native_histogram and Version(version) < Version('2.0.0'):
+                    continue
+                
                 native_histogram = ''
                 negative_spans = ''
                 negative_deltas = ''
                 positive_spans = ''
                 positive_deltas = ''
                      
-                if s.native_histogram and Version(version) >= Version('2.0.0'):
+                if s.native_histogram:
                     # Initialize basic nh template
                     nh_sample_template = '{{count:{},sum:{},schema:{},zero_threshold:{},zero_count:{}'
 
@@ -140,12 +144,8 @@ def generate_latest(registry, escaping=UNDERSCORES, version="1.0.0"):
                             nh_exemplarstr = _compose_exemplar_string(metric, s, nh_ex)
                             exemplarstr += nh_exemplarstr
 
-                # Skip native histogram samples entirely if version < 2.0.0
-                if s.native_histogram and Version(version) < Version('2.0.0'):
-                    continue
-                    
                 value = ''
-                if s.native_histogram and Version(version) >= Version('2.0.0'):
+                if s.native_histogram:
                     value = native_histogram
                 elif s.value is not None:
                     value = floatToGoString(s.value)
