@@ -83,7 +83,7 @@ ss_count{a="c",b="d"} 1.0
 ss_sum{a="c",b="d"} 17.0
 ss_created{a="c",b="d"} 123.456
 # EOF
-""", generate_latest(self.registry))
+""", generate_latest(self.registry, version="1.0.0"))
 
     def test_histogram(self) -> None:
         s = Histogram('hh', 'A histogram', registry=self.registry)
@@ -109,7 +109,7 @@ hh_count 1.0
 hh_sum 0.05
 hh_created 123.456
 # EOF
-""", generate_latest(self.registry))
+""", generate_latest(self.registry, version="1.0.0"))
 
 
     def test_native_histogram(self) -> None:
@@ -120,7 +120,7 @@ hh_created 123.456
 # TYPE nh histogram
 nh {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,negative_spans:[0:2,1:2],negative_deltas:[2,1,-2,3],positive_spans:[0:2,1:2],positive_deltas:[2,1,-3,3]}
 # EOF
-""", generate_latest(self.registry))
+""", generate_latest(self.registry, version="2.0.0"))
     
     def test_nh_histogram_with_exemplars(self) -> None:
         hfm = HistogramMetricFamily("nh", "nh")
@@ -130,7 +130,7 @@ nh {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,negative_spans:[
 # TYPE nh histogram
 nh {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,negative_spans:[0:2,1:2],negative_deltas:[2,1,-2,3],positive_spans:[0:2,1:2],positive_deltas:[2,1,-3,3]} # {trace_id="KOO5S4vxi0o"} 0.67 # {trace_id="oHg5SJYRHA0"} 9.8 1520879607.789
 # EOF
-""", generate_latest(self.registry))
+""", generate_latest(self.registry, version="2.0.0"))
 
     def test_nh_no_observation(self) -> None:
         hfm = HistogramMetricFamily("nhnoobs", "nhnoobs")
@@ -140,7 +140,7 @@ nh {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,negative_spans:[
 # TYPE nhnoobs histogram
 nhnoobs {count:0,sum:0,schema:3,zero_threshold:2.938735877055719e-39,zero_count:0}
 # EOF
-""", generate_latest(self.registry))
+""", generate_latest(self.registry, version="2.0.0"))
 
 
     def test_nh_longer_spans(self) -> None:
@@ -151,7 +151,7 @@ nhnoobs {count:0,sum:0,schema:3,zero_threshold:2.938735877055719e-39,zero_count:
 # TYPE nhsp histogram
 nhsp {count:4,sum:6,schema:3,zero_threshold:2.938735877055719e-39,zero_count:1,positive_spans:[0:1,7:1,4:1],positive_deltas:[1,0,0]}
 # EOF
-""", generate_latest(self.registry))
+""", generate_latest(self.registry, version="2.0.0"))
    
     def test_native_histogram_utf8(self) -> None:
         hfm = HistogramMetricFamily("native{histogram", "Is a basic example of a native histogram")
@@ -161,7 +161,7 @@ nhsp {count:4,sum:6,schema:3,zero_threshold:2.938735877055719e-39,zero_count:1,p
 # TYPE "native{histogram" histogram
 {"native{histogram"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,negative_spans:[0:2,1:2],negative_deltas:[2,1,-2,3],positive_spans:[0:2,1:2],positive_deltas:[2,1,-3,3]}
 # EOF
-""", generate_latest(self.registry, ALLOWUTF8))
+""", generate_latest(self.registry, ALLOWUTF8, version="2.0.0"))
     
     def test_native_histogram_utf8_stress(self) -> None:
         hfm = HistogramMetricFamily("native{histogram", "Is a basic example of a native histogram")
@@ -171,7 +171,7 @@ nhsp {count:4,sum:6,schema:3,zero_threshold:2.938735877055719e-39,zero_count:1,p
 # TYPE "native{histogram" histogram
 {"native{histogram", "xx{} # {}"=" EOF # {}}}"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,negative_spans:[0:2,1:2],negative_deltas:[2,1,-2,3],positive_spans:[0:2,1:2],positive_deltas:[2,1,-3,3]}
 # EOF
-""", generate_latest(self.registry, ALLOWUTF8))
+""", generate_latest(self.registry, ALLOWUTF8, version="2.0.0"))
 
     def test_native_histogram_with_labels(self) -> None:
         hfm = HistogramMetricFamily("hist_w_labels", "Is a basic example of a native histogram with labels")
@@ -181,7 +181,7 @@ nhsp {count:4,sum:6,schema:3,zero_threshold:2.938735877055719e-39,zero_count:1,p
 # TYPE hist_w_labels histogram
 hist_w_labels{baz="qux",foo="bar"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,negative_spans:[0:2,1:2],negative_deltas:[2,1,-2,3],positive_spans:[0:2,1:2],positive_deltas:[2,1,-3,3]}
 # EOF
-""", generate_latest(self.registry))
+""", generate_latest(self.registry, version="2.0.0"))
     
     def test_native_histogram_with_labels_utf8(self) -> None:
         hfm = HistogramMetricFamily("hist.w.labels", "Is a basic example of a native histogram with labels")
@@ -191,7 +191,7 @@ hist_w_labels{baz="qux",foo="bar"} {count:24,sum:100,schema:0,zero_threshold:0.0
 # TYPE "hist.w.labels" histogram
 {"hist.w.labels", baz="qux",foo="bar"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,negative_spans:[0:2,1:2],negative_deltas:[2,1,-2,3],positive_spans:[0:2,1:2],positive_deltas:[2,1,-3,3]}
 # EOF
-""", generate_latest(self.registry, ALLOWUTF8))
+""", generate_latest(self.registry, ALLOWUTF8, version="2.0.0"))
 
     def test_native_histogram_with_classic_histogram(self) -> None:
         hfm = HistogramMetricFamily("hist_w_classic", "Is a basic example of a native histogram coexisting with a classic histogram")
@@ -209,7 +209,7 @@ hist_w_classic_bucket{foo="bar",le="+Inf"} 24.0
 hist_w_classic_count{foo="bar"} 24.0
 hist_w_classic_sum{foo="bar"} 100.0
 # EOF
-""", generate_latest(self.registry))
+""", generate_latest(self.registry, version="2.0.0"))
 
     def test_native_plus_classic_histogram_two_labelsets(self) -> None:
         hfm = HistogramMetricFamily("hist_w_classic_two_sets", "Is an example of a native histogram plus a classic histogram with two label sets")
@@ -237,7 +237,33 @@ hist_w_classic_two_sets_bucket{foo="baz",le="+Inf"} 24.0
 hist_w_classic_two_sets_count{foo="baz"} 24.0
 hist_w_classic_two_sets_sum{foo="baz"} 100.0
 # EOF
-""", generate_latest(self.registry))
+""", generate_latest(self.registry, version="2.0.0"))
+
+    def test_native_plus_classic_histogram_two_labelsets_OM_1(self) -> None:
+        hfm = HistogramMetricFamily("hist_w_classic_two_sets", "Is an example of a native histogram plus a classic histogram with two label sets in OM 1.0.0")
+        hfm.add_sample("hist_w_classic_two_sets", {"foo": "bar"}, 0, None, None, NativeHistogram(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3)))
+        hfm.add_sample("hist_w_classic_two_sets_bucket", {"foo": "bar", "le": "0.001"}, 4.0, None, None, None)
+        hfm.add_sample("hist_w_classic_two_sets_bucket", {"foo": "bar", "le": "+Inf"}, 24.0, None, None, None)
+        hfm.add_sample("hist_w_classic_two_sets_count", {"foo": "bar"}, 24.0, None, None, None)
+        hfm.add_sample("hist_w_classic_two_sets_sum", {"foo": "bar"}, 100.0, None, None, None)
+        hfm.add_sample("hist_w_classic_two_sets", {"foo": "baz"}, 0, None, None, NativeHistogram(24, 100, 0, 0.001, 4, (BucketSpan(0, 2), BucketSpan(1, 2)), (BucketSpan(0, 2), BucketSpan(1, 2)), (2, 1, -3, 3), (2, 1, -2, 3)))
+        hfm.add_sample("hist_w_classic_two_sets_bucket", {"foo": "baz", "le": "0.001"}, 4.0, None, None, None)
+        hfm.add_sample("hist_w_classic_two_sets_bucket", {"foo": "baz", "le": "+Inf"}, 24.0, None, None, None)
+        hfm.add_sample("hist_w_classic_two_sets_count", {"foo": "baz"}, 24.0, None, None, None)
+        hfm.add_sample("hist_w_classic_two_sets_sum", {"foo": "baz"}, 100.0, None, None, None)
+        self.custom_collector(hfm)
+        self.assertEqual(b"""# HELP hist_w_classic_two_sets Is an example of a native histogram plus a classic histogram with two label sets in OM 1.0.0
+# TYPE hist_w_classic_two_sets histogram
+hist_w_classic_two_sets_bucket{foo="bar",le="0.001"} 4.0
+hist_w_classic_two_sets_bucket{foo="bar",le="+Inf"} 24.0
+hist_w_classic_two_sets_count{foo="bar"} 24.0
+hist_w_classic_two_sets_sum{foo="bar"} 100.0
+hist_w_classic_two_sets_bucket{foo="baz",le="0.001"} 4.0
+hist_w_classic_two_sets_bucket{foo="baz",le="+Inf"} 24.0
+hist_w_classic_two_sets_count{foo="baz"} 24.0
+hist_w_classic_two_sets_sum{foo="baz"} 100.0
+# EOF
+""", generate_latest(self.registry, version="1.0.0"))
 
     def test_histogram_negative_buckets(self) -> None:
         s = Histogram('hh', 'A histogram', buckets=[-1, -0.5, 0, 0.5, 1], registry=self.registry)
@@ -253,7 +279,7 @@ hh_bucket{le="+Inf"} 1.0
 hh_count 1.0
 hh_created 123.456
 # EOF
-""", generate_latest(self.registry))
+""", generate_latest(self.registry, version="2.0.0"))
 
     def test_histogram_exemplar(self) -> None:
         s = Histogram('hh', 'A histogram', buckets=[1, 2, 3, 4], registry=self.registry)
@@ -273,7 +299,7 @@ hh_count 4.0
 hh_sum 8.0
 hh_created 123.456
 # EOF
-""", generate_latest(self.registry))
+""", generate_latest(self.registry, version="1.0.0"))
 
     def test_counter_exemplar(self) -> None:
         c = Counter('cc', 'A counter', registry=self.registry)
@@ -283,7 +309,7 @@ hh_created 123.456
 cc_total 1.0 # {a="b"} 1.0 123.456
 cc_created 123.456
 # EOF
-""", generate_latest(self.registry))
+""", generate_latest(self.registry, version="1.0.0"))
 
     def test_untyped_exemplar(self) -> None:
         class MyCollector:
@@ -331,7 +357,7 @@ gh_bucket{le="+Inf"} 5.0
 gh_gcount 5.0
 gh_gsum 7.0
 # EOF
-""", generate_latest(self.registry))
+""", generate_latest(self.registry, version="1.0.0"))
 
     def test_gaugehistogram_negative_buckets(self) -> None:
         self.custom_collector(
@@ -343,7 +369,7 @@ gh_bucket{le="+Inf"} 5.0
 gh_gcount 5.0
 gh_gsum -7.0
 # EOF
-""", generate_latest(self.registry))
+""", generate_latest(self.registry, version="1.0.0"))
 
     def test_info(self) -> None:
         i = Info('ii', 'A info', ['a', 'b'], registry=self.registry)
@@ -352,7 +378,7 @@ gh_gsum -7.0
 # TYPE ii info
 ii_info{a="c",b="d",foo="bar"} 1.0
 # EOF
-""", generate_latest(self.registry))
+""", generate_latest(self.registry, version="2.0.0"))
 
     def test_enum(self) -> None:
         i = Enum('ee', 'An enum', ['a', 'b'], registry=self.registry, states=['foo', 'bar'])
@@ -362,7 +388,7 @@ ii_info{a="c",b="d",foo="bar"} 1.0
 ee{a="c",b="d",ee="foo"} 0.0
 ee{a="c",b="d",ee="bar"} 1.0
 # EOF
-""", generate_latest(self.registry))
+""", generate_latest(self.registry, version="2.0.0"))
 
     def test_unicode(self) -> None:
         c = Counter('cc', '\u4500', ['l'], registry=self.registry)
@@ -372,7 +398,7 @@ ee{a="c",b="d",ee="bar"} 1.0
 cc_total{l="\xe4\x94\x80"} 1.0
 cc_created{l="\xe4\x94\x80"} 123.456
 # EOF
-""", generate_latest(self.registry))
+""", generate_latest(self.registry, version="2.0.0"))
 
     def test_escaping(self) -> None:
         c = Counter('cc', 'A\ncount\\er\"', ['a'], registry=self.registry)
@@ -382,7 +408,7 @@ cc_created{l="\xe4\x94\x80"} 123.456
 cc_total{a="\\\\x\\n\\""} 1.0
 cc_created{a="\\\\x\\n\\""} 123.456
 # EOF
-""", generate_latest(self.registry))
+""", generate_latest(self.registry, version="2.0.0"))
 
     def test_nonnumber(self) -> None:
         class MyNumber:
@@ -424,7 +450,25 @@ ts{foo="d"} 0.0 123.456000000
 ts{foo="e"} 0.0 123.000456000
 ts{foo="f"} 0.0 123.000000456
 # EOF
-""", generate_latest(self.registry))
+""", generate_latest(self.registry, version="1.0.0"))
+
+    def test_native_histogram_version_comparison(self) -> None:
+        hfm = HistogramMetricFamily("nh_version", "nh version test")
+        hfm.add_sample("nh_version", {}, 0, None, None, NativeHistogram(5, 10, 0, 0.01, 2, (BucketSpan(0, 1),), (BucketSpan(0, 1),), (3,), (4,)))
+        self.custom_collector(hfm)
+        
+        # Version 1.0.0 should omit native histogram samples entirely
+        self.assertEqual(b"""# HELP nh_version nh version test
+# TYPE nh_version histogram
+# EOF
+""", generate_latest(self.registry, version="1.0.0"))
+        
+        # Version 2.0.0 should emit native histogram format
+        self.assertEqual(b"""# HELP nh_version nh version test
+# TYPE nh_version histogram
+nh_version {count:5,sum:10,schema:0,zero_threshold:0.01,zero_count:2,negative_spans:[0:1],negative_deltas:[4],positive_spans:[0:1],positive_deltas:[3]}
+# EOF
+""", generate_latest(self.registry, version="2.0.0"))
 
 
 @pytest.mark.parametrize("scenario", [

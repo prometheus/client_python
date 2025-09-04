@@ -345,10 +345,10 @@ def choose_encoder(accept_header: str) -> Tuple[Callable[[CollectorRegistry], by
             # Only return an escaping header if we have a good version and
             # mimetype.
             if not version:
-                return (partial(openmetrics.generate_latest, escaping=openmetrics.UNDERSCORES), openmetrics.CONTENT_TYPE_LATEST)
+                return (partial(openmetrics.generate_latest, escaping=openmetrics.UNDERSCORES, version="1.0.0"), openmetrics.CONTENT_TYPE_LATEST)
             if version and Version(version) >= Version('1.0.0'):
-                return (partial(openmetrics.generate_latest, escaping=escaping),
-                        openmetrics.CONTENT_TYPE_LATEST + '; escaping=' + str(escaping))
+                return (partial(openmetrics.generate_latest, escaping=escaping, version=version),
+                        f'application/openmetrics-text; version={version}; charset=utf-8; escaping=' + str(escaping))
         elif accepted.split(';')[0].strip() == 'text/plain':
             toks = accepted.split(';')
             version = _get_version(toks)

@@ -4,13 +4,17 @@ from io import StringIO
 from sys import maxunicode
 from typing import Callable
 
+from packaging.version import Version
+
 from ..utils import floatToGoString
 from ..validation import (
     _is_valid_legacy_labelname, _is_valid_legacy_metric_name,
 )
 
 CONTENT_TYPE_LATEST = 'application/openmetrics-text; version=1.0.0; charset=utf-8'
-"""Content type of the latest OpenMetrics text format"""
+"""Content type of the latest OpenMetrics 1.0 text format"""
+CONTENT_TYPE_LATEST_2_0 = 'application/openmetrics-text; version=2.0.0; charset=utf-8'
+"""Content type of the OpenMetrics 2.0 text format"""
 ESCAPING_HEADER_TAG = 'escaping'
 
 
@@ -53,7 +57,7 @@ def _compose_exemplar_string(metric, sample, exemplar):
     return exemplarstr
 
 
-def generate_latest(registry, escaping=UNDERSCORES):
+def generate_latest(registry, escaping=UNDERSCORES, version="1.0.0"):
     '''Returns the metrics from the registry in latest text format as a string.'''
     output = []
     for metric in registry.collect():
@@ -88,6 +92,10 @@ def generate_latest(registry, escaping=UNDERSCORES):
                 timestamp = ''
                 if s.timestamp is not None:
                     timestamp = f' {s.timestamp}'
+                
+                # Skip native histogram samples entirely if version < 2.0.0
+                if s.native_histogram and Version(version) < Version('2.0.0'):
+                    continue
                 
                 native_histogram = ''
                 negative_spans = ''
