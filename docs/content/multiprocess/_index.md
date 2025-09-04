@@ -10,7 +10,7 @@ it's common to have processes rather than threads to handle large workloads.
 To handle this the client library can be put in multiprocess mode.
 This comes with a number of limitations:
 
-- Registries can not be used as normal, all instantiated metrics are exported
+- Registries cannot be used as normal, all instantiated metrics are exported
   - Registering metrics to a registry later used by a `MultiProcessCollector`
     may cause duplicate metrics to be exported
 - Custom collectors do not work (e.g. cpu and memory metrics)
@@ -21,7 +21,7 @@ This comes with a number of limitations:
 - Exemplars are not supported
 - Remove and Clear of labels are currently not supported in multiprocess mode.
 
-There's several steps to getting this working:
+There are several steps to getting this working:
 
 **1. Deployment**:
 
@@ -93,3 +93,12 @@ from prometheus_client import Gauge
 # Example gauge
 IN_PROGRESS = Gauge("inprogress_requests", "help", multiprocess_mode='livesum')
 ```
+
+---
+### Note for Windows/WSL users
+
+In WSL, setting `PROMETHEUS_MULTIPROC_DIR` to a Windows-mounted path (e.g., `/mnt/c`) may cause data to be written 
+starting at offset `0x00010000` instead of the expected `0x00000000`, preventing metric collection.  This is due to
+differences in how Windows mounted filesystems handle a `truncate(_INITIAL_MMAP_SIZE)` call. Set 
+`PROMETHEUS_MULTIPROC_DIR` to a Linux-native file system (e.g., `/tmp` or `/home/user`) to ensure correct metric file
+writes.  See [issue #1126](https://github.com/prometheus/client_python/issues/1126) for more details.
