@@ -72,7 +72,7 @@ def generate_latest(registry, escaping=UNDERSCORES, version="1.0.0"):
                 if escaping == ALLOWUTF8 and not _is_valid_legacy_metric_name(s.name):
                     labelstr = escape_metric_name(s.name, escaping)
                     if s.labels:
-                        labelstr += ', '
+                        labelstr += ','
                 else:
                     labelstr = ''
 
