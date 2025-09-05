@@ -169,7 +169,7 @@ nhsp {count:4,sum:6,schema:3,zero_threshold:2.938735877055719e-39,zero_count:1,p
         self.custom_collector(hfm)
         self.assertEqual(b"""# HELP "native{histogram" Is a basic example of a native histogram
 # TYPE "native{histogram" histogram
-{"native{histogram", "xx{} # {}"=" EOF # {}}}"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,negative_spans:[0:2,1:2],negative_deltas:[2,1,-2,3],positive_spans:[0:2,1:2],positive_deltas:[2,1,-3,3]}
+{"native{histogram","xx{} # {}"=" EOF # {}}}"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,negative_spans:[0:2,1:2],negative_deltas:[2,1,-2,3],positive_spans:[0:2,1:2],positive_deltas:[2,1,-3,3]}
 # EOF
 """, generate_latest(self.registry, ALLOWUTF8, version="2.0.0"))
 
@@ -189,7 +189,7 @@ hist_w_labels{baz="qux",foo="bar"} {count:24,sum:100,schema:0,zero_threshold:0.0
         self.custom_collector(hfm)
         self.assertEqual(b"""# HELP "hist.w.labels" Is a basic example of a native histogram with labels
 # TYPE "hist.w.labels" histogram
-{"hist.w.labels", baz="qux",foo="bar"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,negative_spans:[0:2,1:2],negative_deltas:[2,1,-2,3],positive_spans:[0:2,1:2],positive_deltas:[2,1,-3,3]}
+{"hist.w.labels",baz="qux",foo="bar"} {count:24,sum:100,schema:0,zero_threshold:0.001,zero_count:4,negative_spans:[0:2,1:2],negative_deltas:[2,1,-2,3],positive_spans:[0:2,1:2],positive_deltas:[2,1,-3,3]}
 # EOF
 """, generate_latest(self.registry, ALLOWUTF8, version="2.0.0"))
 
