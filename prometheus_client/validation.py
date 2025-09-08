@@ -16,7 +16,6 @@ _legacy_validation = _init_legacy_validation()
 
 def get_legacy_validation() -> bool:
     """Return the current status of the legacy validation setting."""
-    global _legacy_validation
     return _legacy_validation
 
 
@@ -39,7 +38,6 @@ def _validate_metric_name(name: str) -> None:
     """
     if not name:
         raise ValueError("metric name cannot be empty")
-    global _legacy_validation
     if _legacy_validation:
         if not METRIC_NAME_RE.match(name):
             raise ValueError("invalid metric name " + name)
@@ -63,7 +61,6 @@ def _validate_metric_label_name_token(tok: str) -> None:
     """
     if not tok:
         raise ValueError("invalid label name token " + tok)
-    global _legacy_validation
     quoted = tok[0] == '"' and tok[-1] == '"'
     if not quoted or _legacy_validation:
         if not METRIC_LABEL_NAME_RE.match(tok):
