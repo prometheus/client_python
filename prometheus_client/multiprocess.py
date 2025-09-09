@@ -2,13 +2,12 @@ from collections import defaultdict
 import glob
 import json
 import os
-import warnings
 
 from .metrics import Gauge
 from .metrics_core import Metric
 from .mmap_dict import MmapedDict
 from .samples import Sample
-from .utils import floatToGoString
+from .utils import _getMultiprocDir, floatToGoString
 
 try:  # Python3
     FileNotFoundError
@@ -16,16 +15,13 @@ except NameError:  # Python >= 2.5
     FileNotFoundError = IOError
 
 
+
 class MultiProcessCollector:
     """Collector for files for multi-process mode."""
 
     def __init__(self, registry, path=None):
         if path is None:
-            # This deprecation warning can go away in a few releases when removing the compatibility
-            if 'prometheus_multiproc_dir' in os.environ and 'PROMETHEUS_MULTIPROC_DIR' not in os.environ:
-                os.environ['PROMETHEUS_MULTIPROC_DIR'] = os.environ['prometheus_multiproc_dir']
-                warnings.warn("prometheus_multiproc_dir variable has been deprecated in favor of the upper case naming PROMETHEUS_MULTIPROC_DIR", DeprecationWarning)
-            path = os.environ.get('PROMETHEUS_MULTIPROC_DIR')
+            path = _getMultiprocDir()
         if not path or not os.path.isdir(path):
             raise ValueError('env PROMETHEUS_MULTIPROC_DIR is not set or not a directory')
         self._path = path
@@ -164,7 +160,7 @@ _LIVE_GAUGE_MULTIPROCESS_MODES = {m for m in Gauge._MULTIPROC_MODES if m.startsw
 def mark_process_dead(pid, path=None):
     """Do bookkeeping for when one process dies in a multi-process setup."""
     if path is None:
-        path = os.environ.get('PROMETHEUS_MULTIPROC_DIR', os.environ.get('prometheus_multiproc_dir'))
+        path = _getMultiprocDir()
     for mode in _LIVE_GAUGE_MULTIPROCESS_MODES:
         for f in glob.glob(os.path.join(path, f'gauge_{mode}_{pid}.db')):
             os.remove(f)

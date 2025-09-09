@@ -1,8 +1,8 @@
 import os
 from threading import Lock
-import warnings
 
 from .mmap_dict import mmap_key, MmapedDict
+from .utils import _getMultiprocDir
 
 
 class MutexValue:
@@ -57,30 +57,27 @@ def MultiProcessValue(process_identifier=os.getpid):
 
         _multiprocess = True
 
-        def __init__(self, typ, metric_name, name, labelnames, labelvalues, help_text, multiprocess_mode='', **kwargs):
-            self._params = typ, metric_name, name, labelnames, labelvalues, help_text, multiprocess_mode
-            # This deprecation warning can go away in a few releases when removing the compatibility
-            if 'prometheus_multiproc_dir' in os.environ and 'PROMETHEUS_MULTIPROC_DIR' not in os.environ:
-                os.environ['PROMETHEUS_MULTIPROC_DIR'] = os.environ['prometheus_multiproc_dir']
-                warnings.warn("prometheus_multiproc_dir variable has been deprecated in favor of the upper case naming PROMETHEUS_MULTIPROC_DIR", DeprecationWarning)
+        def __init__(self, typ, metric_name, name, labelnames, labelvalues, help_text, multiprocess_mode='', multiprocess_dir='', **kwargs):
+            self._params = typ, metric_name, name, labelnames, labelvalues, help_text, multiprocess_mode, multiprocess_dir or _getMultiprocDir()
             with lock:
                 self.__check_for_pid_change()
                 self.__reset()
                 values.append(self)
 
         def __reset(self):
-            typ, metric_name, name, labelnames, labelvalues, help_text, multiprocess_mode = self._params
+            typ, metric_name, name, labelnames, labelvalues, help_text, multiprocess_mode, multiprocess_dir = self._params
             if typ == 'gauge':
-                file_prefix = typ + '_' + multiprocess_mode
+                file_name = '{}_{}.db'.format('_'.join([typ, multiprocess_mode]), pid['value'])
             else:
-                file_prefix = typ
-            if file_prefix not in files:
-                filename = os.path.join(
-                    os.environ.get('PROMETHEUS_MULTIPROC_DIR'),
-                    '{}_{}.db'.format(file_prefix, pid['value']))
-
-                files[file_prefix] = MmapedDict(filename)
-            self._file = files[file_prefix]
+                file_name = '{}_{}.db'.format(typ, pid['value'])
+            file_identifier = '_'.join([multiprocess_dir, file_name])
+            if file_identifier not in files:
+                os_file = os.path.join(
+                    multiprocess_dir,
+                    file_name
+                )
+                files[file_identifier] = MmapedDict(os_file)
+            self._file = files[file_identifier]
             self._key = mmap_key(metric_name, name, labelnames, labelvalues, help_text)
             self._value, self._timestamp = self._file.read_value(self._key)
 
@@ -130,7 +127,7 @@ def get_value_class():
     # This needs to be chosen before the first metric is constructed,
     # and as that may be in some arbitrary library the user/admin has
     # no control over we use an environment variable.
-    if 'prometheus_multiproc_dir' in os.environ or 'PROMETHEUS_MULTIPROC_DIR' in os.environ:
+    if _getMultiprocDir():
         return MultiProcessValue()
     else:
         return MutexValue

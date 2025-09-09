@@ -1,4 +1,5 @@
 import math
+import os
 
 INF = float("inf")
 MINUS_INF = float("-inf")
@@ -22,3 +23,8 @@ def floatToGoString(d):
             mantissa = f'{s[0]}.{s[1:dot]}{s[dot + 1:]}'.rstrip('0.')
             return f'{mantissa}e+0{dot - 1}'
         return s
+
+
+
+def _getMultiprocDir() -> str:
+    return os.environ.get('PROMETHEUS_MULTIPROC_DIR', '') or os.environ.get('prometheus_multiproc_dir', '')
