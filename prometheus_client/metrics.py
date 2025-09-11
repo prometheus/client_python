@@ -203,6 +203,39 @@ class MetricWrapperBase(Collector):
             if labelvalues in self._metrics:
                 del self._metrics[labelvalues]
 
+    def remove_by_labels(self, labels: dict[str, str]) -> None:
+        """Remove all series whose labelset partially matches the given labels."""
+        if 'prometheus_multiproc_dir' in os.environ or 'PROMETHEUS_MULTIPROC_DIR' in os.environ:
+            warnings.warn(
+                "Removal of labels has not been implemented in  multi-process mode yet.",
+                UserWarning
+            )
+
+        if not self._labelnames:
+            raise ValueError('No label names were set when constructing %s' % self)
+        
+        if not isinstance(labels, dict):
+            raise TypeError("labels must be a dict of {label_name: label_value}")
+    
+        if not labels:
+            return  # no operation
+    
+        invalid = [k for k in labels.keys() if k not in self._labelnames]
+        if invalid:
+            raise ValueError(
+                'Unknown label names: %s; expected %s' % (invalid, self._labelnames)
+            )
+        
+        pos_filter = {self._labelnames.index(k): str(v) for k, v in labels.items()}
+
+        with self._lock:
+            # list(...) to avoid "dictionary changed size during iteration"
+            for lv in list(self._metrics.keys()):
+                if all(lv[pos] == want for pos, want in pos_filter.items()):
+                    # pop with default avoids KeyError if concurrently removed
+                    self._metrics.pop(lv, None)
+        
+
     def clear(self) -> None:
         """Remove all labelsets from the metric"""
         if 'prometheus_multiproc_dir' in os.environ or 'PROMETHEUS_MULTIPROC_DIR' in os.environ:
