@@ -121,7 +121,6 @@ a 1
 """)
         self.assertEqualMetrics([CounterMetricFamily("a", "help", value=1)], list(families))
 
-
     def test_comments_parts_are_not_validated_against_legacy_metric_name(self):
         # https://github.com/prometheus/client_python/issues/1108
         families = text_string_to_metric_families("""
@@ -130,7 +129,12 @@ a 1
 """)
         self.assertEqualMetrics([], list(families))
 
-
+    def test_extra_whitespace(self):
+        families = text_string_to_metric_families("""# TYPE  a  counter
+# HELP  a  help
+a  1
+""")
+        self.assertEqualMetrics([CounterMetricFamily("a", "help", value=1)], list(families))
 
     def test_tabs(self):
         families = text_string_to_metric_families("""#\tTYPE\ta\tcounter

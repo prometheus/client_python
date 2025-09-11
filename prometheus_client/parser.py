@@ -186,6 +186,12 @@ def _split_quoted(text, separator, maxsplit=0):
             tokens[-1] = text[x:]
             x = len(text)
             continue
+        # If the first character is the separator keep going. This happens when
+        # there are double whitespace characters separating symbols.
+        if split_pos == x:
+            x += 1
+            continue
+
         if maxsplit > 0 and len(tokens) > maxsplit:
             tokens[-1] = text[x:]
             break
