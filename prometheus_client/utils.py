@@ -1,4 +1,5 @@
 import math
+from typing import Union
 
 INF = float("inf")
 MINUS_INF = float("-inf")
@@ -22,3 +23,14 @@ def floatToGoString(d):
             mantissa = f'{s[0]}.{s[1:dot]}{s[dot + 1:]}'.rstrip('0.')
             return f'{mantissa}e+0{dot - 1}'
         return s
+
+
+def parse_version(version_str: str) -> tuple[Union[int, str], ...]:
+    version: list[Union[int, str]] = []
+    for part in version_str.split('.'):
+        try:
+            version.append(int(part))
+        except ValueError:
+            version.append(part)
+
+    return tuple(version)
