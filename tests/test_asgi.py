@@ -45,7 +45,7 @@ class ASGITest(TestCase):
 
     def tearDown(self):
         if self.communicator:
-            asyncio.get_event_loop().run_until_complete(
+            asyncio.new_event_loop().run_until_complete(
                 self.communicator.wait()
             )
             
@@ -53,7 +53,7 @@ class ASGITest(TestCase):
         self.communicator = ApplicationCommunicator(app, self.scope)
 
     def send_input(self, payload):
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.new_event_loop().run_until_complete(
             self.communicator.send_input(payload)
         )
 
@@ -61,7 +61,7 @@ class ASGITest(TestCase):
         self.send_input({"type": "http.request", "body": b""})
 
     def get_output(self):
-        output = asyncio.get_event_loop().run_until_complete(
+        output = asyncio.new_event_loop().run_until_complete(
             self.communicator.receive_output(0)
         )
         return output
@@ -229,6 +229,6 @@ class ASGITest(TestCase):
 
                 self.assert_not_metrics(output, *metrics[i_2])
 
-            asyncio.get_event_loop().run_until_complete(
+            asyncio.new_event_loop().run_until_complete(
                 self.communicator.wait()
             )
