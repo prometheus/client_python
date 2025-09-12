@@ -18,11 +18,9 @@ from urllib.request import (
 )
 from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
 
-from packaging.version import Version
-
 from .openmetrics import exposition as openmetrics
 from .registry import CollectorRegistry, REGISTRY
-from .utils import floatToGoString
+from .utils import floatToGoString, parse_version
 
 __all__ = (
     'CONTENT_TYPE_LATEST',
@@ -346,7 +344,7 @@ def choose_encoder(accept_header: str) -> Tuple[Callable[[CollectorRegistry], by
             # mimetype.
             if not version:
                 return (partial(openmetrics.generate_latest, escaping=openmetrics.UNDERSCORES, version="1.0.0"), openmetrics.CONTENT_TYPE_LATEST)
-            if version and Version(version) >= Version('1.0.0'):
+            if version and parse_version(version) >= (1, 0, 0):
                 return (partial(openmetrics.generate_latest, escaping=escaping, version=version),
                         f'application/openmetrics-text; version={version}; charset=utf-8; escaping=' + str(escaping))
         elif accepted.split(';')[0].strip() == 'text/plain':
@@ -355,7 +353,7 @@ def choose_encoder(accept_header: str) -> Tuple[Callable[[CollectorRegistry], by
             escaping = _get_escaping(toks)
             # Only return an escaping header if we have a good version and
             # mimetype.
-            if version and Version(version) >= Version('1.0.0'):
+            if version and parse_version(version) >= (1, 0, 0):
                 return (partial(generate_latest, escaping=escaping),
                         CONTENT_TYPE_LATEST + '; escaping=' + str(escaping))
     return generate_latest, CONTENT_TYPE_PLAIN_0_0_4
