@@ -1,19 +1,11 @@
+import asyncio
 import gzip
-from unittest import skipUnless, TestCase
+from unittest import TestCase
 
-from prometheus_client import CollectorRegistry, Counter
+from asgiref.testing import ApplicationCommunicator
+
+from prometheus_client import CollectorRegistry, Counter, make_asgi_app
 from prometheus_client.exposition import CONTENT_TYPE_PLAIN_0_0_4
-
-try:
-    # Python >3.5 only
-    import asyncio
-
-    from asgiref.testing import ApplicationCommunicator
-
-    from prometheus_client import make_asgi_app
-    HAVE_ASYNCIO_AND_ASGI = True
-except ImportError:
-    HAVE_ASYNCIO_AND_ASGI = False
 
 
 def setup_testing_defaults(scope):
@@ -33,7 +25,6 @@ def setup_testing_defaults(scope):
 
 
 class ASGITest(TestCase):
-    @skipUnless(HAVE_ASYNCIO_AND_ASGI, "Don't have asyncio/asgi installed.")
     def setUp(self):
         self.registry = CollectorRegistry()
         self.captured_status = None
