@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "prometheus_client"
-version = "0.23.0"
+version = "0.23.1"
 description = "Python client for the Prometheus monitoring system."
 readme = "README.md"
 license = "Apache-2.0 AND BSD-2-Clause"
