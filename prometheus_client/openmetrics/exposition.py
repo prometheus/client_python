@@ -4,9 +4,7 @@ from io import StringIO
 from sys import maxunicode
 from typing import Callable
 
-from packaging.version import Version
-
-from ..utils import floatToGoString
+from ..utils import floatToGoString, parse_version
 from ..validation import (
     _is_valid_legacy_labelname, _is_valid_legacy_metric_name,
 )
@@ -94,7 +92,7 @@ def generate_latest(registry, escaping=UNDERSCORES, version="1.0.0"):
                     timestamp = f' {s.timestamp}'
                 
                 # Skip native histogram samples entirely if version < 2.0.0
-                if s.native_histogram and Version(version) < Version('2.0.0'):
+                if s.native_histogram and parse_version(version) < (2, 0, 0):
                     continue
                 
                 native_histogram = ''
