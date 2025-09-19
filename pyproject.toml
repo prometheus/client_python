@@ -43,6 +43,9 @@ classifiers = [
 twisted = [
     "twisted",
 ]
+aiohttp = [
+	"aiohttp",
+]
 
 [project.urls]
 Homepage = "https://github.com/prometheus/client_python"
