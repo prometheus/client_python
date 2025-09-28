@@ -63,10 +63,9 @@ class CollectorRegistry(Collector):
         except AttributeError:
             pass
         # Otherwise, if auto describe is enabled use the collect function.
-        if not desc_func and self._auto_describe:
-            desc_func = collector.collect
-
         if not desc_func:
+            if self._auto_describe:
+                desc_func = collector.collect
             return []
 
         result = []
