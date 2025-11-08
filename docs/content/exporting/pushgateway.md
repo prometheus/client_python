@@ -54,6 +54,20 @@ g.set_to_current_time()
 push_to_gateway('localhost:9091', job='batchA', registry=registry, handler=my_auth_handler)
 ```
 
+# Compressing data before sending to pushgateway
+Pushgateway (version >= 1.5.0) supports gzip and snappy compression (v > 1.6.0). This can help in network constrained environments.
+To compress a push request, set the `compression` argument to `'gzip'` or `'snappy'`:
+```python
+push_to_gateway(
+    'localhost:9091',
+    job='batchA',
+    registry=registry,
+    handler=my_auth_handler,
+    compression='gzip',
+)
+```
+Snappy compression requires the optional [`python-snappy`](https://github.com/andrix/python-snappy) package.
+
 TLS Auth is also supported when using the push gateway with a special handler.
 
 ```python
