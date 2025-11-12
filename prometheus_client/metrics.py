@@ -176,13 +176,21 @@ class MetricWrapperBase(Collector):
             labelvalues = tuple(str(l) for l in labelvalues)
         with self._lock:
             if labelvalues not in self._metrics:
+
+                child_kwargs = dict(self._kwargs) if self._kwargs else {}
+
+                for k in ('namespace', 'subsystem', 'unit'):
+                    child_kwargs.pop(k, None)
+
                 self._metrics[labelvalues] = self.__class__(
                     self._name,
                     documentation=self._documentation,
                     labelnames=self._labelnames,
-                    unit=self._unit,
+                    namespace="",
+                    subsystem="",  
+                    unit="",
                     _labelvalues=labelvalues,
-                    **self._kwargs
+                    **child_kwargs
                 )
             return self._metrics[labelvalues]
 

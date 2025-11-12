@@ -396,6 +396,77 @@ class TestMultiProcess(unittest.TestCase):
             assert "Removal of labels has not been implemented" in str(w[0].message)
             assert issubclass(w[-1].category, UserWarning)
             assert "Clearing labels has not been implemented" in str(w[-1].message)
+    
+    def test_child_name_is_built_once_with_namespace_subsystem_unit(self):
+        """
+        Repro for #1035:
+        In multiprocess mode, child metrics must NOT rebuild the full name
+        (namespace/subsystem/unit) a second time. The exported family name should
+        be built once, and Counter samples should use "<family>_total".
+        """
+        from prometheus_client import Counter
+
+        class CustomCounter(Counter):
+            def __init__(
+                self, 
+                name, 
+                documentation, 
+                labelnames=(),
+                namespace="mydefaultnamespace", 
+                subsystem="mydefaultsubsystem",
+                unit="", 
+                registry=None, 
+                _labelvalues=None
+            ):
+                # Intentionally provide non-empty defaults to trigger the bug path.
+                super().__init__(
+                    name=name, 
+                    documentation=documentation,
+                    labelnames=labelnames, 
+                    namespace=namespace,
+                    subsystem=subsystem, 
+                    unit=unit, 
+                    registry=registry,
+                    _labelvalues=_labelvalues)
+
+        # Create a Counter with explicit namespace/subsystem/unit
+        c = CustomCounter(
+            name='m',
+            documentation='help',
+            labelnames=('status', 'method'),
+            namespace='ns',
+            subsystem='ss',
+            unit='seconds',   # avoid '_total_total' confusion
+            registry=None,    # not registered in local registry in multiprocess mode
+        )
+
+        # Create two labeled children
+        c.labels(status='200', method='GET').inc()
+        c.labels(status='404', method='POST').inc()
+
+        # Collect from the multiprocess collector initialized in setUp()
+        metrics = {m.name: m for m in self.collector.collect()}
+
+        # Family name should be built once (no '_total' in family name)
+        expected_family = 'ns_ss_m_seconds'
+        self.assertIn(expected_family, metrics, f"missing family {expected_family}")
+
+        # Counter samples must use '<family>_total'
+        mf = metrics[expected_family]
+        sample_names = {s.name for s in mf.samples}
+        self.assertTrue(
+            all(name == expected_family + '_total' for name in sample_names),
+            f"unexpected sample names: {sample_names}"
+        )
+
+        # Ensure no double-built prefix sneaks in (the original bug)
+        bad_prefix = 'mydefaultnamespace_mydefaultsubsystem_'
+        all_names = {mf.name, *sample_names}
+        self.assertTrue(
+            all(not n.startswith(bad_prefix) for n in all_names),
+            f"found double-built name(s): {[n for n in all_names if n.startswith(bad_prefix)]}"
+        )
+
 
 
 class TestMmapedDict(unittest.TestCase):
