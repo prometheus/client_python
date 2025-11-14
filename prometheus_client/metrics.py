@@ -109,6 +109,10 @@ class MetricWrapperBase(Collector):
                  registry: Optional[CollectorRegistry] = REGISTRY,
                  _labelvalues: Optional[Sequence[str]] = None,
                  ) -> None:
+
+        self._original_name = name
+        self._namespace = namespace
+        self._subsystem = subsystem
         self._name = _build_full_name(self._type, name, namespace, subsystem, unit)
         self._labelnames = _validate_labelnames(self, labelnames)
         self._labelvalues = tuple(_labelvalues or ())
@@ -177,18 +181,22 @@ class MetricWrapperBase(Collector):
         with self._lock:
             if labelvalues not in self._metrics:
 
-                child_kwargs = dict(self._kwargs) if self._kwargs else {}
+                original_name = getattr(self, '_original_name', self._name)
+                namespace = getattr(self, '_namespace', '')
+                subsystem = getattr(self, '_subsystem', '')
+                unit = getattr(self, '_unit', '')
 
+                child_kwargs = dict(self._kwargs) if self._kwargs else {}
                 for k in ('namespace', 'subsystem', 'unit'):
                     child_kwargs.pop(k, None)
 
                 self._metrics[labelvalues] = self.__class__(
-                    self._name,
+                    original_name,
                     documentation=self._documentation,
                     labelnames=self._labelnames,
-                    namespace="",
-                    subsystem="",  
-                    unit="",
+                    namespace=namespace,
+                    subsystem=subsystem,
+                    unit=unit,
                     _labelvalues=labelvalues,
                     **child_kwargs
                 )

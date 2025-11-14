@@ -467,6 +467,45 @@ class TestMultiProcess(unittest.TestCase):
             f"found double-built name(s): {[n for n in all_names if n.startswith(bad_prefix)]}"
         )
 
+    def test_child_preserves_parent_context_for_subclasses(self):
+        """
+        Ensure child metrics preserve parent's namespace/subsystem/unit information
+        so that subclasses can correctly use these parameters in their logic.
+        """
+        class ContextAwareCounter(Counter):
+            def __init__(self,
+                         name,
+                         documentation,
+                         labelnames=(),
+                         namespace="",
+                         subsystem="",
+                         unit="",
+                         **kwargs):
+                self.context = {
+                    'namespace': namespace,
+                    'subsystem': subsystem,
+                    'unit': unit
+                }
+                super().__init__(name, documentation,
+                                 labelnames=labelnames,
+                                 namespace=namespace,
+                                 subsystem=subsystem,
+                                 unit=unit,
+                                 **kwargs)
+
+        parent = ContextAwareCounter('m', 'help',
+                                     labelnames=['status'],
+                                     namespace='prod',
+                                     subsystem='api',
+                                     unit='seconds',
+                                     registry=None)
+
+        child = parent.labels(status='200')
+
+        # Verify that child retains parent's context
+        self.assertEqual(child.context['namespace'], 'prod')
+        self.assertEqual(child.context['subsystem'], 'api')
+        self.assertEqual(child.context['unit'], 'seconds')
 
 
 class TestMmapedDict(unittest.TestCase):
