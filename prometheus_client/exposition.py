@@ -9,7 +9,9 @@ from socketserver import ThreadingMixIn
 import ssl
 import sys
 import threading
-from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Tuple, Union
+from typing import (
+    Any, Callable, Dict, List, Literal, Optional, Sequence, Tuple, Union,
+)
 from urllib.error import HTTPError
 from urllib.parse import parse_qs, quote_plus, urlparse
 from urllib.request import (
@@ -23,7 +25,7 @@ from .registry import CollectorRegistry, REGISTRY
 from .utils import floatToGoString, parse_version
 
 try:
-    import snappy # type: ignore
+    import snappy  # type: ignore
     SNAPPY_AVAILABLE = True
 except ImportError:
     snappy = None  # type: ignore
