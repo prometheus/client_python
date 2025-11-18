@@ -23,7 +23,7 @@ from .registry import CollectorRegistry, REGISTRY
 from .utils import floatToGoString, parse_version
 
 try:
-    import snappy
+    import snappy # type: ignore
     SNAPPY_AVAILABLE = True
 except ImportError:
     snappy = None  # type: ignore
@@ -737,14 +737,17 @@ def _use_gateway(
         for k, v in sorted(grouping_key.items()))
 
     data = b''
-    headers = []
+    headers: List[Tuple[str, str]] = []
     if method != 'DELETE':
         if registry is None:
             registry = REGISTRY
         data = generate_latest(registry)
         data, headers = _compress_payload(data, compression)
-    elif compression is not None:
-        raise ValueError('Compression is not supported for DELETE requests.')
+    else:
+        # DELETE requests still need Content-Type header per test expectations
+        headers = [('Content-Type', CONTENT_TYPE_PLAIN_0_0_4)]
+        if compression is not None:
+            raise ValueError('Compression is not supported for DELETE requests.')
 
     handler(
         url=url, method=method, timeout=timeout,
