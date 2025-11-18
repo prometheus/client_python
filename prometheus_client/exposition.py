@@ -9,7 +9,7 @@ from socketserver import ThreadingMixIn
 import ssl
 import sys
 import threading
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union, Literal
+from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Tuple, Union
 from urllib.error import HTTPError
 from urllib.parse import parse_qs, quote_plus, urlparse
 from urllib.request import (
@@ -21,6 +21,13 @@ from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
 from .openmetrics import exposition as openmetrics
 from .registry import CollectorRegistry, REGISTRY
 from .utils import floatToGoString, parse_version
+
+try:
+    import snappy
+    SNAPPY_AVAILABLE = True
+except ImportError:
+    snappy = None  # type: ignore
+    SNAPPY_AVAILABLE = False
 
 __all__ = (
     'CONTENT_TYPE_LATEST',
@@ -730,7 +737,7 @@ def _use_gateway(
         for k, v in sorted(grouping_key.items()))
 
     data = b''
-    headers = [('Content-Type', CONTENT_TYPE_PLAIN_0_0_4)]
+    headers = []
     if method != 'DELETE':
         if registry is None:
             registry = REGISTRY
@@ -755,10 +762,8 @@ def _compress_payload(data: bytes, compression: CompressionType) -> Tuple[bytes,
         headers.append(('Content-Encoding', 'gzip'))
         return gzip.compress(data), headers
     if encoding == 'snappy':
-        try:
-            import snappy
-        except ImportError as exc:
-            raise RuntimeError('Snappy compression requires the python-snappy package to be installed.') from exc
+        if not SNAPPY_AVAILABLE:
+            raise RuntimeError('Snappy compression requires the python-snappy package to be installed.')
         headers.append(('Content-Encoding', 'snappy'))
         compressor = snappy.StreamCompressor()
         compressed = compressor.compress(data)
