@@ -223,3 +223,32 @@ class ASGITest(TestCase):
             asyncio.new_event_loop().run_until_complete(
                 self.communicator.wait()
             )
+
+    def test_qs_parsing_multi(self):
+        """Only metrics that match the 'name[]' query string param appear"""
+
+        app = make_asgi_app(self.registry)
+        metrics = [
+            ("asdf", "first test metric", 1),
+            ("bsdf", "second test metric", 2),
+            ("csdf", "third test metric", 3)
+        ]
+
+        for m in metrics:
+            self.increment_metrics(*m)
+
+        self.seed_app(app)
+        self.scope['query_string'] = "&".join([f"name[]={m[0]}_total" for m in metrics[0:2]]).encode("utf-8")
+        self.send_default_request()
+
+        outputs = self.get_all_output()
+        response_body = outputs[1]
+        output = response_body['body'].decode('utf8')
+
+        self.assert_metrics(output, *metrics[0])
+        self.assert_metrics(output, *metrics[1])
+        self.assert_not_metrics(output, *metrics[2])
+
+        asyncio.new_event_loop().run_until_complete(
+            self.communicator.wait()
+        )

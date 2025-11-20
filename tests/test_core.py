@@ -1024,6 +1024,15 @@ class TestCollectorRegistry(unittest.TestCase):
         self.assertEqual([m], list(registry.restricted_registry(['s_sum']).collect()))
         mock_collector.collect.assert_not_called()
 
+    def test_restricted_registry_collects_no_names_collectors(self):
+        from unittest.mock import MagicMock
+        registry = CollectorRegistry()
+        mock_collector = MagicMock()
+        mock_collector.describe.return_value = []
+        registry.register(mock_collector)
+        self.assertEqual(list(registry.restricted_registry(['metric']).collect()), [])
+        mock_collector.collect.assert_called()
+
     def test_restricted_registry_does_not_yield_while_locked(self):
         registry = CollectorRegistry(target_info={'foo': 'bar'})
         Summary('s', 'help', registry=registry).observe(7)

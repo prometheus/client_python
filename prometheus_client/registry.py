@@ -33,6 +33,7 @@ class CollectorRegistry(Collector):
         self._lock = Lock()
         self._target_info: Optional[Dict[str, str]] = {}
         self.set_target_info(target_info)
+        self._collectors_with_no_names: List[Collector] = []
 
     def register(self, collector: Collector) -> None:
         """Add a collector to the registry."""
@@ -46,6 +47,8 @@ class CollectorRegistry(Collector):
             for name in names:
                 self._names_to_collectors[name] = collector
             self._collector_to_names[collector] = names
+            if not names:
+                self._collectors_with_no_names.append(collector)
 
     def unregister(self, collector: Collector) -> None:
         """Remove a collector from the registry."""
@@ -148,7 +151,7 @@ class RestrictedRegistry:
         self._registry = registry
 
     def collect(self) -> Iterable[Metric]:
-        collectors = set()
+        collectors = set(self._registry._collectors_with_no_names)
         target_info_metric = None
         with self._registry._lock:
             if 'target_info' in self._name_set and self._registry._target_info:
