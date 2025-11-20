@@ -19,7 +19,7 @@ from urllib.request import (
 from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
 
 from .openmetrics import exposition as openmetrics
-from .registry import CollectorRegistry, REGISTRY
+from .registry import Collector, REGISTRY
 from .utils import floatToGoString, parse_version
 
 __all__ = (
@@ -118,7 +118,7 @@ def _bake_output(registry, accept_header, accept_encoding_header, params, disabl
     return '200 OK', headers, output
 
 
-def make_wsgi_app(registry: CollectorRegistry = REGISTRY, disable_compression: bool = False) -> Callable:
+def make_wsgi_app(registry: Collector = REGISTRY, disable_compression: bool = False) -> Callable:
     """Create a WSGI app which serves the metrics from a registry."""
 
     def prometheus_app(environ, start_response):
@@ -223,7 +223,7 @@ def _get_ssl_ctx(
 def start_wsgi_server(
         port: int,
         addr: str = '0.0.0.0',
-        registry: CollectorRegistry = REGISTRY,
+        registry: Collector = REGISTRY,
         certfile: Optional[str] = None,
         keyfile: Optional[str] = None,
         client_cafile: Optional[str] = None,
@@ -252,12 +252,12 @@ def start_wsgi_server(
 start_http_server = start_wsgi_server
 
 
-def generate_latest(registry: CollectorRegistry = REGISTRY, escaping: str = openmetrics.UNDERSCORES) -> bytes:
+def generate_latest(registry: Collector = REGISTRY, escaping: str = openmetrics.UNDERSCORES) -> bytes:
     """
     Generates the exposition format using the basic Prometheus text format.
 
     Params:
-        registry: CollectorRegistry to export data from.
+        registry: Collector to export data from.
         escaping: Escaping scheme used for metric and label names.
 
     Returns: UTF-8 encoded string containing the metrics in text format.
@@ -330,7 +330,7 @@ def generate_latest(registry: CollectorRegistry = REGISTRY, escaping: str = open
     return ''.join(output).encode('utf-8')
 
 
-def choose_encoder(accept_header: str) -> Tuple[Callable[[CollectorRegistry], bytes], str]:
+def choose_encoder(accept_header: str) -> Tuple[Callable[[Collector], bytes], str]:
     # Python client library accepts a narrower range of content-types than
     # Prometheus does.
     accept_header = accept_header or ''
@@ -408,7 +408,7 @@ def gzip_accepted(accept_encoding_header: str) -> bool:
 
 class MetricsHandler(BaseHTTPRequestHandler):
     """HTTP handler that gives metrics from ``REGISTRY``."""
-    registry: CollectorRegistry = REGISTRY
+    registry: Collector = REGISTRY
 
     def do_GET(self) -> None:
         # Prepare parameters
@@ -429,7 +429,7 @@ class MetricsHandler(BaseHTTPRequestHandler):
         """Log nothing."""
 
     @classmethod
-    def factory(cls, registry: CollectorRegistry) -> type:
+    def factory(cls, registry: Collector) -> type:
         """Returns a dynamic MetricsHandler class tied
            to the passed registry.
         """
@@ -444,7 +444,7 @@ class MetricsHandler(BaseHTTPRequestHandler):
         return MyMetricsHandler
 
 
-def write_to_textfile(path: str, registry: CollectorRegistry, escaping: str = openmetrics.ALLOWUTF8, tmpdir: Optional[str] = None) -> None:
+def write_to_textfile(path: str, registry: Collector, escaping: str = openmetrics.ALLOWUTF8, tmpdir: Optional[str] = None) -> None:
     """Write metrics to the given path.
 
     This is intended for use with the Node exporter textfile collector.
@@ -592,7 +592,7 @@ def tls_auth_handler(
 def push_to_gateway(
         gateway: str,
         job: str,
-        registry: CollectorRegistry,
+        registry: Collector,
         grouping_key: Optional[Dict[str, Any]] = None,
         timeout: Optional[float] = 30,
         handler: Callable = default_handler,
@@ -603,7 +603,7 @@ def push_to_gateway(
               'http://pushgateway.local', or 'pushgateway.local'.
               Scheme defaults to 'http' if none is provided
     `job` is the job label to be attached to all pushed metrics
-    `registry` is an instance of CollectorRegistry
+    `registry` is a Collector, normally an instance of CollectorRegistry
     `grouping_key` please see the pushgateway documentation for details.
                    Defaults to None
     `timeout` is how long push will attempt to connect before giving up.
@@ -641,7 +641,7 @@ def push_to_gateway(
 def pushadd_to_gateway(
         gateway: str,
         job: str,
-        registry: Optional[CollectorRegistry],
+        registry: Optional[Collector],
         grouping_key: Optional[Dict[str, Any]] = None,
         timeout: Optional[float] = 30,
         handler: Callable = default_handler,
@@ -652,7 +652,7 @@ def pushadd_to_gateway(
               'http://pushgateway.local', or 'pushgateway.local'.
               Scheme defaults to 'http' if none is provided
     `job` is the job label to be attached to all pushed metrics
-    `registry` is an instance of CollectorRegistry
+    `registry` is a Collector, normally an instance of CollectorRegistry
     `grouping_key` please see the pushgateway documentation for details.
                    Defaults to None
     `timeout` is how long push will attempt to connect before giving up.
@@ -702,7 +702,7 @@ def _use_gateway(
         method: str,
         gateway: str,
         job: str,
-        registry: Optional[CollectorRegistry],
+        registry: Optional[Collector],
         grouping_key: Optional[Dict[str, Any]],
         timeout: Optional[float],
         handler: Callable,

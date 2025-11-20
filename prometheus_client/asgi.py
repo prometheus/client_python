@@ -2,10 +2,10 @@ from typing import Callable
 from urllib.parse import parse_qs
 
 from .exposition import _bake_output
-from .registry import CollectorRegistry, REGISTRY
+from .registry import Collector, REGISTRY
 
 
-def make_asgi_app(registry: CollectorRegistry = REGISTRY, disable_compression: bool = False) -> Callable:
+def make_asgi_app(registry: Collector = REGISTRY, disable_compression: bool = False) -> Callable:
     """Create a ASGI app which serves the metrics from a registry."""
 
     async def prometheus_app(scope, receive, send):

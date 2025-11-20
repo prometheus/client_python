@@ -1,24 +1,21 @@
-from abc import ABC, abstractmethod
 import copy
 from threading import Lock
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Protocol
 
 from .metrics_core import Metric
 
 
-# Ideally this would be a Protocol, but Protocols are only available in Python >= 3.8.
-class Collector(ABC):
-    @abstractmethod
+class Collector(Protocol):
     def collect(self) -> Iterable[Metric]:
-        pass
+        """Collect metrics."""
 
 
-class _EmptyCollector(Collector):
+class _EmptyCollector:
     def collect(self) -> Iterable[Metric]:
         return []
 
 
-class CollectorRegistry(Collector):
+class CollectorRegistry:
     """Metric collector registry.
 
     Collectors must have a no-argument method 'collect' that returns a list of
