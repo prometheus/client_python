@@ -88,32 +88,42 @@ class MultiProcessCollector:
     @staticmethod
     def _accumulate_metrics(metrics, accumulate):
         for metric in metrics.values():
-            samples = defaultdict(float)
-            sample_timestamps = defaultdict(float)
+            samples = defaultdict(lambda: defaultdict(float))
+            sample_timestamps = defaultdict(lambda: defaultdict(float))
             buckets = defaultdict(lambda: defaultdict(float))
-            samples_setdefault = samples.setdefault
             for s in metric.samples:
                 name, labels, value, timestamp, exemplar, native_histogram_value = s
+
+                if (
+                    metric.type == 'gauge'
+                    and metric._multiprocess_mode in (
+                        'min', 'livemin',
+                        'max', 'livemax',
+                        'sum', 'livesum',
+                        'mostrecent', 'livemostrecent',
+                    )
+                ):
+                    labels = tuple(l for l in labels if l[0] != 'pid')
+
                 if metric.type == 'gauge':
-                    without_pid_key = (name, tuple(l for l in labels if l[0] != 'pid'))
                     if metric._multiprocess_mode in ('min', 'livemin'):
-                        current = samples_setdefault(without_pid_key, value)
+                        current = samples[labels].setdefault((name, labels), value)
                         if value < current:
-                            samples[without_pid_key] = value
+                            samples[labels][(name, labels)] = value
                     elif metric._multiprocess_mode in ('max', 'livemax'):
-                        current = samples_setdefault(without_pid_key, value)
+                        current = samples[labels].setdefault((name, labels), value)
                         if value > current:
-                            samples[without_pid_key] = value
+                            samples[labels][(name, labels)] = value
                     elif metric._multiprocess_mode in ('sum', 'livesum'):
-                        samples[without_pid_key] += value
+                        samples[labels][(name, labels)] += value
                     elif metric._multiprocess_mode in ('mostrecent', 'livemostrecent'):
-                        current_timestamp = sample_timestamps[without_pid_key]
+                        current_timestamp = sample_timestamps[labels][name]
                         timestamp = float(timestamp or 0)
                         if current_timestamp < timestamp:
-                            samples[without_pid_key] = value
-                            sample_timestamps[without_pid_key] = timestamp
+                            samples[labels][(name, labels)] = value
+                            sample_timestamps[labels][name] = timestamp
                     else:  # all/liveall
-                        samples[(name, labels)] = value
+                        samples[labels][(name, labels)] = value
 
                 elif metric.type == 'histogram':
                     # A for loop with early exit is faster than a genexpr
@@ -127,10 +137,10 @@ class MultiProcessCollector:
                             break
                     else:  # did not find the `le` key
                         # _sum/_count
-                        samples[(name, labels)] += value
+                        samples[labels][(name, labels)] += value
                 else:
                     # Counter and Summary.
-                    samples[(name, labels)] += value
+                    samples[labels][(name, labels)] += value
 
             # Accumulate bucket values.
             if metric.type == 'histogram':
@@ -143,14 +153,17 @@ class MultiProcessCollector:
                         )
                         if accumulate:
                             acc += value
-                            samples[sample_key] = acc
+                            samples[labels][sample_key] = acc
                         else:
-                            samples[sample_key] = value
+                            samples[labels][sample_key] = value
                     if accumulate:
-                        samples[(metric.name + '_count', labels)] = acc
+                        samples[labels][(metric.name + '_count', labels)] = acc
 
             # Convert to correct sample format.
-            metric.samples = [Sample(name_, dict(labels), value) for (name_, labels), value in samples.items()]
+            metric.samples = []
+            for _, samples_by_labels in samples.items():
+                for (name_, labels), value in samples_by_labels.items():
+                    metric.samples.append(Sample(name_, dict(labels), value))
         return metrics.values()
 
     def collect(self):
