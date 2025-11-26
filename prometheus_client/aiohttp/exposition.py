@@ -4,11 +4,11 @@ from aiohttp import hdrs, web
 from aiohttp.typedefs import Handler
 
 from ..exposition import _bake_output
-from ..registry import CollectorRegistry, REGISTRY
+from ..registry import Collector, REGISTRY
 
 
 def make_aiohttp_handler(
-    registry: CollectorRegistry = REGISTRY,
+    registry: Collector = REGISTRY,
     disable_compression: bool = False,
 ) -> Handler:
     """Create a aiohttp handler which serves the metrics from a registry."""
