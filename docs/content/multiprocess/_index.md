@@ -13,7 +13,7 @@ This comes with a number of limitations:
 - Registries can not be used as normal
   - Registering metrics to a registry later used by a `MultiProcessCollector`
     may cause duplicate metrics to be exported
-  - Filtering on metrics works but is inefficient
+  - Filtering on metrics works but might be inefficient
 - Custom collectors do not work (e.g. cpu and memory metrics)
 - Gauges cannot use `set_function`
 - Info and Enum metrics do not work
@@ -50,7 +50,7 @@ MY_COUNTER = Counter('my_counter', 'Description of my counter')
 
 # Expose metrics.
 def app(environ, start_response):
-    registry = CollectorRegistry()
+    registry = CollectorRegistry(support_collectors_without_names=True)
     multiprocess.MultiProcessCollector(registry)
     data = generate_latest(registry)
     status = '200 OK'

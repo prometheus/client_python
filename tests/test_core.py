@@ -1024,9 +1024,18 @@ class TestCollectorRegistry(unittest.TestCase):
         self.assertEqual([m], list(registry.restricted_registry(['s_sum']).collect()))
         mock_collector.collect.assert_not_called()
 
-    def test_restricted_registry_collects_no_names_collectors(self):
+    def test_restricted_registry_ignore_no_names_collectors(self):
         from unittest.mock import MagicMock
         registry = CollectorRegistry()
+        mock_collector = MagicMock()
+        mock_collector.describe.return_value = []
+        registry.register(mock_collector)
+        self.assertEqual(list(registry.restricted_registry(['metric']).collect()), [])
+        mock_collector.collect.assert_not_called()
+
+    def test_restricted_registry_collects_no_names_collectors(self):
+        from unittest.mock import MagicMock
+        registry = CollectorRegistry(support_collectors_without_names=True)
         mock_collector = MagicMock()
         mock_collector.describe.return_value = []
         registry.register(mock_collector)

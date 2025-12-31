@@ -52,7 +52,7 @@ class TestMultiProcess(unittest.TestCase):
         self.tempdir = tempfile.mkdtemp()
         os.environ['PROMETHEUS_MULTIPROC_DIR'] = self.tempdir
         values.ValueClass = MultiProcessValue(lambda: 123)
-        self.registry = CollectorRegistry()
+        self.registry = CollectorRegistry(support_collectors_without_names=True)
         self.collector = MultiProcessCollector(self.registry)
 
     @property
