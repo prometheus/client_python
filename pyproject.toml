@@ -47,6 +47,9 @@ twisted = [
 aiohttp = [
 	"aiohttp",
 ]
+django = [
+	"django",
+]
 
 [project.urls]
 Homepage = "https://github.com/prometheus/client_python"
