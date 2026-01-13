@@ -6,7 +6,6 @@ from django.views import View
 import prometheus_client
 from prometheus_client import multiprocess
 from prometheus_client.exposition import _bake_output
-from prometheus_client.registry import registry
 
 
 class PrometheusDjangoView(View):
@@ -17,7 +16,7 @@ class PrometheusDjangoView(View):
         if self.registry is None:
             if self.multiprocess_mode:
                 self.registry = prometheus_client.CollectorRegistry()
-                multiprocess.MultiProcessCollector(registry)
+                multiprocess.MultiProcessCollector(self.registry)
             else:
                 self.registry = prometheus_client.REGISTRY
         accept_header = request.headers.get("Accept")
