@@ -52,7 +52,7 @@ class TestMultiProcess(unittest.TestCase):
         self.tempdir = tempfile.mkdtemp()
         os.environ['PROMETHEUS_MULTIPROC_DIR'] = self.tempdir
         values.ValueClass = MultiProcessValue(lambda: 123)
-        self.registry = CollectorRegistry()
+        self.registry = CollectorRegistry(support_collectors_without_names=True)
         self.collector = MultiProcessCollector(self.registry)
 
     @property
@@ -357,6 +357,35 @@ class TestMultiProcess(unittest.TestCase):
         ]
 
         self.assertEqual(metrics['h'].samples, expected_histogram)
+
+    def test_restrict(self):
+        pid = 0
+        values.ValueClass = MultiProcessValue(lambda: pid)
+        labels = {i: i for i in 'abcd'}
+
+        def add_label(key, value):
+            l = labels.copy()
+            l[key] = value
+            return l
+
+        c = Counter('c', 'help', labelnames=labels.keys(), registry=None)
+        g = Gauge('g', 'help', labelnames=labels.keys(), registry=None)
+
+        c.labels(**labels).inc(1)
+        g.labels(**labels).set(1)
+
+        pid = 1
+
+        c.labels(**labels).inc(1)
+        g.labels(**labels).set(1)
+
+        metrics = {m.name: m for m in self.registry.restricted_registry(['c_total']).collect()}
+
+        self.assertEqual(metrics.keys(), {'c'})
+
+        self.assertEqual(
+            metrics['c'].samples, [Sample('c_total', labels, 2.0)]
+        )
 
     def test_collect_preserves_help(self):
         pid = 0
