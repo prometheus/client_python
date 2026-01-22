@@ -23,12 +23,15 @@ class CollectorRegistry:
     exposition formats.
     """
 
-    def __init__(self, auto_describe: bool = False, target_info: Optional[Dict[str, str]] = None):
+    def __init__(self, auto_describe: bool = False, target_info: Optional[Dict[str, str]] = None,
+                 support_collectors_without_names: bool = False):
         self._collector_to_names: Dict[Collector, List[str]] = {}
         self._names_to_collectors: Dict[str, Collector] = {}
         self._auto_describe = auto_describe
         self._lock = Lock()
         self._target_info: Optional[Dict[str, str]] = {}
+        self._support_collectors_without_names = support_collectors_without_names
+        self._collectors_without_names: List[Collector] = []
         self.set_target_info(target_info)
 
     def register(self, collector: Collector) -> None:
@@ -43,6 +46,8 @@ class CollectorRegistry:
             for name in names:
                 self._names_to_collectors[name] = collector
             self._collector_to_names[collector] = names
+            if self._support_collectors_without_names and not names:
+                self._collectors_without_names.append(collector)
 
     def unregister(self, collector: Collector) -> None:
         """Remove a collector from the registry."""
@@ -145,7 +150,7 @@ class RestrictedRegistry:
         self._registry = registry
 
     def collect(self) -> Iterable[Metric]:
-        collectors = set()
+        collectors = set(self._registry._collectors_without_names)
         target_info_metric = None
         with self._registry._lock:
             if 'target_info' in self._name_set and self._registry._target_info:
