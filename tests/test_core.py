@@ -946,6 +946,33 @@ class TestCollectorRegistry(unittest.TestCase):
         registry.unregister(s)
         Gauge('s_count', 'help', registry=registry)
 
+    def test_clear_works(self):
+        registry = CollectorRegistry()
+        g1 = Gauge('g1', 'help', registry=registry)
+        g2 = Gauge('g2', 'help', registry=registry)
+        c = Counter('c_total', 'help', registry=registry)
+
+        # Verify metrics are registered
+        g1.set(42)
+        g2.set(43)
+        c.inc()
+        self.assertEqual(42, registry.get_sample_value('g1'))
+        self.assertEqual(43, registry.get_sample_value('g2'))
+        self.assertEqual(1, registry.get_sample_value('c_total'))
+
+        # Clear the registry
+        registry.clear()
+
+        # Verify all metrics are removed
+        self.assertEqual(None, registry.get_sample_value('g1'))
+        self.assertEqual(None, registry.get_sample_value('g2'))
+        self.assertEqual(None, registry.get_sample_value('c_total'))
+
+        # Verify we can register new metrics with the same names
+        Gauge('g1', 'help', registry=registry)
+        Gauge('g2', 'help', registry=registry)
+        Counter('c_total', 'help', registry=registry)
+
     def custom_collector(self, metric_family, registry):
         class CustomCollector:
             def collect(self):

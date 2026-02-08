@@ -51,6 +51,13 @@ class CollectorRegistry:
                 del self._names_to_collectors[name]
             del self._collector_to_names[collector]
 
+    def clear(self) -> None:
+        """Remove all collectors from the registry."""
+        with self._lock:
+            self._collector_to_names.clear()
+            self._names_to_collectors.clear()
+            self._target_info = None
+
     def _get_names(self, collector):
         """Get names of timeseries the collector produces and clashes with."""
         desc_func = None
