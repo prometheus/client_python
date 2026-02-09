@@ -24,6 +24,7 @@ to shutdown the server gracefully:
 ```python
 server, t = start_http_server(8000)
 server.shutdown()
+server.server_close()
 t.join()
 ```
 
