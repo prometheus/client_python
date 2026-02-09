@@ -301,6 +301,13 @@ class TestPushGateway(unittest.TestCase):
         self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN_0_0_4)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
+    def test_push_with_groupingkey_with_spaces(self):
+        push_to_gateway(self.address, "my_job", self.registry, {'label': 'value with spaces'})
+        self.assertEqual(self.requests[0][0].command, 'PUT')
+        self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job/label@base64/dmFsdWUgd2l0aCBzcGFjZXM=')
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN_0_0_4)
+        self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
+
     def test_push_with_complex_groupingkey(self):
         push_to_gateway(self.address, "my_job", self.registry, {'a': 9, 'b': 'a/ z'})
         self.assertEqual(self.requests[0][0].command, 'PUT')
