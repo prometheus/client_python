@@ -200,6 +200,22 @@ def _get_ssl_ctx(
     """Load context supports SSL."""
     ssl_cxt = ssl.SSLContext(protocol=protocol)
 
+    # The following chipers will be removed if the default cipher set contains
+    # them. The reason for each cipher is stated in the comment.
+    remove_cipher_names = [
+        "ECDHE-ECDSA-AES256-SHA384",  # is a CBC cipher (CVE-2013-0169)
+        "ECDHE-RSA-AES256-SHA384",    # is a CBC cipher (CVE-2013-0169)
+        "ECDHE-ECDSA-AES128-SHA256",  # is a CBC cipher (CVE-2013-0169)
+        "ECDHE-RSA-AES128-SHA256",    # is a CBC cipher (CVE-2013-0169)
+    ]
+    cipher_names = [c['name'] for c in ssl_cxt.get_ciphers()]
+    for cipher_name in remove_cipher_names:
+        try:
+            cipher_names.remove(cipher_name)
+        except ValueError:
+            pass
+    ssl_cxt.set_ciphers(':'.join(cipher_names))
+
     if cafile is not None or capath is not None:
         try:
             ssl_cxt.load_verify_locations(cafile, capath)
