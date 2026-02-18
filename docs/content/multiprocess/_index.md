@@ -10,9 +10,12 @@ it's common to have processes rather than threads to handle large workloads.
 To handle this the client library can be put in multiprocess mode.
 This comes with a number of limitations:
 
-- Registries can not be used as normal, all instantiated metrics are exported
+- Registries can not be used as normal:
+  - all instantiated metrics are collected
   - Registering metrics to a registry later used by a `MultiProcessCollector`
     may cause duplicate metrics to be exported
+  - Filtering on metrics works if and only if the constructor was called with
+    `support_collectors_without_names=True` and it but might be inefficient.
 - Custom collectors do not work (e.g. cpu and memory metrics)
 - Gauges cannot use `set_function`
 - Info and Enum metrics do not work
@@ -49,7 +52,7 @@ MY_COUNTER = Counter('my_counter', 'Description of my counter')
 
 # Expose metrics.
 def app(environ, start_response):
-    registry = CollectorRegistry()
+    registry = CollectorRegistry(support_collectors_without_names=True)
     multiprocess.MultiProcessCollector(registry)
     data = generate_latest(registry)
     status = '200 OK'
