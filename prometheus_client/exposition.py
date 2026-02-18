@@ -9,7 +9,9 @@ from socketserver import ThreadingMixIn
 import ssl
 import sys
 import threading
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import (
+    Any, Callable, Dict, List, Literal, Optional, Sequence, Tuple, Union,
+)
 from urllib.error import HTTPError
 from urllib.parse import parse_qs, quote_plus, urlparse
 from urllib.request import (
@@ -19,8 +21,15 @@ from urllib.request import (
 from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
 
 from .openmetrics import exposition as openmetrics
-from .registry import CollectorRegistry, REGISTRY
+from .registry import Collector, REGISTRY
 from .utils import floatToGoString, parse_version
+
+try:
+    import snappy  # type: ignore
+    SNAPPY_AVAILABLE = True
+except ImportError:
+    snappy = None  # type: ignore
+    SNAPPY_AVAILABLE = False
 
 __all__ = (
     'CONTENT_TYPE_LATEST',
@@ -46,6 +55,7 @@ CONTENT_TYPE_PLAIN_1_0_0 = 'text/plain; version=1.0.0; charset=utf-8'
 """Content type of the latest format"""
 
 CONTENT_TYPE_LATEST = CONTENT_TYPE_PLAIN_1_0_0
+CompressionType = Optional[Literal['gzip', 'snappy']]
 
 
 class _PrometheusRedirectHandler(HTTPRedirectHandler):
@@ -118,7 +128,7 @@ def _bake_output(registry, accept_header, accept_encoding_header, params, disabl
     return '200 OK', headers, output
 
 
-def make_wsgi_app(registry: CollectorRegistry = REGISTRY, disable_compression: bool = False) -> Callable:
+def make_wsgi_app(registry: Collector = REGISTRY, disable_compression: bool = False) -> Callable:
     """Create a WSGI app which serves the metrics from a registry."""
 
     def prometheus_app(environ, start_response):
@@ -223,7 +233,7 @@ def _get_ssl_ctx(
 def start_wsgi_server(
         port: int,
         addr: str = '0.0.0.0',
-        registry: CollectorRegistry = REGISTRY,
+        registry: Collector = REGISTRY,
         certfile: Optional[str] = None,
         keyfile: Optional[str] = None,
         client_cafile: Optional[str] = None,
@@ -252,12 +262,12 @@ def start_wsgi_server(
 start_http_server = start_wsgi_server
 
 
-def generate_latest(registry: CollectorRegistry = REGISTRY, escaping: str = openmetrics.UNDERSCORES) -> bytes:
+def generate_latest(registry: Collector = REGISTRY, escaping: str = openmetrics.UNDERSCORES) -> bytes:
     """
     Generates the exposition format using the basic Prometheus text format.
 
     Params:
-        registry: CollectorRegistry to export data from.
+        registry: Collector to export data from.
         escaping: Escaping scheme used for metric and label names.
 
     Returns: UTF-8 encoded string containing the metrics in text format.
@@ -330,7 +340,7 @@ def generate_latest(registry: CollectorRegistry = REGISTRY, escaping: str = open
     return ''.join(output).encode('utf-8')
 
 
-def choose_encoder(accept_header: str) -> Tuple[Callable[[CollectorRegistry], bytes], str]:
+def choose_encoder(accept_header: str) -> Tuple[Callable[[Collector], bytes], str]:
     # Python client library accepts a narrower range of content-types than
     # Prometheus does.
     accept_header = accept_header or ''
@@ -408,7 +418,7 @@ def gzip_accepted(accept_encoding_header: str) -> bool:
 
 class MetricsHandler(BaseHTTPRequestHandler):
     """HTTP handler that gives metrics from ``REGISTRY``."""
-    registry: CollectorRegistry = REGISTRY
+    registry: Collector = REGISTRY
 
     def do_GET(self) -> None:
         # Prepare parameters
@@ -429,7 +439,7 @@ class MetricsHandler(BaseHTTPRequestHandler):
         """Log nothing."""
 
     @classmethod
-    def factory(cls, registry: CollectorRegistry) -> type:
+    def factory(cls, registry: Collector) -> type:
         """Returns a dynamic MetricsHandler class tied
            to the passed registry.
         """
@@ -444,7 +454,7 @@ class MetricsHandler(BaseHTTPRequestHandler):
         return MyMetricsHandler
 
 
-def write_to_textfile(path: str, registry: CollectorRegistry, escaping: str = openmetrics.ALLOWUTF8, tmpdir: Optional[str] = None) -> None:
+def write_to_textfile(path: str, registry: Collector, escaping: str = openmetrics.ALLOWUTF8, tmpdir: Optional[str] = None) -> None:
     """Write metrics to the given path.
 
     This is intended for use with the Node exporter textfile collector.
@@ -592,10 +602,11 @@ def tls_auth_handler(
 def push_to_gateway(
         gateway: str,
         job: str,
-        registry: CollectorRegistry,
+        registry: Collector,
         grouping_key: Optional[Dict[str, Any]] = None,
         timeout: Optional[float] = 30,
         handler: Callable = default_handler,
+        compression: CompressionType = None,
 ) -> None:
     """Push metrics to the given pushgateway.
 
@@ -603,7 +614,7 @@ def push_to_gateway(
               'http://pushgateway.local', or 'pushgateway.local'.
               Scheme defaults to 'http' if none is provided
     `job` is the job label to be attached to all pushed metrics
-    `registry` is an instance of CollectorRegistry
+    `registry` is a Collector, normally an instance of CollectorRegistry
     `grouping_key` please see the pushgateway documentation for details.
                    Defaults to None
     `timeout` is how long push will attempt to connect before giving up.
@@ -632,19 +643,22 @@ def push_to_gateway(
               failure.
               'content' is the data which should be used to form the HTTP
               Message Body.
+    `compression` selects the payload compression. Supported values are 'gzip'
+                  and 'snappy'. Defaults to None (no compression).
 
     This overwrites all metrics with the same job and grouping_key.
     This uses the PUT HTTP method."""
-    _use_gateway('PUT', gateway, job, registry, grouping_key, timeout, handler)
+    _use_gateway('PUT', gateway, job, registry, grouping_key, timeout, handler, compression)
 
 
 def pushadd_to_gateway(
         gateway: str,
         job: str,
-        registry: Optional[CollectorRegistry],
+        registry: Optional[Collector],
         grouping_key: Optional[Dict[str, Any]] = None,
         timeout: Optional[float] = 30,
         handler: Callable = default_handler,
+        compression: CompressionType = None,
 ) -> None:
     """PushAdd metrics to the given pushgateway.
 
@@ -652,7 +666,7 @@ def pushadd_to_gateway(
               'http://pushgateway.local', or 'pushgateway.local'.
               Scheme defaults to 'http' if none is provided
     `job` is the job label to be attached to all pushed metrics
-    `registry` is an instance of CollectorRegistry
+    `registry` is a Collector, normally an instance of CollectorRegistry
     `grouping_key` please see the pushgateway documentation for details.
                    Defaults to None
     `timeout` is how long push will attempt to connect before giving up.
@@ -663,10 +677,12 @@ def pushadd_to_gateway(
               will be carried out by a default handler.
               See the 'prometheus_client.push_to_gateway' documentation
               for implementation requirements.
+    `compression` selects the payload compression. Supported values are 'gzip'
+                  and 'snappy'. Defaults to None (no compression).
 
     This replaces metrics with the same name, job and grouping_key.
     This uses the POST HTTP method."""
-    _use_gateway('POST', gateway, job, registry, grouping_key, timeout, handler)
+    _use_gateway('POST', gateway, job, registry, grouping_key, timeout, handler, compression)
 
 
 def delete_from_gateway(
@@ -702,10 +718,11 @@ def _use_gateway(
         method: str,
         gateway: str,
         job: str,
-        registry: Optional[CollectorRegistry],
+        registry: Optional[Collector],
         grouping_key: Optional[Dict[str, Any]],
         timeout: Optional[float],
         handler: Callable,
+        compression: CompressionType = None,
 ) -> None:
     gateway_url = urlparse(gateway)
     # See https://bugs.python.org/issue27657 for details on urlparse in py>=3.7.6.
@@ -715,30 +732,60 @@ def _use_gateway(
     gateway = gateway.rstrip('/')
     url = '{}/metrics/{}/{}'.format(gateway, *_escape_grouping_key("job", job))
 
-    data = b''
-    if method != 'DELETE':
-        if registry is None:
-            registry = REGISTRY
-        data = generate_latest(registry)
-
     if grouping_key is None:
         grouping_key = {}
     url += ''.join(
         '/{}/{}'.format(*_escape_grouping_key(str(k), str(v)))
         for k, v in sorted(grouping_key.items()))
 
+    data = b''
+    headers: List[Tuple[str, str]] = []
+    if method != 'DELETE':
+        if registry is None:
+            registry = REGISTRY
+        data = generate_latest(registry)
+        data, headers = _compress_payload(data, compression)
+    else:
+        # DELETE requests still need Content-Type header per test expectations
+        headers = [('Content-Type', CONTENT_TYPE_PLAIN_0_0_4)]
+        if compression is not None:
+            raise ValueError('Compression is not supported for DELETE requests.')
+
     handler(
         url=url, method=method, timeout=timeout,
-        headers=[('Content-Type', CONTENT_TYPE_PLAIN_0_0_4)], data=data,
+        headers=headers, data=data,
     )()
+
+
+def _compress_payload(data: bytes, compression: CompressionType) -> Tuple[bytes, List[Tuple[str, str]]]:
+    headers = [('Content-Type', CONTENT_TYPE_PLAIN_0_0_4)]
+    if compression is None:
+        return data, headers
+
+    encoding = compression.lower()
+    if encoding == 'gzip':
+        headers.append(('Content-Encoding', 'gzip'))
+        return gzip.compress(data), headers
+    if encoding == 'snappy':
+        if not SNAPPY_AVAILABLE:
+            raise RuntimeError('Snappy compression requires the python-snappy package to be installed.')
+        headers.append(('Content-Encoding', 'snappy'))
+        compressor = snappy.StreamCompressor()
+        compressed = compressor.compress(data)
+        flush = getattr(compressor, 'flush', None)
+        if callable(flush):
+            compressed += flush()
+        return compressed, headers
+    raise ValueError(f"Unsupported compression type: {compression}")
 
 
 def _escape_grouping_key(k, v):
     if v == "":
         # Per https://github.com/prometheus/pushgateway/pull/346.
         return k + "@base64", "="
-    elif '/' in v:
+    elif '/' in v or ' ' in v:
         # Added in Pushgateway 0.9.0.
+        # Use base64 encoding for values containing slashes or spaces
         return k + "@base64", base64.urlsafe_b64encode(v.encode("utf-8")).decode("utf-8")
     else:
         return k, quote_plus(v)

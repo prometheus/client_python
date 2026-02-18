@@ -1,0 +1,110 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  flake8_lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - name: Set up Python
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        with:
+          python-version: '3.9'
+      - name: Install tox
+        run: pip install tox
+      - name: Run flake8
+        run: tox -e flake8
+
+  isort_lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - name: Set up Python
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        with:
+          python-version: '3.9'
+      - name: Install tox
+        run: pip install tox
+      - name: Run isort
+        run: tox -e isort
+
+  mypy_lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - name: Set up Python
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        with:
+          python-version: '3.9'
+      - name: Install tox
+        run: pip install tox
+      - name: Run mypy
+        run: tox -e mypy
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          pip install --user tox "virtualenv<20.22.0"
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - name: Set tox environment
+        id: toxenv
+        run: |
+          VERSION="${{ matrix.python-version }}"
+          # Extract major.minor version (strip patch if present)
+          TOX_VERSION=$(echo "$VERSION" | cut -d. -f1,2)
+          echo "toxenv=py${TOX_VERSION}" >> $GITHUB_OUTPUT
+      - name: Run tests
+        run: tox
+        env:
+          TOXENV: ${{ steps.toxenv.outputs.toxenv }}
+
+  test_nooptionals:
+    runs-on: ubuntu-latest
+    env:
+      PYTHON_VERSION: '3.9'
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - name: Set up Python
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install tox
+        run: pip install tox
+      - name: Run tests without optional dependencies
+        run: tox
+        env:
+          TOXENV: py${{ env.PYTHON_VERSION }}-nooptionals
+
+  test_pypy:
+    runs-on: ubuntu-latest
+    env:
+      PYTHON_VERSION: '3.9'
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - name: Set up PyPy
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        with:
+          python-version: pypy-${{ env.PYTHON_VERSION }}
+      - name: Install tox
+        run: pip install tox
+      - name: Run tests with PyPy
+        run: tox
+        env:
+          TOXENV: pypy${{ env.PYTHON_VERSION }}

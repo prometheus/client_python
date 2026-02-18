@@ -1,3 +1,4 @@
+import gzip
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import os
 import threading
@@ -300,6 +301,13 @@ class TestPushGateway(unittest.TestCase):
         self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN_0_0_4)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
+    def test_push_with_groupingkey_with_spaces(self):
+        push_to_gateway(self.address, "my_job", self.registry, {'label': 'value with spaces'})
+        self.assertEqual(self.requests[0][0].command, 'PUT')
+        self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job/label@base64/dmFsdWUgd2l0aCBzcGFjZXM=')
+        self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN_0_0_4)
+        self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
+
     def test_push_with_complex_groupingkey(self):
         push_to_gateway(self.address, "my_job", self.registry, {'a': 9, 'b': 'a/ z'})
         self.assertEqual(self.requests[0][0].command, 'PUT')
@@ -403,6 +411,30 @@ class TestPushGateway(unittest.TestCase):
         push_to_gateway(address, "my_job_with_trailing_slash", self.registry)
 
         self.assertNotIn('//', self.requests[0][0].path)
+
+    def test_push_with_gzip_compression(self):
+        push_to_gateway(self.address, "my_job", self.registry, compression='gzip')
+        request, body = self.requests[0]
+        self.assertEqual(request.headers.get('content-encoding'), 'gzip')
+        decompressed = gzip.decompress(body)
+        self.assertEqual(decompressed, b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
+
+    def test_push_with_snappy_compression(self):
+        snappy = pytest.importorskip('snappy')
+        push_to_gateway(self.address, "my_job", self.registry, compression='snappy')
+        request, body = self.requests[0]
+        self.assertEqual(request.headers.get('content-encoding'), 'snappy')
+        decompressor = snappy.StreamDecompressor()
+        decompressed = decompressor.decompress(body)
+        flush = getattr(decompressor, 'flush', None)
+        if callable(flush):
+            decompressed += flush()
+        self.assertEqual(decompressed, b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
+
+    def test_push_with_invalid_compression(self):
+        with self.assertRaisesRegex(ValueError, 'Unsupported compression type'):
+            push_to_gateway(self.address, "my_job", self.registry, compression='brotli')
+        self.assertEqual(self.requests, [])
 
     def test_instance_ip_grouping_key(self):
         self.assertTrue('' != instance_ip_grouping_key()['instance'])

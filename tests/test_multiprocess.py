@@ -276,10 +276,8 @@ class TestMultiProcess(unittest.TestCase):
             Sample('g', add_label('pid', '1'), 1.0),
         ])
 
-        metrics['h'].samples.sort(
-            key=lambda x: (x[0], float(x[1].get('le', 0)))
-        )
         expected_histogram = [
+            Sample('h_sum', labels, 6.0),
             Sample('h_bucket', add_label('le', '0.005'), 0.0),
             Sample('h_bucket', add_label('le', '0.01'), 0.0),
             Sample('h_bucket', add_label('le', '0.025'), 0.0),
@@ -296,7 +294,66 @@ class TestMultiProcess(unittest.TestCase):
             Sample('h_bucket', add_label('le', '10.0'), 2.0),
             Sample('h_bucket', add_label('le', '+Inf'), 2.0),
             Sample('h_count', labels, 2.0),
-            Sample('h_sum', labels, 6.0),
+        ]
+
+        self.assertEqual(metrics['h'].samples, expected_histogram)
+
+    def test_collect_histogram_ordering(self):
+        pid = 0
+        values.ValueClass = MultiProcessValue(lambda: pid)
+        labels = {i: i for i in 'abcd'}
+
+        def add_label(key, value):
+            l = labels.copy()
+            l[key] = value
+            return l
+
+        h = Histogram('h', 'help', labelnames=['view'], registry=None)
+
+        h.labels(view='view1').observe(1)
+
+        pid = 1
+
+        h.labels(view='view1').observe(5)
+        h.labels(view='view2').observe(1)
+
+        metrics = {m.name: m for m in self.collector.collect()}
+
+        expected_histogram = [
+            Sample('h_sum', {'view': 'view1'}, 6.0),
+            Sample('h_bucket', {'view': 'view1', 'le': '0.005'}, 0.0),
+            Sample('h_bucket', {'view': 'view1', 'le': '0.01'}, 0.0),
+            Sample('h_bucket', {'view': 'view1', 'le': '0.025'}, 0.0),
+            Sample('h_bucket', {'view': 'view1', 'le': '0.05'}, 0.0),
+            Sample('h_bucket', {'view': 'view1', 'le': '0.075'}, 0.0),
+            Sample('h_bucket', {'view': 'view1', 'le': '0.1'}, 0.0),
+            Sample('h_bucket', {'view': 'view1', 'le': '0.25'}, 0.0),
+            Sample('h_bucket', {'view': 'view1', 'le': '0.5'}, 0.0),
+            Sample('h_bucket', {'view': 'view1', 'le': '0.75'}, 0.0),
+            Sample('h_bucket', {'view': 'view1', 'le': '1.0'}, 1.0),
+            Sample('h_bucket', {'view': 'view1', 'le': '2.5'}, 1.0),
+            Sample('h_bucket', {'view': 'view1', 'le': '5.0'}, 2.0),
+            Sample('h_bucket', {'view': 'view1', 'le': '7.5'}, 2.0),
+            Sample('h_bucket', {'view': 'view1', 'le': '10.0'}, 2.0),
+            Sample('h_bucket', {'view': 'view1', 'le': '+Inf'}, 2.0),
+            Sample('h_count', {'view': 'view1'}, 2.0),
+            Sample('h_sum', {'view': 'view2'}, 1.0),
+            Sample('h_bucket', {'view': 'view2', 'le': '0.005'}, 0.0),
+            Sample('h_bucket', {'view': 'view2', 'le': '0.01'}, 0.0),
+            Sample('h_bucket', {'view': 'view2', 'le': '0.025'}, 0.0),
+            Sample('h_bucket', {'view': 'view2', 'le': '0.05'}, 0.0),
+            Sample('h_bucket', {'view': 'view2', 'le': '0.075'}, 0.0),
+            Sample('h_bucket', {'view': 'view2', 'le': '0.1'}, 0.0),
+            Sample('h_bucket', {'view': 'view2', 'le': '0.25'}, 0.0),
+            Sample('h_bucket', {'view': 'view2', 'le': '0.5'}, 0.0),
+            Sample('h_bucket', {'view': 'view2', 'le': '0.75'}, 0.0),
+            Sample('h_bucket', {'view': 'view2', 'le': '1.0'}, 1.0),
+            Sample('h_bucket', {'view': 'view2', 'le': '2.5'}, 1.0),
+            Sample('h_bucket', {'view': 'view2', 'le': '5.0'}, 1.0),
+            Sample('h_bucket', {'view': 'view2', 'le': '7.5'}, 1.0),
+            Sample('h_bucket', {'view': 'view2', 'le': '10.0'}, 1.0),
+            Sample('h_bucket', {'view': 'view2', 'le': '+Inf'}, 1.0),
+            Sample('h_count', {'view': 'view2'}, 1.0),
         ]
 
         self.assertEqual(metrics['h'].samples, expected_histogram)
@@ -376,10 +433,8 @@ class TestMultiProcess(unittest.TestCase):
             m.name: m for m in self.collector.merge(files, accumulate=False)
         }
 
-        metrics['h'].samples.sort(
-            key=lambda x: (x[0], float(x[1].get('le', 0)))
-        )
         expected_histogram = [
+            Sample('h_sum', labels, 6.0),
             Sample('h_bucket', add_label('le', '0.005'), 0.0),
             Sample('h_bucket', add_label('le', '0.01'), 0.0),
             Sample('h_bucket', add_label('le', '0.025'), 0.0),
@@ -395,7 +450,6 @@ class TestMultiProcess(unittest.TestCase):
             Sample('h_bucket', add_label('le', '7.5'), 0.0),
             Sample('h_bucket', add_label('le', '10.0'), 0.0),
             Sample('h_bucket', add_label('le', '+Inf'), 0.0),
-            Sample('h_sum', labels, 6.0),
         ]
 
         self.assertEqual(metrics['h'].samples, expected_histogram)
