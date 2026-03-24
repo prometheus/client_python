@@ -1,4 +1,5 @@
 import glob
+import importlib
 import os
 import shutil
 import tempfile
@@ -646,3 +647,70 @@ class TestUnsetEnv(unittest.TestCase):
 
     def tearDown(self):
         os.remove(self.tmpfl)
+
+
+class TestCustomValueClass(unittest.TestCase):
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        os.environ['PROMETHEUS_MULTIPROC_DIR'] = self.tmpdir
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir)
+        # Restore default ValueClass
+        values.ValueClass = values.get_value_class()
+
+    def test_custom_value_class(self):
+        class MyCustomValue(values.MmapedValue):
+            def inc(self, amount):
+                super().inc(amount * 2)  # Double the increment
+
+        values.ValueClass = MyCustomValue
+
+        c = Counter('my_counter', 'help')
+        c.inc(5)
+
+        self.assertEqual(c._value.get(), 10)
+        self.assertIsInstance(c._value, MyCustomValue)
+
+
+class TestValueClassEnv(unittest.TestCase):
+    def setUp(self):
+        self.original_env = os.environ.get('PROMETHEUS_VALUE_CLASS')
+        if 'PROMETHEUS_VALUE_CLASS' in os.environ:
+            del os.environ['PROMETHEUS_VALUE_CLASS']
+
+    def tearDown(self):
+        if self.original_env:
+            os.environ['PROMETHEUS_VALUE_CLASS'] = self.original_env
+        elif 'PROMETHEUS_VALUE_CLASS' in os.environ:
+            del os.environ['PROMETHEUS_VALUE_CLASS']
+        # Reset ValueClass to default for other tests
+        importlib.reload(values)
+
+    def test_default_value_class(self):
+        importlib.reload(values)
+        self.assertEqual(values.ValueClass, values.MutexValue)
+
+    def test_multiproc_value_class(self):
+        os.environ['PROMETHEUS_MULTIPROC_DIR'] = '/tmp'
+        importlib.reload(values)
+        self.assertEqual(values.ValueClass, values.MmapedValue)
+        del os.environ['PROMETHEUS_MULTIPROC_DIR']
+
+    def test_env_var_value_class(self):
+        # We need a class to point to. Let's use MutexValue itself but via string
+        os.environ['PROMETHEUS_VALUE_CLASS'] = 'prometheus_client.values.MutexValue'
+        importlib.reload(values)
+        self.assertEqual(values.ValueClass, values.MutexValue)
+
+    def test_invalid_path_fails_loudly(self):
+        os.environ['PROMETHEUS_VALUE_CLASS'] = 'invalid.path.Class'
+        with self.assertRaises(ImportError) as cm:
+            importlib.reload(values)
+        self.assertIn("Could not import PROMETHEUS_VALUE_CLASS", str(cm.exception))
+
+    def test_no_dot_fails_loudly(self):
+        os.environ['PROMETHEUS_VALUE_CLASS'] = 'NoDot'
+        with self.assertRaises(ImportError) as cm:
+            importlib.reload(values)
+        self.assertIn("PROMETHEUS_VALUE_CLASS must be a full python path", str(cm.exception))
