@@ -101,6 +101,17 @@ class TestMultiProcessAggregate(unittest.TestCase):
 
         # Check metrics while both are alive
         m = self.get_metrics(port1)
+        
+        # Verify .db files exist for both processes
+        # p1's files
+        self.assertTrue(os.path.exists(os.path.join(self.tmpdir, f'counter_{p1.pid}.db')))
+        self.assertTrue(os.path.exists(os.path.join(self.tmpdir, f'gauge_sum_{p1.pid}.db')))
+        self.assertTrue(os.path.exists(os.path.join(self.tmpdir, f'histogram_{p1.pid}.db')))
+        # p2's files
+        self.assertTrue(os.path.exists(os.path.join(self.tmpdir, f'counter_{p2.pid}.db')))
+        self.assertTrue(os.path.exists(os.path.join(self.tmpdir, f'gauge_sum_{p2.pid}.db')))
+        self.assertTrue(os.path.exists(os.path.join(self.tmpdir, f'histogram_{p2.pid}.db')))
+
         self.assertEqual(m[('c_total', labels_tuple)], 30.0)
         self.assertEqual(m[('g_sum', labels_tuple)], 30.0)
         self.assertEqual(m[('g_max', labels_tuple)], 20.0)
@@ -120,6 +131,14 @@ class TestMultiProcessAggregate(unittest.TestCase):
         
         # Check metrics from surviving server (should be aggregated)
         m = self.get_metrics(port1)
+        
+        # Verify p2's .db files are gone after collection
+        self.assertFalse(os.path.exists(os.path.join(self.tmpdir, f'counter_{p2.pid}.db')))
+        self.assertFalse(os.path.exists(os.path.join(self.tmpdir, f'gauge_sum_{p2.pid}.db')))
+        self.assertFalse(os.path.exists(os.path.join(self.tmpdir, f'histogram_{p2.pid}.db')))
+        # p1's files should still exist
+        self.assertTrue(os.path.exists(os.path.join(self.tmpdir, f'counter_{p1.pid}.db')))
+
         self.assertEqual(m[('c_total', labels_tuple)], 30.0)
         self.assertEqual(m[('g_sum', labels_tuple)], 30.0)
         self.assertEqual(m[('g_max', labels_tuple)], 20.0)
@@ -185,6 +204,10 @@ class TestMultiProcessAggregate(unittest.TestCase):
             m = self.get_metrics(port1)
             self.assertEqual(m[(name, labels_tuple)], expected_sum, f"Failed for {name} with both alive")
 
+            # Verify .db files exist
+            self.assertTrue(os.path.exists(os.path.join(self.tmpdir, f'gauge_{name[2:]}_{p1.pid}.db')))
+            self.assertTrue(os.path.exists(os.path.join(self.tmpdir, f'gauge_{name[2:]}_{p2.pid}.db')))
+
             # Kill p2
             p2.terminate()
             p2.wait()
@@ -192,6 +215,12 @@ class TestMultiProcessAggregate(unittest.TestCase):
             
             # Live gauge should only reflect p1 now, as p2 is dead and live gauges are not aggregated into aggregate.db
             m = self.get_metrics(port1)
+            
+            # Verify p2's live gauge .db file is gone
+            self.assertFalse(os.path.exists(os.path.join(self.tmpdir, f'gauge_{name[2:]}_{p2.pid}.db')))
+            # p1's should still exist
+            self.assertTrue(os.path.exists(os.path.join(self.tmpdir, f'gauge_{name[2:]}_{p1.pid}.db')))
+
             self.assertEqual(m[(name, labels_tuple)], 10.0, f"Failed for {name} after p2 death")
             
             # Cleanup for next iteration
@@ -219,6 +248,11 @@ class TestMultiProcessAggregate(unittest.TestCase):
         
         m = self.get_metrics(port1)
         # Should have two entries with different pids
+        
+        # Verify .db files exist
+        self.assertTrue(os.path.exists(os.path.join(self.tmpdir, f'gauge_liveall_{p1.pid}.db')))
+        self.assertTrue(os.path.exists(os.path.join(self.tmpdir, f'gauge_liveall_{p2.pid}.db')))
+
         expected_metrics = {
             (('l', 'liveall'), ('pid', pid1)): 10.0,
             (('l', 'liveall'), ('pid', pid2)): 20.0,
@@ -233,6 +267,12 @@ class TestMultiProcessAggregate(unittest.TestCase):
         
         # Now should only have one entry (p1's)
         m = self.get_metrics(port1)
+        
+        # Verify p2's liveall .db file is gone
+        self.assertFalse(os.path.exists(os.path.join(self.tmpdir, f'gauge_liveall_{p2.pid}.db')))
+        # p1's should still exist
+        self.assertTrue(os.path.exists(os.path.join(self.tmpdir, f'gauge_liveall_{p1.pid}.db')))
+
         self.assertEqual(m.get(('g_liveall', (('l', 'liveall'), ('pid', pid1)))), 10.0)
         self.assertNotIn(('g_liveall', (('l', 'liveall'), ('pid', pid2))), m)
 
