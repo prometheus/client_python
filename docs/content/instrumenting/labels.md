@@ -5,8 +5,8 @@ weight: 7
 
 All metrics can have labels, allowing grouping of related time series.
 
-See the best practices on [naming](http://prometheus.io/docs/practices/naming/)
-and [labels](http://prometheus.io/docs/practices/instrumentation/#use-labels).
+See the best practices on [naming](https://prometheus.io/docs/practices/naming/)
+and [labels](https://prometheus.io/docs/practices/instrumentation/#use-labels).
 
 Taking a counter as an example:
 
@@ -35,4 +35,33 @@ from prometheus_client import Counter
 c = Counter('my_requests_total', 'HTTP Failures', ['method', 'endpoint'])
 c.labels('get', '/')
 c.labels('post', '/submit')
+```
+
+## Removing labelsets
+
+### `remove(*labelvalues)`
+
+Remove a specific labelset from the metric. Values must be passed in the same
+order as `labelnames` were declared.
+
+```python
+c = Counter('my_requests_total', 'HTTP Failures', ['method', 'endpoint'])
+c.labels('get', '/').inc()
+c.remove('get', '/')
+```
+
+### `remove_by_labels(labels)`
+
+Remove all labelsets that partially match the given dict of label names and values.
+
+```python
+c.remove_by_labels({'method': 'get'})  # removes all labelsets where method='get'
+```
+
+### `clear()`
+
+Remove all labelsets from the metric at once.
+
+```python
+c.clear()
 ```
