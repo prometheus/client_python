@@ -5,7 +5,7 @@ weight: 2
 
 Six metric types are available. Pick based on what your value does:
 
-| Type | Behavior | Use for |
+| Type | Update model | Use for |
 |------|-----------|---------|
 | [Counter](counter/) | only up | requests served, errors, bytes sent |
 | [Gauge](gauge/) | up and down | queue depth, active connections, memory usage |
