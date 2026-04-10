@@ -96,3 +96,45 @@ from prometheus_client import Gauge
 # Example gauge
 IN_PROGRESS = Gauge("inprogress_requests", "help", multiprocess_mode='livesum')
 ```
+
+**5. Customizing metric values**:
+
+It's possible to customize the behavior of metric values by providing your own implementation of the `ValueClass`. This is useful if you want to add logging, custom synchronization, or change the data storage mechanism.
+
+The `MmapedValue` and `MutexValue` classes are available in `prometheus_client.values` for this purpose. These are top-level classes, which makes it easy to inherit from them and override their methods.
+
+To provide a custom `ValueClass`, set the `PROMETHEUS_VALUE_CLASS` environment variable to the full Python path of your class (e.g., `myapp.custom_values.MyValueClass`).
+
+The class should inherit from `prometheus_client.values.MutexValue` (for single-process applications) or `prometheus_client.values.MmapedValue` (for multiprocess applications) to reuse the existing logic.
+
+#### Example: Custom Mmaped Value
+
+If you're using multiprocess mode and want to override the default increment behavior:
+
+```python
+# myapp/custom_values.py
+from prometheus_client.values import MmapedValue
+
+class MyMmapedValue(MmapedValue):
+    def inc(self, amount):
+        print(f"Incrementing metric by {amount}")
+        # Always call the superclass method to ensure the value is 
+        # correctly stored and shared state is handled.
+        super().inc(amount)
+```
+
+Then, set the environment variable:
+
+```bash
+export PROMETHEUS_VALUE_CLASS=myapp.custom_values.MyMmapedValue
+```
+
+#### Behavior and Requirements:
+- The environment variable must be set before any metric is instantiated. Therefore, preferrably, before python process start.
+- The path must be a valid Python path to a class (including the class name).
+- If the class cannot be imported, an `ImportError` will be raised during initialization.
+- By default, `prometheus_client` uses `MmapedValue` if `PROMETHEUS_MULTIPROC_DIR` is set, and `MutexValue` otherwise.
+
+**6. Advanced Customization with `MultiProcessValue`**:
+
+For specialized use cases where you need a different process identifier than `os.getpid()`, you can use the `MultiProcessValue(process_identifier)` factory function. This returns a subclass of `MmapedValue` that uses the provided function to identify the process. Note that this cannot be set via the `PROMETHEUS_VALUE_CLASS` environment variable.
