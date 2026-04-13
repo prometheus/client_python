@@ -85,3 +85,109 @@ g = Gauge('job_last_success_unixtime', 'Last time a batch job successfully finis
 g.set_to_current_time()
 push_to_gateway('localhost:9091', job='batchA', registry=registry, handler=my_auth_handler)
 ```
+
+## API Reference
+
+### `push_to_gateway(gateway, job, registry, grouping_key=None, timeout=30, handler=default_handler, compression=None)`
+
+Pushes metrics to the pushgateway, replacing all metrics with the same job and grouping key.
+Uses the HTTP `PUT` method.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `gateway` | `str` | required | URL of the pushgateway. If no scheme is provided, `http://` is assumed. |
+| `job` | `str` | required | Value for the `job` label attached to all pushed metrics. |
+| `registry` | `Collector` | required | Registry whose metrics are pushed. Typically a `CollectorRegistry` instance. |
+| `grouping_key` | `Optional[Dict[str, Any]]` | `None` | Additional labels to identify the group. See the [Pushgateway documentation](https://github.com/prometheus/pushgateway/blob/master/README.md) for details. |
+| `timeout` | `Optional[float]` | `30` | Seconds before the request is aborted. Pass `None` for no timeout. |
+| `handler` | `Callable` | `default_handler` | Function that performs the HTTP request. See [Handlers](#handlers) below. |
+| `compression` | `Optional[str]` | `None` | Compress the payload before sending. Accepts `'gzip'` or `'snappy'`. Snappy requires the [`python-snappy`](https://github.com/andrix/python-snappy) package. |
+
+### `pushadd_to_gateway(gateway, job, registry, grouping_key=None, timeout=30, handler=default_handler, compression=None)`
+
+Pushes metrics to the pushgateway, replacing only metrics with the same name, job, and grouping key.
+Uses the HTTP `POST` method.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `gateway` | `str` | required | URL of the pushgateway. |
+| `job` | `str` | required | Value for the `job` label attached to all pushed metrics. |
+| `registry` | `Optional[Collector]` | required | Registry whose metrics are pushed. Pass `None` to use the default `REGISTRY`. |
+| `grouping_key` | `Optional[Dict[str, Any]]` | `None` | Additional labels to identify the group. |
+| `timeout` | `Optional[float]` | `30` | Seconds before the request is aborted. Pass `None` for no timeout. |
+| `handler` | `Callable` | `default_handler` | Function that performs the HTTP request. |
+| `compression` | `Optional[str]` | `None` | Compress the payload. Accepts `'gzip'` or `'snappy'`. |
+
+### `delete_from_gateway(gateway, job, grouping_key=None, timeout=30, handler=default_handler)`
+
+Deletes metrics from the pushgateway for the given job and grouping key.
+Uses the HTTP `DELETE` method. Has no `registry` or `compression` parameters.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `gateway` | `str` | required | URL of the pushgateway. |
+| `job` | `str` | required | Value for the `job` label identifying the group to delete. |
+| `grouping_key` | `Optional[Dict[str, Any]]` | `None` | Additional labels to identify the group. |
+| `timeout` | `Optional[float]` | `30` | Seconds before the request is aborted. Pass `None` for no timeout. |
+| `handler` | `Callable` | `default_handler` | Function that performs the HTTP request. |
+
+### `instance_ip_grouping_key()`
+
+Returns a grouping key dict with the `instance` label set to the IP address of the current host.
+Takes no parameters.
+
+```python
+from prometheus_client.exposition import instance_ip_grouping_key
+
+push_to_gateway('localhost:9091', job='batchA', registry=registry,
+                grouping_key=instance_ip_grouping_key())
+```
+
+## Handlers
+
+A handler is a callable with the signature:
+
+```python
+def my_handler(url, method, timeout, headers, data):
+    # url: str — full request URL
+    # method: str — HTTP method (PUT, POST, DELETE)
+    # timeout: Optional[float] — seconds before aborting, or None
+    # headers: List[Tuple[str, str]] — HTTP headers to include
+    # data: bytes — request body
+    ...
+    return callable_that_performs_the_request
+```
+
+The handler must return a no-argument callable that performs the actual HTTP request and raises
+an exception (e.g. `IOError`) on failure. Three built-in handlers are available in
+`prometheus_client.exposition`:
+
+### `default_handler`
+
+Standard HTTP/HTTPS handler. Used by default in all push functions.
+
+### `basic_auth_handler(url, method, timeout, headers, data, username=None, password=None)`
+
+Wraps `default_handler` and adds an HTTP Basic Auth header.
+
+| Extra parameter | Type | Default | Description |
+|----------------|------|---------|-------------|
+| `username` | `Optional[str]` | `None` | HTTP Basic Auth username. |
+| `password` | `Optional[str]` | `None` | HTTP Basic Auth password. |
+
+### `tls_auth_handler(url, method, timeout, headers, data, certfile, keyfile, cafile=None, protocol=ssl.PROTOCOL_TLS_CLIENT, insecure_skip_verify=False)`
+
+Performs the request over HTTPS using TLS client certificate authentication.
+
+| Extra parameter | Type | Default | Description |
+|----------------|------|---------|-------------|
+| `certfile` | `str` | required | Path to the client certificate PEM file. |
+| `keyfile` | `str` | required | Path to the client private key PEM file. |
+| `cafile` | `Optional[str]` | `None` | Path to a CA certificate file for server verification. Uses system defaults if not set. |
+| `protocol` | `int` | `ssl.PROTOCOL_TLS_CLIENT` | SSL/TLS protocol version. |
+| `insecure_skip_verify` | `bool` | `False` | Skip server certificate verification. Use only in controlled environments. |
+
+### `passthrough_redirect_handler`
+
+Like `default_handler` but automatically follows redirects for all HTTP methods, including `PUT`
+and `POST`. Use only when you control or trust the source of redirect responses.
