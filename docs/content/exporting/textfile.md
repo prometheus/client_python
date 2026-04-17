@@ -21,3 +21,23 @@ write_to_textfile('/configured/textfile/path/raid.prom', registry)
 
 A separate registry is used, as the default registry may contain other metrics
 such as those from the Process Collector.
+
+## API Reference
+
+### `write_to_textfile(path, registry, escaping='allow-utf-8', tmpdir=None)`
+
+Writes metrics from the registry to a file in Prometheus text format.
+
+The file is written atomically: metrics are first written to a temporary file in the same
+directory as `path` (or in `tmpdir` if provided), then renamed into place. This prevents the
+Node exporter from reading a partially written file.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `path` | `str` | required | Destination file path. Must end in `.prom` for the Node exporter textfile collector to process it. |
+| `registry` | `Collector` | required | Registry whose metrics are written. |
+| `escaping` | `str` | `'allow-utf-8'` | Escaping scheme for metric and label names. Accepted values: `'allow-utf-8'`, `'underscores'`, `'dots'`, `'values'`. |
+| `tmpdir` | `Optional[str]` | `None` | Directory for the temporary file used during the atomic write. Defaults to the same directory as `path`. If provided, must be on the same filesystem as `path`. |
+
+Returns `None`. Raises an exception if the file cannot be written; the temporary file is cleaned
+up automatically on failure.
