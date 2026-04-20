@@ -132,7 +132,10 @@ class MetricWrapperBase(Collector):
 
         if not self._labelvalues:
             # Register the multi-wrapper parent metric, or if a label-less metric, the whole shebang.
-            if registry:
+            if registry and not (
+                'prometheus_multiproc_dir' in os.environ 
+                or 'PROMETHEUS_MULTIPROC_DIR' in os.environ
+            ):
                 registry.register(self)
 
     def labels(self: T, *labelvalues: Any, **labelkwargs: Any) -> T:
