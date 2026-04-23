@@ -378,6 +378,14 @@ class TestSummary(unittest.TestCase):
             metric.labels('foo')
         self.assertEqual(1, value('s_with_labels_count', {'label1': 'foo'}))
 
+    def test_timer_duration_exposed(self):
+        with self.summary.time() as t:
+            time.sleep(0.01)
+        self.assertIsNotNone(t.duration)
+        self.assertGreater(t.duration, 0)
+        recorded_sum = self.registry.get_sample_value('s_sum')
+        self.assertEqual(t.duration, recorded_sum)
+
     def test_timer_not_observable(self):
         s = Summary('test', 'help', labelnames=('label',), registry=self.registry)
 

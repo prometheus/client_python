@@ -55,6 +55,7 @@ class Timer:
     def __init__(self, metric, callback_name):
         self._metric = metric
         self._callback_name = callback_name
+        self.duration = None
 
     def _new_timer(self):
         return self.__class__(self._metric, self._callback_name)
@@ -65,9 +66,9 @@ class Timer:
 
     def __exit__(self, typ, value, traceback):
         # Time can go backwards.
-        duration = max(default_timer() - self._start, 0)
+        self.duration = max(default_timer() - self._start, 0)
         callback = getattr(self._metric, self._callback_name)
-        callback(duration)
+        callback(self.duration)
 
     def labels(self, *args, **kw):
         self._metric = self._metric.labels(*args, **kw)

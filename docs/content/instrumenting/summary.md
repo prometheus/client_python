@@ -68,6 +68,10 @@ def process():
 
 with s.time():
     pass
+
+with s.time() as t:
+    pass
+# t.duration holds the observed seconds
 ```
 
 ## Labels
