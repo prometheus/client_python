@@ -71,7 +71,7 @@ with s.time():
 
 with s.time() as t:
     pass
-# t.duration holds the observed seconds
+print(t.duration) # observed time in seconds.
 ```
 
 ## Labels
