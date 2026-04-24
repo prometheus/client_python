@@ -108,6 +108,10 @@ def process():
 
 with g.time():
     pass
+
+with g.time() as t:
+    pass
+print(t.duration) # observed time in seconds.
 ```
 
 ### `set_function(f)`
