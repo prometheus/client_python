@@ -74,7 +74,7 @@ for partial scrapes. See [Restricted registry](../restricted-registry/) for
 usage with `generate_latest` and the built-in HTTP server.
 
 ```python
-from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import generate_latest
 
 subset = REGISTRY.restricted_registry(['python_info', 'process_cpu_seconds_total'])
 output = generate_latest(subset)

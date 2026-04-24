@@ -94,7 +94,7 @@ other implementations).
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `registry` | `CollectorRegistry` | `REGISTRY` | Registry to register with. Pass `None` to skip registration. |
+| `registry` | `CollectorRegistry` | `REGISTRY` | Registry to register with. |
 
 Metrics exported:
 

@@ -56,11 +56,11 @@ at registration time instead.
 
 ## value vs labels
 
-Every metric family constructor accepts either `value` or `labels`, but not
-both.
+Every metric family constructor accepts either inline data or `labels`, but not
+both. The inline data parameter name varies by type: `value` for Gauge, Counter,
+and Info; `count_value`/`sum_value` for Summary; `buckets` for Histogram.
 
-- Pass `value` (and for counters, optionally `created`) to emit a single
-  unlabelled metric directly from the constructor.
+- Pass inline data to emit a single unlabelled metric directly from the constructor.
 - Pass `labels` (a sequence of label names) and then call `add_metric` one or
   more times to emit labelled metrics.
 
