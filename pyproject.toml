@@ -50,6 +50,9 @@ aiohttp = [
 django = [
 	"django",
 ]
+redis = [
+	"redis",
+]
 
 [project.urls]
 Homepage = "https://github.com/prometheus/client_python"

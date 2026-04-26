@@ -1,11 +1,48 @@
 import os
 from threading import Lock
+from typing import Any, Protocol
 import warnings
 
 from .mmap_dict import mmap_key, MmapedDict
+from .redis_collector import redis_client
+from .samples import Exemplar
 
 
-class MutexValue:
+class Value(Protocol):
+    """Prometheus Client Metric implementation."""
+
+    _multiprocess: bool
+
+    def __init__(
+        self,
+        typ: str,
+        metric_name: str,
+        name: str,
+        labelnames: list[str],
+        labelvalues: list[str],
+        help_text: str,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize a metric."""
+
+    def inc(self, amount: float) -> None:
+        """Increment the metric by amount."""
+
+    def set(self, value: float, timestamp: float | None = None) -> None:
+        """Set the metric to value."""
+
+    def get(self) -> float:
+        """Get the current metric value."""
+
+    def set_exemplar(self, exemplar: Exemplar) -> None:
+        """Set an exemplar value."""
+        exemplar  # For vulture
+
+    def get_exemplar(self) -> Exemplar | None:
+        """Get any set exemplar value."""
+
+
+class MutexValue(Value):
     """A float protected by a mutex."""
 
     _multiprocess = False
@@ -52,7 +89,7 @@ def MultiProcessValue(process_identifier=os.getpid):
     # This avoids the need to also have mutexes in __MmapDict.
     lock = Lock()
 
-    class MmapedValue:
+    class MmapedValue(Value):
         """A float protected by a mutex backed by a per-process mmaped file."""
 
         _multiprocess = True
@@ -125,12 +162,67 @@ def MultiProcessValue(process_identifier=os.getpid):
     return MmapedValue
 
 
-def get_value_class():
+def RedisValue():
+    """
+    A value implementation that stores data in a redis/valkey database.
+
+    Key scheme:
+    * value:typ:MMAP_KEY
+    """
+    client = redis_client()
+
+    class RedisValueImpl(Value):
+        """A float stored by redis."""
+
+        _multiprocess = False
+
+        def __init__(
+            self,
+            typ: str,
+            metric_name: str,
+            name: str,
+            labelnames: list[str],
+            labelvalues: list[str],
+            help_text: str,
+            **kwargs: Any,
+        ) -> None:
+            key = mmap_key(metric_name, name, labelnames, labelvalues, help_text)
+            self._key = f"value:{typ}:{key}"
+            self._redis = client
+            self._redis.setnx(self._key, 0.0)
+
+        def inc(self, amount: float) -> None:
+            self._redis.incrbyfloat(self._key, amount)
+
+        def set(self, value: float, timestamp: float | None = None) -> None:
+            # TODO: Implement timestamps
+            self._redis.set(self._key, value)
+
+        def get(self) -> float:
+            value = self._redis.get(self._key)
+            if value is None:
+                return 0.0
+            return float(value)
+
+        def set_exemplar(self, exemplar: Exemplar) -> None:
+            # TODO: Implement exemplars for redis.
+            return
+
+        def get_exemplar(self) -> Exemplar | None:
+            # TODO: Implement exemplars for redis.
+            return None
+
+    return RedisValueImpl
+
+
+def get_value_class() -> type[Value]:
     # Should we enable multi-process mode?
     # This needs to be chosen before the first metric is constructed,
     # and as that may be in some arbitrary library the user/admin has
     # no control over we use an environment variable.
-    if 'prometheus_multiproc_dir' in os.environ or 'PROMETHEUS_MULTIPROC_DIR' in os.environ:
+    if "PROMETHEUS_REDIS_URL" in os.environ:
+        return RedisValue()
+    elif 'prometheus_multiproc_dir' in os.environ or 'PROMETHEUS_MULTIPROC_DIR' in os.environ:
         return MultiProcessValue()
     else:
         return MutexValue
