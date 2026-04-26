@@ -278,6 +278,7 @@ class TestMultiProcess(unittest.TestCase):
 
         expected_histogram = [
             Sample('h_sum', labels, 6.0),
+            Sample('h_count', labels, 2.0),
             Sample('h_bucket', add_label('le', '0.005'), 0.0),
             Sample('h_bucket', add_label('le', '0.01'), 0.0),
             Sample('h_bucket', add_label('le', '0.025'), 0.0),
@@ -293,7 +294,6 @@ class TestMultiProcess(unittest.TestCase):
             Sample('h_bucket', add_label('le', '7.5'), 2.0),
             Sample('h_bucket', add_label('le', '10.0'), 2.0),
             Sample('h_bucket', add_label('le', '+Inf'), 2.0),
-            Sample('h_count', labels, 2.0),
         ]
 
         self.assertEqual(metrics['h'].samples, expected_histogram)
@@ -321,6 +321,7 @@ class TestMultiProcess(unittest.TestCase):
 
         expected_histogram = [
             Sample('h_sum', {'view': 'view1'}, 6.0),
+            Sample('h_count', {'view': 'view1'}, 2.0),
             Sample('h_bucket', {'view': 'view1', 'le': '0.005'}, 0.0),
             Sample('h_bucket', {'view': 'view1', 'le': '0.01'}, 0.0),
             Sample('h_bucket', {'view': 'view1', 'le': '0.025'}, 0.0),
@@ -336,8 +337,8 @@ class TestMultiProcess(unittest.TestCase):
             Sample('h_bucket', {'view': 'view1', 'le': '7.5'}, 2.0),
             Sample('h_bucket', {'view': 'view1', 'le': '10.0'}, 2.0),
             Sample('h_bucket', {'view': 'view1', 'le': '+Inf'}, 2.0),
-            Sample('h_count', {'view': 'view1'}, 2.0),
             Sample('h_sum', {'view': 'view2'}, 1.0),
+            Sample('h_count', {'view': 'view2'}, 1.0),
             Sample('h_bucket', {'view': 'view2', 'le': '0.005'}, 0.0),
             Sample('h_bucket', {'view': 'view2', 'le': '0.01'}, 0.0),
             Sample('h_bucket', {'view': 'view2', 'le': '0.025'}, 0.0),
@@ -353,7 +354,6 @@ class TestMultiProcess(unittest.TestCase):
             Sample('h_bucket', {'view': 'view2', 'le': '7.5'}, 1.0),
             Sample('h_bucket', {'view': 'view2', 'le': '10.0'}, 1.0),
             Sample('h_bucket', {'view': 'view2', 'le': '+Inf'}, 1.0),
-            Sample('h_count', {'view': 'view2'}, 1.0),
         ]
 
         self.assertEqual(metrics['h'].samples, expected_histogram)
@@ -435,6 +435,7 @@ class TestMultiProcess(unittest.TestCase):
 
         expected_histogram = [
             Sample('h_sum', labels, 6.0),
+            Sample('h_count', labels, 2.0),
             Sample('h_bucket', add_label('le', '0.005'), 0.0),
             Sample('h_bucket', add_label('le', '0.01'), 0.0),
             Sample('h_bucket', add_label('le', '0.025'), 0.0),

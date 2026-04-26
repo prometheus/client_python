@@ -156,8 +156,6 @@ class MultiProcessCollector:
                             samples[labels][sample_key] = acc
                         else:
                             samples[labels][sample_key] = value
-                    if accumulate:
-                        samples[labels][(metric.name + '_count', labels)] = acc
 
             # Convert to correct sample format.
             metric.samples = []

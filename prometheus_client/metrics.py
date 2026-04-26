@@ -652,6 +652,7 @@ class Histogram(MetricWrapperBase):
         self._created = time.time()
         bucket_labelnames = self._labelnames + ('le',)
         self._sum = values.ValueClass(self._type, self._name, self._name + '_sum', self._labelnames, self._labelvalues, self._documentation)
+        self._count = values.ValueClass(self._type, self._name, self._name + '_count', self._labelnames, self._labelvalues, self._documentation)
         for b in self._upper_bounds:
             self._buckets.append(values.ValueClass(
                 self._type,
@@ -674,6 +675,7 @@ class Histogram(MetricWrapperBase):
         """
         self._raise_if_not_observable()
         self._sum.inc(amount)
+        self._count.inc(1)
         for i, bound in enumerate(self._upper_bounds):
             if amount <= bound:
                 self._buckets[i].inc(1)
