@@ -207,6 +207,10 @@ class MetricWrapperBase(Collector):
             warnings.warn(
                 "Removal of labels has not been implemented in  multi-process mode yet.",
                 UserWarning)
+        if 'PROMETHEUS_REDIS_URL' in os.environ:
+            warnings.warn(
+                "Removal of labels has not been implemented in redis mode yet.",
+                UserWarning)
 
         if not self._labelnames:
             raise ValueError('No label names were set when constructing %s' % self)
@@ -226,6 +230,10 @@ class MetricWrapperBase(Collector):
                 "Removal of labels has not been implemented in  multi-process mode yet.",
                 UserWarning
             )
+        if 'PROMETHEUS_REDIS_URL' in os.environ:
+            warnings.warn(
+                "Removal of labels has not been implemented in redis mode yet.",
+                UserWarning)
 
         if not self._labelnames:
             raise ValueError('No label names were set when constructing %s' % self)
@@ -257,6 +265,10 @@ class MetricWrapperBase(Collector):
         if 'prometheus_multiproc_dir' in os.environ or 'PROMETHEUS_MULTIPROC_DIR' in os.environ:
             warnings.warn(
                 "Clearing labels has not been implemented in multi-process mode yet",
+                UserWarning)
+        if 'PROMETHEUS_REDIS_URL' in os.environ:
+            warnings.warn(
+                "Clearing of labels has not been implemented in redis mode yet.",
                 UserWarning)
         with self._lock:
             self._metrics = {}
@@ -652,6 +664,7 @@ class Histogram(MetricWrapperBase):
         self._created = time.time()
         bucket_labelnames = self._labelnames + ('le',)
         self._sum = values.ValueClass(self._type, self._name, self._name + '_sum', self._labelnames, self._labelvalues, self._documentation)
+        self._count = values.ValueClass(self._type, self._name, self._name + '_count', self._labelnames, self._labelvalues, self._documentation)
         for b in self._upper_bounds:
             self._buckets.append(values.ValueClass(
                 self._type,
@@ -674,6 +687,7 @@ class Histogram(MetricWrapperBase):
         """
         self._raise_if_not_observable()
         self._sum.inc(amount)
+        self._count.inc(1)
         for i, bound in enumerate(self._upper_bounds):
             if amount <= bound:
                 self._buckets[i].inc(1)

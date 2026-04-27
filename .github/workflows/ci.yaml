@@ -59,6 +59,9 @@ jobs:
         uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Install Redis
+        run: |
+          apt-get -y install redis-server
       - name: Install dependencies
         run: |
           pip install --user tox "virtualenv<20.22.0"
