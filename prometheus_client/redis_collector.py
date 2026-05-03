@@ -1,39 +1,12 @@
-from collections.abc import Iterable
 import json
-import os
-from urllib.parse import urlsplit
+from collections.abc import Iterable
+from typing import cast
 
 from .metrics_core import Metric
+from .redis import redis_client
 from .registry import Collector, CollectorRegistry
 from .samples import Sample
-
-fake_redis_pool = {}
-
-
-def redis_client():
-    """
-    Create a redis client for PROMETHEUS_REDIS_URL.
-
-    Configure the redis database via a URL in PROMETHEUS_REDIS_URL of the form
-    redis://localhost:6379/0
-    """
-    from redis import Redis
-
-    parsed_url = urlsplit(os.environ["PROMETHEUS_REDIS_URL"])
-    assert parsed_url.path.startswith("/")
-    assert parsed_url.path[1:].isdigit()
-    port = parsed_url.port or 6379
-    db = int(parsed_url.path[1:])
-
-    if parsed_url.scheme == "fakeredis":
-        from fakeredis import FakeRedis
-
-        if db not in fake_redis_pool:
-            fake_redis_pool[db] = FakeRedis()
-        return fake_redis_pool[db]
-
-    assert parsed_url.scheme == "redis"
-    return Redis(host=parsed_url.hostname, port=port, db=db)
+from .values import MULTIPROCESS_MODE_T
 
 
 class RedisCollector(Collector):
@@ -56,29 +29,75 @@ class RedisCollector(Collector):
     def collect(self) -> Iterable[Metric]:
         metrics: dict[str, Metric] = {}
         histograms: set[str] = set()
+        multiprocess: dict[str, MULTIPROCESS_MODE_T] = {}
 
         for key, value_s in self._iter_values():
             # FIXME: Catch ValueError here, just in case?
-            prefix_b, typ_b, mmap_key = key.split(b":", 2)
+            prefix_b, typ_b, multiprocess_mode_b, mmap_key = key.split(b":", 3)
             assert prefix_b == b"value"
-            typ = typ_b.decode()
             value = float(value_s)
 
             metric_name, name, labels, help_text = json.loads(mmap_key)
 
             metric = metrics.get(metric_name)
             if metric is None:
+                typ = typ_b.decode()
                 metric = Metric(metric_name, help_text, typ)
                 metrics[metric_name] = metric
+
                 if typ in ("histogram", "gaugehistogram"):
                     histograms.add(metric_name)
 
+                multiprocess_mode = cast(
+                    MULTIPROCESS_MODE_T, multiprocess_mode_b.decode()
+                )
+                if typ in ("gauge", "gaugehistogram") and multiprocess_mode:
+                    multiprocess[metric_name] = multiprocess_mode
+
             metric.add_sample(name, labels, value)
+
+        for name, multiprocess_mode in multiprocess.items():
+            self._accumulate_multiprocess(metrics[name], multiprocess_mode)
 
         for name in histograms:
             self._fix_histogram(metrics[name])
 
         return metrics.values()
+
+    def _accumulate_multiprocess(
+        self, metric: Metric, multiprocess_mode: MULTIPROCESS_MODE_T
+    ) -> None:
+        """Merge metrics from multiple processes using multiprocess_mode."""
+        # We deal with live/dead with Redis expiry
+        if multiprocess_mode.startswith("live"):
+            multiprocess_mode = cast(
+                MULTIPROCESS_MODE_T, multiprocess_mode[len("live") :]
+            )
+        if multiprocess_mode == "all":
+            return
+
+        by_label: dict[tuple[tuple[str, ...], str], Sample] = {}
+
+        for sample in metric.samples:
+            labels = sample.labels.copy()
+            labels.pop("pid")
+            key = (tuple(labels.values()), sample.name)
+            value = sample.value
+            if key in by_label:
+                current_value = by_label[key].value
+                if multiprocess_mode == "min" and value > current_value:
+                    continue
+                if multiprocess_mode == "max" and value < current_value:
+                    continue
+                if multiprocess_mode == "sum":
+                    value += current_value
+                if multiprocess_mode == "mostrecent":
+                    raise NotImplementedError(
+                        "The 'mostrecent' modes are not supported in RedisCollector"
+                    )
+            by_label[key] = Sample(sample.name, labels, value)
+
+        metric.samples = list(by_label.values())
 
     def _fix_histogram(self, metric: Metric) -> None:
         """

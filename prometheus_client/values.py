@@ -1,11 +1,27 @@
 import os
-from threading import Lock
-from typing import Any, Protocol
 import warnings
+from collections.abc import Callable, Sequence
+from datetime import timedelta
+from threading import Lock
+from typing import Any, Protocol, Literal
 
 from .mmap_dict import mmap_key, MmapedDict
-from .redis_collector import redis_client
+from .redis import redis_client, _keep_key_from_expiring, _key_expiry
 from .samples import Exemplar
+
+MULTIPROCESS_MODE_T = Literal[
+    "all",
+    "liveall",
+    "min",
+    "livemin",
+    "max",
+    "livemax",
+    "sum",
+    "livesum",
+    "mostrecent",
+    "livemostrecent",
+    "",
+]
 
 
 class Value(Protocol):
@@ -18,8 +34,8 @@ class Value(Protocol):
         typ: str,
         metric_name: str,
         name: str,
-        labelnames: list[str],
-        labelvalues: list[str],
+        labelnames: Sequence[str],
+        labelvalues: Sequence[str],
         help_text: str,
         **kwargs: Any,
     ) -> None:
@@ -162,50 +178,115 @@ def MultiProcessValue(process_identifier=os.getpid):
     return MmapedValue
 
 
-class RedisValue(Value):
-    """
-    A value implementation that stores data in a redis/valkey database.
+def RedisValue(process_identifier: Callable[[], str | int] = os.getpid) -> type[Value]:
 
-    Key scheme:
-    * value:typ:MMAP_KEY
-    """
+    class RedisValueImpl(Value):
+        """
+        A value implementation that stores data in a redis/valkey database.
 
-    _multiprocess = False
+        Key scheme:
+        * value:typ:MMAP_KEY
 
-    def __init__(
-        self,
-        typ: str,
-        metric_name: str,
-        name: str,
-        labelnames: list[str],
-        labelvalues: list[str],
-        help_text: str,
-        **kwargs: Any,
-    ) -> None:
-        key = mmap_key(metric_name, name, labelnames, labelvalues, help_text)
-        self._key = f"value:{typ}:{key}"
-        redis_client().setnx(self._key, 0.0)
+        When a live multiprocess_mode is used, we set the key to expire after
+        PROMETHEUS_REDIS_REFRESH_TTL seconds. We launch a daemon thread that
+        extends the expiry of all our process' keys every
+        PROMETHEUS_REDIS_REFRESH_FREQUENCY.
+        """
 
-    def inc(self, amount: float) -> None:
-        redis_client().incrbyfloat(self._key, amount)
+        _multiprocess: bool = True
 
-    def set(self, value: float, timestamp: float | None = None) -> None:
-        # TODO: Implement timestamps
-        redis_client().set(self._key, value)
+        _typ: str
+        _metric_name: str
+        _name: str
+        _labelnames: list[str]
+        _labelvalues: list[str]
+        _help_text: str
+        _multiprocess_mode: MULTIPROCESS_MODE_T
+        _expiry: timedelta | None
 
-    def get(self) -> float:
-        value = redis_client().get(self._key)
-        if value is None:
-            return 0.0
-        return float(value)
+        _key: str
 
-    def set_exemplar(self, exemplar: Exemplar) -> None:
-        # TODO: Implement exemplars for redis.
-        raise NotImplementedError("Exemplars are not implemented for Redis.")
+        def __init__(
+            self,
+            typ: str,
+            metric_name: str,
+            name: str,
+            labelnames: Sequence[str],
+            labelvalues: Sequence[str],
+            help_text: str,
+            multiprocess_mode: MULTIPROCESS_MODE_T = "",
+            **kwargs: Any,
+        ) -> None:
+            self._typ = typ
+            self._metric_name = metric_name
+            self._name = name
+            self._labelnames = list(labelnames)
+            self._labelvalues = list(labelvalues)
+            self._help_text = help_text
+            self._multiprocess_mode = multiprocess_mode
+            self._expiry = None
+            if multiprocess_mode:
+                if multiprocess_mode in ("mostrecent", "livemostrecent"):
+                    raise NotImplementedError(
+                        "The 'mostrecent' modes are not supported in RedisValue"
+                    )
+                assert typ in ("gauge", "gaugehistogram")
+                self._labelnames.append("pid")
+                self._labelvalues.append("")
+                if multiprocess_mode.startswith("live"):
+                    self._expiry = _key_expiry()
+            self._update_key(True)
+            redis_client().set(self._key, 0.0, ex=self._expiry, nx=True)
 
-    def get_exemplar(self) -> Exemplar | None:
-        # TODO: Implement exemplars for redis.
-        return None
+        def _update_key(self, update: bool = False) -> None:
+            if self._multiprocess_mode:
+                assert self._labelnames[-1] == "pid"
+                new_id = str(process_identifier())
+                if new_id != self._labelvalues[-1]:
+                    self._labelvalues[-1] = new_id
+                    update = True
+
+            if update:
+                key = mmap_key(
+                    self._metric_name,
+                    self._name,
+                    self._labelnames,
+                    self._labelvalues,
+                    self._help_text,
+                )
+                self._key = f"value:{self._typ}:{self._multiprocess_mode}:{key}"
+
+            if self._expiry and update:
+                _keep_key_from_expiring(self._labelvalues[-1], self._key)
+
+        def inc(self, amount: float) -> None:
+            self._update_key()
+            client = redis_client()
+            client.incrbyfloat(self._key, amount)
+            if self._expiry:
+                client.expire(self._key, self._expiry)
+
+        def set(self, value: float, timestamp: float | None = None) -> None:
+            self._update_key()
+            # TODO: Implement timestamps
+            redis_client().set(self._key, value, ex=self._expiry)
+
+        def get(self) -> float:
+            self._update_key()
+            value = redis_client().get(self._key)
+            if value is None:
+                return 0.0
+            return float(value)
+
+        def set_exemplar(self, exemplar: Exemplar) -> None:
+            # TODO: Implement exemplars for redis.
+            raise NotImplementedError("Exemplars are not implemented for Redis.")
+
+        def get_exemplar(self) -> Exemplar | None:
+            # TODO: Implement exemplars for redis.
+            return None
+
+    return RedisValueImpl
 
 
 def get_value_class() -> type[Value]:
@@ -214,8 +295,11 @@ def get_value_class() -> type[Value]:
     # and as that may be in some arbitrary library the user/admin has
     # no control over we use an environment variable.
     if "PROMETHEUS_REDIS_URL" in os.environ:
-        return RedisValue
-    elif 'prometheus_multiproc_dir' in os.environ or 'PROMETHEUS_MULTIPROC_DIR' in os.environ:
+        return RedisValue()
+    elif (
+        "prometheus_multiproc_dir" in os.environ
+        or "PROMETHEUS_MULTIPROC_DIR" in os.environ
+    ):
         return MultiProcessValue()
     else:
         return MutexValue

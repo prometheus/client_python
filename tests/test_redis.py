@@ -1,7 +1,12 @@
 import os
 import unittest
+import warnings
 from collections.abc import Sequence
+from datetime import timedelta
+from time import time
+from threading import Event
 from typing import Any
+from unittest import mock
 
 import pytest
 
@@ -14,9 +19,22 @@ from prometheus_client.core import (
     Sample,
     Summary,
 )
-from prometheus_client.redis_collector import RedisCollector, redis_client
+from prometheus_client.redis import (
+    mark_process_dead,
+    redis_client,
+    _daemon_threads,
+    _keep_key_from_expiring,
+    _live_metrics,
+)
+from prometheus_client.redis_collector import RedisCollector
 from prometheus_client.samples import Exemplar
-from prometheus_client.values import MutexValue, RedisValue, Value
+from prometheus_client.values import (
+    MULTIPROCESS_MODE_T,
+    MutexValue,
+    RedisValue,
+    Value,
+    get_value_class,
+)
 
 pytest.importorskip("redis")
 
@@ -24,9 +42,11 @@ pytest.importorskip("redis")
 class RedisTestCase(unittest.TestCase):
     def setUp(self) -> None:
         os.environ["PROMETHEUS_REDIS_URL"] = "fakeredis://localhost/42"
-        values.ValueClass = RedisValue
+        values.ValueClass = RedisValue(lambda: 123)
 
     def tearDown(self) -> None:
+        for identifier in list(_daemon_threads):
+            mark_process_dead(identifier)
         redis_client().flushdb()
         del os.environ["PROMETHEUS_REDIS_URL"]
         values.ValueClass = MutexValue
@@ -40,6 +60,7 @@ class ValueTestCase(RedisTestCase):
         type_: str = "counter",
         labelnames: list[str] | None = None,
         labelvalues: list[str] | None = None,
+        multiprocess_mode: MULTIPROCESS_MODE_T = "",
     ) -> Value:
         return values.ValueClass(
             type_,
@@ -48,6 +69,7 @@ class ValueTestCase(RedisTestCase):
             labelnames or [],
             labelvalues or [],
             "Help Text",
+            multiprocess_mode=multiprocess_mode,
         )
 
     def test_initializes_value(self) -> None:
@@ -92,8 +114,130 @@ class ValueTestCase(RedisTestCase):
         self.assertEqual(v1.get(), 1.0)
         self.assertEqual(v2.get(), 2.0)
 
+    def test_multiprocess_mode_mostrecent(self) -> None:
+        with self.assertRaises(NotImplementedError):
+            self.create_value(type_="gauge", multiprocess_mode="mostrecent")
 
-class TestRedis(RedisTestCase):
+    def test_multiprocess_mode_counter(self) -> None:
+        with self.assertRaises(AssertionError):
+            self.create_value(type_="counter", multiprocess_mode="liveall")
+
+    def test_multiprocess_mode(self) -> None:
+        value = self.create_value(type_="gauge", multiprocess_mode="all")
+        self.assertEqual(value._labelnames, ["pid"])
+        self.assertEqual(value._labelvalues[-1], "123")
+        self.assertIsNone(value._expiry)
+        self.assertLess(redis_client().expiretime(value._key), 0)
+
+    def test_multiprocess_mode_live(self) -> None:
+        value = self.create_value(type_="gauge", multiprocess_mode="liveall")
+        unixtime = time()
+        self.assertEqual(value._labelnames, ["pid"])
+        self.assertEqual(value._labelvalues[-1], "123")
+        self.assertEqual(value._expiry, timedelta(seconds=20))
+        expiretime = redis_client().expiretime(value._key)
+        self.assertGreater(expiretime, unixtime)
+        self.assertLessEqual(expiretime, unixtime + 20)
+
+        self.assertIn("123", _daemon_threads)
+        self.assertIn("123", _live_metrics)
+        self.assertIn(value._key, _live_metrics["123"])
+
+    def test_live_inc_updates_expiry(self) -> None:
+        value = self.create_value(type_="gauge", multiprocess_mode="liveall")
+        unixtime = time()
+        redis_client().persist(value._key)
+        self.assertLess(redis_client().expiretime(value._key), 0)
+
+        value.inc(1)
+        self.assertGreater(redis_client().expiretime(value._key), unixtime)
+
+    def test_live_set_updates_expiry(self) -> None:
+        value = self.create_value(type_="gauge", multiprocess_mode="liveall")
+        unixtime = time()
+        redis_client().persist(value._key)
+        self.assertLess(redis_client().expiretime(value._key), 0)
+
+        value.set(1)
+        self.assertGreater(redis_client().expiretime(value._key), unixtime)
+
+    def test_multiprocess_pid_change(self) -> None:
+        pid = 1
+        values.ValueClass = RedisValue(lambda: pid)
+
+        value = self.create_value(type_="gauge", multiprocess_mode="all")
+        self.assertEqual(value._labelnames[-1], "pid")
+        self.assertEqual(value._labelvalues[-1], "1")
+        value.inc(1)
+        self.assertEqual(value.get(), 1.0)
+
+        pid = 2
+        value.inc(1)
+        self.assertEqual(value._labelvalues[-1], "2")
+        self.assertEqual(value.get(), 1.0)
+
+
+class KeepMetricsAliveTestCase(RedisTestCase):
+    """Test KeepMetricsAliveThread and friends."""
+
+    def setUp(self):
+        super().setUp()
+        self.stop_event = Event()
+
+    def tearDown(self):
+        super().tearDown()
+        self.stop_event.set()
+
+    def mock_loop(self) -> None:
+        self.loop_event = Event()
+        self.waiting_event = Event()
+        patcher = mock.patch(
+            "prometheus_client.redis.KeepMetricsAliveThread.loop_wait",
+            side_effect=self.loop_wait,
+        )
+        self.addCleanup(patcher.stop)
+        patcher.start()
+
+    def loop_wait(self, _timeout: float) -> bool:
+        self.waiting_event.set()
+        self.waiting_event = Event()
+        assert self.loop_event.wait(5) is True
+        return self.stop_event.is_set()
+
+    def run_loop_once(self, stop: bool=False) -> None:
+        if stop:
+            self.stop_event.set()
+        self.loop_event.set()
+        if not stop:
+            self.loop_event = Event()
+            assert self.waiting_event.wait() is True
+
+    def test_mark_unknown_process_dead(self) -> None:
+        mark_process_dead("unknown")
+
+    def test_mark_known_process_dead(self) -> None:
+        client = redis_client()
+        client.set("key", "hello")
+        _keep_key_from_expiring("identifier", "key")
+        self.assertIn("identifier", _daemon_threads)
+        mark_process_dead("identifier")
+        self.assertNotIn("identifier", _daemon_threads)
+
+    def test_live_daemon_updates_expiry(self) -> None:
+        """Exercise the full lifecycle of the daemon thread."""
+        self.mock_loop()
+        client = redis_client()
+        client.set("key", "hello")
+        _keep_key_from_expiring("identifier", "key")
+        self.assertLess(client.expiretime("key"), 0)
+
+        unixtime = time()
+        self.run_loop_once()
+        self.assertGreater(client.expiretime("key"), unixtime)
+        self.run_loop_once(stop=True)
+
+
+class TestRedisCollector(RedisTestCase):
     def setUp(self) -> None:
         super().setUp()
         self.registry = CollectorRegistry(support_collectors_without_names=True)
@@ -109,6 +253,7 @@ class TestRedis(RedisTestCase):
 
     def test_summary_adds(self) -> None:
         s1 = Summary("s", "help", registry=None)
+        values.ValueClass = RedisValue(lambda: 456)
         s2 = Summary("s", "help", registry=None)
         self.assertEqual(0, self.registry.get_sample_value("s_count"))
         self.assertEqual(0, self.registry.get_sample_value("s_sum"))
@@ -119,6 +264,7 @@ class TestRedis(RedisTestCase):
 
     def test_histogram_adds(self) -> None:
         h1 = Histogram("h", "help", registry=None)
+        values.ValueClass = RedisValue(lambda: 456)
         h2 = Histogram("h", "help", registry=None)
         self.assertEqual(0, self.registry.get_sample_value("h_count"))
         self.assertEqual(0, self.registry.get_sample_value("h_sum"))
@@ -129,12 +275,135 @@ class TestRedis(RedisTestCase):
         self.assertEqual(3, self.registry.get_sample_value("h_sum"))
         self.assertEqual(2, self.registry.get_sample_value("h_bucket", {"le": "5.0"}))
 
+    def test_gauge_all(self) -> None:
+        g1 = Gauge("g", "help", registry=None)
+        values.ValueClass = RedisValue(lambda: 456)
+        g2 = Gauge("g", "help", registry=None)
+        self.assertEqual(0, self.registry.get_sample_value("g", {"pid": "123"}))
+        self.assertEqual(0, self.registry.get_sample_value("g", {"pid": "456"}))
+        g1.set(1)
+        g2.set(2)
+        mark_process_dead(123)
+        self.assertEqual(1, self.registry.get_sample_value("g", {"pid": "123"}))
+        self.assertEqual(2, self.registry.get_sample_value("g", {"pid": "456"}))
+
+    def test_gauge_liveall(self) -> None:
+        g1 = Gauge("g", "help", registry=None, multiprocess_mode="liveall")
+        values.ValueClass = RedisValue(lambda: 456)
+        g2 = Gauge("g", "help", registry=None, multiprocess_mode="liveall")
+        self.assertEqual(0, self.registry.get_sample_value("g", {"pid": "123"}))
+        self.assertEqual(0, self.registry.get_sample_value("g", {"pid": "456"}))
+        g1.set(1)
+        g2.set(2)
+        self.assertEqual(1, self.registry.get_sample_value("g", {"pid": "123"}))
+        self.assertEqual(2, self.registry.get_sample_value("g", {"pid": "456"}))
+        mark_process_dead(123)
+        self.assertEqual(None, self.registry.get_sample_value("g", {"pid": "123"}))
+        self.assertEqual(2, self.registry.get_sample_value("g", {"pid": "456"}))
+
+    def test_gauge_min(self) -> None:
+        g1 = Gauge("g", "help", registry=None, multiprocess_mode="min")
+        values.ValueClass = RedisValue(lambda: 456)
+        g2 = Gauge("g", "help", registry=None, multiprocess_mode="min")
+        self.assertEqual(0, self.registry.get_sample_value("g"))
+        g1.set(1)
+        g2.set(2)
+        self.assertEqual(1, self.registry.get_sample_value("g"))
+
+    def test_gauge_livemin(self):
+        g1 = Gauge("g", "help", registry=None, multiprocess_mode="livemin")
+        values.ValueClass = RedisValue(lambda: 456)
+        g2 = Gauge("g", "help", registry=None, multiprocess_mode="livemin")
+        self.assertEqual(0, self.registry.get_sample_value("g"))
+        g1.set(1)
+        g2.set(2)
+        self.assertEqual(1, self.registry.get_sample_value("g"))
+        mark_process_dead(123)
+        self.assertEqual(2, self.registry.get_sample_value("g"))
+
+    def test_gauge_max(self) -> None:
+        g1 = Gauge("g", "help", registry=None, multiprocess_mode="max")
+        values.ValueClass = RedisValue(lambda: 456)
+        g2 = Gauge("g", "help", registry=None, multiprocess_mode="max")
+        self.assertEqual(0, self.registry.get_sample_value("g"))
+        g1.set(1)
+        g2.set(2)
+        self.assertEqual(2, self.registry.get_sample_value("g"))
+
+    def test_gauge_livemax(self) -> None:
+        g1 = Gauge("g", "help", registry=None, multiprocess_mode="livemax")
+        values.ValueClass = RedisValue(lambda: 456)
+        g2 = Gauge("g", "help", registry=None, multiprocess_mode="livemax")
+        self.assertEqual(0, self.registry.get_sample_value("g"))
+        g1.set(2)
+        g2.set(1)
+        self.assertEqual(2, self.registry.get_sample_value("g"))
+        mark_process_dead(123)
+        self.assertEqual(1, self.registry.get_sample_value("g"))
+
+    def test_gauge_sum(self) -> None:
+        g1 = Gauge("g", "help", registry=None, multiprocess_mode="sum")
+        values.ValueClass = RedisValue(lambda: 456)
+        g2 = Gauge("g", "help", registry=None, multiprocess_mode="sum")
+        self.assertEqual(0, self.registry.get_sample_value("g"))
+        g1.set(1)
+        g2.set(2)
+        self.assertEqual(3, self.registry.get_sample_value("g"))
+        mark_process_dead(123)
+        self.assertEqual(3, self.registry.get_sample_value("g"))
+
+    def test_gauge_livesum(self) -> None:
+        g1 = Gauge("g", "help", registry=None, multiprocess_mode="livesum")
+        values.ValueClass = RedisValue(lambda: 456)
+        g2 = Gauge("g", "help", registry=None, multiprocess_mode="livesum")
+        self.assertEqual(0, self.registry.get_sample_value("g"))
+        g1.set(1)
+        g2.set(2)
+        self.assertEqual(3, self.registry.get_sample_value("g"))
+        mark_process_dead(123)
+        self.assertEqual(2, self.registry.get_sample_value("g"))
+
+    def xxx_test_gauge_mostrecent(self) -> None:
+        g1 = Gauge("g", "help", registry=None, multiprocess_mode="mostrecent")
+        values.ValueClass = RedisValue(lambda: 456)
+        g2 = Gauge("g", "help", registry=None, multiprocess_mode="mostrecent")
+        g2.set(2)
+        g1.set(1)
+        self.assertEqual(1, self.registry.get_sample_value("g"))
+        mark_process_dead(123)
+        self.assertEqual(1, self.registry.get_sample_value("g"))
+
+    def xxx_test_gauge_livemostrecent(self) -> None:
+        g1 = Gauge("g", "help", registry=None, multiprocess_mode="livemostrecent")
+        values.ValueClass = RedisValue(lambda: 456)
+        g2 = Gauge("g", "help", registry=None, multiprocess_mode="livemostrecent")
+        g2.set(2)
+        g1.set(1)
+        self.assertEqual(1, self.registry.get_sample_value("g"))
+        mark_process_dead(123)
+        self.assertEqual(2, self.registry.get_sample_value("g"))
+
     def test_namespace_subsystem(self) -> None:
         c1 = Counter("c", "help", registry=None, namespace="ns", subsystem="ss")
         c1.inc(1)
         self.assertEqual(1, self.registry.get_sample_value("ns_ss_c_total"))
 
+    def test_counter_across_forks(self) -> None:
+        pid = 0
+        values.ValueClass = RedisValue(lambda: pid)
+        c1 = Counter("c", "help", registry=None)
+        self.assertEqual(0, self.registry.get_sample_value("c_total"))
+        c1.inc(1)
+        c1.inc(1)
+        pid = 1
+        c1.inc(1)
+        self.assertEqual(3, self.registry.get_sample_value("c_total"))
+        # Unlike MultiProcessValue, we don't store any local state
+        self.assertEqual(3, c1._value.get())
+
     def test_collect(self) -> None:
+        pid = 0
+        values.ValueClass = RedisValue(lambda: pid)
         labels = {i: i for i in "abcd"}
 
         def add_label(key: str, value: str) -> dict[str, str]:
@@ -150,6 +419,8 @@ class TestRedis(RedisTestCase):
         g.labels(**labels).set(1)
         h.labels(**labels).observe(1)
 
+        pid = 1
+
         c.labels(**labels).inc(1)
         g.labels(**labels).set(1)
         h.labels(**labels).observe(5)
@@ -157,6 +428,14 @@ class TestRedis(RedisTestCase):
         metrics = {m.name: m for m in self.collector.collect()}
 
         self.assertEqual(metrics["c"].samples, [Sample("c_total", labels, 2.0)])
+        metrics["g"].samples.sort(key=lambda x: x[1]["pid"])
+        self.assertEqual(
+            metrics["g"].samples,
+            [
+                Sample("g", add_label("pid", "0"), 1.0),
+                Sample("g", add_label("pid", "1"), 1.0),
+            ],
+        )
 
         expected_histogram = [
             Sample("h_bucket", add_label("le", "0.005"), 0.0),
@@ -181,9 +460,14 @@ class TestRedis(RedisTestCase):
         self.assertEqual(metrics["h"].samples, expected_histogram)
 
     def test_collect_histogram_ordering(self) -> None:
+        pid = 0
+        values.ValueClass = RedisValue(lambda: pid)
+
         h = Histogram("h", "help", labelnames=["view"], registry=None)
 
         h.labels(view="view1").observe(1)
+
+        pid = 1
 
         h.labels(view="view1").observe(5)
         h.labels(view="view2").observe(1)
@@ -230,6 +514,8 @@ class TestRedis(RedisTestCase):
         self.assertEqual(metrics["h"].samples, expected_histogram)
 
     def test_restrict(self) -> None:
+        pid = 0
+        values.ValueClass = RedisValue(lambda: pid)
         labels = {i: i for i in "abcd"}
 
         c = Counter("c", "help", labelnames=labels.keys(), registry=None)
@@ -237,6 +523,8 @@ class TestRedis(RedisTestCase):
 
         c.labels(**labels).inc(1)
         g.labels(**labels).set(1)
+
+        pid = 1
 
         c.labels(**labels).inc(1)
         g.labels(**labels).set(1)
@@ -250,6 +538,8 @@ class TestRedis(RedisTestCase):
         self.assertEqual(metrics["c"].samples, [Sample("c_total", labels, 2.0)])
 
     def test_collect_preserves_help(self) -> None:
+        pid = 0
+        values.ValueClass = RedisValue(lambda: pid)
         labels = {i: i for i in "abcd"}
 
         c = Counter("c", "c help", labelnames=labels.keys(), registry=None)
@@ -260,6 +550,8 @@ class TestRedis(RedisTestCase):
         g.labels(**labels).set(1)
         h.labels(**labels).observe(1)
 
+        pid = 1
+
         c.labels(**labels).inc(1)
         g.labels(**labels).set(1)
         h.labels(**labels).observe(5)
@@ -269,6 +561,20 @@ class TestRedis(RedisTestCase):
         self.assertEqual(metrics["c"].documentation, "c help")
         self.assertEqual(metrics["g"].documentation, "g help")
         self.assertEqual(metrics["h"].documentation, "h help")
+
+    def test_remove_clear_warning(self) -> None:
+        with warnings.catch_warnings(record=True) as w:
+            values.ValueClass = get_value_class()
+            registry = CollectorRegistry()
+            collector = RedisCollector(registry)
+            counter = Counter("c", "help", labelnames=["label"], registry=None)
+            counter.labels("label").inc()
+            counter.remove("label")
+            counter.clear()
+            assert issubclass(w[0].category, UserWarning)
+            assert "Removal of labels has not been implemented" in str(w[0].message)
+            assert issubclass(w[-1].category, UserWarning)
+            assert "Clearing of labels has not been implemented" in str(w[-1].message)
 
     def test_child_name_is_built_once_with_namespace_subsystem_unit(self) -> None:
         """
