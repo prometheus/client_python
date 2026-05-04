@@ -241,11 +241,15 @@ InfoMetricFamily(name, documentation, value=None, labels=None)
 | `value` | `Dict[str, str]` | Key-value label pairs that form the info payload. |
 | `timestamp` | `float` or `Timestamp` | Optional Unix timestamp. |
 
-```python
-# single unlabelled info metric
-yield InfoMetricFamily('build', 'Build metadata', value={'version': '1.2.3', 'commit': 'abc123'})
+Single unlabelled info metric:
 
-# labelled: one info metric per service
+```python
+yield InfoMetricFamily('build', 'Build metadata', value={'version': '1.2.3', 'commit': 'abc123'})
+```
+
+Labelled — one info metric per service:
+
+```python
 i = InfoMetricFamily('service_build', 'Per-service build info', labels=['service'])
 i.add_metric(['auth'], {'version': '2.0.1', 'commit': 'def456'})
 i.add_metric(['api'], {'version': '1.9.0', 'commit': 'ghi789'})
