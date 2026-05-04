@@ -47,6 +47,11 @@ can also implement `describe`.
 Returns an iterable of metric family objects (`GaugeMetricFamily`,
 `CounterMetricFamily`, etc.). Called every time the registry is scraped.
 
+Using `yield` is the idiomatic way to implement `collect()` — it turns the method
+into a generator, which the registry iterates lazily without building an intermediate
+list first. Each scrape calls `collect()` fresh, so no state carries over between
+scrapes.
+
 ### `describe()`
 
 Returns an iterable of metric family objects used only to determine the metric
@@ -75,6 +80,10 @@ g.add_metric(['eu-west-1'], 5)
 ```
 
 ## API Reference
+
+The examples below show usage inside a `collect()` method body. Each snippet is
+meant to be placed within a custom collector class as shown in the example at the
+top of this page.
 
 ### GaugeMetricFamily
 
