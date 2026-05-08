@@ -56,16 +56,15 @@ Memory is a secondary benefit. Yielding an object inline
 (`yield GaugeMetricFamily(...)`) lets Python reclaim it as soon as the registry
 advances past that point. A named variable keeps the object alive until the variable
 is rebound. For most collectors this difference is negligible, but it can matter for
-very large metric sets. When building families in a loop, yield inside the loop and
-reuse the same variable name so the GC can reclaim each object before the next one
-is built:
+very large metric sets. Yielding inside a loop rather than accumulating into a list
+keeps at most one object alive at a time:
 
 ```python
 def collect(self):
     for name in _QUEUE_NAMES:
         m = GaugeMetricFamily('queue_depth', 'Queue depth', labels=['queue'])
         m.add_metric([name], fetch_depth(name))
-        yield m  # m is rebound next iteration; the previous object can be reclaimed
+        yield m
 ```
 
 ### `describe()`
