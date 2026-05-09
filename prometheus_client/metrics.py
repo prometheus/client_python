@@ -254,6 +254,8 @@ class MetricWrapperBase(Collector):
 
     def clear(self) -> None:
         """Remove all labelsets from the metric"""
+        if not self._labelnames:
+            raise ValueError('No label names were set when constructing %s' % self)
         if 'prometheus_multiproc_dir' in os.environ or 'PROMETHEUS_MULTIPROC_DIR' in os.environ:
             warnings.warn(
                 "Clearing labels has not been implemented in multi-process mode yet",
