@@ -34,6 +34,7 @@ for the documentation.
 from __future__ import print_function
 
 import collections
+import functools
 import inspect
 import itertools
 import operator
@@ -105,7 +106,7 @@ class FunctionMaker(object):
                 self.name = '_lambda_'
             self.doc = func.__doc__
             self.module = func.__module__
-            if inspect.isfunction(func):
+            if inspect.isfunction(func) or isinstance(func, functools.partial):
                 argspec = getfullargspec(func)
                 self.annotations = getattr(func, '__annotations__', {})
                 for a in ('args', 'varargs', 'varkw', 'defaults', 'kwonlyargs',
