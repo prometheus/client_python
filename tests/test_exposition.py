@@ -1,9 +1,11 @@
 import gzip
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import os
+import ssl
 import threading
 import time
 import unittest
+import urllib
 
 import pytest
 
@@ -16,7 +18,7 @@ from prometheus_client import (
 from prometheus_client.core import GaugeHistogramMetricFamily, Timestamp
 from prometheus_client.exposition import (
     basic_auth_handler, choose_encoder, default_handler, MetricsHandler,
-    passthrough_redirect_handler, tls_auth_handler,
+    passthrough_redirect_handler, start_wsgi_server, tls_auth_handler,
 )
 import prometheus_client.openmetrics.exposition as openmetrics
 
@@ -631,6 +633,148 @@ class TestChooseEncoder(unittest.TestCase):
         # No version -- allow-utf-8 rejected.
         self.assert_is_escaped(exp)
         self.assert_is_prom(exp)
+
+
+class TestWsgiTLS(unittest.TestCase):
+    def setUp(self):
+        self.certs_dir = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), 'certs'
+        )
+        self.httpd = None
+        self.t = None
+
+    def tearDown(self):
+        if self.httpd:
+            self.httpd.shutdown()
+            self.httpd.server_close()
+            self.t.join()
+
+    def _assert_tls_connection(
+        self,
+        server_kwargs,
+        use_server_tls=True,
+        client_tls_kwargs=None,
+        request_tls_version=ssl.TLSVersion.TLSv1_3,
+        expect_exception=None
+    ):
+        self.httpd, self.t = start_wsgi_server(port=0, **server_kwargs)
+        port = self.httpd.server_address[1]
+
+        if use_server_tls:
+            ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            ctx.minimum_version = request_tls_version
+            ctx.maximum_version = request_tls_version
+            ctx.load_verify_locations(
+                os.path.join(self.certs_dir, "server-ca.pem")
+            )
+
+            if client_tls_kwargs is not None:
+                ctx.load_cert_chain(**client_tls_kwargs)
+            
+            url = f"https://localhost:{port}/metrics"
+        else:
+            ctx = None
+            url = f"http://localhost:{port}/metrics"
+
+        if expect_exception is not None:
+            self.assertRaises(
+                expect_exception,
+                urllib.request.urlopen,
+                url,
+                context=ctx
+            )
+        else:
+            response = urllib.request.urlopen(url, context=ctx)
+            self.assertEqual(response.status, 200)
+
+    def test_tls_disabled(self):
+        self._assert_tls_connection(server_kwargs={}, use_server_tls=False)
+
+    def test_tls_enabled(self):
+        server_kwargs = {
+            "certfile": os.path.join(self.certs_dir, "server-cert.pem"),
+            "keyfile": os.path.join(self.certs_dir, "server-key.pem"),
+        }
+        self._assert_tls_connection(server_kwargs)
+
+    def test_tls_untrusted_server_cert_raises(self):
+        server_kwargs = {
+            "certfile": os.path.join(self.certs_dir, "cert.pem"),
+            "keyfile": os.path.join(self.certs_dir, "key.pem"),
+        }
+        self._assert_tls_connection(
+            server_kwargs,
+            expect_exception=urllib.error.URLError
+        )
+
+    def test_tls_versions_configured_correctly(self):
+        server_kwargs = {
+            "certfile": os.path.join(self.certs_dir, "server-cert.pem"),
+            "keyfile": os.path.join(self.certs_dir, "server-key.pem"),
+            "tls_min_version": ssl.TLSVersion.TLSv1_2,
+            "tls_max_version": ssl.TLSVersion.TLSv1_3,
+        }
+        self._assert_tls_connection(
+            server_kwargs,
+            request_tls_version=ssl.TLSVersion.TLSv1_2
+        )
+
+    def test_tls_using_lower_version_than_min_raises(self):
+        server_kwargs = {
+            "certfile": os.path.join(self.certs_dir, "server-cert.pem"),
+            "keyfile": os.path.join(self.certs_dir, "server-key.pem"),
+            "tls_min_version": ssl.TLSVersion.TLSv1_3,
+        }
+        self._assert_tls_connection(
+            server_kwargs,
+            request_tls_version=ssl.TLSVersion.TLSv1_2,
+            expect_exception=urllib.error.URLError
+        )
+
+    def test_tls_using_higher_version_than_max_raises(self):
+        server_kwargs = {
+            "certfile": os.path.join(self.certs_dir, "server-cert.pem"),
+            "keyfile": os.path.join(self.certs_dir, "server-key.pem"),
+            "tls_max_version": ssl.TLSVersion.TLSv1_2,
+        }
+        self._assert_tls_connection(
+            server_kwargs,
+            request_tls_version=ssl.TLSVersion.TLSv1_3,
+            expect_exception=urllib.error.URLError
+        )
+
+    def test_mtls_enabled(self):
+        server_kwargs = {
+            "certfile": os.path.join(self.certs_dir, "server-cert.pem"),
+            "keyfile": os.path.join(self.certs_dir, "server-key.pem"),
+            "client_auth_required": True,
+            "client_cafile": os.path.join(self.certs_dir, "server-ca.pem"),
+        }
+        client_tls_kwargs = {
+            "certfile": os.path.join(self.certs_dir, "client-cert.pem"),
+            "keyfile": os.path.join(self.certs_dir, "client-key.pem")
+        }
+        self._assert_tls_connection(
+            server_kwargs,
+            client_tls_kwargs=client_tls_kwargs
+        )
+
+    def test_mtls_untrusted_client_cert_raises(self):
+        server_kwargs = {
+            "certfile": os.path.join(self.certs_dir, "server-cert.pem"),
+            "keyfile": os.path.join(self.certs_dir, "server-key.pem"),
+            "client_auth_required": True,
+            "client_cafile": os.path.join(self.certs_dir, "server-cert.pem"),
+        }
+        client_tls_kwargs = {
+            "certfile": os.path.join(self.certs_dir, "cert.pem"),
+            "keyfile": os.path.join(self.certs_dir, "key.pem")
+        }
+        self._assert_tls_connection(
+            server_kwargs,
+            client_tls_kwargs=client_tls_kwargs,
+            expect_exception=ssl.SSLError
+        )
 
 
 @pytest.mark.parametrize("scenario", [
