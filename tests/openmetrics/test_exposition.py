@@ -57,6 +57,15 @@ utf8_cc_created 123.456
 # EOF
 """ == generate_latest(self.registry, UNDERSCORES)
 
+    def test_gauge_colon_in_name_escaped_underscores(self):
+        g = Gauge('sglang:token_usage', 'Total token usage.', registry=self.registry)
+        g.set(42.0)
+        assert b"""# HELP sglang_token_usage Total token usage.
+# TYPE sglang_token_usage gauge
+sglang_token_usage 42.0
+# EOF
+""" == generate_latest(self.registry, UNDERSCORES)
+
     def test_counter_total(self) -> None:
         c = Counter('cc_total', 'A counter', registry=self.registry)
         c.inc()
@@ -482,7 +491,7 @@ nh_version {count:5,sum:10,schema:0,zero_threshold:0.01,zero_count:2,negative_sp
     {
         "name": "legacy valid metric name",
         "input": "no:escaping_required",
-        "expectedUnderscores": "no:escaping_required",
+        "expectedUnderscores": "no_escaping_required",
         "expectedDots": "no:escaping__required",
         "expectedValue": "no:escaping_required",
     },
@@ -503,7 +512,7 @@ nh_version {count:5,sum:10,schema:0,zero_threshold:0.01,zero_count:2,negative_sp
     {
         "name": "metric name with dots and colon",
         "input": "http.status:sum",
-        "expectedUnderscores": "http_status:sum",
+        "expectedUnderscores": "http_status_sum",
         "expectedDots": "http_dot_status:sum",
         "expectedValue": "U__http_2e_status:sum",
     },
