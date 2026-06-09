@@ -196,6 +196,8 @@ def _get_ssl_ctx(
         cafile: Optional[str] = None,
         capath: Optional[str] = None,
         client_auth_required: bool = False,
+        tls_min_version: ssl.TLSVersion = ssl.TLSVersion.MINIMUM_SUPPORTED,
+        tls_max_version: ssl.TLSVersion = ssl.TLSVersion.MAXIMUM_SUPPORTED
 ) -> ssl.SSLContext:
     """Load context supports SSL."""
     ssl_cxt = ssl.SSLContext(protocol=protocol)
@@ -227,6 +229,9 @@ def _get_ssl_ctx(
         raise exc_type(f"Cannot load server certificate file {certfile!r} or "
                        f"its private key file {keyfile!r}: {msg}")
 
+    ssl_cxt.minimum_version = tls_min_version
+    ssl_cxt.maximum_version = tls_max_version
+
     return ssl_cxt
 
 
@@ -240,6 +245,8 @@ def start_wsgi_server(
         client_capath: Optional[str] = None,
         protocol: int = ssl.PROTOCOL_TLS_SERVER,
         client_auth_required: bool = False,
+        tls_min_version: ssl.TLSVersion = ssl.TLSVersion.MINIMUM_SUPPORTED,
+        tls_max_version: ssl.TLSVersion = ssl.TLSVersion.MAXIMUM_SUPPORTED
 ) -> Tuple[WSGIServer, threading.Thread]:
     """Starts a WSGI server for prometheus metrics as a daemon thread."""
 
@@ -250,7 +257,16 @@ def start_wsgi_server(
     app = make_wsgi_app(registry)
     httpd = make_server(addr, port, app, TmpServer, handler_class=_SilentHandler)
     if certfile and keyfile:
-        context = _get_ssl_ctx(certfile, keyfile, protocol, client_cafile, client_capath, client_auth_required)
+        context = _get_ssl_ctx(
+            certfile,
+            keyfile,
+            protocol,
+            client_cafile,
+            client_capath,
+            client_auth_required,
+            tls_min_version,
+            tls_max_version
+        )
         httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
     t = threading.Thread(target=httpd.serve_forever)
     t.daemon = True
