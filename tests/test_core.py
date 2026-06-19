@@ -620,6 +620,16 @@ class TestMetricWrapper(unittest.TestCase):
         self.assertEqual(None, self.registry.get_sample_value('c_total', {'l': 'x'}))
         self.assertEqual(None, self.registry.get_sample_value('c_total', {'l': 'y'}))
 
+    def test_clear_no_labels_raises(self):
+        no_labels = Counter('c_no_labels', 'help', registry=self.registry)
+        no_labels.inc()
+        self.assertRaises(ValueError, no_labels.clear)
+
+    def test_remove_no_labels_raises(self):
+        no_labels = Counter('c_no_labels2', 'help', registry=self.registry)
+        no_labels.inc()
+        self.assertRaises(ValueError, no_labels.remove, 'x')
+
     def test_incorrect_label_count_raises(self):
         self.assertRaises(ValueError, self.counter.labels)
         self.assertRaises(ValueError, self.counter.labels, 'a', 'b')
