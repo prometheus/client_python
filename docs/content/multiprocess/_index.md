@@ -35,6 +35,12 @@ between process/Gunicorn runs (before startup is recommended).
 This environment variable should be set from a start-up shell script,
 and not directly from Python (otherwise it may not propagate to child processes).
 
+Note: on Windows Subsystem for Linux (WSL), set `PROMETHEUS_MULTIPROC_DIR` to a
+Linux-native filesystem path (e.g. `/tmp` or `/home/<user>`) rather than a
+Windows-mounted path (e.g. `/mnt/c/...`). On Windows-mounted filesystems the
+per-process metric files can be written with an incorrect internal offset,
+causing the collector to silently read no data.
+
 **2. Metrics collector**:
 
 The application must initialize a new `CollectorRegistry`, and store the
