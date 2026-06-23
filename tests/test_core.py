@@ -59,6 +59,12 @@ class TestCounter(unittest.TestCase):
     def test_repr(self):
         self.assertEqual(repr(self.counter), "prometheus_client.metrics.Counter(c)")
 
+    def test_clear_without_labels_is_noop(self):
+        self.counter.inc()
+        self.assertEqual(1, self.registry.get_sample_value('c_total'))
+        self.counter.clear()  # should not raise
+        self.assertEqual(1, self.registry.get_sample_value('c_total'))
+
     def test_negative_increment_raises(self):
         self.assertRaises(ValueError, self.counter.inc, -1)
 
