@@ -32,19 +32,24 @@ class ASGITest(TestCase):
         # Setup ASGI scope
         self.scope = {}
         setup_testing_defaults(self.scope)
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
         self.communicator = None
 
     def tearDown(self):
         if self.communicator:
-            asyncio.new_event_loop().run_until_complete(
+            self.loop.run_until_complete(
                 self.communicator.wait()
             )
+        self.loop.close()
             
     def seed_app(self, app):
-        self.communicator = ApplicationCommunicator(app, self.scope)
+        async def _init():
+            self.communicator = ApplicationCommunicator(app, self.scope)
+        self.loop.run_until_complete(_init())
 
     def send_input(self, payload):
-        asyncio.new_event_loop().run_until_complete(
+        self.loop.run_until_complete(
             self.communicator.send_input(payload)
         )
 
@@ -52,7 +57,7 @@ class ASGITest(TestCase):
         self.send_input({"type": "http.request", "body": b""})
 
     def get_output(self):
-        output = asyncio.new_event_loop().run_until_complete(
+        output = self.loop.run_until_complete(
             self.communicator.receive_output(0)
         )
         return output
@@ -148,9 +153,9 @@ class ASGITest(TestCase):
         increments = 2
         self.increment_metrics(metric_name, help_text, increments)
         app = make_asgi_app(self.registry)
-        self.seed_app(app)
         # Send input with gzip header.
         self.scope["headers"] = [(b"accept-encoding", b"gzip")]
+        self.seed_app(app)
         self.send_input({"type": "http.request", "body": b""})
         # Assert outputs are compressed.
         outputs = self.get_all_output()
@@ -164,9 +169,9 @@ class ASGITest(TestCase):
         self.increment_metrics(metric_name, help_text, increments)
         # Disable compression explicitly.
         app = make_asgi_app(self.registry, disable_compression=True)
-        self.seed_app(app)
         # Send input with gzip header.
         self.scope["headers"] = [(b"accept-encoding", b"gzip")]
+        self.seed_app(app)
         self.send_input({"type": "http.request", "body": b""})
         # Assert outputs are not compressed.
         outputs = self.get_all_output()
@@ -175,8 +180,8 @@ class ASGITest(TestCase):
     def test_openmetrics_encoding(self):
         """Response content type is application/openmetrics-text when appropriate Accept header is in request"""
         app = make_asgi_app(self.registry)
-        self.seed_app(app)
         self.scope["headers"] = [(b"Accept", b"application/openmetrics-text; version=1.0.0")]
+        self.seed_app(app)
         self.send_input({"type": "http.request", "body": b""})
 
         content_type = self.get_response_header_value('Content-Type').split(";")[0]
@@ -204,8 +209,8 @@ class ASGITest(TestCase):
             self.increment_metrics(*m)
 
         for i_1 in range(len(metrics)):
-            self.seed_app(app)
             self.scope['query_string'] = f"name[]={metrics[i_1][0]}_total".encode("utf-8")
+            self.seed_app(app)
             self.send_default_request()
 
             outputs = self.get_all_output()
@@ -220,7 +225,7 @@ class ASGITest(TestCase):
 
                 self.assert_not_metrics(output, *metrics[i_2])
 
-            asyncio.new_event_loop().run_until_complete(
+            self.loop.run_until_complete(
                 self.communicator.wait()
             )
 
@@ -237,8 +242,8 @@ class ASGITest(TestCase):
         for m in metrics:
             self.increment_metrics(*m)
 
-        self.seed_app(app)
         self.scope['query_string'] = "&".join([f"name[]={m[0]}_total" for m in metrics[0:2]]).encode("utf-8")
+        self.seed_app(app)
         self.send_default_request()
 
         outputs = self.get_all_output()
@@ -249,6 +254,6 @@ class ASGITest(TestCase):
         self.assert_metrics(output, *metrics[1])
         self.assert_not_metrics(output, *metrics[2])
 
-        asyncio.new_event_loop().run_until_complete(
+        self.loop.run_until_complete(
             self.communicator.wait()
         )

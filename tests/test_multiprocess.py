@@ -24,21 +24,26 @@ class TestMultiProcessDeprecation(unittest.TestCase):
     def tearDown(self):
         os.environ.pop('prometheus_multiproc_dir', None)
         os.environ.pop('PROMETHEUS_MULTIPROC_DIR', None)
+        values.close_all_multiprocess_files()
         values.ValueClass = MutexValue
         shutil.rmtree(self.tempdir)
 
     def test_deprecation_warning(self):
         os.environ['prometheus_multiproc_dir'] = self.tempdir
         with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
             values.ValueClass = get_value_class()
             registry = CollectorRegistry()
             collector = MultiProcessCollector(registry)
             Counter('c', 'help', registry=None)
 
             assert os.environ['PROMETHEUS_MULTIPROC_DIR'] == self.tempdir
-            assert len(w) == 1
-            assert issubclass(w[-1].category, DeprecationWarning)
-            assert "PROMETHEUS_MULTIPROC_DIR" in str(w[-1].message)
+            if os.name != 'nt':
+                assert len(w) == 1
+                assert issubclass(w[-1].category, DeprecationWarning)
+                assert "PROMETHEUS_MULTIPROC_DIR" in str(w[-1].message)
+            else:
+                assert len(w) == 0
 
     def test_mark_process_dead_respects_lowercase(self):
         os.environ['prometheus_multiproc_dir'] = self.tempdir
@@ -61,8 +66,9 @@ class TestMultiProcess(unittest.TestCase):
 
     def tearDown(self):
         del os.environ['PROMETHEUS_MULTIPROC_DIR']
-        shutil.rmtree(self.tempdir)
+        values.close_all_multiprocess_files()
         values.ValueClass = MutexValue
+        shutil.rmtree(self.tempdir)
 
     def test_counter_adds(self):
         c1 = Counter('c', 'help', registry=None)
@@ -119,6 +125,7 @@ class TestMultiProcess(unittest.TestCase):
         g2.set(2)
         self.assertEqual(1, self.registry.get_sample_value('g', {'pid': '123'}))
         self.assertEqual(2, self.registry.get_sample_value('g', {'pid': '456'}))
+        values.close_all_multiprocess_files()
         mark_process_dead(123, os.environ['PROMETHEUS_MULTIPROC_DIR'])
         self.assertEqual(None, self.registry.get_sample_value('g', {'pid': '123'}))
         self.assertEqual(2, self.registry.get_sample_value('g', {'pid': '456'}))
@@ -140,6 +147,7 @@ class TestMultiProcess(unittest.TestCase):
         g1.set(1)
         g2.set(2)
         self.assertEqual(1, self.registry.get_sample_value('g'))
+        values.close_all_multiprocess_files()
         mark_process_dead(123, os.environ['PROMETHEUS_MULTIPROC_DIR'])
         self.assertEqual(2, self.registry.get_sample_value('g'))
 
@@ -160,6 +168,7 @@ class TestMultiProcess(unittest.TestCase):
         g1.set(2)
         g2.set(1)
         self.assertEqual(2, self.registry.get_sample_value('g'))
+        values.close_all_multiprocess_files()
         mark_process_dead(123, os.environ['PROMETHEUS_MULTIPROC_DIR'])
         self.assertEqual(1, self.registry.get_sample_value('g'))
 
@@ -171,6 +180,7 @@ class TestMultiProcess(unittest.TestCase):
         g1.set(1)
         g2.set(2)
         self.assertEqual(3, self.registry.get_sample_value('g'))
+        values.close_all_multiprocess_files()
         mark_process_dead(123, os.environ['PROMETHEUS_MULTIPROC_DIR'])
         self.assertEqual(3, self.registry.get_sample_value('g'))
 
@@ -182,6 +192,7 @@ class TestMultiProcess(unittest.TestCase):
         g1.set(1)
         g2.set(2)
         self.assertEqual(3, self.registry.get_sample_value('g'))
+        values.close_all_multiprocess_files()
         mark_process_dead(123, os.environ['PROMETHEUS_MULTIPROC_DIR'])
         self.assertEqual(2, self.registry.get_sample_value('g'))
 
@@ -192,6 +203,7 @@ class TestMultiProcess(unittest.TestCase):
         g2.set(2)
         g1.set(1)
         self.assertEqual(1, self.registry.get_sample_value('g'))
+        values.close_all_multiprocess_files()
         mark_process_dead(123, os.environ['PROMETHEUS_MULTIPROC_DIR'])
         self.assertEqual(1, self.registry.get_sample_value('g'))
 
@@ -202,6 +214,7 @@ class TestMultiProcess(unittest.TestCase):
         g2.set(2)
         g1.set(1)
         self.assertEqual(1, self.registry.get_sample_value('g'))
+        values.close_all_multiprocess_files()
         mark_process_dead(123, os.environ['PROMETHEUS_MULTIPROC_DIR'])
         self.assertEqual(2, self.registry.get_sample_value('g'))
 
@@ -626,6 +639,7 @@ class TestMmapedDict(unittest.TestCase):
             list(self.d.read_all_values())
 
     def tearDown(self):
+        self.d.close()
         os.unlink(self.tempfile)
 
 

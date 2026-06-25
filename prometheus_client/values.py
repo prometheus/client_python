@@ -5,6 +5,15 @@ import warnings
 from .mmap_dict import mmap_key, MmapedDict
 
 
+_multi_process_cleanups = []
+
+
+def close_all_multiprocess_files():
+    for cleanup in _multi_process_cleanups:
+        cleanup()
+    _multi_process_cleanups.clear()
+
+
 class MutexValue:
     """A float protected by a mutex."""
 
@@ -51,6 +60,13 @@ def MultiProcessValue(process_identifier=os.getpid):
     # as we presume this means there is no threading going on.
     # This avoids the need to also have mutexes in __MmapDict.
     lock = Lock()
+
+    def cleanup():
+        for f in files.values():
+            f.close()
+        files.clear()
+        values.clear()
+    _multi_process_cleanups.append(cleanup)
 
     class MmapedValue:
         """A float protected by a mutex backed by a per-process mmaped file."""
@@ -121,6 +137,14 @@ def MultiProcessValue(process_identifier=os.getpid):
         def get_exemplar(self):
             # TODO: Implement exemplars for multiprocess mode.
             return None
+
+        @classmethod
+        def close_all_files(cls):
+            with lock:
+                for f in files.values():
+                    f.close()
+                files.clear()
+                values.clear()
 
     return MmapedValue
 
