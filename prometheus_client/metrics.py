@@ -135,7 +135,7 @@ class MetricWrapperBase(Collector):
             if registry:
                 registry.register(self)
 
-    def labels(self: T, *labelvalues: Any, **labelkwargs: Any) -> T:
+    def labels(self: T, *labelvalues: object, **labelkwargs: object) -> T:
         """Return the child for the given labelset.
 
         All metrics can have labels, allowing grouping of related time series.
@@ -173,13 +173,13 @@ class MetricWrapperBase(Collector):
         if labelkwargs:
             if sorted(labelkwargs) != sorted(self._labelnames):
                 raise ValueError('Incorrect label names')
-            labelvalues = tuple(str(labelkwargs[l]) for l in self._labelnames)
+            str_labelvalues = tuple(str(labelkwargs[l]) for l in self._labelnames)
         else:
             if len(labelvalues) != len(self._labelnames):
                 raise ValueError('Incorrect label count')
-            labelvalues = tuple(str(l) for l in labelvalues)
+            str_labelvalues = tuple(str(l) for l in labelvalues)
         with self._lock:
-            if labelvalues not in self._metrics:
+            if str_labelvalues not in self._metrics:
 
                 original_name = getattr(self, '_original_name', self._name)
                 namespace = getattr(self, '_namespace', '')
@@ -190,17 +190,17 @@ class MetricWrapperBase(Collector):
                 for k in ('namespace', 'subsystem', 'unit'):
                     child_kwargs.pop(k, None)
 
-                self._metrics[labelvalues] = self.__class__(
+                self._metrics[str_labelvalues] = self.__class__(
                     original_name,
                     documentation=self._documentation,
                     labelnames=self._labelnames,
                     namespace=namespace,
                     subsystem=subsystem,
                     unit=unit,
-                    _labelvalues=labelvalues,
+                    _labelvalues=str_labelvalues,
                     **child_kwargs
                 )
-            return self._metrics[labelvalues]
+            return self._metrics[str_labelvalues]
 
     def remove(self, *labelvalues: Any) -> None:
         if 'prometheus_multiproc_dir' in os.environ or 'PROMETHEUS_MULTIPROC_DIR' in os.environ:
