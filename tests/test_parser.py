@@ -375,8 +375,15 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
         self.assertEqual(text.encode('utf-8'), generate_latest(registry, ALLOWUTF8))
 
 
-def test_benchmark_text_string_to_metric_families(benchmark):
-    text = """# HELP go_gc_duration_seconds A summary of the GC invocation durations.
+try:
+    import pytest_benchmark
+    HAS_BENCHMARK = True
+except ImportError:
+    HAS_BENCHMARK = False
+
+if HAS_BENCHMARK:
+    def test_benchmark_text_string_to_metric_families(benchmark):
+        text = """# HELP go_gc_duration_seconds A summary of the GC invocation durations.
 # TYPE go_gc_duration_seconds summary
 go_gc_duration_seconds{quantile="0"} 0.013300656000000001
 go_gc_duration_seconds{quantile="0.25"} 0.013638736
@@ -422,11 +429,11 @@ hist_count 3
 hist_sum 2
 """
 
-    @benchmark
-    def _():
-        # We need to convert the generator to a full list in order to
-        # accurately measure the time to yield everything.
-        return list(text_string_to_metric_families(text))
+        @benchmark
+        def _():
+            # We need to convert the generator to a full list in order to
+            # accurately measure the time to yield everything.
+            return list(text_string_to_metric_families(text))
 
 
 if __name__ == '__main__':
