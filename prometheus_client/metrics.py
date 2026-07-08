@@ -122,9 +122,10 @@ class MetricWrapperBase(Collector):
 
         _validate_metric_name(self._name)
 
+        self._lock = Lock()
+
         if self._is_parent():
             # Prepare the fields needed for child metrics.
-            self._lock = Lock()
             self._metrics: Dict[Sequence[str], T] = {}
 
         if self._is_observable():
