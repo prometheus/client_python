@@ -315,7 +315,7 @@ def _parse_nh_struct(text):
     deltas = dict(re_deltas.findall(text))
 
     count_value = int(items['count'])
-    sum_value = int(items['sum'])
+    sum_value = float(items['sum'])
     schema = int(items['schema'])
     zero_threshold = float(items['zero_threshold'])
     zero_count = int(items['zero_count'])
