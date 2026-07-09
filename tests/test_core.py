@@ -960,6 +960,21 @@ class TestCollectorRegistry(unittest.TestCase):
         registry.unregister(s)
         Gauge('s_count', 'help', registry=registry)
 
+    def test_unregister_removes_no_names_collector(self):
+        registry = CollectorRegistry(support_collectors_without_names=True)
+
+        class NamelessCollector:
+            def collect(self):
+                return [GaugeMetricFamily('foo', 'help', value=42)]
+
+        collector = NamelessCollector()
+        registry.register(collector)
+        registry.unregister(collector)
+        # A nameless collector must be removed from the collectors-without-names
+        # list too, otherwise a restricted registry keeps collecting it after it
+        # was unregistered.
+        self.assertEqual([], list(registry.restricted_registry(['foo']).collect()))
+
     def custom_collector(self, metric_family, registry):
         class CustomCollector:
             def collect(self):

@@ -61,6 +61,8 @@ class CollectorRegistry:
             for name in self._collector_to_names[collector]:
                 del self._names_to_collectors[name]
             del self._collector_to_names[collector]
+            if collector in self._collectors_without_names:
+                self._collectors_without_names.remove(collector)
 
     def _get_names(self, collector):
         """Get names of timeseries the collector produces and clashes with."""
