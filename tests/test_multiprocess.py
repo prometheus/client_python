@@ -205,6 +205,16 @@ class TestMultiProcess(unittest.TestCase):
         mark_process_dead(123, os.environ['PROMETHEUS_MULTIPROC_DIR'])
         self.assertEqual(2, self.registry.get_sample_value('g'))
 
+    def test_gauge_mostrecent_never_set(self):
+        # A child created but never set() has a stored timestamp of 0. It must
+        # still be reported as 0, like every other gauge mode, rather than
+        # dropped from collection because 0 is not strictly greater than the
+        # default timestamp of 0.
+        Gauge('g', 'help', registry=None, multiprocess_mode='mostrecent')
+        values.ValueClass = MultiProcessValue(lambda: 456)
+        Gauge('g', 'help', registry=None, multiprocess_mode='mostrecent')
+        self.assertEqual(0, self.registry.get_sample_value('g'))
+
     def test_namespace_subsystem(self):
         c1 = Counter('c', 'help', registry=None, namespace='ns', subsystem='ss')
         c1.inc(1)
