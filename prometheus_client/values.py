@@ -1,11 +1,11 @@
 import os
 from threading import Lock
+from typing import Callable, List
 import warnings
 
 from .mmap_dict import mmap_key, MmapedDict
 
-
-_multi_process_cleanups = []
+_multi_process_cleanups: List[Callable[[], None]] = []
 
 
 def close_all_multiprocess_files():

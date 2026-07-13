@@ -1,3 +1,4 @@
+import importlib.util
 import math
 import unittest
 
@@ -375,11 +376,7 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
         self.assertEqual(text.encode('utf-8'), generate_latest(registry, ALLOWUTF8))
 
 
-try:
-    import pytest_benchmark
-    HAS_BENCHMARK = True
-except ImportError:
-    HAS_BENCHMARK = False
+HAS_BENCHMARK = importlib.util.find_spec("pytest_benchmark") is not None
 
 if HAS_BENCHMARK:
     def test_benchmark_text_string_to_metric_families(benchmark):
