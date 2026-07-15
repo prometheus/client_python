@@ -769,6 +769,10 @@ class Enum(MetricWrapperBase):
                  _labelvalues: Optional[Sequence[str]] = None,
                  states: Optional[Sequence[str]] = None,
                  ):
+        if name in labelnames:
+            raise ValueError(f'Overlapping labels for Enum metric: {name}')
+        if not states:
+            raise ValueError(f'No states provided for Enum metric: {name}')
         super().__init__(
             name=name,
             documentation=documentation,
@@ -779,10 +783,6 @@ class Enum(MetricWrapperBase):
             registry=registry,
             _labelvalues=_labelvalues,
         )
-        if name in labelnames:
-            raise ValueError(f'Overlapping labels for Enum metric: {name}')
-        if not states:
-            raise ValueError(f'No states provided for Enum metric: {name}')
         self._kwargs['states'] = self._states = states
 
     def _metric_init(self) -> None:

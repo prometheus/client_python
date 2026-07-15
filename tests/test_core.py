@@ -595,6 +595,19 @@ class TestEnum(unittest.TestCase):
         with pytest.raises(ValueError):
             Enum('e', 'help', registry=None, labelnames=['e'])
 
+    def test_failed_init_does_not_pollute_registry(self):
+        registry = CollectorRegistry()
+        # A validation failure in __init__ must not leave a half-built collector
+        # registered: otherwise the name stays permanently taken and any later
+        # scrape of the registry crashes on the missing _states attribute.
+        with pytest.raises(ValueError):
+            Enum('task_state', 'help', states=None, registry=registry)
+        with pytest.raises(ValueError):
+            Enum('task_state', 'help', states=['a'], labelnames=['task_state'], registry=registry)
+        # The name is still free, so a correct definition registers and scrapes.
+        Enum('task_state', 'help', states=['a', 'b'], registry=registry)
+        self.assertEqual(1, registry.get_sample_value('task_state', {'task_state': 'a'}))
+
 
 class TestMetricWrapper(unittest.TestCase):
     def setUp(self):
