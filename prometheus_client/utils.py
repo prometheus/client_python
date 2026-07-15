@@ -21,7 +21,7 @@ def floatToGoString(d):
         # We only need to care about positive values for le/quantile.
         if d > 0 and dot > 6:
             mantissa = f'{s[0]}.{s[1:dot]}{s[dot + 1:]}'.rstrip('0.')
-            return f'{mantissa}e+0{dot - 1}'
+            return f'{mantissa}e+{dot - 1:02d}'
         return s
 
 
