@@ -347,6 +347,21 @@ cc_created 123.456
         with self.assertRaises(ValueError):
             generate_latest(self.registry)
 
+    def test_gauge_exemplar(self) -> None:
+        class MyCollector:
+            def collect(self):
+                metric = Metric("gg", "A gauge", 'gauge')
+                # A sample whose name equals the metric name must not be
+                # treated as exemplar-eligible just because it matches;
+                # only histogram/gaugehistogram buckets, counter _total, and
+                # native histograms may carry exemplars.
+                metric.add_sample("gg", {}, 1, None, Exemplar({'a': 'b'}, 0.5))
+                yield metric
+
+        self.registry.register(MyCollector())
+        with self.assertRaises(ValueError):
+            generate_latest(self.registry)
+
     def test_gaugehistogram(self) -> None:
         self.custom_collector(
             GaugeHistogramMetricFamily('gh', 'help', buckets=[('1.0', 4), ('+Inf', (5))], gsum_value=7))
