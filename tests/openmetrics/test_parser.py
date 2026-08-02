@@ -485,6 +485,29 @@ redis_connected_clients{instance="rough-snowflake-web",port="6381"} 12.0
         ]
         self.assertEqual([m], list(families))
 
+    def test_repeated_metric_family(self):
+        families = list(text_string_to_metric_families("""# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{instance="a",quantile="0.0"} 1.0
+go_gc_duration_seconds_sum{instance="a"} 1.0
+go_gc_duration_seconds_count{instance="a"} 1.0
+# TYPE up gauge
+up{instance="a"} 1.0
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{instance="b",quantile="0.0"} 2.0
+go_gc_duration_seconds_sum{instance="b"} 2.0
+go_gc_duration_seconds_count{instance="b"} 1.0
+# EOF
+"""))
+
+        self.assertEqual(
+            ["go_gc_duration_seconds", "up", "go_gc_duration_seconds"],
+            [family.name for family in families],
+        )
+        self.assertEqual(
+            {"instance": "b", "quantile": "0.0"},
+            families[2].samples[0].labels,
+        )
+
     def test_type_help_switched(self):
         families = text_string_to_metric_families("""# HELP a help
 # TYPE a counter
