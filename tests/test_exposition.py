@@ -231,7 +231,12 @@ class TestPushGateway(unittest.TestCase):
 
         class TestHandler(BaseHTTPRequestHandler):
             def do_PUT(self):
-                if 'with_basic_auth' in self.requestline and self.headers['authorization'] != 'Basic Zm9vOmJhcg==':
+                error_body = None
+                if 'error' in self.requestline:
+                    error_body = b'text format parsing error in line 1'
+                    self.send_response(500)
+                    self.send_header('Content-Length', str(len(error_body)))
+                elif 'with_basic_auth' in self.requestline and self.headers['authorization'] != 'Basic Zm9vOmJhcg==':
                     self.send_response(401)
                 elif 'redirect' in self.requestline and redirect_flag not in self.requestline:
                     # checks for an initial test request with 'redirect' but without the redirect_flag,
@@ -243,6 +248,8 @@ class TestPushGateway(unittest.TestCase):
                 length = int(self.headers['content-length'])
                 requests.append((self, self.rfile.read(length)))
                 self.end_headers()
+                if error_body:
+                    self.wfile.write(error_body)
 
             do_POST = do_PUT
             do_DELETE = do_PUT
@@ -323,6 +330,12 @@ class TestPushGateway(unittest.TestCase):
         self.assertEqual(self.requests[0][0].path, '/metrics/job@base64/bXkvam9i')
         self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN_0_0_4)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
+
+    def test_push_error_includes_response_body(self):
+        with self.assertRaises(urllib.error.HTTPError) as cm:
+            push_to_gateway(self.address, "error_job", self.registry)
+        self.assertEqual(cm.exception.code, 500)
+        self.assertIn('text format parsing error in line 1', str(cm.exception))
 
     def test_pushadd(self):
         pushadd_to_gateway(self.address, "my_job", self.registry)
