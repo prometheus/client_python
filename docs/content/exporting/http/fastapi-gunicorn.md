@@ -23,7 +23,7 @@ For Multiprocessing support, use this modified code snippet. Full multiprocessin
 
 ```python
 from fastapi import FastAPI
-from prometheus_client import make_asgi_app
+from prometheus_client import make_asgi_app, CollectorRegistry, multiprocess
 
 app = FastAPI(debug=False)
 
