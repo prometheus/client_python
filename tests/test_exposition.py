@@ -238,6 +238,17 @@ class TestPushGateway(unittest.TestCase):
                     # and simulates a redirect to a url with the redirect_flag (which will produce a 201)
                     self.send_response(301)
                     self.send_header('Location', getattr(self, 'redirect_address', None))
+                elif 'error500' in self.requestline:
+                    # simulate a pushgateway rejecting the payload with a 500 and
+                    # a descriptive body, to exercise error-body surfacing.
+                    length = int(self.headers['content-length'])
+                    self.rfile.read(length)
+                    body = b'text format parsing error: duplicate metric'
+                    self.send_response(500)
+                    self.send_header('Content-Length', str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                    return
                 else:
                     self.send_response(201)
                 length = int(self.headers['content-length'])
@@ -281,6 +292,13 @@ class TestPushGateway(unittest.TestCase):
         self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job')
         self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN_0_0_4)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
+
+    def test_push_500_error_includes_response_body(self):
+        with self.assertRaises(OSError) as cm:
+            push_to_gateway(self.address, "my_job_error500", self.registry)
+        message = str(cm.exception)
+        self.assertIn('500', message)
+        self.assertIn('duplicate metric', message)
 
     def test_push_schemeless_url(self):
         push_to_gateway(self.address.replace('http://', ''), "my_job", self.registry)

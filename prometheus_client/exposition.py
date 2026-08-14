@@ -515,7 +515,17 @@ def _make_handler(
         request.get_method = lambda: method  # type: ignore
         for k, v in headers:
             request.add_header(k, v)
-        resp = build_opener(base_handler).open(request, timeout=timeout)
+        try:
+            resp = build_opener(base_handler).open(request, timeout=timeout)
+        except HTTPError as e:
+            # The pushgateway returns a helpful message in the response body
+            # (e.g. which metric was malformed). urllib raises HTTPError before
+            # the resp.code check below can run, and its default message drops
+            # the body, so read it here and surface it in the error.
+            body = e.read().decode('utf-8', 'replace').strip()
+            raise OSError(
+                f"error talking to pushgateway: {e.code} {e.reason}: {body}"
+            ) from e
         if resp.code >= 400:
             raise OSError(f"error talking to pushgateway: {resp.code} {resp.msg}")
 
