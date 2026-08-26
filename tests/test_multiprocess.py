@@ -51,6 +51,11 @@ class TestMultiProcessDeprecation(unittest.TestCase):
         # logic is tested elsewhere.
         mark_process_dead(123)
 
+    def test_mark_process_dead_noop_when_path_unset(self):
+        os.environ.pop('prometheus_multiproc_dir', None)
+        os.environ.pop('PROMETHEUS_MULTIPROC_DIR', None)
+        mark_process_dead(123)
+
 
 class TestMultiProcess(unittest.TestCase):
     def setUp(self):
