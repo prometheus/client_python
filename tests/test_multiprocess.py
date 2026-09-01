@@ -477,6 +477,26 @@ class TestMultiProcess(unittest.TestCase):
             os.path.join(self.tempdir, 'gauge_livesum_9999999.db'),
         ]))
 
+    def test_uninitialized_file_during_merge(self):
+        # This file exists but is still zero bytes, just like a file created by
+        # MmapedDict.__init__ that has not been truncated to its initial size
+        # yet, or one left behind by a process that died in that window.
+        # This should not raise and return no metrics
+        empty_file = os.path.join(self.tempdir, 'counter_9999999.db')
+        open(empty_file, 'wb').close()
+
+        self.assertFalse(self.collector.merge([empty_file]))
+
+    def test_uninitialized_file_does_not_hide_other_metrics(self):
+        # A single unreadable file must not take the whole collection with it,
+        # as an empty file can be left behind indefinitely: it is named after a
+        # pid that never comes back, so nothing cleans it up.
+        c = Counter('c', 'help', registry=None)
+        c.inc(1)
+        open(os.path.join(self.tempdir, 'counter_9999999.db'), 'wb').close()
+
+        self.assertEqual(1, self.registry.get_sample_value('c_total'))
+
     def test_remove_clear_warning(self):
         os.environ['PROMETHEUS_MULTIPROC_DIR'] = self.tempdir
         with warnings.catch_warnings(record=True) as w:
@@ -637,6 +657,19 @@ class TestMmapedDict(unittest.TestCase):
         self.d._m[8:16] = b'somejunk'
         with self.assertRaises(RuntimeError):
             list(self.d.read_all_values())
+
+    def test_read_all_values_from_empty_file(self):
+        # A reader can observe the file in the window between __init__ creating
+        # it and truncating it to _INITIAL_MMAP_SIZE, and a process dying in
+        # that window leaves it empty for good. Either way it holds no values,
+        # so it should read as empty rather than failing to unpack a header
+        # that was never written.
+        fd, empty_file = tempfile.mkstemp()
+        os.close(fd)
+        try:
+            self.assertEqual([], list(mmap_dict.MmapedDict.read_all_values_from_file(empty_file)))
+        finally:
+            os.unlink(empty_file)
 
     def tearDown(self):
         self.d.close()
