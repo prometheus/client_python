@@ -87,6 +87,15 @@ class MmapedDict:
             # Read the first block of data, including the first 4 bytes which tell us
             # how much of the file (which is preallocated to _INITIAL_MMAP_SIZE bytes) is occupied.
             data = infp.read(mmap.PAGESIZE)
+            if not data:
+                # __init__ creates the file and only truncates it to
+                # _INITIAL_MMAP_SIZE afterwards, so a reader can observe it while
+                # it is still empty; a process dying in that window can also leave
+                # an empty file behind for good. Treat it as a file with nothing
+                # recorded in it yet, mirroring the `capacity == 0` case in
+                # __init__, rather than failing to unpack a header that isn't
+                # there. Anything longer than this is left to fail loudly.
+                return iter(())
             used = _unpack_integer(data, 0)[0]
             if used > len(data):  # Then read in the rest, if needed.
                 data += infp.read(used - len(data))
