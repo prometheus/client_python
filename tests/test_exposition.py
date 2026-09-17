@@ -788,7 +788,7 @@ class TestWsgiTLS(unittest.TestCase):
     {
         "name": "legacy valid metric name",
         "input": "no:escaping_required",
-        "expectedUnderscores": "no:escaping_required",
+        "expectedUnderscores": "no_escaping_required",
         "expectedDots": "no:escaping__required",
         "expectedValue": "no:escaping_required",
     },
@@ -809,7 +809,7 @@ class TestWsgiTLS(unittest.TestCase):
     {
         "name": "metric name with dots and colon",
         "input": "http.status:sum",
-        "expectedUnderscores": "http_status:sum",
+        "expectedUnderscores": "http_status_sum",
         "expectedDots": "http_dot_status:sum",
         "expectedValue": "U__http_2e_status:sum",
     },

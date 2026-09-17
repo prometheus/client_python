@@ -181,9 +181,9 @@ def escape_metric_name(s: str, escaping: str = UNDERSCORES) -> str:
             return '"{}"'.format(_escape(s, escaping, _is_legacy_metric_rune))
         return _escape(s, escaping, _is_legacy_metric_rune)
     elif escaping == UNDERSCORES:
-        if _is_valid_legacy_metric_name(s):
+        if _is_valid_legacy_metric_name(s) and ':' not in s:
             return s
-        return _escape(s, escaping, _is_legacy_metric_rune)
+        return _escape(s, escaping, _is_legacy_labelname_rune)
     elif escaping == DOTS:
         return _escape(s, escaping, _is_legacy_metric_rune)
     elif escaping == VALUES:
