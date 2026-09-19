@@ -515,9 +515,18 @@ def _make_handler(
         request.get_method = lambda: method  # type: ignore
         for k, v in headers:
             request.add_header(k, v)
-        resp = build_opener(base_handler).open(request, timeout=timeout)
+        try:
+            resp = build_opener(base_handler).open(request, timeout=timeout)
+        except HTTPError as e:
+            # The pushgateway reports what was wrong with the request in the
+            # response body, so include it in the error message.
+            body = e.read().decode('utf-8', 'replace').strip()
+            if not body:
+                raise
+            raise HTTPError(e.url, e.code, f'{e.reason} ({body})', e.headers, None) from e
         if resp.code >= 400:
-            raise OSError(f"error talking to pushgateway: {resp.code} {resp.msg}")
+            body = resp.read().decode('utf-8', 'replace').strip()
+            raise OSError(f"error talking to pushgateway: {resp.code} {resp.msg} ({body})")
 
     return handle
 
