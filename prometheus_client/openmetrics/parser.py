@@ -472,7 +472,8 @@ def text_fd_to_metric_families(fd):
     allowed_names = []
     eof = False
 
-    seen_names = set()
+    seen_names = {}
+    seen_metadata = {}
     type_suffixes = {
         'counter': ['_total', '_created'],
         'summary': ['', '_count', '_sum', '_created'],
@@ -484,10 +485,15 @@ def text_fd_to_metric_families(fd):
     def build_metric(name, documentation, typ, unit, samples):
         if typ is None:
             typ = 'unknown'
+        metadata = (typ, unit)
+        if name in seen_metadata and seen_metadata[name] != metadata:
+            raise ValueError("Clashing name: " + name)
+        seen_metadata[name] = metadata
         for suffix in set(type_suffixes.get(typ, []) + [""]):
-            if name + suffix in seen_names:
+            sample_name = name + suffix
+            if sample_name in seen_names and seen_names[sample_name] != name:
                 raise ValueError("Clashing name: " + name + suffix)
-            seen_names.add(name + suffix)
+            seen_names[sample_name] = name
         if documentation is None:
             documentation = ''
         if unit is None:
