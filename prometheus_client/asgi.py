@@ -13,12 +13,12 @@ def make_asgi_app(registry: Collector = REGISTRY, disable_compression: bool = Fa
         # Prepare parameters
         params = parse_qs(scope.get('query_string', b'').decode("utf8"))
         accept_header = ",".join([
-            value.decode("utf8") for (name, value) in scope.get('headers')
-            if name.decode("utf8").lower() == 'accept'
+            value for (name, value) in scope.get('headers')
+            if name.lower() == 'accept'
         ])
         accept_encoding_header = ",".join([
-            value.decode("utf8") for (name, value) in scope.get('headers')
-            if name.decode("utf8").lower() == 'accept-encoding'
+            value for (name, value) in scope.get('headers')
+            if name.lower() == 'accept-encoding'
         ])
         # Bake output
         status, headers, output = _bake_output(registry, accept_header, accept_encoding_header, params, disable_compression)
