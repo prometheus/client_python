@@ -196,6 +196,63 @@ class ASGITest(TestCase):
         content_type = self.get_response_header_value('Content-Type').split(";")[0]
         assert content_type == "text/plain"
 
+    def test_options_method(self):
+        """OPTIONS is answered with Allow and does not scrape the registry."""
+        from unittest.mock import patch
+
+        from prometheus_client.exposition import _bake_output
+
+        app = make_asgi_app(self.registry)
+        self.scope["method"] = "OPTIONS"
+        with patch("prometheus_client.asgi._bake_output", side_effect=_bake_output) as mock:
+            self.seed_app(app)
+            self.send_default_request()
+            outputs = self.get_all_output()
+            self.assertEqual(mock.call_count, 0)
+        response_start = outputs[0]
+        response_body = outputs[1]
+        self.assertEqual(response_start["status"], 200)
+        self.assertIn((b"Allow", b"OPTIONS,GET"), response_start["headers"])
+        self.assertEqual(response_body["body"], b"")
+
+    def test_post_method_not_allowed(self):
+        """Non-GET methods are rejected, matching make_wsgi_app."""
+        from unittest.mock import patch
+
+        from prometheus_client.exposition import _bake_output
+
+        app = make_asgi_app(self.registry)
+        self.scope["method"] = "POST"
+        with patch("prometheus_client.asgi._bake_output", side_effect=_bake_output) as mock:
+            self.seed_app(app)
+            self.send_default_request()
+            outputs = self.get_all_output()
+            self.assertEqual(mock.call_count, 0)
+        response_start = outputs[0]
+        response_body = outputs[1]
+        self.assertEqual(response_start["status"], 405)
+        self.assertIn((b"Allow", b"OPTIONS,GET"), response_start["headers"])
+        self.assertIn(b"405 Method Not Allowed", response_body["body"])
+        self.assertIn(b"POST", response_body["body"])
+
+    def test_favicon_path(self):
+        """Browsers requesting /favicon.ico get an empty 200 without scraping."""
+        from unittest.mock import patch
+
+        from prometheus_client.exposition import _bake_output
+
+        app = make_asgi_app(self.registry)
+        self.scope["path"] = "/favicon.ico"
+        with patch("prometheus_client.asgi._bake_output", side_effect=_bake_output) as mock:
+            self.seed_app(app)
+            self.send_default_request()
+            outputs = self.get_all_output()
+            self.assertEqual(mock.call_count, 0)
+        response_start = outputs[0]
+        response_body = outputs[1]
+        self.assertEqual(response_start["status"], 200)
+        self.assertEqual(response_body["body"], b"")
+
     def test_qs_parsing(self):
         """Only metrics that match the 'name[]' query string param appear"""
 

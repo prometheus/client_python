@@ -20,8 +20,27 @@ def make_asgi_app(registry: Collector = REGISTRY, disable_compression: bool = Fa
             value.decode("utf8") for (name, value) in scope.get('headers')
             if name.decode("utf8").lower() == 'accept-encoding'
         ])
-        # Bake output
-        status, headers, output = _bake_output(registry, accept_header, accept_encoding_header, params, disable_compression)
+        method = scope.get('method', 'GET')
+        path = scope.get('path', '')
+
+        # Match make_wsgi_app: only GET serves metrics.
+        if method == 'OPTIONS':
+            status = '200 OK'
+            headers = [('Allow', 'OPTIONS,GET')]
+            output = b''
+        elif method != 'GET':
+            status = '405 Method Not Allowed'
+            headers = [('Allow', 'OPTIONS,GET')]
+            output = '# HTTP {}: {}; use OPTIONS or GET\n'.format(status, method).encode()
+        elif path == '/favicon.ico':
+            # Serve empty response for browsers
+            status = '200 OK'
+            headers = []
+            output = b''
+        else:
+            # Note: For backwards compatibility, the URI path for GET is not
+            # constrained to the documented /metrics, but any path is allowed.
+            status, headers, output = _bake_output(registry, accept_header, accept_encoding_header, params, disable_compression)
         formatted_headers = []
         for header in headers:
             formatted_headers.append(tuple(x.encode('utf8') for x in header))
