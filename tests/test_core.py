@@ -736,6 +736,30 @@ class TestMetricWrapper(unittest.TestCase):
         self.assertRaises(ValueError, Counter, 'c_total', '', labelnames=['__reserved'])
         self.assertRaises(ValueError, Summary, 'c_total', '', labelnames=['quantile'])
 
+    def test_duplicate_labelnames_raise_before_registration(self):
+        # 2026-10-09: Repeated names would collapse distinct label sets on export.
+        for metric_type in (Counter, Gauge, Summary, Histogram, Info, Enum):
+            sequence_types = (list, tuple) if metric_type is Enum else (list, tuple, iter)
+            for sequence_type in sequence_types:
+                with self.subTest(metric_type=metric_type, sequence_type=sequence_type):
+                    registry = CollectorRegistry()
+                    kwargs = {'states': ['ready']} if metric_type is Enum else {}
+                    with self.assertRaisesRegex(ValueError, 'Duplicate label names'):
+                        metric_type(
+                            'duplicate_labels', 'help',
+                            labelnames=sequence_type(['a', 'a']),
+                            registry=registry, **kwargs,
+                        )
+                    self.assertEqual(list(registry.collect()), [])
+
+    def test_unique_labelnames_iterator(self):
+        # 2026-10-09: Valid one-shot label iterables still preserve both names.
+        counter = Counter('iter_labels', 'help', iter(['a', 'b']), registry=self.registry)
+        counter.labels('x', 'y').inc()
+        self.assertEqual(
+            self.registry.get_sample_value('iter_labels_total', {'a': 'x', 'b': 'y'}), 1,
+        )
+
     def test_empty_labels_list(self):
         Histogram('h', 'help', [], registry=self.registry)
         self.assertEqual(0, self.registry.get_sample_value('h_sum'))

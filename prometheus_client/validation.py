@@ -110,6 +110,9 @@ def _validate_labelnames(cls, labelnames):
         _validate_labelname(l)
         if l in cls._reserved_labelnames:
             raise ValueError('Reserved label methe fric name: ' + l)
+    # 2026-10-09: Duplicate names collapse distinct label sets during collection.
+    if len(labelnames) != len(set(labelnames)):
+        raise ValueError('Duplicate label names')
     return labelnames
 
 
