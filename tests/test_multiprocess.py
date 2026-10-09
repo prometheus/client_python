@@ -3,6 +3,7 @@ import os
 import shutil
 import tempfile
 import unittest
+from unittest import mock
 import warnings
 
 from prometheus_client import mmap_dict, values
@@ -200,8 +201,11 @@ class TestMultiProcess(unittest.TestCase):
         g1 = Gauge('g', 'help', registry=None, multiprocess_mode='mostrecent')
         values.ValueClass = MultiProcessValue(lambda: 456)
         g2 = Gauge('g', 'help', registry=None, multiprocess_mode='mostrecent')
-        g2.set(2)
-        g1.set(1)
+        # Give each set() a distinct timestamp so the result doesn't depend on
+        # clock resolution or the order the .db files are read in.
+        with mock.patch('prometheus_client.metrics.time.time', side_effect=[1.0, 2.0]):
+            g2.set(2)
+            g1.set(1)
         self.assertEqual(1, self.registry.get_sample_value('g'))
         values.close_all_multiprocess_files()
         mark_process_dead(123, os.environ['PROMETHEUS_MULTIPROC_DIR'])
@@ -211,8 +215,11 @@ class TestMultiProcess(unittest.TestCase):
         g1 = Gauge('g', 'help', registry=None, multiprocess_mode='livemostrecent')
         values.ValueClass = MultiProcessValue(lambda: 456)
         g2 = Gauge('g', 'help', registry=None, multiprocess_mode='livemostrecent')
-        g2.set(2)
-        g1.set(1)
+        # Give each set() a distinct timestamp so the result doesn't depend on
+        # clock resolution or the order the .db files are read in.
+        with mock.patch('prometheus_client.metrics.time.time', side_effect=[1.0, 2.0]):
+            g2.set(2)
+            g1.set(1)
         self.assertEqual(1, self.registry.get_sample_value('g'))
         values.close_all_multiprocess_files()
         mark_process_dead(123, os.environ['PROMETHEUS_MULTIPROC_DIR'])
