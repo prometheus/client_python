@@ -16,8 +16,13 @@ app = FastAPI(debug=False)
 
 # Add prometheus asgi middleware to route /metrics requests
 metrics_app = make_asgi_app()
-app.mount("/metrics", metrics_app)
+app.add_route("/metrics", metrics_app)
 ```
+
+`add_route` serves the metrics at exactly `/metrics`. Alternatively, the app can
+be mounted with `app.mount("/metrics", metrics_app)`. A mount is a path prefix,
+so FastAPI serves the metrics at `/metrics/` and redirects requests for
+`/metrics` there with a `307 Temporary Redirect`.
 
 For Multiprocessing support, use this modified code snippet. Full multiprocessing instructions are provided [here]({{< ref "/multiprocess" >}}).
 
@@ -35,7 +40,7 @@ def make_metrics_app():
 
 
 metrics_app = make_metrics_app()
-app.mount("/metrics", metrics_app)
+app.add_route("/metrics", metrics_app)
 ```
 
 Run the example web application like this

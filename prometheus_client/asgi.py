@@ -5,6 +5,24 @@ from .exposition import _bake_output
 from .registry import Collector, REGISTRY
 
 
+class _ASGIApp:
+    """ASGI application object wrapping the metrics handler.
+
+    Frameworks such as Starlette and FastAPI treat a plain function passed to
+    ``add_route`` as a ``request -> response`` endpoint, but any other callable
+    as a raw ASGI application. Returning an instance rather than a bare
+    function allows ``app.add_route("/metrics", make_asgi_app())`` to serve
+    metrics at ``/metrics`` exactly, without the trailing-slash redirect that
+    ``app.mount("/metrics", ...)`` produces.
+    """
+
+    def __init__(self, app: Callable) -> None:
+        self._app = app
+
+    async def __call__(self, scope: dict, receive: Callable, send: Callable) -> None:
+        await self._app(scope, receive, send)
+
+
 def make_asgi_app(registry: Collector = REGISTRY, disable_compression: bool = False) -> Callable:
     """Create a ASGI app which serves the metrics from a registry."""
 
@@ -37,4 +55,4 @@ def make_asgi_app(registry: Collector = REGISTRY, disable_compression: bool = Fa
             )
             await send({"type": "http.response.body", "body": output})
 
-    return prometheus_app
+    return _ASGIApp(prometheus_app)
