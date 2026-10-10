@@ -24,6 +24,10 @@ be mounted with `app.mount("/metrics", metrics_app)`. A mount is a path prefix,
 so FastAPI serves the metrics at `/metrics/` and redirects requests for
 `/metrics` there with a `307 Temporary Redirect`.
 
+Using `make_asgi_app()` with `add_route` requires a `prometheus_client` release
+newer than 0.26.0. On 0.26.0 and earlier, `add_route` fails with a `TypeError`,
+so use `app.mount("/metrics", metrics_app)` instead.
+
 For Multiprocessing support, use this modified code snippet. Full multiprocessing instructions are provided [here]({{< ref "/multiprocess" >}}).
 
 ```python
