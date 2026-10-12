@@ -178,6 +178,8 @@ class MetricWrapperBase(Collector):
             if len(labelvalues) != len(self._labelnames):
                 raise ValueError('Incorrect label count')
             str_labelvalues = tuple(str(l) for l in labelvalues)
+
+        # Lock-free fast path for existing children; a miss re-checks under the lock.
         try:
             return self._metrics[str_labelvalues]
         except KeyError:
