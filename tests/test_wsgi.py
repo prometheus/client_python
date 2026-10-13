@@ -112,3 +112,19 @@ class WSGITest(TestCase):
         outputs = app(gzip_environ, self.capture)
         # Assert outputs are not compressed.
         self.assert_outputs(outputs, metric_name, help_text, increments, compressed=False)
+
+    def test_gzip_quality(self):
+        self.increment_metrics("counter", "A counter", 2)
+        app = make_wsgi_app(self.registry)
+        for encoding, compressed in [
+            ("gzip;q=0", False),
+            ("gzip;q=0.0", False),
+            ("br, GZip; Q=0", False),
+            ("gzip;q=0.5", True),
+            ("gzip;q=bogus", False),
+        ]:
+            with self.subTest(encoding=encoding):
+                environ = dict(self.environ)
+                environ['HTTP_ACCEPT_ENCODING'] = encoding
+                outputs = app(environ, self.capture)
+                self.assert_outputs(outputs, "counter", "A counter", 2, compressed)

@@ -429,8 +429,18 @@ def _get_escaping(accept_header: List[str]) -> str:
 def gzip_accepted(accept_encoding_header: str) -> bool:
     accept_encoding_header = accept_encoding_header or ''
     for accepted in accept_encoding_header.split(','):
-        if accepted.split(';')[0].strip().lower() == 'gzip':
-            return True
+        encoding, *params = accepted.split(';')
+        if encoding.strip().lower() != 'gzip':
+            continue
+        for param in params:
+            key, sep, value = param.strip().partition('=')
+            if sep and key.strip().lower() == 'q':
+                try:
+                    quality = float(value.strip())
+                except ValueError:
+                    return False
+                return 0 < quality <= 1
+        return True
     return False
 
 
