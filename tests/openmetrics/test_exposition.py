@@ -8,8 +8,8 @@ from prometheus_client import (
     CollectorRegistry, Counter, Enum, Gauge, Histogram, Info, Metric, Summary,
 )
 from prometheus_client.core import (
-    BucketSpan, Exemplar, GaugeHistogramMetricFamily, HistogramMetricFamily,
-    NativeHistogram, Timestamp,
+    BucketSpan, Exemplar, GaugeHistogramMetricFamily, GaugeMetricFamily,
+    HistogramMetricFamily, NativeHistogram, Timestamp,
 )
 from prometheus_client.openmetrics.exposition import (
     ALLOWUTF8, DOTS, escape_label_name, escape_metric_name, generate_latest,
@@ -56,6 +56,45 @@ utf8_cc_total 1.0
 utf8_cc_created 123.456
 # EOF
 """ == generate_latest(self.registry, UNDERSCORES)
+
+    def test_metric_name_with_colon_consistent_across_metadata_and_samples(self) -> None:
+        # Regression test for
+        # https://github.com/prometheus/client_python/issues/1177
+        # A colon is a valid metric-name character, so it must be escaped
+        # identically in the HELP/TYPE metadata lines and in the sample line.
+        # Previously the sample line escaped the name with label-name rules
+        # (turning the colon into an underscore) while the metadata lines kept
+        # it, producing exposition that strict OpenMetrics parsers reject.
+        self.custom_collector(
+            GaugeMetricFamily("sglang:token_usage", "Total token usage.", value=42.0)
+        )
+
+        self.assertEqual(
+            b"""# HELP sglang:token_usage Total token usage.
+# TYPE sglang:token_usage gauge
+sglang:token_usage 42.0
+# EOF
+""",
+            generate_latest(self.registry, UNDERSCORES),
+        )
+
+        # For every negotiated escaping scheme, the metric-name identifier in
+        # HELP, TYPE and the sample line must be identical.
+        for escaping in (UNDERSCORES, DOTS, VALUES, ALLOWUTF8):
+            lines = generate_latest(self.registry, escaping).decode("utf-8").splitlines()
+            help_name = next(l for l in lines if l.startswith("# HELP")).split(" ")[2]
+            type_name = next(l for l in lines if l.startswith("# TYPE")).split(" ")[2]
+            sample_name = next(
+                l for l in lines if l and not l.startswith("#")
+            ).split(" ")[0].split("{")[0]
+            self.assertEqual(
+                help_name, type_name, f"HELP/TYPE name mismatch for escaping={escaping}"
+            )
+            self.assertEqual(
+                help_name,
+                sample_name,
+                f"metadata/sample name mismatch for escaping={escaping}",
+            )
 
     def test_counter_total(self) -> None:
         c = Counter('cc_total', 'A counter', registry=self.registry)

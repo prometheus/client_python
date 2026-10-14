@@ -149,7 +149,7 @@ def generate_latest(registry, escaping=UNDERSCORES, version="1.0.0"):
                     value = floatToGoString(s.value)
                 if (escaping != ALLOWUTF8) or _is_valid_legacy_metric_name(s.name):
                     output.append('{}{} {}{}{}\n'.format(
-                        _escape(s.name, escaping, _is_legacy_labelname_rune),
+                        escape_metric_name(s.name, escaping),
                         labelstr,
                         value,
                         timestamp,
