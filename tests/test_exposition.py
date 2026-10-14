@@ -635,6 +635,20 @@ class TestChooseEncoder(unittest.TestCase):
         self.assert_is_prom(exp)
 
 
+    def test_non_numeric_version(self):
+        for accept_header in (
+            'application/openmetrics-text; version=1.0.0-rc.1',
+            'application/openmetrics-text; version="1.0.0"',
+            'text/plain; version=latest',
+        ):
+            with self.subTest(accept_header=accept_header):
+                generator, content_type = choose_encoder(accept_header)
+                assert content_type == CONTENT_TYPE_PLAIN_0_0_4
+                exp = generator(self.registry).decode('utf-8')
+                self.assert_is_escaped(exp)
+                self.assert_is_prom(exp)
+
+
 class TestWsgiTLS(unittest.TestCase):
     def setUp(self):
         self.certs_dir = os.path.join(

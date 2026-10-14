@@ -372,7 +372,7 @@ def choose_encoder(accept_header: str) -> Tuple[Callable[[Collector], bytes], st
             # mimetype.
             if not version:
                 return (partial(openmetrics.generate_latest, escaping=openmetrics.UNDERSCORES, version="1.0.0"), openmetrics.CONTENT_TYPE_LATEST)
-            if version and parse_version(version) >= (1, 0, 0):
+            if version and _version_at_least(version, (1, 0, 0)):
                 return (partial(openmetrics.generate_latest, escaping=escaping, version=version),
                         f'application/openmetrics-text; version={version}; charset=utf-8; escaping=' + str(escaping))
         elif accepted.split(';')[0].strip() == 'text/plain':
@@ -381,10 +381,21 @@ def choose_encoder(accept_header: str) -> Tuple[Callable[[Collector], bytes], st
             escaping = _get_escaping(toks)
             # Only return an escaping header if we have a good version and
             # mimetype.
-            if version and parse_version(version) >= (1, 0, 0):
+            if version and _version_at_least(version, (1, 0, 0)):
                 return (partial(generate_latest, escaping=escaping),
                         CONTENT_TYPE_LATEST + '; escaping=' + str(escaping))
     return generate_latest, CONTENT_TYPE_PLAIN_0_0_4
+
+
+def _version_at_least(version: str, minimum: Tuple[int, ...]) -> bool:
+    """Compare a version parameter from the Accept header.
+
+    A version with a non-numeric part, such as 1.0.0-rc.1 or a quoted
+    value, is treated as unsupported."""
+    parsed = parse_version(version)
+    if not all(isinstance(part, int) for part in parsed):
+        return False
+    return parsed >= minimum
 
 
 def _get_version(accept_header: List[str]) -> str:
