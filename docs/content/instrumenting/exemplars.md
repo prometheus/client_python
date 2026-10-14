@@ -28,7 +28,7 @@ OpenMetrics (which is done by default in Prometheus). Otherwise it will be
 necessary to use `generate_latest` from
 `prometheus_client.openmetrics.exposition` to view exemplars.
 
-To view exemplars in Prometheus it is also necessary to enable the the
+To view exemplars in Prometheus it is also necessary to enable the
 exemplar-storage feature flag:
 ```
 --enable-feature=exemplar-storage
