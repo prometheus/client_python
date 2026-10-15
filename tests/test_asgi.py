@@ -1,11 +1,19 @@
 import asyncio
 import gzip
-from unittest import TestCase
+import inspect
+from unittest import skipUnless, TestCase
 
 from asgiref.testing import ApplicationCommunicator
 
 from prometheus_client import CollectorRegistry, Counter, make_asgi_app
 from prometheus_client.exposition import CONTENT_TYPE_PLAIN_0_0_4
+
+try:
+    from starlette.applications import Starlette  # type: ignore[import]
+
+    HAVE_STARLETTE = True
+except ImportError:
+    HAVE_STARLETTE = False
 
 
 def setup_testing_defaults(scope):
@@ -257,3 +265,45 @@ class ASGITest(TestCase):
         self.loop.run_until_complete(
             self.communicator.wait()
         )
+
+    def test_app_is_asgi_application_object(self):
+        """make_asgi_app returns a callable object rather than a plain function.
+
+        Frameworks such as Starlette treat plain functions passed to add_route
+        as request/response endpoints, and any other callable as an ASGI app.
+        """
+        app = make_asgi_app(self.registry)
+        self.assertFalse(inspect.isfunction(app))
+        self.assertFalse(inspect.ismethod(app))
+        self.assertTrue(inspect.iscoroutinefunction(app.__call__))
+        # It is still a valid ASGI application when called directly.
+        self.increment_metrics("counter", "A counter", 2)
+        self.seed_app(app)
+        self.send_default_request()
+        outputs = self.get_all_output()
+        self.assert_outputs(outputs, "counter", "A counter", 2, compressed=False)
+
+    def _run_starlette(self, starlette_app, path):
+        self.scope["path"] = path
+        self.scope["raw_path"] = path.encode("utf-8")
+        self.seed_app(starlette_app)
+        self.send_default_request()
+        return self.get_all_output()
+
+    @skipUnless(HAVE_STARLETTE, "Don't have starlette installed.")
+    def test_starlette_add_route(self):
+        """add_route serves metrics at the exact path, without a redirect."""
+        self.increment_metrics("counter", "A counter", 2)
+        starlette_app = Starlette()
+        starlette_app.add_route("/metrics", make_asgi_app(self.registry))
+        outputs = self._run_starlette(starlette_app, "/metrics")
+        self.assert_outputs(outputs, "counter", "A counter", 2, compressed=False)
+
+    @skipUnless(HAVE_STARLETTE, "Don't have starlette installed.")
+    def test_starlette_mount(self):
+        """Mounting the app as a path prefix keeps working."""
+        self.increment_metrics("counter", "A counter", 2)
+        starlette_app = Starlette()
+        starlette_app.mount("/metrics", make_asgi_app(self.registry))
+        outputs = self._run_starlette(starlette_app, "/metrics/")
+        self.assert_outputs(outputs, "counter", "A counter", 2, compressed=False)
