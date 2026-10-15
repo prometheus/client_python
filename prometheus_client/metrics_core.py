@@ -92,6 +92,7 @@ class UnknownMetricFamily(Metric):
         labels: A list of label values
         value: The value of the metric.
         """
+        labels = tuple(str(l) for l in labels)
         self.samples.append(Sample(self.name, dict(zip(self._labelnames, labels)), value, timestamp))
 
 
@@ -140,6 +141,7 @@ class CounterMetricFamily(Metric):
           value: The value of the metric
           created: Optional unix timestamp the child was created at.
         """
+        labels = tuple(str(l) for l in labels)
         self.samples.append(Sample(self.name + '_total', dict(zip(self._labelnames, labels)), value, timestamp, exemplar))
         if created is not None:
             self.samples.append(Sample(self.name + '_created', dict(zip(self._labelnames, labels)), created, timestamp))
@@ -174,6 +176,7 @@ class GaugeMetricFamily(Metric):
           labels: A list of label values
           value: A float
         """
+        labels = tuple(str(l) for l in labels)
         self.samples.append(Sample(self.name, dict(zip(self._labelnames, labels)), value, timestamp))
 
 
@@ -217,6 +220,7 @@ class SummaryMetricFamily(Metric):
           count_value: The count value of the metric.
           sum_value: The sum value of the metric.
         """
+        labels = tuple(str(l) for l in labels)
         self.samples.append(Sample(self.name + '_count', dict(zip(self._labelnames, labels)), count_value, timestamp))
         self.samples.append(Sample(self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value, timestamp))
 
@@ -261,6 +265,7 @@ class HistogramMetricFamily(Metric):
               The buckets must be sorted, and +Inf present.
           sum_value: The sum value of the metric.
         """
+        labels = tuple(str(l) for l in labels)
         for b in buckets:
             bucket, value = b[:2]
             exemplar = None
@@ -319,6 +324,7 @@ class GaugeHistogramMetricFamily(Metric):
               The buckets must be sorted, and +Inf present.
           gsum_value: The sum value of the metric.
         """
+        labels = tuple(str(l) for l in labels)
         for bucket, value in buckets:
             self.samples.append(Sample(
                 self.name + '_bucket',
@@ -364,6 +370,7 @@ class InfoMetricFamily(Metric):
           labels: A list of label values
           value: A dict of labels
         """
+        labels = tuple(str(l) for l in labels)
         self.samples.append(Sample(
             self.name + '_info',
             dict(dict(zip(self._labelnames, labels)), **value),
@@ -404,7 +411,7 @@ class StateSetMetricFamily(Metric):
           labels: A list of label values
           value: A dict of string state names to booleans
         """
-        labels = tuple(labels)
+        labels = tuple(str(l) for l in labels)
         for state, enabled in sorted(value.items()):
             v = (1 if enabled else 0)
             self.samples.append(Sample(

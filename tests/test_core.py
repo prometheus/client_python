@@ -14,6 +14,7 @@ from prometheus_client.core import (
     StateSetMetricFamily, Summary, SummaryMetricFamily, UntypedMetricFamily,
 )
 from prometheus_client.decorator import getargspec
+from prometheus_client.exposition import generate_latest
 from prometheus_client.metrics import _get_use_created
 from prometheus_client.validation import (
     disable_legacy_validation, enable_legacy_validation,
@@ -978,6 +979,55 @@ class TestMetricFamilies(unittest.TestCase):
         self.custom_collector(cmf)
         self.assertEqual(0, self.registry.get_sample_value('s', {'foo': 'bar', 's': 'a'}))
         self.assertEqual(0, self.registry.get_sample_value('s', {'foo': 'bar', 's': 'b'}))
+
+    def test_labels_coerced_to_string(self):
+        umf = UntypedMetricFamily('u', 'help', labels=['a'])
+        umf.add_metric([1], 2)
+        self.custom_collector(umf)
+        self.assertEqual(2, self.registry.get_sample_value('u', {'a': '1'}))
+
+        cmf = CounterMetricFamily('c', 'help', labels=['a'])
+        cmf.add_metric([1], 2, created=3)
+        self.custom_collector(cmf)
+        self.assertEqual(2, self.registry.get_sample_value('c_total', {'a': '1'}))
+        self.assertEqual(3, self.registry.get_sample_value('c_created', {'a': '1'}))
+
+        gmf = GaugeMetricFamily('g', 'help', labels=['a'])
+        gmf.add_metric([1], 2)
+        self.custom_collector(gmf)
+        self.assertEqual(2, self.registry.get_sample_value('g', {'a': '1'}))
+
+        smf = SummaryMetricFamily('s', 'help', labels=['a'])
+        smf.add_metric([1], count_value=1, sum_value=2)
+        self.custom_collector(smf)
+        self.assertEqual(1, self.registry.get_sample_value('s_count', {'a': '1'}))
+        self.assertEqual(2, self.registry.get_sample_value('s_sum', {'a': '1'}))
+
+        hmf = HistogramMetricFamily('h', 'help', labels=['a'])
+        hmf.add_metric([1], buckets=[('0', 1), ('+Inf', 2)], sum_value=3)
+        self.custom_collector(hmf)
+        self.assertEqual(1, self.registry.get_sample_value('h_bucket', {'a': '1', 'le': '0'}))
+        self.assertEqual(2, self.registry.get_sample_value('h_count', {'a': '1'}))
+        self.assertEqual(3, self.registry.get_sample_value('h_sum', {'a': '1'}))
+
+        ghmf = GaugeHistogramMetricFamily('gh', 'help', labels=['a'])
+        ghmf.add_metric([1], buckets=[('0', 1), ('+Inf', 2)], gsum_value=3)
+        self.custom_collector(ghmf)
+        self.assertEqual(1, self.registry.get_sample_value('gh_bucket', {'a': '1', 'le': '0'}))
+        self.assertEqual(2, self.registry.get_sample_value('gh_gcount', {'a': '1'}))
+        self.assertEqual(3, self.registry.get_sample_value('gh_gsum', {'a': '1'}))
+
+        imf = InfoMetricFamily('i', 'help', labels=['a'])
+        imf.add_metric([1], {'c': 'd'})
+        self.custom_collector(imf)
+        self.assertEqual(1, self.registry.get_sample_value('i_info', {'a': '1', 'c': 'd'}))
+
+        ssf = StateSetMetricFamily('ss', 'help', labels=['a'])
+        ssf.add_metric([1], {'x': True})
+        self.custom_collector(ssf)
+        self.assertEqual(1, self.registry.get_sample_value('ss', {'a': '1', 'ss': 'x'}))
+
+        self.assertIn(b'g{a="1"} 2.0', generate_latest(self.registry))
 
     def test_bad_constructors(self):
         self.assertRaises(ValueError, UntypedMetricFamily, 'u', 'help', value=1, labels=[])
