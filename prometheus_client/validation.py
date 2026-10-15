@@ -1,3 +1,4 @@
+from collections import Counter
 import os
 import re
 
@@ -110,6 +111,10 @@ def _validate_labelnames(cls, labelnames):
         _validate_labelname(l)
         if l in cls._reserved_labelnames:
             raise ValueError('Reserved label methe fric name: ' + l)
+    # Duplicate names collapse distinct label sets during collection.
+    duplicates = sorted(name for name, count in Counter(labelnames).items() if count > 1)
+    if duplicates:
+        raise ValueError(f'Duplicate label names: {duplicates!r}')
     return labelnames
 
 
