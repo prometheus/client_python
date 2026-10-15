@@ -737,14 +737,14 @@ class TestMetricWrapper(unittest.TestCase):
         self.assertRaises(ValueError, Summary, 'c_total', '', labelnames=['quantile'])
 
     def test_duplicate_labelnames_raise_before_registration(self):
-        # 2026-10-09: Repeated names would collapse distinct label sets on export.
+        # Repeated names would collapse distinct label sets on export.
         for metric_type in (Counter, Gauge, Summary, Histogram, Info, Enum):
             sequence_types = (list, tuple) if metric_type is Enum else (list, tuple, iter)
             for sequence_type in sequence_types:
                 with self.subTest(metric_type=metric_type, sequence_type=sequence_type):
                     registry = CollectorRegistry()
                     kwargs = {'states': ['ready']} if metric_type is Enum else {}
-                    with self.assertRaisesRegex(ValueError, 'Duplicate label names'):
+                    with self.assertRaisesRegex(ValueError, r"^Duplicate label names: \['a'\]$"):
                         metric_type(
                             'duplicate_labels', 'help',
                             labelnames=sequence_type(['a', 'a']),
@@ -752,8 +752,21 @@ class TestMetricWrapper(unittest.TestCase):
                         )
                     self.assertEqual(list(registry.collect()), [])
 
+    def test_duplicate_labelnames_error_lists_only_duplicates(self):
+        for labelnames, expected in (
+            (['b', 'a', 'b', 'unique', 'a', 'b'], ['a', 'b']),
+            (['a', 'a', 'a'], ['a']),
+            (['β', 'unique', 'β'], ['β']),
+        ):
+            with self.subTest(labelnames=labelnames):
+                registry = CollectorRegistry()
+                with self.assertRaises(ValueError) as error:
+                    Counter('duplicate_labels', 'help', iter(labelnames), registry=registry)
+                self.assertEqual(str(error.exception), f'Duplicate label names: {expected!r}')
+                self.assertEqual(list(registry.collect()), [])
+
     def test_unique_labelnames_iterator(self):
-        # 2026-10-09: Valid one-shot label iterables still preserve both names.
+        # Valid one-shot label iterables still preserve both names.
         counter = Counter('iter_labels', 'help', iter(['a', 'b']), registry=self.registry)
         counter.labels('x', 'y').inc()
         self.assertEqual(
