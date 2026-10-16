@@ -1078,6 +1078,27 @@ class TestCollectorRegistry(unittest.TestCase):
         # was unregistered.
         self.assertEqual([], list(registry.restricted_registry(['foo']).collect()))
 
+    def test_register_no_names_collector_twice(self):
+        registry = CollectorRegistry(support_collectors_without_names=True)
+
+        class NamelessCollector:
+            def collect(self):
+                return [GaugeMetricFamily('foo', 'help', value=42)]
+
+        collector = NamelessCollector()
+        restricted = registry.restricted_registry(['foo'])
+        registry.register(collector)
+        registry.register(collector)
+        self.assertEqual(1, len(list(registry.collect())))
+        self.assertEqual(1, len(list(restricted.collect())))
+        registry.unregister(collector)
+        self.assertEqual([], list(registry.collect()))
+        self.assertEqual([], list(restricted.collect()))
+        registry.register(collector)
+        self.assertEqual(1, len(list(restricted.collect())))
+        registry.unregister(collector)
+        self.assertEqual([], list(restricted.collect()))
+
     def custom_collector(self, metric_family, registry):
         class CustomCollector:
             def collect(self):
