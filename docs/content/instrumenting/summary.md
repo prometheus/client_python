@@ -55,6 +55,16 @@ s.observe(0.43)   # observe 430ms
 s.observe(1024)   # observe 1024 bytes
 ```
 
+### `observe_batch(amounts)`
+
+Record a finite iterable of observations, such as a list, tuple, or generator.
+
+```python
+s.observe_batch([0.12, 0.45, 0.08])
+```
+
+Floating-point rounding may make the sum differ from repeated `observe()` calls.
+
 ### `time()`
 
 Observe the duration in seconds of a block of code or function and add it to the

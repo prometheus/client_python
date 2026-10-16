@@ -104,6 +104,29 @@ class TestMultiProcess(unittest.TestCase):
         self.assertEqual(3, self.registry.get_sample_value('h_sum'))
         self.assertEqual(2, self.registry.get_sample_value('h_bucket', {'le': '5.0'}))
 
+    def test_summary_observe_batch_adds(self):
+        s1 = Summary('s', 'help', registry=None)
+        values.ValueClass = MultiProcessValue(lambda: 456)
+        s2 = Summary('s', 'help', registry=None)
+        s1.observe_batch([0.25, 1])
+        s2.observe_batch([2, 3])
+        s1.observe(0.5)
+        self.assertEqual(5, self.registry.get_sample_value('s_count'))
+        self.assertEqual(6.75, self.registry.get_sample_value('s_sum'))
+
+    def test_histogram_observe_batch_adds(self):
+        h1 = Histogram('h', 'help', ['route'], registry=None).labels('/test')
+        values.ValueClass = MultiProcessValue(lambda: 456)
+        h2 = Histogram('h', 'help', ['route'], registry=None).labels('/test')
+        h1.observe_batch([0.25, 1])
+        h2.observe_batch([2, 3])
+        h1.observe(0.5)
+        self.assertEqual(5, self.registry.get_sample_value('h_count', {'route': '/test'}))
+        self.assertEqual(6.75, self.registry.get_sample_value('h_sum', {'route': '/test'}))
+        self.assertEqual(3, self.registry.get_sample_value('h_bucket', {'route': '/test', 'le': '1.0'}))
+        self.assertEqual(4, self.registry.get_sample_value('h_bucket', {'route': '/test', 'le': '2.5'}))
+        self.assertEqual(5, self.registry.get_sample_value('h_bucket', {'route': '/test', 'le': '+Inf'}))
+
     def test_gauge_all(self):
         g1 = Gauge('g', 'help', registry=None)
         values.ValueClass = MultiProcessValue(lambda: 456)
