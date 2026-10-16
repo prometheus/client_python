@@ -761,6 +761,7 @@ class Enum(MetricWrapperBase):
         e.state('running')
 
      The first listed state will be the default.
+     The full metric name, including namespace and subsystem, is reserved as a label name.
      Enum metrics do not work in multiprocess mode.
     """
     _type = 'stateset'
@@ -776,7 +777,7 @@ class Enum(MetricWrapperBase):
                  _labelvalues: Optional[Sequence[str]] = None,
                  states: Optional[Sequence[str]] = None,
                  ):
-        if name in labelnames:
+        if name in labelnames or _build_full_name(self._type, name, namespace, subsystem, unit) in labelnames:
             raise ValueError(f'Overlapping labels for Enum metric: {name}')
         if not states:
             raise ValueError(f'No states provided for Enum metric: {name}')
