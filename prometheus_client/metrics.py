@@ -680,6 +680,8 @@ class Histogram(MetricWrapperBase):
         observations. See
         https://prometheus.io/docs/practices/histograms/#count-and-sum-of-observations
         for details.
+
+        NaN observations are counted in the +Inf bucket and make the sum NaN.
         """
         self._raise_if_not_observable()
         self._sum.inc(amount)
@@ -690,6 +692,8 @@ class Histogram(MetricWrapperBase):
                     _validate_exemplar(exemplar)
                     self._buckets[i].set_exemplar(Exemplar(exemplar, amount, time.time()))
                 break
+        else:
+            self._buckets[-1].inc(1)
 
     def time(self) -> Timer:
         """Time a block of code or function, and observe the duration in seconds.
