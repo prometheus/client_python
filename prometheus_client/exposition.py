@@ -258,18 +258,22 @@ def start_wsgi_server(
     TmpServer.address_family, addr = _get_best_family(addr, port)
     app = make_wsgi_app(registry)
     httpd = make_server(addr, port, app, TmpServer, handler_class=_SilentHandler)
-    if certfile and keyfile:
-        context = _get_ssl_ctx(
-            certfile,
-            keyfile,
-            protocol,
-            client_cafile,
-            client_capath,
-            client_auth_required,
-            tls_min_version,
-            tls_max_version
-        )
-        httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
+    try:
+        if certfile and keyfile:
+            context = _get_ssl_ctx(
+                certfile,
+                keyfile,
+                protocol,
+                client_cafile,
+                client_capath,
+                client_auth_required,
+                tls_min_version,
+                tls_max_version
+            )
+            httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
+    except Exception:
+        httpd.server_close()
+        raise
     t = threading.Thread(target=httpd.serve_forever)
     t.daemon = True
     t.start()
