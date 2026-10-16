@@ -609,6 +609,23 @@ class TestEnum(unittest.TestCase):
         Enum('task_state', 'help', states=['a', 'b'], registry=registry)
         self.assertEqual(1, registry.get_sample_value('task_state', {'task_state': 'a'}))
 
+    def test_prefixed_name_does_not_overlap_labels(self):
+        for namespace, subsystem in [('app', ''), ('', 'worker'), ('app', 'worker')]:
+            with self.subTest(namespace=namespace, subsystem=subsystem):
+                registry = CollectorRegistry()
+                name = '_'.join(part for part in (namespace, subsystem, 'state') if part)
+                with self.assertRaisesRegex(ValueError, 'Overlapping labels'):
+                    Enum('state', 'help', namespace=namespace, subsystem=subsystem,
+                         labelnames=[name], states=['a', 'b'], registry=registry)
+                self.assertEqual([], list(registry.collect()))
+
+                metric = Enum('state', 'help', namespace=namespace, subsystem=subsystem,
+                              labelnames=['tenant'], states=['a', 'b'], registry=registry)
+                metric.labels('one').state('a')
+                metric.labels('two').state('b')
+                self.assertEqual(1, registry.get_sample_value(name, {'tenant': 'one', name: 'a'}))
+                self.assertEqual(1, registry.get_sample_value(name, {'tenant': 'two', name: 'b'}))
+
 
 class TestMetricWrapper(unittest.TestCase):
     def setUp(self):
