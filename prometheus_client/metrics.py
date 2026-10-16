@@ -1,3 +1,5 @@
+from bisect import bisect_left
+import math
 import os
 from threading import Lock
 import time
@@ -564,6 +566,19 @@ class Summary(MetricWrapperBase):
         self._count.inc(1)
         self._sum.inc(amount)
 
+    def observe_batch(self, amounts: Iterable[float]) -> None:
+        """Observe a finite iterable of amounts.
+
+        The same restrictions on negative amounts as observe() apply.
+        """
+        self._raise_if_not_observable()
+        amounts = list(amounts)
+        if not amounts:
+            return
+        total = sum(amounts)
+        self._sum.inc(total)
+        self._count.inc(len(amounts))
+
     def time(self) -> Timer:
         """Time a block of code or function, and observe the duration in seconds.
 
@@ -690,6 +705,26 @@ class Histogram(MetricWrapperBase):
                     _validate_exemplar(exemplar)
                     self._buckets[i].set_exemplar(Exemplar(exemplar, amount, time.time()))
                 break
+
+    def observe_batch(self, amounts: Iterable[float]) -> None:
+        """Observe a finite iterable of amounts.
+
+        The same restrictions on negative amounts as observe() apply.
+        Exemplars are not supported; existing exemplars are preserved.
+        """
+        self._raise_if_not_observable()
+        amounts = list(amounts)
+        if not amounts:
+            return
+        total = sum(amounts)
+        counts = [0] * len(self._upper_bounds)
+        for amount in amounts:
+            if not math.isnan(amount):
+                counts[bisect_left(self._upper_bounds, amount)] += 1
+        self._sum.inc(total)
+        for bucket, bucket_count in zip(self._buckets, counts):
+            if bucket_count:
+                bucket.inc(bucket_count)
 
     def time(self) -> Timer:
         """Time a block of code or function, and observe the duration in seconds.

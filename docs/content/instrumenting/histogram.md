@@ -73,6 +73,17 @@ only rendered in OpenMetrics format. See [Exemplars](../exemplars/) for details.
 h.observe(0.43, exemplar={'trace_id': 'abc123'})
 ```
 
+### `observe_batch(amounts)`
+
+Record a finite iterable of observations, such as a list, tuple, or generator.
+
+```python
+h.observe_batch([0.12, 0.45, 0.08])
+```
+
+New exemplars are not supported; existing exemplars are preserved. Floating-point
+rounding may make the sum differ from repeated `observe()` calls.
+
 ### `time()`
 
 Observe the duration in seconds of a block of code or function and add it to the

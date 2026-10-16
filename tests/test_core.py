@@ -1,4 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
+from decimal import Decimal
+import math
 import os
 from threading import Barrier, Event
 import time
@@ -311,6 +313,67 @@ class TestSummary(unittest.TestCase):
         """.observe() must fail if the Summary is not observable."""
         assert_not_observable(self.summary_with_labels.observe, 1)
 
+    def test_observe_batch(self):
+        self.summary.observe(1)
+        self.summary.observe_batch([-2, 0, 0.5, 2])
+        self.summary.observe_batch((3, 4))
+        self.assertEqual(7, self.registry.get_sample_value('s_count'))
+        self.assertEqual(8.5, self.registry.get_sample_value('s_sum'))
+
+    def test_observe_batch_empty(self):
+        self.summary.observe(1)
+        self.summary.observe_batch([])
+        self.summary.observe_batch(())
+        self.assertEqual(1, self.registry.get_sample_value('s_count'))
+        self.assertEqual(1, self.registry.get_sample_value('s_sum'))
+
+    def test_observe_batch_not_observable(self):
+        assert_not_observable(self.summary_with_labels.observe_batch, [1])
+        assert_not_observable(self.summary_with_labels.observe_batch, [])
+
+    def test_observe_batch_labels(self):
+        self.summary_with_labels.labels('a').observe_batch([1, 2])
+        self.summary_with_labels.labels('b').observe_batch([4])
+        self.assertEqual(2, self.registry.get_sample_value('s_with_labels_count', {'label1': 'a'}))
+        self.assertEqual(3, self.registry.get_sample_value('s_with_labels_sum', {'label1': 'a'}))
+        self.assertEqual(1, self.registry.get_sample_value('s_with_labels_count', {'label1': 'b'}))
+        self.assertEqual(4, self.registry.get_sample_value('s_with_labels_sum', {'label1': 'b'}))
+
+    def test_observe_batch_nonfinite(self):
+        self.summary.observe_batch([float('inf')])
+        self.assertEqual(float('inf'), self.registry.get_sample_value('s_sum'))
+        self.summary.observe_batch([float('-inf')])
+        self.assertTrue(math.isnan(self.registry.get_sample_value('s_sum')))
+        self.summary.observe_batch([float('nan')])
+        self.assertEqual(3, self.registry.get_sample_value('s_count'))
+        self.assertTrue(math.isnan(self.registry.get_sample_value('s_sum')))
+
+    def test_observe_batch_invalid_amounts(self):
+        self.summary.observe(1)
+        self.assertRaises(TypeError, self.summary.observe_batch, [2, 'invalid'])
+        self.assertEqual(1, self.registry.get_sample_value('s_count'))
+        self.assertEqual(1, self.registry.get_sample_value('s_sum'))
+        self.assertRaises(TypeError, self.summary.observe_batch, [Decimal('1.5')])
+        self.assertEqual(1, self.registry.get_sample_value('s_count'))
+        self.assertEqual(1, self.registry.get_sample_value('s_sum'))
+
+    def test_observe_batch_iterators(self):
+        self.summary.observe_batch(iter(()))
+        self.summary.observe_batch(iter([1, 2]))
+        self.summary.observe_batch(x for x in [3, 4])
+        self.assertEqual(4, self.registry.get_sample_value('s_count'))
+        self.assertEqual(10, self.registry.get_sample_value('s_sum'))
+
+    def test_observe_batch_iteration_failure(self):
+        def amounts():
+            yield 2
+            raise RuntimeError('iteration failed')
+
+        self.summary.observe(1)
+        self.assertRaises(RuntimeError, self.summary.observe_batch, amounts())
+        self.assertEqual(1, self.registry.get_sample_value('s_count'))
+        self.assertEqual(1, self.registry.get_sample_value('s_sum'))
+
     def test_function_decorator(self):
         self.assertEqual(0, self.registry.get_sample_value('s_count'))
 
@@ -448,6 +511,93 @@ class TestHistogram(unittest.TestCase):
     def test_histogram_not_observable(self):
         """.observe() must fail if the Summary is not observable."""
         assert_not_observable(self.labels.observe, 1)
+
+    def test_observe_batch(self):
+        self.histogram.observe(0.5)
+        self.histogram.observe_batch([-1, 0, 1, 2.5])
+        self.histogram.observe_batch((3, 20))
+        self.assertEqual(2, self.registry.get_sample_value('h_bucket', {'le': '0.005'}))
+        self.assertEqual(3, self.registry.get_sample_value('h_bucket', {'le': '0.5'}))
+        self.assertEqual(4, self.registry.get_sample_value('h_bucket', {'le': '1.0'}))
+        self.assertEqual(5, self.registry.get_sample_value('h_bucket', {'le': '2.5'}))
+        self.assertEqual(6, self.registry.get_sample_value('h_bucket', {'le': '5.0'}))
+        self.assertEqual(7, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
+        self.assertEqual(7, self.registry.get_sample_value('h_count'))
+        self.assertEqual(26, self.registry.get_sample_value('h_sum'))
+
+    def test_observe_batch_empty(self):
+        self.histogram.observe(1)
+        self.histogram.observe_batch([])
+        self.histogram.observe_batch(())
+        self.assertEqual(1, self.registry.get_sample_value('h_count'))
+        self.assertEqual(1, self.registry.get_sample_value('h_sum'))
+
+    def test_observe_batch_not_observable(self):
+        assert_not_observable(self.labels.observe_batch, [1])
+        assert_not_observable(self.labels.observe_batch, [])
+
+    def test_observe_batch_labels(self):
+        self.labels.labels('a').observe_batch([1, 2])
+        self.labels.labels('b').observe_batch([4])
+        self.assertEqual(1, self.registry.get_sample_value('hl_bucket', {'l': 'a', 'le': '1.0'}))
+        self.assertEqual(2, self.registry.get_sample_value('hl_count', {'l': 'a'}))
+        self.assertEqual(3, self.registry.get_sample_value('hl_sum', {'l': 'a'}))
+        self.assertEqual(1, self.registry.get_sample_value('hl_count', {'l': 'b'}))
+        self.assertEqual(4, self.registry.get_sample_value('hl_sum', {'l': 'b'}))
+
+    def test_observe_batch_custom_buckets(self):
+        h = Histogram('custom', 'help', registry=self.registry, buckets=[-2, 0, 1, 1, 2])
+        h.observe_batch([-3, -2, 0, 1, 2, 3])
+        self.assertEqual(2, self.registry.get_sample_value('custom_bucket', {'le': '-2.0'}))
+        self.assertEqual(3, self.registry.get_sample_value('custom_bucket', {'le': '0.0'}))
+        self.assertEqual(4, self.registry.get_sample_value('custom_bucket', {'le': '1.0'}))
+        self.assertEqual(5, self.registry.get_sample_value('custom_bucket', {'le': '2.0'}))
+        self.assertEqual(6, self.registry.get_sample_value('custom_count'))
+
+    def test_observe_batch_nonfinite(self):
+        self.histogram.observe_batch([float('nan')])
+        self.assertEqual(0, self.registry.get_sample_value('h_count'))
+        self.assertTrue(math.isnan(self.registry.get_sample_value('h_sum')))
+        self.histogram.observe_batch([float('-inf'), float('inf')])
+        self.assertEqual(1, self.registry.get_sample_value('h_bucket', {'le': '0.005'}))
+        self.assertEqual(2, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
+        self.assertEqual(2, self.registry.get_sample_value('h_count'))
+        self.assertTrue(math.isnan(self.registry.get_sample_value('h_sum')))
+
+    def test_observe_batch_invalid_amounts(self):
+        self.histogram.observe(1)
+        self.assertRaises(TypeError, self.histogram.observe_batch, [2, 'invalid'])
+        self.assertEqual(1, self.registry.get_sample_value('h_count'))
+        self.assertEqual(1, self.registry.get_sample_value('h_sum'))
+        self.assertRaises(TypeError, self.histogram.observe_batch, [Decimal('1.5')])
+        self.assertEqual(1, self.registry.get_sample_value('h_count'))
+        self.assertEqual(1, self.registry.get_sample_value('h_sum'))
+
+    def test_observe_batch_iterators(self):
+        self.histogram.observe_batch(iter(()))
+        self.histogram.observe_batch(iter([1, 2]))
+        self.histogram.observe_batch(x for x in [3, 4])
+        self.assertEqual(1, self.registry.get_sample_value('h_bucket', {'le': '1.0'}))
+        self.assertEqual(2, self.registry.get_sample_value('h_bucket', {'le': '2.5'}))
+        self.assertEqual(4, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
+        self.assertEqual(4, self.registry.get_sample_value('h_count'))
+        self.assertEqual(10, self.registry.get_sample_value('h_sum'))
+
+    def test_observe_batch_iteration_failure(self):
+        def amounts():
+            yield 2
+            raise RuntimeError('iteration failed')
+
+        self.histogram.observe(1)
+        self.assertRaises(RuntimeError, self.histogram.observe_batch, amounts())
+        self.assertEqual(1, self.registry.get_sample_value('h_count'))
+        self.assertEqual(1, self.registry.get_sample_value('h_sum'))
+
+    def test_observe_batch_preserves_exemplars(self):
+        self.histogram.observe(0.25, exemplar={'trace_id': 'abc'})
+        before = [s.exemplar for s in self.histogram.collect()[0].samples]
+        self.histogram.observe_batch([0.125, 0.25, 1])
+        self.assertEqual(before, [s.exemplar for s in self.histogram.collect()[0].samples])
 
     def test_setting_buckets(self):
         h = Histogram('h', 'help', registry=None, buckets=[0, 1, 2])
