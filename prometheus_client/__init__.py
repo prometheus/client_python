@@ -17,6 +17,7 @@ from .metrics import (
     Histogram, Info, Summary,
 )
 from .metrics_core import Metric
+from .openmetrics.exposition import disable_openmetrics_2, enable_openmetrics_2
 from .platform_collector import PLATFORM_COLLECTOR, PlatformCollector
 from .process_collector import PROCESS_COLLECTOR, ProcessCollector
 from .registry import CollectorRegistry, REGISTRY
@@ -33,6 +34,8 @@ __all__ = (
     'Enum',
     'enable_created_metrics',
     'disable_created_metrics',
+    'enable_openmetrics_2',
+    'disable_openmetrics_2',
     'CONTENT_TYPE_LATEST',
     'CONTENT_TYPE_PLAIN_0_0_4',
     'CONTENT_TYPE_PLAIN_1_0_0',

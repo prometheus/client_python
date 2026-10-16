@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from io import StringIO
+import os
 from sys import maxunicode
 from typing import Callable
 
@@ -14,6 +15,25 @@ CONTENT_TYPE_LATEST = 'application/openmetrics-text; version=1.0.0; charset=utf-
 CONTENT_TYPE_LATEST_2_0 = 'application/openmetrics-text; version=2.0.0; charset=utf-8'
 """Content type of the OpenMetrics 2.0 text format"""
 ESCAPING_HEADER_TAG = 'escaping'
+
+
+def _get_openmetrics_2_enabled() -> bool:
+    return os.environ.get("PROMETHEUS_ENABLE_OPENMETRICS_2", 'False').lower() in ('true', '1', 't')
+
+
+_openmetrics_2_enabled = _get_openmetrics_2_enabled()
+
+
+def enable_openmetrics_2():
+    """Serve the experimental OpenMetrics 2.0 text format when version 2.0.0 is requested."""
+    global _openmetrics_2_enabled
+    _openmetrics_2_enabled = True
+
+
+def disable_openmetrics_2():
+    """Serve OpenMetrics 1.0 text with native histograms when version 2.0.0 is requested."""
+    global _openmetrics_2_enabled
+    _openmetrics_2_enabled = False
 
 
 ALLOWUTF8 = 'allow-utf-8'
@@ -57,6 +77,12 @@ def _compose_exemplar_string(metric, sample, exemplar):
 
 def generate_latest(registry, escaping=UNDERSCORES, version="1.0.0"):
     '''Returns the metrics from the registry in latest text format as a string.'''
+    if _openmetrics_2_enabled and parse_version(version) == (2, 0, 0):
+        return _generate_latest_2_0(registry, escaping)
+    return _generate_latest_1_0(registry, escaping, version)
+
+
+def _generate_latest_1_0(registry, escaping, version):
     output = []
     for metric in registry.collect():
         try:
@@ -168,6 +194,61 @@ def generate_latest(registry, escaping=UNDERSCORES, version="1.0.0"):
 
     output.append('# EOF\n')
     return ''.join(output).encode('utf-8')
+
+
+def _generate_latest_2_0(registry, escaping):
+    """EXPERIMENTAL: targets OpenMetrics 2.0 and may change without notice."""
+    formatters = {
+        'counter': _format_counter_2_0,
+        'gauge': _format_gauge_2_0,
+        'summary': _format_summary_2_0,
+        'histogram': _format_histogram_2_0,
+        'gaugehistogram': _format_gaugehistogram_2_0,
+        'unknown': _format_unknown_2_0,
+        'info': _format_info_2_0,
+        'stateset': _format_stateset_2_0,
+    }
+    output = []
+    for metric in registry.collect():
+        try:
+            output.append(formatters[metric.type](metric, escaping))
+        except Exception as exception:
+            exception.args = (exception.args or ('',)) + (metric,)
+            raise
+    output.append('# EOF\n')
+    return ''.join(output).encode('utf-8')
+
+
+def _format_counter_2_0(metric, escaping):
+    raise NotImplementedError('OpenMetrics 2.0 does not support counter metrics yet')
+
+
+def _format_gauge_2_0(metric, escaping):
+    raise NotImplementedError('OpenMetrics 2.0 does not support gauge metrics yet')
+
+
+def _format_summary_2_0(metric, escaping):
+    raise NotImplementedError('OpenMetrics 2.0 does not support summary metrics yet')
+
+
+def _format_histogram_2_0(metric, escaping):
+    raise NotImplementedError('OpenMetrics 2.0 does not support histogram metrics yet')
+
+
+def _format_gaugehistogram_2_0(metric, escaping):
+    raise NotImplementedError('OpenMetrics 2.0 does not support gaugehistogram metrics yet')
+
+
+def _format_unknown_2_0(metric, escaping):
+    raise NotImplementedError('OpenMetrics 2.0 does not support unknown metrics yet')
+
+
+def _format_info_2_0(metric, escaping):
+    raise NotImplementedError('OpenMetrics 2.0 does not support info metrics yet')
+
+
+def _format_stateset_2_0(metric, escaping):
+    raise NotImplementedError('OpenMetrics 2.0 does not support stateset metrics yet')
 
 
 def escape_metric_name(s: str, escaping: str = UNDERSCORES) -> str:

@@ -12,8 +12,9 @@ from prometheus_client.core import (
     HistogramMetricFamily, NativeHistogram, Timestamp,
 )
 from prometheus_client.openmetrics.exposition import (
-    ALLOWUTF8, DOTS, escape_label_name, escape_metric_name, generate_latest,
-    UNDERSCORES, VALUES,
+    ALLOWUTF8, disable_openmetrics_2, DOTS, enable_openmetrics_2,
+    escape_label_name, escape_metric_name, generate_latest, UNDERSCORES,
+    VALUES,
 )
 
 
@@ -523,6 +524,34 @@ ts{foo="f"} 0.0 123.000000456
 nh_version {count:5,sum:10,schema:0,zero_threshold:0.01,zero_count:2,negative_spans:[0:1],negative_deltas:[4],positive_spans:[0:1],positive_deltas:[3]}
 # EOF
 """, generate_latest(self.registry, version="2.0.0"))
+
+
+
+class TestGenerateText20(unittest.TestCase):
+    def setUp(self):
+        self.registry = CollectorRegistry()
+        enable_openmetrics_2()
+
+    def tearDown(self):
+        disable_openmetrics_2()
+
+    def test_unsupported_type(self) -> None:
+        Gauge('gg', 'A gauge', registry=self.registry)
+        with self.assertRaises(NotImplementedError):
+            generate_latest(self.registry, version="2.0.0")
+
+    def test_version_1_0_0(self) -> None:
+        g = Gauge('gg', 'A gauge', registry=self.registry)
+        g.set(17)
+        self.assertEqual(b'# HELP gg A gauge\n# TYPE gg gauge\ngg 17.0\n# EOF\n',
+                         generate_latest(self.registry, version="1.0.0"))
+
+    def test_disabled(self) -> None:
+        disable_openmetrics_2()
+        g = Gauge('gg', 'A gauge', registry=self.registry)
+        g.set(17)
+        self.assertEqual(b'# HELP gg A gauge\n# TYPE gg gauge\ngg 17.0\n# EOF\n',
+                         generate_latest(self.registry, version="2.0.0"))
 
 
 @pytest.mark.parametrize("scenario", [
