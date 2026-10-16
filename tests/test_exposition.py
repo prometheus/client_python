@@ -1,11 +1,13 @@
 import gzip
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import os
+import socket
 import ssl
 import threading
 import time
 import unittest
 import urllib
+from wsgiref.simple_server import make_server
 
 import pytest
 
@@ -931,6 +933,43 @@ def test_escape_label_name(scenario):
 
     got = openmetrics.escape_label_name(input, openmetrics.VALUES)
     assert got == scenario["expectedValue"], f"[{scenario['name']}] Value encoding failed"
+
+
+@pytest.mark.parametrize("failure", ["certificate", "client_ca", "wrap_socket"])
+def test_tls_startup_failure_closes_listener(failure, tmp_path, monkeypatch):
+    certs_dir = os.path.join(os.path.dirname(__file__), 'certs')
+    kwargs = {
+        'certfile': os.path.join(certs_dir, 'server-cert.pem'),
+        'keyfile': os.path.join(certs_dir, 'server-key.pem'),
+    }
+    if failure == 'certificate':
+        kwargs['certfile'] = str(tmp_path / 'missing-cert.pem')
+    elif failure == 'client_ca':
+        kwargs['client_cafile'] = str(tmp_path / 'missing-ca.pem')
+    else:
+        kwargs['protocol'] = ssl.PROTOCOL_TLS_CLIENT
+
+    servers = []
+
+    def capture_server(*args, **kwargs):
+        server = make_server(*args, **kwargs)
+        servers.append(server)
+        return server
+
+    monkeypatch.setattr('prometheus_client.exposition.make_server', capture_server)
+    try:
+        error_type = ValueError if failure == 'wrap_socket' else FileNotFoundError
+        with pytest.raises(error_type) as exc_info:
+            start_wsgi_server(0, addr='127.0.0.1', **kwargs)
+        server = servers[0]
+        # Retain the traceback so garbage collection cannot close the listener.
+        assert exc_info.value.__traceback__ is not None
+        assert server.socket.fileno() == -1
+        with socket.socket() as replacement:
+            replacement.bind(server.server_address)
+    finally:
+        for server in servers:
+            server.server_close()
 
 
 if __name__ == '__main__':
