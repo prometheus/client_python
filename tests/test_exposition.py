@@ -648,6 +648,38 @@ class TestChooseEncoder(unittest.TestCase):
                 self.assert_is_escaped(exp)
                 self.assert_is_prom(exp)
 
+    def test_accept_quality(self):
+        openmetrics_type = 'application/openmetrics-text; version=1.0.0'
+        text_type = 'text/plain; version=1.0.0'
+        for accept_header, expected_openmetrics in (
+            (f'{openmetrics_type};q=0, {text_type};q=1', False),
+            (f'{openmetrics_type};q=0.1, {text_type};q=0.9', False),
+            (f'{text_type};q=0.1, {openmetrics_type};q=0.9', True),
+            (f'{openmetrics_type};q=0.5, {text_type}', False),
+            (f'{text_type};q=0.5, {openmetrics_type}', True),
+            (f'{openmetrics_type};q=0.5, {text_type};q=0.5', True),
+            (f'{text_type};q=0.5, {openmetrics_type};q=0.5', False),
+            (f'{openmetrics_type};q=0.1, text/plain;version=0.0.4;q=0.9', False),
+            (f'{openmetrics_type};q=0.1, text/plain;q=0.9', False),
+        ):
+            with self.subTest(accept_header=accept_header):
+                generator, content_type = choose_encoder(accept_header)
+                self.assertEqual(content_type.startswith('application/openmetrics-text'), expected_openmetrics)
+                exp = generator(self.registry).decode('utf-8')
+                if expected_openmetrics:
+                    self.assert_is_openmetrics(exp)
+                else:
+                    self.assert_is_prom(exp)
+
+    def test_invalid_accept_quality(self):
+        for quality in ('bogus', '-1', '1.1', 'NaN', 'inf'):
+            with self.subTest(quality=quality):
+                generator, content_type = choose_encoder(
+                    f'application/openmetrics-text;version=1.0.0;q={quality}, text/plain;version=1.0.0'
+                )
+                self.assertTrue(content_type.startswith('text/plain'))
+                self.assert_is_prom(generator(self.registry).decode('utf-8'))
+
 
 class TestWsgiTLS(unittest.TestCase):
     def setUp(self):
