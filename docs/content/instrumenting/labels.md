@@ -39,15 +39,19 @@ c.labels('post', '/submit')
 
 ## Removing labelsets
 
-### `remove(*labelvalues)`
+### `remove(*labelvalues, **labelkwargs)`
 
-Remove a specific labelset from the metric. Values must be passed in the same
-order as `labelnames` were declared.
+Remove a specific labelset from the metric. As with `labels()`, values can be
+passed in the same order as `labelnames` were declared, or as keyword
+arguments (one for every label name).
 
 ```python
 c = Counter('my_requests_total', 'HTTP Failures', ['method', 'endpoint'])
 c.labels('get', '/').inc()
 c.remove('get', '/')
+
+c.labels(method='post', endpoint='/submit').inc()
+c.remove(method='post', endpoint='/submit')
 ```
 
 ### `remove_by_labels(labels)`

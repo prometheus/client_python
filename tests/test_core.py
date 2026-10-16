@@ -664,8 +664,8 @@ class TestMetricWrapper(unittest.TestCase):
         self.assertEqual(800, self.registry.get_sample_value('c_total', {'l': 'shared'}))
 
     def test_recreate_child_after_removal(self):
-        for remove in (lambda: self.counter.remove('x'), self.counter.clear,
-                       lambda: self.counter.remove_by_labels({'l': 'x'})):
+        for remove in (lambda: self.counter.remove('x'), lambda: self.counter.remove(l='x'),
+                       self.counter.clear, lambda: self.counter.remove_by_labels({'l': 'x'})):
             original = self.counter.labels('x')
             original.inc()
             remove()
@@ -682,6 +682,30 @@ class TestMetricWrapper(unittest.TestCase):
         self.counter.remove('x')
         self.assertEqual(None, self.registry.get_sample_value('c_total', {'l': 'x'}))
         self.assertEqual(2, self.registry.get_sample_value('c_total', {'l': 'y'}))
+
+    def test_remove_with_label_kwargs(self):
+        self.counter.labels('x').inc()
+        self.counter.labels('y').inc(2)
+        self.counter.remove(l='x')
+        self.assertEqual(None, self.registry.get_sample_value('c_total', {'l': 'x'}))
+        self.assertEqual(2, self.registry.get_sample_value('c_total', {'l': 'y'}))
+
+    def test_remove_with_label_kwargs_matches_by_name(self):
+        self.two_labels.labels(a='x', b='y').inc()
+        self.two_labels.labels(a='y', b='x').inc(2)
+
+        self.two_labels.remove(b='y', a='x')
+
+        self.assertIsNone(self.registry.get_sample_value('two_total', {'a': 'x', 'b': 'y'}))
+        self.assertEqual(2, self.registry.get_sample_value('two_total', {'a': 'y', 'b': 'x'}))
+
+    def test_remove_with_incorrect_label_kwargs_raises(self):
+        self.two_labels.labels('x', 'y').inc()
+        self.assertRaises(ValueError, self.two_labels.remove, 'x', b='y')
+        self.assertRaises(ValueError, self.two_labels.remove, a='x')
+        self.assertRaises(ValueError, self.two_labels.remove, a='x', c='y')
+        self.assertRaises(ValueError, self.two_labels.remove, a='x', b='y', c='z')
+        self.assertEqual(1, self.registry.get_sample_value('two_total', {'a': 'x', 'b': 'y'}))
 
     def test_clear(self):
         self.counter.labels('x').inc()
@@ -708,6 +732,10 @@ class TestMetricWrapper(unittest.TestCase):
         self.assertEqual(2, self.registry.get_sample_value('c_total', {'l': 'None'}))
 
         self.counter.remove(None)
+        self.assertEqual(None, self.registry.get_sample_value('c_total', {'l': 'None'}))
+
+        self.counter.labels(None).inc()
+        self.counter.remove(l=None)
         self.assertEqual(None, self.registry.get_sample_value('c_total', {'l': 'None'}))
 
     def test_remove_by_labels(self):
