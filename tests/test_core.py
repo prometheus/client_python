@@ -928,14 +928,14 @@ class TestMetricFamilies(unittest.TestCase):
         self.assertEqual(3, self.registry.get_sample_value('gh_gsum', {'a': '1'}))
 
         imf = InfoMetricFamily('i', 'help', labels=['a'])
-        imf.add_metric([1], {'c': 'd'})
+        imf.add_metric([1], {'c': 2})
         self.custom_collector(imf)
-        self.assertEqual(1, self.registry.get_sample_value('i_info', {'a': '1', 'c': 'd'}))
+        self.assertEqual(1, self.registry.get_sample_value('i_info', {'a': '1', 'c': '2'}))
 
         ssf = StateSetMetricFamily('ss', 'help', labels=['a'])
-        ssf.add_metric([1], {'x': True})
+        ssf.add_metric([1], {3: True})
         self.custom_collector(ssf)
-        self.assertEqual(1, self.registry.get_sample_value('ss', {'a': '1', 'ss': 'x'}))
+        self.assertEqual(1, self.registry.get_sample_value('ss', {'a': '1', 'ss': '3'}))
 
         self.assertIn(b'g{a="1"} 2.0', generate_latest(self.registry))
 
