@@ -1,3 +1,4 @@
+from enum import Enum as PythonEnum
 import os
 from threading import Lock
 import time
@@ -761,6 +762,8 @@ class Enum(MetricWrapperBase):
         e.state('running')
 
      The first listed state will be the default.
+     A Python enum.Enum class can also supply the states. Its member names are
+     exported as labels, and state() accepts its members or their names.
      Enum metrics do not work in multiprocess mode.
     """
     _type = 'stateset'
@@ -774,11 +777,17 @@ class Enum(MetricWrapperBase):
                  unit: str = '',
                  registry: Optional[CollectorRegistry] = REGISTRY,
                  _labelvalues: Optional[Sequence[str]] = None,
-                 states: Optional[Sequence[str]] = None,
+                 states: Optional[Union[Sequence[str], Type[PythonEnum]]] = None,
                  ):
         if name in labelnames:
             raise ValueError(f'Overlapping labels for Enum metric: {name}')
-        if not states:
+        self._enum_type: Optional[Type[PythonEnum]] = None
+        if isinstance(states, type):
+            self._enum_type = states
+            state_names: Optional[Sequence[str]] = [member.name for member in states]
+        else:
+            state_names = states
+        if not state_names:
             raise ValueError(f'No states provided for Enum metric: {name}')
         super().__init__(
             name=name,
@@ -790,15 +799,20 @@ class Enum(MetricWrapperBase):
             registry=registry,
             _labelvalues=_labelvalues,
         )
-        self._kwargs['states'] = self._states = states
+        self._kwargs['states'] = states
+        self._states = state_names
 
     def _metric_init(self) -> None:
         self._value = 0
         self._lock = Lock()
 
-    def state(self, state: str) -> None:
+    def state(self, state: Union[str, PythonEnum]) -> None:
         """Set enum metric state."""
         self._raise_if_not_observable()
+        if self._enum_type is not None and isinstance(state, PythonEnum):
+            if not isinstance(state, self._enum_type):
+                raise ValueError(f'Invalid enum type for Enum metric: {self._name}')
+            state = state.name
         with self._lock:
             self._value = self._states.index(state)
 
