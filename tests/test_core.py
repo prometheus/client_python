@@ -1,4 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
+from enum import Enum as PythonEnum
+from enum import IntEnum
 import os
 from threading import Barrier, Event
 import time
@@ -14,6 +16,7 @@ from prometheus_client.core import (
     StateSetMetricFamily, Summary, SummaryMetricFamily, UntypedMetricFamily,
 )
 from prometheus_client.decorator import getargspec
+from prometheus_client.exposition import generate_latest
 from prometheus_client.metrics import _get_use_created
 from prometheus_client.validation import (
     disable_legacy_validation, enable_legacy_validation,
@@ -591,6 +594,62 @@ class TestEnum(unittest.TestCase):
         self.assertEqual(0, self.registry.get_sample_value('el', {'l': 'a', 'el': 'b'}))
         self.assertEqual(1, self.registry.get_sample_value('el', {'l': 'a', 'el': 'c'}))
         self.assertRaises(ValueError, self.labels.state, 'a')
+
+    def test_python_enum(self):
+        class State(PythonEnum):
+            starting = 10
+            running = 20
+            stopped = 30
+            finished = 30
+
+        metric = Enum('task_state', 'help', states=State, registry=self.registry)
+        self.assertEqual(1, self.registry.get_sample_value('task_state', {'task_state': 'starting'}))
+        metric.state(State.running)
+        self.assertEqual(0, self.registry.get_sample_value('task_state', {'task_state': 'starting'}))
+        self.assertEqual(1, self.registry.get_sample_value('task_state', {'task_state': 'running'}))
+        self.assertIn(b'task_state{task_state="running"} 1.0\n', generate_latest(self.registry))
+        metric.state('stopped')
+        metric.state(State.finished)
+        self.assertEqual(1, self.registry.get_sample_value('task_state', {'task_state': 'stopped'}))
+        self.assertEqual(3, len(metric.collect()[0].samples))
+
+    def test_python_enum_labels(self):
+        class State(PythonEnum):
+            idle = 'Idle worker'
+            busy = 'Busy worker'
+
+        metric = Enum('worker_state', 'help', ['worker'], states=State, registry=self.registry)
+        metric.labels('first').state(State.busy)
+        metric.labels('second')
+        self.assertEqual(1, self.registry.get_sample_value('worker_state', {'worker': 'first', 'worker_state': 'busy'}))
+        self.assertEqual(0, self.registry.get_sample_value('worker_state', {'worker': 'first', 'worker_state': 'idle'}))
+        self.assertEqual(1, self.registry.get_sample_value('worker_state', {'worker': 'second', 'worker_state': 'idle'}))
+        self.assertRaises(ValueError, metric.state, State.busy)
+
+    def test_python_enum_rejects_unknown_state(self):
+        class State(IntEnum):
+            idle = 1
+            busy = 2
+
+        class OtherState(IntEnum):
+            idle = 1
+            busy = 2
+
+        metric = Enum('task_state', 'help', states=State, registry=self.registry)
+        metric.state(State.busy)
+        for state in (OtherState.idle, 'missing', 1):
+            with self.subTest(state=state):
+                self.assertRaises(ValueError, metric.state, state)
+                self.assertEqual(1, self.registry.get_sample_value('task_state', {'task_state': 'busy'}))
+
+    def test_empty_python_enum_does_not_pollute_registry(self):
+        class EmptyState(PythonEnum):
+            pass
+
+        with self.assertRaisesRegex(ValueError, 'No states provided'):
+            Enum('task_state', 'help', states=EmptyState, registry=self.registry)
+        Enum('task_state', 'help', states=['idle'], registry=self.registry)
+        self.assertEqual(1, self.registry.get_sample_value('task_state', {'task_state': 'idle'}))
 
     def test_overlapping_labels(self):
         with pytest.raises(ValueError):
