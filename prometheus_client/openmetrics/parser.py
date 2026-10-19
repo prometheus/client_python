@@ -307,7 +307,7 @@ def _parse_nh_sample(text, suffixes):
 
 def _parse_nh_struct(text):
     pattern = r'(\w+):\s*([^,}]+)'
-    re_spans = re.compile(r'(positive_spans|negative_spans):\[(\d+:\d+(,\d+:\d+)*)\]')
+    re_spans = re.compile(r'(positive_spans|negative_spans):\[(-?\d+:\d+(,-?\d+:\d+)*)\]')
     re_deltas = re.compile(r'(positive_deltas|negative_deltas):\[(-?\d+(?:,-?\d+)*)\]')
 
     items = dict(re.findall(pattern, text))
