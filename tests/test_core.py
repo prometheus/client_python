@@ -462,6 +462,7 @@ class TestHistogram(unittest.TestCase):
         self.assertRaises(ValueError, Histogram, 'h', 'help', registry=None, buckets=[1, '1.0'])
         self.assertRaises(ValueError, Histogram, 'h', 'help', registry=None, buckets=[1, float("inf"), float("inf")])
         self.assertRaises(ValueError, Histogram, 'h', 'help', registry=None, buckets=[1, float("nan")])
+        self.assertRaises(ValueError, Histogram, 'h', 'help', registry=None, buckets=[float("nan")])
 
     def test_labels(self):
         self.assertRaises(ValueError, Histogram, 'h', 'help', registry=None, labelnames=['le'])
