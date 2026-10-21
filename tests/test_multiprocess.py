@@ -489,6 +489,28 @@ class TestMultiProcess(unittest.TestCase):
             os.path.join(self.tempdir, 'gauge_livesum_9999999.db'),
         ]))
 
+    def test_collect_ignores_foreign_db_files(self):
+        pid = 0
+        values.ValueClass = MultiProcessValue(lambda: pid)
+        c = Counter('c', 'help', registry=None)
+        g = Gauge('g', 'help', registry=None, multiprocess_mode='livesum')
+        c.inc(1)
+        g.set(2)
+        # Process identifiers do not have to be integers.
+        pid = 'worker_1'
+        c.inc(1)
+        g.set(3)
+
+        # Other .db files in the directory, some named like metric files.
+        # None of them can be parsed as a metric file.
+        sqlite_header = b'SQLite format 3\x00' + b'\x00' * 4080
+        for name in ('app.db', 'cache_0.db', 'counter.db', 'gauge_unknown_0.db'):
+            with open(os.path.join(self.tempdir, name), 'wb') as f:
+                f.write(sqlite_header)
+
+        self.assertEqual(2, self.registry.get_sample_value('c_total'))
+        self.assertEqual(5, self.registry.get_sample_value('g'))
+
     def test_remove_clear_warning(self):
         os.environ['PROMETHEUS_MULTIPROC_DIR'] = self.tempdir
         with warnings.catch_warnings(record=True) as w:
