@@ -1115,6 +1115,14 @@ class TestCollectorRegistry(unittest.TestCase):
 
         self.assertEqual([m], list(restricted_registry.collect()))
 
+    def test_restricted_registry_preserves_unit(self):
+        registry = CollectorRegistry()
+        Summary('s', 'help', unit='seconds', registry=registry).observe(7)
+
+        m = Metric('s_seconds', 'help', 'summary', unit='seconds')
+        m.samples = [Sample('s_seconds_sum', {}, 7)]
+        self.assertEqual([m], list(registry.restricted_registry(['s_seconds_sum']).collect()))
+
     def test_target_info_injected(self):
         registry = CollectorRegistry(target_info={'foo': 'bar'})
         self.assertEqual(1, registry.get_sample_value('target_info', {'foo': 'bar'}))

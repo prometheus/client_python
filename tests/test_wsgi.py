@@ -57,6 +57,26 @@ class WSGITest(TestCase):
     def test_report_metrics_1(self):
         self.validate_metrics("counter", "A counter", 2)
 
+    def test_filtered_openmetrics_preserves_unit(self):
+        counter = Counter('response_size', 'Response size', unit='bytes', registry=self.registry)
+        counter.inc(7)
+        self.environ['HTTP_ACCEPT'] = 'application/openmetrics-text; version=1.0.0'
+        self.environ['QUERY_STRING'] = 'name[]=response_size_bytes_total'
+
+        output = make_wsgi_app(self.registry)(self.environ, self.capture)
+
+        self.assertEqual(self.captured_status, '200 OK')
+        self.assertEqual(
+            output,
+            [
+                b'# HELP response_size_bytes Response size\n'
+                b'# TYPE response_size_bytes counter\n'
+                b'# UNIT response_size_bytes bytes\n'
+                b'response_size_bytes_total 7.0\n'
+                b'# EOF\n'
+            ],
+        )
+
     def test_report_metrics_2(self):
         self.validate_metrics("counter", "Another counter", 3)
 
