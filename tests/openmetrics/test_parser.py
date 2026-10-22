@@ -774,6 +774,7 @@ bar_bucket{a="c",le="+Inf"} 0.0
             ('a{a=" # "}1\n# EOF\n'),
             ('a{a=" # ",b=}1\n# EOF\n'),
             ('a{a=" # "b}1\n# EOF\n'),
+            ('a{""="1"} 1\n# EOF\n'),
             # Missing value.
             ('a\n# EOF\n'),
             ('a \n# EOF\n'),

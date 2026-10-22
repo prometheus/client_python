@@ -78,6 +78,8 @@ def _validate_labelname(l):
     
     This check uses the global legacy validation setting to determine the validation scheme.
     """
+    if not l:
+        raise ValueError('label name cannot be empty')
     if get_legacy_validation():
         if not METRIC_LABEL_NAME_RE.match(l):
             raise ValueError('Invalid label metric name: ' + l)
