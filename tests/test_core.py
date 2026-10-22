@@ -818,6 +818,21 @@ class TestMetricWrapper(unittest.TestCase):
                 self.assertEqual(str(error.exception), f'Duplicate label names: {expected!r}')
                 self.assertEqual(list(registry.collect()), [])
 
+    def test_empty_labelname_raises(self):
+        # The exposition would contain {="value"}, which no parser accepts.
+        for metric_type in (Counter, Gauge, Summary, Histogram, Info, Enum):
+            with self.subTest(metric_type=metric_type):
+                registry = CollectorRegistry()
+                kwargs = {'states': ['ready']} if metric_type is Enum else {}
+                with self.assertRaisesRegex(ValueError, '^label name cannot be empty$'):
+                    metric_type('empty_label', 'help', labelnames=[''], registry=registry, **kwargs)
+                self.assertEqual(list(registry.collect()), [])
+
+    def test_empty_exemplar_labelname_raises(self):
+        counter = Counter('empty_exemplar', 'help', registry=self.registry)
+        with self.assertRaisesRegex(ValueError, '^label name cannot be empty$'):
+            counter.inc(exemplar={'': 'abc'})
+
     def test_unique_labelnames_iterator(self):
         # Valid one-shot label iterables still preserve both names.
         counter = Counter('iter_labels', 'help', iter(['a', 'b']), registry=self.registry)
