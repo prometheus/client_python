@@ -1,3 +1,4 @@
+import collections
 import os
 from threading import Lock
 import time
@@ -780,6 +781,10 @@ class Enum(MetricWrapperBase):
             raise ValueError(f'Overlapping labels for Enum metric: {name}')
         if not states:
             raise ValueError(f'No states provided for Enum metric: {name}')
+        # A repeated state is exposed as two samples with the same labels.
+        duplicates = sorted(s for s, count in collections.Counter(states).items() if count > 1)
+        if duplicates:
+            raise ValueError(f'Duplicate states for Enum metric {name}: {duplicates!r}')
         super().__init__(
             name=name,
             documentation=documentation,
