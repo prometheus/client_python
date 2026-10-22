@@ -77,7 +77,7 @@ h.observe(0.43, exemplar={'trace_id': 'abc123'})
 
 Observe the duration in seconds of a block of code or function and add it to the
 histogram. Every call accumulates — unlike `Gauge.time()`, which only keeps the
-most recent duration. Can be used as a decorator or context manager.
+most recent duration. Can be used as a decorator (also on `async def` functions) or context manager.
 
 ```python
 @h.time()

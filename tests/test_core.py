@@ -1,4 +1,6 @@
+import asyncio
 from concurrent.futures import ThreadPoolExecutor
+import inspect
 import os
 from threading import Barrier, Event
 import time
@@ -103,6 +105,26 @@ class TestCounter(unittest.TestCase):
         except:
             raised = True
         self.assertTrue(raised)
+        self.assertEqual(1, self.registry.get_sample_value('c_total'))
+
+    def test_async_function_decorator(self):
+        @self.counter.count_exceptions(ValueError)
+        async def f(r):
+            await asyncio.sleep(0)
+            if r:
+                raise ValueError
+            else:
+                raise TypeError
+
+        self.assertTrue(inspect.iscoroutinefunction(f))
+        self.assertEqual((["r"], None, None, None), getargspec(f))
+
+        with self.assertRaises(TypeError):
+            asyncio.run(f(False))
+        self.assertEqual(0, self.registry.get_sample_value('c_total'))
+
+        with self.assertRaises(ValueError):
+            asyncio.run(f(True))
         self.assertEqual(1, self.registry.get_sample_value('c_total'))
 
     def test_count_exceptions_not_observable(self):
@@ -212,6 +234,20 @@ class TestGauge(unittest.TestCase):
         f()
         self.assertEqual(0, self.registry.get_sample_value('g'))
 
+    def test_inprogress_async_function_decorator(self):
+        self.assertEqual(0, self.registry.get_sample_value('g'))
+
+        @self.gauge.track_inprogress()
+        async def f():
+            await asyncio.sleep(0)
+            self.assertEqual(1, self.registry.get_sample_value('g'))
+
+        self.assertTrue(inspect.iscoroutinefunction(f))
+        self.assertEqual(([], None, None, None), getargspec(f))
+
+        asyncio.run(f())
+        self.assertEqual(0, self.registry.get_sample_value('g'))
+
     def test_inprogress_block_decorator(self):
         self.assertEqual(0, self.registry.get_sample_value('g'))
         with self.gauge.track_inprogress():
@@ -243,6 +279,19 @@ class TestGauge(unittest.TestCase):
 
         f()
         self.assertNotEqual(0, self.registry.get_sample_value('g'))
+
+    def test_time_async_function_decorator(self):
+        self.assertEqual(0, self.registry.get_sample_value('g'))
+
+        @self.gauge.time()
+        async def f():
+            await asyncio.sleep(.05)
+
+        self.assertTrue(inspect.iscoroutinefunction(f))
+        self.assertEqual(([], None, None, None), getargspec(f))
+
+        asyncio.run(f())
+        self.assertLess(.04, self.registry.get_sample_value('g'))
 
     def test_function_decorator_multithread(self):
         self.assertEqual(0, self.registry.get_sample_value('g'))
@@ -372,6 +421,24 @@ class TestSummary(unittest.TestCase):
         total_expected_duration *= rounding_coefficient
         self.assertLess(total_expected_duration, self.registry.get_sample_value('s_sum'))
 
+    def test_async_function_decorator(self):
+        self.assertEqual(0, self.registry.get_sample_value('s_count'))
+
+        @self.summary.time()
+        async def f(duration):
+            await asyncio.sleep(duration)
+
+        self.assertTrue(inspect.iscoroutinefunction(f))
+        self.assertEqual((["duration"], None, None, None), getargspec(f))
+
+        async def main():
+            # Overlapping calls must each be timed by their own timer.
+            await asyncio.gather(f(.05), f(.1))
+
+        asyncio.run(main())
+        self.assertEqual(2, self.registry.get_sample_value('s_count'))
+        self.assertLess(.15 * .9, self.registry.get_sample_value('s_sum'))
+
     def test_block_decorator(self):
         self.assertEqual(0, self.registry.get_sample_value('s_count'))
         with self.summary.time():
@@ -484,6 +551,21 @@ class TestHistogram(unittest.TestCase):
         f()
         self.assertEqual(1, self.registry.get_sample_value('h_count'))
         self.assertEqual(1, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
+
+    def test_async_function_decorator(self):
+        self.assertEqual(0, self.registry.get_sample_value('h_count'))
+
+        @self.histogram.time()
+        async def f():
+            await asyncio.sleep(.05)
+
+        self.assertTrue(inspect.iscoroutinefunction(f))
+        self.assertEqual(([], None, None, None), getargspec(f))
+
+        asyncio.run(f())
+        self.assertEqual(1, self.registry.get_sample_value('h_count'))
+        self.assertEqual(0, self.registry.get_sample_value('h_bucket', {'le': '0.025'}))
+        self.assertLess(.04, self.registry.get_sample_value('h_sum'))
 
     def test_function_decorator_multithread(self):
         self.assertEqual(0, self.registry.get_sample_value('h_count'))

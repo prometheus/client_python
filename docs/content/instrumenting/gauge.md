@@ -83,7 +83,7 @@ g.set_to_current_time()
 ### `track_inprogress()`
 
 Increment the gauge when a block of code or function is entered, and decrement
-it when exited. Can be used as a decorator or context manager.
+it when exited. Can be used as a decorator (also on `async def` functions) or context manager.
 
 ```python
 @g.track_inprogress()
@@ -99,7 +99,7 @@ with g.track_inprogress():
 Set the gauge to the duration in seconds of the most recent execution of a
 block of code or function. Unlike `Histogram.time()` and `Summary.time()`,
 which accumulate all observations, this overwrites the gauge with the latest
-duration each time. Can be used as a decorator or context manager.
+duration each time. Can be used as a decorator (also on `async def` functions) or context manager.
 
 ```python
 @g.time()
