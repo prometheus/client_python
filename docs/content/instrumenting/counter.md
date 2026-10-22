@@ -75,7 +75,7 @@ c.reset()
 ### `count_exceptions(exception=Exception)`
 
 Count exceptions raised in a block of code or function. Can be used as a
-decorator or context manager. Increments the counter each time an exception
+decorator (also on `async def` functions) or context manager. Increments the counter each time an exception
 of the given type is raised.
 
 ```python

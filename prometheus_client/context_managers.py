@@ -1,3 +1,4 @@
+import inspect
 from timeit import default_timer
 from types import TracebackType
 from typing import (
@@ -10,6 +11,20 @@ from .decorator import decorate
 if TYPE_CHECKING:
     from . import Counter
     F = TypeVar("F", bound=Callable[..., Any])
+
+
+def _decorate(f: "F", context: Callable[[], Any]) -> "F":
+    """Run each call of f inside `with context():`, awaiting coroutine functions."""
+    if inspect.iscoroutinefunction(f):
+        async def wrapped(func, *args, **kwargs):
+            with context():
+                return await func(*args, **kwargs)
+    else:
+        def wrapped(func, *args, **kwargs):
+            with context():
+                return func(*args, **kwargs)
+
+    return decorate(f, wrapped)
 
 
 class ExceptionCounter:
@@ -26,11 +41,7 @@ class ExceptionCounter:
         return False
 
     def __call__(self, f: "F") -> "F":
-        def wrapped(func, *args, **kwargs):
-            with self:
-                return func(*args, **kwargs)
-
-        return decorate(f, wrapped)
+        return _decorate(f, lambda: self)
 
 
 class InprogressTracker:
@@ -44,11 +55,7 @@ class InprogressTracker:
         self._gauge.dec()
 
     def __call__(self, f: "F") -> "F":
-        def wrapped(func, *args, **kwargs):
-            with self:
-                return func(*args, **kwargs)
-
-        return decorate(f, wrapped)
+        return _decorate(f, lambda: self)
 
 
 class Timer:
@@ -74,10 +81,6 @@ class Timer:
         self._metric = self._metric.labels(*args, **kw)
 
     def __call__(self, f: "F") -> "F":
-        def wrapped(func, *args, **kwargs):
-            # Obtaining new instance of timer every time
-            # ensures thread safety and reentrancy.
-            with self._new_timer():
-                return func(*args, **kwargs)
-
-        return decorate(f, wrapped)
+        # Obtaining new instance of timer every time
+        # ensures thread safety and reentrancy.
+        return _decorate(f, self._new_timer)

@@ -173,7 +173,7 @@ class FunctionMaker(object):
         "Make a new function from a given template and update the signature"
         src = src_templ % vars(self)  # expand name and signature
         evaldict = evaldict or {}
-        mo = DEF.match(src)
+        mo = DEF.search(src)
         if mo is None:
             raise SyntaxError('not a valid function template\n%s' % src)
         name = mo.group(1)  # extract the function name
@@ -222,8 +222,13 @@ class FunctionMaker(object):
             func = obj
         self = cls(func, name, signature, defaults, doc, module)
         ibody = '\n'.join('    ' + line for line in body.splitlines())
-        return self.make('def %(name)s(%(signature)s):\n' + ibody,
-                         evaldict, addsource, **attrs)
+        caller = evaldict.get('_call_')  # when called from `decorate`
+        if caller and inspect.iscoroutinefunction(caller):
+            body = ('async def %(name)s(%(signature)s):\n' + ibody).replace(
+                'return', 'return await')
+        else:
+            body = 'def %(name)s(%(signature)s):\n' + ibody
+        return self.make(body, evaldict, addsource, **attrs)
 
 
 def decorate(func, caller):
