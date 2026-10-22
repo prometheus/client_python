@@ -596,6 +596,12 @@ class TestEnum(unittest.TestCase):
         with pytest.raises(ValueError):
             Enum('e', 'help', registry=None, labelnames=['e'])
 
+    def test_duplicate_states(self):
+        registry = CollectorRegistry()
+        with self.assertRaisesRegex(ValueError, r"^Duplicate states for Enum metric e: \['a'\]$"):
+            Enum('e', 'help', states=['a', 'b', 'a'], registry=registry)
+        self.assertEqual(list(registry.collect()), [])
+
     def test_failed_init_does_not_pollute_registry(self):
         registry = CollectorRegistry()
         # A validation failure in __init__ must not leave a half-built collector
