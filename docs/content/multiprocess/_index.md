@@ -32,6 +32,22 @@ The `PROMETHEUS_MULTIPROC_DIR` environment variable must be set to a directory
 that the client library can use for metrics. This directory must be wiped
 between process/Gunicorn runs (before startup is recommended).
 
+## Cleaning `PROMETHEUS_MULTIPROC_DIR`
+
+The multiprocess directory is not cleaned automatically. If it is not wiped before startup, stale files from a previous run can lead to incorrect metrics.
+
+A common pattern is to wipe and recreate the directory in your process manager/entrypoint script **before** starting Gunicorn/workers:
+
+```bash
+rm -rf "$PROMETHEUS_MULTIPROC_DIR"
+mkdir -p "$PROMETHEUS_MULTIPROC_DIR"
+```
+
+Notes:
+- Only wipe a directory that is dedicated to multiprocess metric files.
+- In containerized deployments, `PROMETHEUS_MULTIPROC_DIR` is often set to a dedicated path such as `/tmp/prometheus_multiproc_dir`.
+- If you run multiple independent apps on the same machine, each should use a separate multiprocess directory.
+
 This environment variable should be set from a start-up shell script,
 and not directly from Python (otherwise it may not propagate to child processes).
 
