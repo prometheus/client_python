@@ -1,6 +1,9 @@
+import importlib.metadata
 import importlib.util
 import math
 import unittest
+
+import pytest
 
 from prometheus_client.core import (
     CollectorRegistry, CounterMetricFamily, GaugeMetricFamily,
@@ -378,7 +381,20 @@ prometheus_local_storage_chunk_ops_total{type="unpin"} 32662.0
 
 HAS_BENCHMARK = importlib.util.find_spec("pytest_benchmark") is not None
 
+
+def _benchmark_compatible_with_pytest():
+    # pytest-benchmark 5.3.0 and older read Node._nodeid, which pytest 9.2
+    # removed: https://github.com/ionelmc/pytest-benchmark/issues/321
+    from _pytest.nodes import Node
+    from packaging.version import Version
+    if hasattr(Node, '_nodeid'):
+        return True
+    return Version(importlib.metadata.version('pytest-benchmark')) > Version('5.3.0')
+
+
 if HAS_BENCHMARK:
+    @pytest.mark.skipif(not _benchmark_compatible_with_pytest(),
+                        reason='pytest-benchmark is not compatible with this pytest version')
     def test_benchmark_text_string_to_metric_families(benchmark):
         text = """# HELP go_gc_duration_seconds A summary of the GC invocation durations.
 # TYPE go_gc_duration_seconds summary
