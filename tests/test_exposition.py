@@ -225,6 +225,7 @@ class TestPushGateway(unittest.TestCase):
     def setUp(self):
         redirect_flag = 'testFlag'
         self.redirect_flag = redirect_flag  # preserve a copy for downstream test assertions
+        self.redirect_status = redirect_status = {'code': 301}
         self.registry = CollectorRegistry()
         self.counter = Gauge('g', 'help', registry=self.registry)
         self.requests = requests = []
@@ -236,7 +237,7 @@ class TestPushGateway(unittest.TestCase):
                 elif 'redirect' in self.requestline and redirect_flag not in self.requestline:
                     # checks for an initial test request with 'redirect' but without the redirect_flag,
                     # and simulates a redirect to a url with the redirect_flag (which will produce a 201)
-                    self.send_response(301)
+                    self.send_response(redirect_status['code'])
                     self.send_header('Location', getattr(self, 'redirect_address', None))
                 else:
                     self.send_response(201)
@@ -407,6 +408,27 @@ class TestPushGateway(unittest.TestCase):
 
         # ensure the redirect took place at the expected redirect location.
         self.assertEqual(self.requests[1][0].path, "/" + self.redirect_flag)
+
+    def _assert_redirect_forwarded(self, command, body):
+        self.assertEqual(len(self.requests), 2)
+        self.assertEqual(self.requests[0][0].command, command)
+        self.assertEqual(self.requests[1][0].command, command)
+        self.assertEqual(self.requests[1][0].path, "/" + self.redirect_flag)
+        self.assertEqual(self.requests[1][1], body)
+
+    def test_push_with_redirect_handler_307(self):
+        self.redirect_status['code'] = 307
+        push_to_gateway(self.address, "my_job_with_redirect", self.registry, handler=passthrough_redirect_handler)
+        self._assert_redirect_forwarded('PUT', b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
+
+    def test_pushadd_with_redirect_handler_308(self):
+        self.redirect_status['code'] = 308
+        pushadd_to_gateway(self.address, "my_job_with_redirect", self.registry, handler=passthrough_redirect_handler)
+        self._assert_redirect_forwarded('POST', b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
+
+    def test_delete_with_redirect_handler(self):
+        delete_from_gateway(self.address, "my_job_with_redirect", handler=passthrough_redirect_handler)
+        self._assert_redirect_forwarded('DELETE', b'')
 
     def test_push_with_trailing_slash(self):
         address = self.address + '/'
