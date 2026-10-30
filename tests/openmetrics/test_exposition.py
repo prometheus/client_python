@@ -17,6 +17,48 @@ from prometheus_client.openmetrics.exposition import (
 )
 
 
+@pytest.mark.parametrize(('kind', 'version'), [
+    ('counter', '1.0.0'), ('counter', '2.0.0'),
+    ('histogram', '1.0.0'), ('histogram', '2.0.0'),
+    ('native_histogram', '2.0.0'),
+])
+@pytest.mark.parametrize(('escaping', 'label_name', 'expected_name'), [
+    (UNDERSCORES, 'trace.id', 'trace_id'),
+    (DOTS, 'trace.id', 'trace_dot_id'),
+    (VALUES, 'trace.id', 'U__trace_2e_id'),
+    (ALLOWUTF8, 'trace.id', '"trace.id"'),
+    (ALLOWUTF8, '花火', '"花火"'),
+    (DOTS, 'trace_id', 'trace__id'),
+    (VALUES, '花火', 'U___82b1__706b_'),
+    (ALLOWUTF8, 'trace"id\n\\', '"trace\\"id\\n\\\\"'),
+    (UNDERSCORES, 'trace_id', 'trace_id'),
+])
+def test_exemplar_label_name_escaping(kind, version, escaping, label_name, expected_name):
+    registry = CollectorRegistry()
+    labels = {label_name: 'abc'}
+    if kind == 'counter':
+        Counter('requests', 'Requests', registry=registry).inc(exemplar=labels)
+    elif kind == 'histogram':
+        Histogram('latency', 'Latency', registry=registry).observe(0.5, exemplar=labels)
+    else:
+        metric = HistogramMetricFamily('latency', 'Latency')
+        metric.add_sample('latency', {}, None, native_histogram=NativeHistogram(
+            1, 0.5, 0, 0.001, 0,
+            (BucketSpan(0, 1),), None, (1,), None,
+            [Exemplar(labels, 0.5)],
+        ))
+
+        class Collector:
+            def collect(self):
+                return [metric]
+
+        registry.register(Collector())
+
+    output = generate_latest(registry, escaping=escaping, version=version).decode('utf-8')
+    exemplar_value = '1.0' if kind == 'counter' else '0.5'
+    assert '# {{{}="abc"}} {}'.format(expected_name, exemplar_value) in output
+
+
 class TestGenerateText(unittest.TestCase):
     def setUp(self):
         self.registry = CollectorRegistry()
