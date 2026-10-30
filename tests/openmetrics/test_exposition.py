@@ -492,6 +492,8 @@ cc_created{a="\\\\x\\n\\""} 123.456
                 metric.add_sample("ts", {"foo": "d"}, 0, Timestamp(123, 456000000))
                 metric.add_sample("ts", {"foo": "e"}, 0, Timestamp(123, 456000))
                 metric.add_sample("ts", {"foo": "f"}, 0, Timestamp(123, 456))
+                metric.add_sample("ts", {"foo": "g"}, 0, Timestamp(-123, 456000000))
+                metric.add_sample("ts", {"foo": "h"}, 0, Timestamp(-123, 456))
                 yield metric
 
         self.registry.register(MyCollector())
@@ -503,6 +505,8 @@ ts{foo="c"} 0.0 123
 ts{foo="d"} 0.0 123.456000000
 ts{foo="e"} 0.0 123.000456000
 ts{foo="f"} 0.0 123.000000456
+ts{foo="g"} 0.0 -123.456000000
+ts{foo="h"} 0.0 -123.000000456
 # EOF
 """, generate_latest(self.registry, version="1.0.0"))
 
