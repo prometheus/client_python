@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+import math
 import os
 from threading import Barrier, Event
 import time
@@ -445,6 +446,18 @@ class TestHistogram(unittest.TestCase):
         self.assertEqual(3, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
         self.assertEqual(3, self.registry.get_sample_value('h_count'))
         self.assertEqual(float("inf"), self.registry.get_sample_value('h_sum'))
+
+    def test_histogram_nan(self):
+        self.histogram.observe(2)
+        self.histogram.observe(float('nan'))
+        self.histogram.observe(3)
+
+        self.assertEqual(0, self.registry.get_sample_value('h_bucket', {'le': '1.0'}))
+        self.assertEqual(1, self.registry.get_sample_value('h_bucket', {'le': '2.5'}))
+        self.assertEqual(2, self.registry.get_sample_value('h_bucket', {'le': '5.0'}))
+        self.assertEqual(3, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
+        self.assertEqual(3, self.registry.get_sample_value('h_count'))
+        self.assertTrue(math.isnan(self.registry.get_sample_value('h_sum')))
 
     def test_histogram_not_observable(self):
         """.observe() must fail if the Summary is not observable."""

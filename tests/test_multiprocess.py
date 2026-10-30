@@ -1,4 +1,5 @@
 import glob
+import math
 import os
 import shutil
 import struct
@@ -109,6 +110,18 @@ class TestMultiProcess(unittest.TestCase):
         self.assertEqual(2, self.registry.get_sample_value('h_count'))
         self.assertEqual(3, self.registry.get_sample_value('h_sum'))
         self.assertEqual(2, self.registry.get_sample_value('h_bucket', {'le': '5.0'}))
+
+    def test_histogram_nan(self):
+        h1 = Histogram('h', 'help', registry=None)
+        values.ValueClass = MultiProcessValue(lambda: 456)
+        h2 = Histogram('h', 'help', registry=None)
+        h1.observe(float('nan'))
+        h2.observe(2)
+
+        self.assertEqual(1, self.registry.get_sample_value('h_bucket', {'le': '5.0'}))
+        self.assertEqual(2, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
+        self.assertEqual(2, self.registry.get_sample_value('h_count'))
+        self.assertTrue(math.isnan(self.registry.get_sample_value('h_sum')))
 
     def test_gauge_all(self):
         g1 = Gauge('g', 'help', registry=None)
