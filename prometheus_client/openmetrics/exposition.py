@@ -16,6 +16,10 @@ CONTENT_TYPE_LATEST_2_0 = 'application/openmetrics-text; version=2.0.0; charset=
 ESCAPING_HEADER_TAG = 'escaping'
 
 
+# TODO: remove once every metric type is supported by _generate_latest_2_0, so
+# that version 2.0.0 is chosen by content negotiation alone.
+_openmetrics_2_enabled = False
+
 ALLOWUTF8 = 'allow-utf-8'
 UNDERSCORES = 'underscores'
 DOTS = 'dots'
@@ -57,6 +61,12 @@ def _compose_exemplar_string(metric, sample, exemplar):
 
 def generate_latest(registry, escaping=UNDERSCORES, version="1.0.0"):
     '''Returns the metrics from the registry in latest text format as a string.'''
+    if _openmetrics_2_enabled and parse_version(version) == (2, 0, 0):
+        return _generate_latest_2_0(registry, escaping)
+    return _generate_latest_1_0(registry, escaping, version)
+
+
+def _generate_latest_1_0(registry, escaping, version):
     output = []
     for metric in registry.collect():
         try:
@@ -168,6 +178,99 @@ def generate_latest(registry, escaping=UNDERSCORES, version="1.0.0"):
 
     output.append('# EOF\n')
     return ''.join(output).encode('utf-8')
+
+
+# OpenMetrics 2.0 requires the family name to equal the sample name, while
+# metric.name omits the suffix these types add to their samples.
+_FAMILY_NAME_SUFFIXES_2_0 = {'counter': '_total', 'info': '_info'}
+
+
+def _generate_latest_2_0(registry, escaping):
+    """EXPERIMENTAL: targets OpenMetrics 2.0 and may change without notice."""
+    formatters = {
+        'counter': _format_counter_2_0,
+        'gauge': _format_simple_samples_2_0,
+        'summary': _format_summary_2_0,
+        'histogram': _format_histogram_2_0,
+        'gaugehistogram': _format_gaugehistogram_2_0,
+        'unknown': _format_simple_samples_2_0,
+        'info': _format_simple_samples_2_0,
+        'stateset': _format_stateset_2_0,
+    }
+    output = []
+    for metric in registry.collect():
+        try:
+            family_name = metric.name + _FAMILY_NAME_SUFFIXES_2_0.get(metric.type, '')
+            output.append(_format_metadata_2_0(metric, family_name, escaping))
+            output.append(formatters[metric.type](metric, family_name, escaping))
+        except Exception as exception:
+            exception.args = (exception.args or ('',)) + (metric,)
+            raise
+    output.append('# EOF\n')
+    return ''.join(output).encode('utf-8')
+
+
+def _format_metadata_2_0(metric, family_name, escaping):
+    """Formats the TYPE, UNIT and HELP lines, in the order OpenMetrics 2.0 recommends."""
+    escaped_name = escape_metric_name(family_name, escaping)
+    output = [f'# TYPE {escaped_name} {metric.type}\n']
+    if metric.unit:
+        output.append(f'# UNIT {escaped_name} {metric.unit}\n')
+    output.append('# HELP {} {}\n'.format(
+        escaped_name, _escape(metric.documentation, ALLOWUTF8, _is_legacy_labelname_rune)))
+    return ''.join(output)
+
+
+def _format_simple_samples_2_0(metric, family_name, escaping):
+    """Formats the samples of a type that has neither start timestamps nor exemplars.
+
+    OpenMetrics 2.0 only allows exemplars on counters and histograms, and says
+    to drop invalid exemplars rather than fail the exposition, so any exemplar
+    on these samples is left out.
+    """
+    return ''.join(_format_sample_2_0(family_name, s, escaping) for s in metric.samples)
+
+
+def _format_sample_2_0(family_name, sample, escaping):
+    """Formats a sample as ``name{labels} value [timestamp]``, named after its family as OpenMetrics 2.0 requires."""
+    line = f'{_format_name_and_labels_2_0(family_name, sample.labels, escaping)} {floatToGoString(sample.value)}'
+    if sample.timestamp is not None:
+        line += f' {sample.timestamp}'
+    return line + '\n'
+
+
+def _format_name_and_labels_2_0(name, labels, escaping):
+    """Formats ``name{labels}``, or ``{"name",labels}`` when the name has to be quoted."""
+    escaped_name = escape_metric_name(name, escaping)
+    items = [
+        '{}="{}"'.format(escape_label_name(k, escaping), _escape(v, ALLOWUTF8, _is_legacy_labelname_rune))
+        for k, v in sorted(labels.items())
+    ]
+    if escaped_name.startswith('"'):
+        return '{' + ','.join([escaped_name] + items) + '}'
+    if items:
+        return escaped_name + '{' + ','.join(items) + '}'
+    return escaped_name
+
+
+def _format_counter_2_0(metric, family_name, escaping):
+    raise NotImplementedError('OpenMetrics 2.0 does not support counter metrics yet')
+
+
+def _format_summary_2_0(metric, family_name, escaping):
+    raise NotImplementedError('OpenMetrics 2.0 does not support summary metrics yet')
+
+
+def _format_histogram_2_0(metric, family_name, escaping):
+    raise NotImplementedError('OpenMetrics 2.0 does not support histogram metrics yet')
+
+
+def _format_gaugehistogram_2_0(metric, family_name, escaping):
+    raise NotImplementedError('OpenMetrics 2.0 does not support gaugehistogram metrics yet')
+
+
+def _format_stateset_2_0(metric, family_name, escaping):
+    raise NotImplementedError('OpenMetrics 2.0 does not support stateset metrics yet')
 
 
 def escape_metric_name(s: str, escaping: str = UNDERSCORES) -> str:

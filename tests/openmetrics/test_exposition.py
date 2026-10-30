@@ -9,11 +9,11 @@ from prometheus_client import (
 )
 from prometheus_client.core import (
     BucketSpan, Exemplar, GaugeHistogramMetricFamily, GaugeMetricFamily,
-    HistogramMetricFamily, NativeHistogram, Timestamp,
+    HistogramMetricFamily, NativeHistogram, Timestamp, UnknownMetricFamily,
 )
 from prometheus_client.openmetrics.exposition import (
-    ALLOWUTF8, DOTS, escape_label_name, escape_metric_name, generate_latest,
-    UNDERSCORES, VALUES,
+    _generate_latest_2_0, ALLOWUTF8, DOTS, escape_label_name,
+    escape_metric_name, generate_latest, UNDERSCORES, VALUES,
 )
 
 
@@ -523,6 +523,172 @@ ts{foo="f"} 0.0 123.000000456
 nh_version {count:5,sum:10,schema:0,zero_threshold:0.01,zero_count:2,negative_spans:[0:1],negative_deltas:[4],positive_spans:[0:1],positive_deltas:[3]}
 # EOF
 """, generate_latest(self.registry, version="2.0.0"))
+
+
+
+class TestGenerateText20(unittest.TestCase):
+    def setUp(self):
+        self.registry = CollectorRegistry()
+
+    def custom_collector(self, metric_family: Any) -> None:
+        class CustomCollector:
+            def collect(self):
+                return [metric_family]
+
+        self.registry.register(CustomCollector())
+
+    def test_gauge(self) -> None:
+        g = Gauge('gg', 'A gauge', registry=self.registry)
+        g.set(17)
+        self.assertEqual(b'# TYPE gg gauge\n# HELP gg A gauge\ngg 17.0\n# EOF\n',
+                         _generate_latest_2_0(self.registry, UNDERSCORES))
+
+    def test_gauge_unit_and_labels(self) -> None:
+        g = Gauge('gg_bytes', 'A gauge', ['a', 'b'], registry=self.registry, unit='bytes')
+        g.labels('c', 'd').set(17)
+        self.assertEqual(b"""# TYPE gg_bytes gauge
+# UNIT gg_bytes bytes
+# HELP gg_bytes A gauge
+gg_bytes{a="c",b="d"} 17.0
+# EOF
+""", _generate_latest_2_0(self.registry, UNDERSCORES))
+
+    def test_gauge_timestamp(self) -> None:
+        g = GaugeMetricFamily('gg', 'A gauge', labels=['a'])
+        g.add_metric(['b'], 17, timestamp=1520879607.789)
+        self.custom_collector(g)
+        self.assertEqual(b"""# TYPE gg gauge
+# HELP gg A gauge
+gg{a="b"} 17.0 1520879607.789
+# EOF
+""", _generate_latest_2_0(self.registry, UNDERSCORES))
+
+    def test_gauge_utf8(self) -> None:
+        g = Gauge('gg.with.dots', 'A gauge', ['label.with.dots'], registry=self.registry)
+        g.labels('v').set(17)
+        self.assertEqual(b"""# TYPE "gg.with.dots" gauge
+# HELP "gg.with.dots" A gauge
+{"gg.with.dots","label.with.dots"="v"} 17.0
+# EOF
+""", _generate_latest_2_0(self.registry, ALLOWUTF8))
+
+    def test_gauge_utf8_escaped_underscores(self) -> None:
+        g = Gauge('gg.with.dots', 'A gauge', ['label.with.dots'], registry=self.registry)
+        g.labels('v').set(17)
+        self.assertEqual(b"""# TYPE gg_with_dots gauge
+# HELP gg_with_dots A gauge
+gg_with_dots{label_with_dots="v"} 17.0
+# EOF
+""", _generate_latest_2_0(self.registry, UNDERSCORES))
+
+    def test_gauge_exemplar_dropped(self) -> None:
+        metric = Metric('gg', 'A gauge', 'gauge')
+        metric.add_sample('gg', {}, 1, None, Exemplar({'a': 'b'}, 0.5, 123))
+        self.custom_collector(metric)
+        self.assertEqual(b'# TYPE gg gauge\n# HELP gg A gauge\ngg 1.0\n# EOF\n',
+                         _generate_latest_2_0(self.registry, UNDERSCORES))
+
+    def test_info(self) -> None:
+        i = Info('ii', 'A info', ['a', 'b'], registry=self.registry)
+        i.labels('c', 'd').info({'foo': 'bar'})
+        self.assertEqual(b"""# TYPE ii_info info
+# HELP ii_info A info
+ii_info{a="c",b="d",foo="bar"} 1.0
+# EOF
+""", _generate_latest_2_0(self.registry, UNDERSCORES))
+
+    def test_info_escaping(self) -> None:
+        i = Info('ii', 'A info', registry=self.registry)
+        i.info({'name': 'pretty "name"\n\\'})
+        self.assertEqual(b"""# TYPE ii_info info
+# HELP ii_info A info
+ii_info{name="pretty \\"name\\"\\n\\\\"} 1.0
+# EOF
+""", _generate_latest_2_0(self.registry, UNDERSCORES))
+
+    def test_unknown(self) -> None:
+        u = UnknownMetricFamily('uu', 'An unknown', labels=['a'])
+        u.add_metric(['b'], 42.23)
+        self.custom_collector(u)
+        self.assertEqual(b"""# TYPE uu unknown
+# HELP uu An unknown
+uu{a="b"} 42.23
+# EOF
+""", _generate_latest_2_0(self.registry, UNDERSCORES))
+
+    def test_unknown_exemplar_dropped(self) -> None:
+        metric = Metric('uu', 'An unknown', 'untyped')
+        metric.add_sample('uu', {}, 1, None, Exemplar({'a': 'b'}, 0.5, 123))
+        self.custom_collector(metric)
+        self.assertEqual(b'# TYPE uu unknown\n# HELP uu An unknown\nuu 1.0\n# EOF\n',
+                         _generate_latest_2_0(self.registry, UNDERSCORES))
+
+    def test_unicode(self) -> None:
+        g = Gauge('gg', '\u4500', ['l'], registry=self.registry)
+        g.labels('\u4500').set(1)
+        self.assertEqual(b"""# TYPE gg gauge
+# HELP gg \xe4\x94\x80
+gg{l="\xe4\x94\x80"} 1.0
+# EOF
+""", _generate_latest_2_0(self.registry, UNDERSCORES))
+
+    def test_escaping(self) -> None:
+        g = Gauge('gg', 'A\ngau\\ge\"', ['a'], registry=self.registry)
+        g.labels('\\x\n"').set(1)
+        self.assertEqual(b"""# TYPE gg gauge
+# HELP gg A\\ngau\\\\ge\\"
+gg{a="\\\\x\\n\\""} 1.0
+# EOF
+""", _generate_latest_2_0(self.registry, UNDERSCORES))
+
+    def test_nonnumber(self) -> None:
+        class MyNumber:
+            def __repr__(self):
+                return "MyNumber(123)"
+
+            def __float__(self):
+                return 123.0
+
+        class MyCollector:
+            def collect(self):
+                metric = Metric("nonnumber", "Non number", 'untyped')
+                metric.add_sample("nonnumber", {}, MyNumber())
+                yield metric
+
+        self.registry.register(MyCollector())
+        self.assertEqual(b'# TYPE nonnumber unknown\n# HELP nonnumber Non number\nnonnumber 123.0\n# EOF\n',
+                         _generate_latest_2_0(self.registry, UNDERSCORES))
+
+    def test_timestamp(self) -> None:
+        metric = Metric("ts", "help", 'unknown')
+        metric.add_sample("ts", {"foo": "a"}, 0, 123.456)
+        metric.add_sample("ts", {"foo": "b"}, 0, -123.456)
+        metric.add_sample("ts", {"foo": "c"}, 0, 123)
+        metric.add_sample("ts", {"foo": "d"}, 0, Timestamp(123, 456000000))
+        metric.add_sample("ts", {"foo": "e"}, 0, Timestamp(123, 456000))
+        metric.add_sample("ts", {"foo": "f"}, 0, Timestamp(123, 456))
+        self.custom_collector(metric)
+        self.assertEqual(b"""# TYPE ts unknown
+# HELP ts help
+ts{foo="a"} 0.0 123.456
+ts{foo="b"} 0.0 -123.456
+ts{foo="c"} 0.0 123
+ts{foo="d"} 0.0 123.456000000
+ts{foo="e"} 0.0 123.000456000
+ts{foo="f"} 0.0 123.000000456
+# EOF
+""", _generate_latest_2_0(self.registry, UNDERSCORES))
+
+    def test_unsupported_type(self) -> None:
+        Summary('ss', 'A summary', registry=self.registry)
+        with self.assertRaises(NotImplementedError):
+            _generate_latest_2_0(self.registry, UNDERSCORES)
+
+    def test_version_2_0_0_served_by_1_0_writer_until_supported(self) -> None:
+        g = Gauge('gg', 'A gauge', registry=self.registry)
+        g.set(17)
+        self.assertEqual(b'# HELP gg A gauge\n# TYPE gg gauge\ngg 17.0\n# EOF\n',
+                         generate_latest(self.registry, version="2.0.0"))
 
 
 @pytest.mark.parametrize("scenario", [
