@@ -1,3 +1,4 @@
+import math
 import os
 from threading import Lock
 import time
@@ -646,10 +647,12 @@ class Histogram(MetricWrapperBase):
 
     def _prepare_buckets(self, source_buckets: Sequence[Union[float, str]]) -> None:
         buckets = [float(b) for b in source_buckets]
-        if buckets != sorted(buckets):
+        if any(math.isnan(b) for b in buckets):
+            raise ValueError('Buckets must not contain NaN')
+        if any(not lower < upper for lower, upper in zip(buckets, buckets[1:])):
             # This is probably an error on the part of the user,
             # so raise rather than sorting for them.
-            raise ValueError('Buckets not in sorted order')
+            raise ValueError('Buckets not in strictly increasing order')
         if buckets and buckets[-1] != INF:
             buckets.append(INF)
         if len(buckets) < 2:
