@@ -66,6 +66,10 @@ class WSGITest(TestCase):
     def test_report_metrics_4(self):
         self.validate_metrics("failed_requests", "Number of failed requests", 7)
 
+    def test_accept_quality(self):
+        self.environ['HTTP_ACCEPT'] = 'application/openmetrics-text;version=1.0.0;q=0, text/plain;version=0.0.4'
+        self.validate_metrics("counter", "A counter", 2)
+
     def test_favicon_path(self):
         from unittest.mock import patch
 
