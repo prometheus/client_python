@@ -135,12 +135,13 @@ class TestCounter(unittest.TestCase):
 
     def test_exemplar_too_long(self):
         # 129 characters should fail.
-        self.assertRaises(ValueError, self.counter.inc, exemplar={
-            'abcdefghijklmnopqrstuvwxyz': '26+16 characters',
-            'x1234567': '8+15 characters',
-            'zyxwvutsrqponmlkjihgfedcba': '26+16 characters',
-            'y123456': '7+15 characters',
-        })
+        with self.assertRaisesRegex(ValueError, 'Exemplar labels have 129 UTF-8 characters'):
+            self.counter.inc(exemplar={
+                'abcdefghijklmnopqrstuvwxyz': '26+16 characters',
+                'x1234567': '8+15 characters',
+                'zyxwvutsrqponmlkjihgfedcba': '26+16 characters',
+                'y123456': '7+15 characters',
+            })
 
 
 class TestDisableCreated(unittest.TestCase):
@@ -480,7 +481,8 @@ class TestHistogram(unittest.TestCase):
         self.assertRaises(ValueError, Histogram, 'h', 'help', registry=None, buckets=[float("nan")])
 
     def test_labels(self):
-        self.assertRaises(ValueError, Histogram, 'h', 'help', registry=None, labelnames=['le'])
+        with self.assertRaisesRegex(ValueError, 'Reserved label metric name: le'):
+            Histogram('h', 'help', registry=None, labelnames=['le'])
 
         self.labels.labels('a').observe(2)
         self.assertEqual(0, self.registry.get_sample_value('hl_bucket', {'le': '1.0', 'l': 'a'}))
@@ -553,12 +555,13 @@ class TestHistogram(unittest.TestCase):
 
     def test_exemplar_too_long(self):
         # 129 characters in total should fail.
-        self.assertRaises(ValueError, self.histogram.observe, 1.0, exemplar={
-            'abcdefghijklmnopqrstuvwxyz': '26+16 characters',
-            'x1234567': '8+15 characters',
-            'zyxwvutsrqponmlkjihgfedcba': '26+16 characters',
-            'y123456': '7+15 characters',
-        })
+        with self.assertRaisesRegex(ValueError, 'Exemplar labels have 129 UTF-8 characters'):
+            self.histogram.observe(1.0, exemplar={
+                'abcdefghijklmnopqrstuvwxyz': '26+16 characters',
+                'x1234567': '8+15 characters',
+                'zyxwvutsrqponmlkjihgfedcba': '26+16 characters',
+                'y123456': '7+15 characters',
+            })
 
 
 class TestInfo(unittest.TestCase):
@@ -806,7 +809,8 @@ class TestMetricWrapper(unittest.TestCase):
         self.assertRaises(ValueError, Counter, '', 'help', namespace='&')
         self.assertRaises(ValueError, Counter, '', 'help', subsystem='(')
         self.assertRaises(ValueError, Counter, 'c_total', '', labelnames=['__reserved'])
-        self.assertRaises(ValueError, Summary, 'c_total', '', labelnames=['quantile'])
+        with self.assertRaisesRegex(ValueError, 'Reserved label metric name: quantile'):
+            Summary('c_total', '', labelnames=['quantile'])
 
     def test_duplicate_labelnames_raise_before_registration(self):
         # Repeated names would collapse distinct label sets on export.
