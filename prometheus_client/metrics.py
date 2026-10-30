@@ -209,7 +209,15 @@ class MetricWrapperBase(Collector):
                 )
             return self._metrics[str_labelvalues]
 
-    def remove(self, *labelvalues: Any) -> None:
+    def remove(self, *labelvalues: Any, **labelkwargs: Any) -> None:
+        """Remove the given labelset from the metric.
+
+        As with labels(), the label values can be passed positionally or as
+        keyword arguments:
+
+            c.remove('get', '/')
+            c.remove(method='get', endpoint='/')
+        """
         if 'prometheus_multiproc_dir' in os.environ or 'PROMETHEUS_MULTIPROC_DIR' in os.environ:
             warnings.warn(
                 "Removal of labels has not been implemented in  multi-process mode yet.",
@@ -218,10 +226,18 @@ class MetricWrapperBase(Collector):
         if not self._labelnames:
             raise ValueError('No label names were set when constructing %s' % self)
 
-        """Remove the given labelset from the metric."""
-        if len(labelvalues) != len(self._labelnames):
-            raise ValueError('Incorrect label count (expected %d, got %s)' % (len(self._labelnames), labelvalues))
-        labelvalues = tuple(str(l) for l in labelvalues)
+        if labelvalues and labelkwargs:
+            raise ValueError("Can't pass both *args and **kwargs")
+
+        if labelkwargs:
+            if sorted(labelkwargs) != sorted(self._labelnames):
+                raise ValueError('Incorrect label names (expected %s, got %s)' % (
+                    sorted(self._labelnames), sorted(labelkwargs)))
+            labelvalues = tuple(str(labelkwargs[l]) for l in self._labelnames)
+        else:
+            if len(labelvalues) != len(self._labelnames):
+                raise ValueError('Incorrect label count (expected %d, got %s)' % (len(self._labelnames), labelvalues))
+            labelvalues = tuple(str(l) for l in labelvalues)
         with self._lock:
             if labelvalues in self._metrics:
                 del self._metrics[labelvalues]
