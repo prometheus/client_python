@@ -26,7 +26,9 @@ class PrometheusDjangoView(View):
             registry=self.registry,
             accept_header=accept_header,
             accept_encoding_header=accept_encoding_header,
-            params=request.GET,
+            # QueryDict.__getitem__ returns only the last value, but
+            # _bake_output expects a list of values per key (like parse_qs).
+            params=dict(request.GET.lists()),
             disable_compression=False,
         )
         status = int(status.split(" ")[0])
