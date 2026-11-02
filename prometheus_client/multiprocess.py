@@ -119,7 +119,7 @@ class MultiProcessCollector:
                     elif metric._multiprocess_mode in ('mostrecent', 'livemostrecent'):
                         current_timestamp = sample_timestamps[labels][name]
                         timestamp = float(timestamp or 0)
-                        if current_timestamp < timestamp:
+                        if (name, labels) not in samples[labels] or current_timestamp < timestamp:
                             samples[labels][(name, labels)] = value
                             sample_timestamps[labels][name] = timestamp
                     else:  # all/liveall
