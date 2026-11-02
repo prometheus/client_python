@@ -244,7 +244,7 @@ def _parse_value(value):
 def _parse_sample(text):
     separator = " # "
     # Detect the labels in the text
-    label_start = _next_unquoted_char(text, '{')
+    label_start = text.find('{')
     if label_start == -1 or separator in text[:label_start]:
         # We don't have labels, but there could be an exemplar.
         name_end = _next_unquoted_char(text, ' \t')
@@ -256,7 +256,7 @@ def _parse_sample(text):
         value, timestamp = _parse_value_and_timestamp(remaining_text)
         return Sample(name, {}, value, timestamp)
     name = text[:label_start].strip()
-    label_end = _next_unquoted_char(text[label_start:], '}') + label_start
+    label_end = text.rfind('}')
     labels = parse_labels(text[label_start + 1:label_end], False)
     if not name:
         # Name might be in the labels
