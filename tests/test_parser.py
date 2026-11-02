@@ -221,6 +221,14 @@ a{foo="bar",, } 1
         self.assertRaises(ValueError,
                           lambda: list(text_string_to_metric_families(text)))
 
+    def test_quoted_empty_label_name(self):
+        text = """# TYPE a counter
+# HELP a help
+a{""="bar"} 1
+"""
+        self.assertRaises(ValueError,
+                          lambda: list(text_string_to_metric_families(text)))
+
     def test_empty_brackets(self):
         families = text_string_to_metric_families("""# TYPE a counter
 # HELP a help
