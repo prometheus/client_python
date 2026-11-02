@@ -110,7 +110,8 @@ class MmapedDict:
         while self._used + len(value) > self._capacity:
             self._capacity *= 2
             self._f.truncate(self._capacity)
-            self._m = mmap.mmap(self._f.fileno(), self._capacity)
+            self._m.close()
+            self._m = mmap.mmap(self._f.fileno(), self._capacity, access=mmap.ACCESS_WRITE)
         self._m[self._used:self._used + len(value)] = value
 
         # Update how much space we've used.
@@ -140,11 +141,20 @@ class MmapedDict:
         _pack_two_doubles(self._m, pos, value, timestamp)
 
     def close(self):
-        if self._f:
-            self._m.close()
+        m = getattr(self, '_m', None)
+        if m is not None:
+            m.close()
             self._m = None
-            self._f.close()
+        f = getattr(self, '_f', None)
+        if f is not None:
+            f.close()
             self._f = None
+
+    def __del__(self):
+        try:
+            self.close()
+        except Exception:
+            return
 
 
 def mmap_key(metric_name: str, name: str, labelnames: List[str], labelvalues: List[str], help_text: str) -> str:

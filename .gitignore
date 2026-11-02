@@ -8,3 +8,5 @@ dist
 .tox
 .*cache
 htmlcov
+config.bat
+node_modules
