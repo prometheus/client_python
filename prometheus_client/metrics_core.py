@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 
 from .samples import Exemplar, NativeHistogram, Sample, Timestamp
 from .validation import _validate_metric_name
@@ -86,13 +86,14 @@ class UnknownMetricFamily(Metric):
         if value is not None:
             self.add_metric([], value)
 
-    def add_metric(self, labels: Sequence[str], value: float, timestamp: Optional[Union[Timestamp, float]] = None) -> None:
+    def add_metric(self, labels: Sequence[object], value: float, timestamp: Optional[Union[Timestamp, float]] = None) -> None:
         """Add a metric to the metric family.
         Args:
         labels: A list of label values
         value: The value of the metric.
         """
-        self.samples.append(Sample(self.name, dict(zip(self._labelnames, labels)), value, timestamp))
+        label_values = tuple(str(l) for l in labels)
+        self.samples.append(Sample(self.name, dict(zip(self._labelnames, label_values)), value, timestamp))
 
 
 # For backward compatibility.
@@ -127,7 +128,7 @@ class CounterMetricFamily(Metric):
             self.add_metric([], value, created, exemplar=exemplar)
 
     def add_metric(self,
-                   labels: Sequence[str],
+                   labels: Sequence[object],
                    value: float,
                    created: Optional[float] = None,
                    timestamp: Optional[Union[Timestamp, float]] = None,
@@ -140,9 +141,10 @@ class CounterMetricFamily(Metric):
           value: The value of the metric
           created: Optional unix timestamp the child was created at.
         """
-        self.samples.append(Sample(self.name + '_total', dict(zip(self._labelnames, labels)), value, timestamp, exemplar))
+        label_values = tuple(str(l) for l in labels)
+        self.samples.append(Sample(self.name + '_total', dict(zip(self._labelnames, label_values)), value, timestamp, exemplar))
         if created is not None:
-            self.samples.append(Sample(self.name + '_created', dict(zip(self._labelnames, labels)), created, timestamp))
+            self.samples.append(Sample(self.name + '_created', dict(zip(self._labelnames, label_values)), created, timestamp))
 
 
 class GaugeMetricFamily(Metric):
@@ -167,14 +169,15 @@ class GaugeMetricFamily(Metric):
         if value is not None:
             self.add_metric([], value)
 
-    def add_metric(self, labels: Sequence[str], value: float, timestamp: Optional[Union[Timestamp, float]] = None) -> None:
+    def add_metric(self, labels: Sequence[object], value: float, timestamp: Optional[Union[Timestamp, float]] = None) -> None:
         """Add a metric to the metric family.
 
         Args:
           labels: A list of label values
           value: A float
         """
-        self.samples.append(Sample(self.name, dict(zip(self._labelnames, labels)), value, timestamp))
+        label_values = tuple(str(l) for l in labels)
+        self.samples.append(Sample(self.name, dict(zip(self._labelnames, label_values)), value, timestamp))
 
 
 class SummaryMetricFamily(Metric):
@@ -204,7 +207,7 @@ class SummaryMetricFamily(Metric):
             self.add_metric([], count_value, sum_value)
 
     def add_metric(self,
-                   labels: Sequence[str],
+                   labels: Sequence[object],
                    count_value: int,
                    sum_value: float,
                    timestamp:
@@ -217,8 +220,9 @@ class SummaryMetricFamily(Metric):
           count_value: The count value of the metric.
           sum_value: The sum value of the metric.
         """
-        self.samples.append(Sample(self.name + '_count', dict(zip(self._labelnames, labels)), count_value, timestamp))
-        self.samples.append(Sample(self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value, timestamp))
+        label_values = tuple(str(l) for l in labels)
+        self.samples.append(Sample(self.name + '_count', dict(zip(self._labelnames, label_values)), count_value, timestamp))
+        self.samples.append(Sample(self.name + '_sum', dict(zip(self._labelnames, label_values)), sum_value, timestamp))
 
 
 class HistogramMetricFamily(Metric):
@@ -247,7 +251,7 @@ class HistogramMetricFamily(Metric):
             self.add_metric([], buckets, sum_value)
 
     def add_metric(self,
-                   labels: Sequence[str],
+                   labels: Sequence[object],
                    buckets: Sequence[Union[Tuple[str, float], Tuple[str, float, Exemplar]]],
                    sum_value: Optional[float],
                    timestamp: Optional[Union[Timestamp, float]] = None) -> None:
@@ -261,6 +265,7 @@ class HistogramMetricFamily(Metric):
               The buckets must be sorted, and +Inf present.
           sum_value: The sum value of the metric.
         """
+        label_values = tuple(str(l) for l in labels)
         for b in buckets:
             bucket, value = b[:2]
             exemplar = None
@@ -268,7 +273,7 @@ class HistogramMetricFamily(Metric):
                 exemplar = b[2]  # type: ignore
             self.samples.append(Sample(
                 self.name + '_bucket',
-                dict(list(zip(self._labelnames, labels)) + [('le', bucket)]),
+                dict(list(zip(self._labelnames, label_values)) + [('le', bucket)]),
                 value,
                 timestamp,
                 exemplar,
@@ -277,9 +282,9 @@ class HistogramMetricFamily(Metric):
         if float(buckets[0][0]) >= 0 and sum_value is not None:
             # +Inf is last and provides the count value.
             self.samples.append(
-                Sample(self.name + '_count', dict(zip(self._labelnames, labels)), buckets[-1][1], timestamp))
+                Sample(self.name + '_count', dict(zip(self._labelnames, label_values)), buckets[-1][1], timestamp))
             self.samples.append(
-                Sample(self.name + '_sum', dict(zip(self._labelnames, labels)), sum_value, timestamp))
+                Sample(self.name + '_sum', dict(zip(self._labelnames, label_values)), sum_value, timestamp))
 
 
 class GaugeHistogramMetricFamily(Metric):
@@ -306,7 +311,7 @@ class GaugeHistogramMetricFamily(Metric):
             self.add_metric([], buckets, gsum_value)
 
     def add_metric(self,
-                   labels: Sequence[str],
+                   labels: Sequence[object],
                    buckets: Sequence[Tuple[str, float]],
                    gsum_value: Optional[float],
                    timestamp: Optional[Union[float, Timestamp]] = None,
@@ -319,16 +324,17 @@ class GaugeHistogramMetricFamily(Metric):
               The buckets must be sorted, and +Inf present.
           gsum_value: The sum value of the metric.
         """
+        label_values = tuple(str(l) for l in labels)
         for bucket, value in buckets:
             self.samples.append(Sample(
                 self.name + '_bucket',
-                dict(list(zip(self._labelnames, labels)) + [('le', bucket)]),
+                dict(list(zip(self._labelnames, label_values)) + [('le', bucket)]),
                 value, timestamp))
         # +Inf is last and provides the count value.
         self.samples.extend([
-            Sample(self.name + '_gcount', dict(zip(self._labelnames, labels)), buckets[-1][1], timestamp),
+            Sample(self.name + '_gcount', dict(zip(self._labelnames, label_values)), buckets[-1][1], timestamp),
             # TODO: Handle None gsum_value correctly. Currently a None will fail exposition but is allowed here.
-            Sample(self.name + '_gsum', dict(zip(self._labelnames, labels)), gsum_value, timestamp),  # type: ignore
+            Sample(self.name + '_gsum', dict(zip(self._labelnames, label_values)), gsum_value, timestamp),  # type: ignore
         ])
 
 
@@ -341,7 +347,7 @@ class InfoMetricFamily(Metric):
     def __init__(self,
                  name: str,
                  documentation: str,
-                 value: Optional[Dict[str, str]] = None,
+                 value: Optional[Mapping[str, object]] = None,
                  labels: Optional[Sequence[str]] = None,
                  ):
         Metric.__init__(self, name, documentation, 'info')
@@ -354,8 +360,8 @@ class InfoMetricFamily(Metric):
             self.add_metric([], value)
 
     def add_metric(self,
-                   labels: Sequence[str],
-                   value: Dict[str, str],
+                   labels: Sequence[object],
+                   value: Mapping[str, object],
                    timestamp: Optional[Union[Timestamp, float]] = None,
                    ) -> None:
         """Add a metric to the metric family.
@@ -364,9 +370,10 @@ class InfoMetricFamily(Metric):
           labels: A list of label values
           value: A dict of labels
         """
+        label_values = tuple(str(l) for l in labels)
         self.samples.append(Sample(
             self.name + '_info',
-            dict(dict(zip(self._labelnames, labels)), **value),
+            dict(dict(zip(self._labelnames, label_values)), **{k: str(v) for k, v in value.items()}),
             1,
             timestamp,
         ))
@@ -381,7 +388,7 @@ class StateSetMetricFamily(Metric):
     def __init__(self,
                  name: str,
                  documentation: str,
-                 value: Optional[Dict[str, bool]] = None,
+                 value: Optional[Mapping[Any, bool]] = None,
                  labels: Optional[Sequence[str]] = None,
                  ):
         Metric.__init__(self, name, documentation, 'stateset')
@@ -394,8 +401,8 @@ class StateSetMetricFamily(Metric):
             self.add_metric([], value)
 
     def add_metric(self,
-                   labels: Sequence[str],
-                   value: Dict[str, bool],
+                   labels: Sequence[object],
+                   value: Mapping[Any, bool],
                    timestamp: Optional[Union[Timestamp, float]] = None,
                    ) -> None:
         """Add a metric to the metric family.
@@ -404,12 +411,12 @@ class StateSetMetricFamily(Metric):
           labels: A list of label values
           value: A dict of string state names to booleans
         """
-        labels = tuple(labels)
-        for state, enabled in sorted(value.items()):
+        label_values = tuple(str(l) for l in labels)
+        for state, enabled in sorted((str(s), e) for s, e in value.items()):
             v = (1 if enabled else 0)
             self.samples.append(Sample(
                 self.name,
-                dict(zip(self._labelnames + (self.name,), labels + (state,))),
+                dict(zip(self._labelnames + (self.name,), label_values + (state,))),
                 v,
                 timestamp,
             ))
