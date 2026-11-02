@@ -37,6 +37,10 @@ class Metric:
 
         Internal-only, do not use."""
         self.samples.append(Sample(name, labels, value, timestamp, exemplar, native_histogram))
+    
+    def clear(self) -> None:
+        """Clear all samples."""
+        self.samples.clear()
 
     def __eq__(self, other: object) -> bool:
         return (isinstance(other, Metric)
