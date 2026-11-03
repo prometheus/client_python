@@ -570,6 +570,17 @@ a_total{foo="%s",bar="baz"} 1
             metric_family.add_metric([unescaped_val, "baz"], 1)
             self.assertEqual([metric_family], list(families))
 
+    def test_exemplar_label_escaping(self):
+        for escaped_val, unescaped_val in [('\\"', '"'), ('\\\\', '\\'), ('\\\\\\"', '\\"')]:
+            families = list(text_string_to_metric_families("""# TYPE a counter
+# HELP a help
+a_total 1 # {foo="%s"} 1
+# EOF
+""" % escaped_val))
+            metric_family = CounterMetricFamily("a", "help")
+            metric_family.add_sample("a_total", {}, 1.0, None, Exemplar({"foo": unescaped_val}, 1))
+            self.assertEqual([metric_family], list(families))
+
     def test_help_escaping(self):
         for escaped_val, unescaped_val in [
                 ('foo', 'foo'),
