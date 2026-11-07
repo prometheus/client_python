@@ -79,6 +79,7 @@ class ProcessCollector(Collector):
         except OSError:
             pass
 
+        max_fds: Optional[GaugeMetricFamily] = None
         try:
             with open(os.path.join(pid, 'limits'), 'rb') as limits:
                 for line in limits:
@@ -90,7 +91,9 @@ class ProcessCollector(Collector):
             open_fds = GaugeMetricFamily(self._prefix + 'open_fds',
                                          'Number of open file descriptors.',
                                          len(os.listdir(os.path.join(pid, 'fd'))))
-            result.extend([open_fds, max_fds])
+            result.append(open_fds)
+            if max_fds is not None:
+                result.append(max_fds)
         except OSError:
             pass
 

@@ -110,7 +110,7 @@ def _validate_labelnames(cls, labelnames):
     for l in labelnames:
         _validate_labelname(l)
         if l in cls._reserved_labelnames:
-            raise ValueError('Reserved label methe fric name: ' + l)
+            raise ValueError('Reserved label metric name: ' + l)
     # Duplicate names collapse distinct label sets during collection.
     duplicates = sorted(name for name, count in Counter(labelnames).items() if count > 1)
     if duplicates:
@@ -126,4 +126,4 @@ def _validate_exemplar(exemplar):
         runes += len(k)
         runes += len(v)
     if runes > 128:
-        raise ValueError('Exemplar labels have %d UTF-8 characters, exceeding the limit of 128')
+        raise ValueError(f'Exemplar labels have {runes} UTF-8 characters, exceeding the limit of 128')

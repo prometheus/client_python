@@ -1,4 +1,5 @@
 from enum import Enum as PythonEnum
+import math
 import os
 from threading import Lock
 import time
@@ -647,10 +648,12 @@ class Histogram(MetricWrapperBase):
 
     def _prepare_buckets(self, source_buckets: Sequence[Union[float, str]]) -> None:
         buckets = [float(b) for b in source_buckets]
-        if buckets != sorted(buckets):
+        if any(math.isnan(b) for b in buckets):
+            raise ValueError('Buckets must not contain NaN')
+        if any(not lower < upper for lower, upper in zip(buckets, buckets[1:])):
             # This is probably an error on the part of the user,
             # so raise rather than sorting for them.
-            raise ValueError('Buckets not in sorted order')
+            raise ValueError('Buckets not in strictly increasing order')
         if buckets and buckets[-1] != INF:
             buckets.append(INF)
         if len(buckets) < 2:
@@ -681,6 +684,8 @@ class Histogram(MetricWrapperBase):
         observations. See
         https://prometheus.io/docs/practices/histograms/#count-and-sum-of-observations
         for details.
+
+        NaN observations are counted in the +Inf bucket and make the sum NaN.
         """
         self._raise_if_not_observable()
         self._sum.inc(amount)
@@ -691,6 +696,8 @@ class Histogram(MetricWrapperBase):
                     _validate_exemplar(exemplar)
                     self._buckets[i].set_exemplar(Exemplar(exemplar, amount, time.time()))
                 break
+        else:
+            self._buckets[-1].inc(1)
 
     def time(self) -> Timer:
         """Time a block of code or function, and observe the duration in seconds.

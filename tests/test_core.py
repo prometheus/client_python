@@ -1,6 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum as PythonEnum
 from enum import IntEnum
+import math
 import os
 from threading import Barrier, Event
 import time
@@ -136,12 +137,13 @@ class TestCounter(unittest.TestCase):
 
     def test_exemplar_too_long(self):
         # 129 characters should fail.
-        self.assertRaises(ValueError, self.counter.inc, exemplar={
-            'abcdefghijklmnopqrstuvwxyz': '26+16 characters',
-            'x1234567': '8+15 characters',
-            'zyxwvutsrqponmlkjihgfedcba': '26+16 characters',
-            'y123456': '7+15 characters',
-        })
+        with self.assertRaisesRegex(ValueError, 'Exemplar labels have 129 UTF-8 characters'):
+            self.counter.inc(exemplar={
+                'abcdefghijklmnopqrstuvwxyz': '26+16 characters',
+                'x1234567': '8+15 characters',
+                'zyxwvutsrqponmlkjihgfedcba': '26+16 characters',
+                'y123456': '7+15 characters',
+            })
 
 
 class TestDisableCreated(unittest.TestCase):
@@ -448,6 +450,18 @@ class TestHistogram(unittest.TestCase):
         self.assertEqual(3, self.registry.get_sample_value('h_count'))
         self.assertEqual(float("inf"), self.registry.get_sample_value('h_sum'))
 
+    def test_histogram_nan(self):
+        self.histogram.observe(2)
+        self.histogram.observe(float('nan'))
+        self.histogram.observe(3)
+
+        self.assertEqual(0, self.registry.get_sample_value('h_bucket', {'le': '1.0'}))
+        self.assertEqual(1, self.registry.get_sample_value('h_bucket', {'le': '2.5'}))
+        self.assertEqual(2, self.registry.get_sample_value('h_bucket', {'le': '5.0'}))
+        self.assertEqual(3, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
+        self.assertEqual(3, self.registry.get_sample_value('h_count'))
+        self.assertTrue(math.isnan(self.registry.get_sample_value('h_sum')))
+
     def test_histogram_not_observable(self):
         """.observe() must fail if the Summary is not observable."""
         assert_not_observable(self.labels.observe, 1)
@@ -462,9 +476,15 @@ class TestHistogram(unittest.TestCase):
         self.assertRaises(ValueError, Histogram, 'h', 'help', registry=None, buckets=[])
         self.assertRaises(ValueError, Histogram, 'h', 'help', registry=None, buckets=[float("inf")])
         self.assertRaises(ValueError, Histogram, 'h', 'help', registry=None, buckets=[3, 1])
+        self.assertRaises(ValueError, Histogram, 'h', 'help', registry=None, buckets=[1, 1, 2])
+        self.assertRaises(ValueError, Histogram, 'h', 'help', registry=None, buckets=[1, '1.0'])
+        self.assertRaises(ValueError, Histogram, 'h', 'help', registry=None, buckets=[1, float("inf"), float("inf")])
+        self.assertRaises(ValueError, Histogram, 'h', 'help', registry=None, buckets=[1, float("nan")])
+        self.assertRaises(ValueError, Histogram, 'h', 'help', registry=None, buckets=[float("nan")])
 
     def test_labels(self):
-        self.assertRaises(ValueError, Histogram, 'h', 'help', registry=None, labelnames=['le'])
+        with self.assertRaisesRegex(ValueError, 'Reserved label metric name: le'):
+            Histogram('h', 'help', registry=None, labelnames=['le'])
 
         self.labels.labels('a').observe(2)
         self.assertEqual(0, self.registry.get_sample_value('hl_bucket', {'le': '1.0', 'l': 'a'}))
@@ -537,12 +557,13 @@ class TestHistogram(unittest.TestCase):
 
     def test_exemplar_too_long(self):
         # 129 characters in total should fail.
-        self.assertRaises(ValueError, self.histogram.observe, 1.0, exemplar={
-            'abcdefghijklmnopqrstuvwxyz': '26+16 characters',
-            'x1234567': '8+15 characters',
-            'zyxwvutsrqponmlkjihgfedcba': '26+16 characters',
-            'y123456': '7+15 characters',
-        })
+        with self.assertRaisesRegex(ValueError, 'Exemplar labels have 129 UTF-8 characters'):
+            self.histogram.observe(1.0, exemplar={
+                'abcdefghijklmnopqrstuvwxyz': '26+16 characters',
+                'x1234567': '8+15 characters',
+                'zyxwvutsrqponmlkjihgfedcba': '26+16 characters',
+                'y123456': '7+15 characters',
+            })
 
 
 class TestInfo(unittest.TestCase):
@@ -846,7 +867,8 @@ class TestMetricWrapper(unittest.TestCase):
         self.assertRaises(ValueError, Counter, '', 'help', namespace='&')
         self.assertRaises(ValueError, Counter, '', 'help', subsystem='(')
         self.assertRaises(ValueError, Counter, 'c_total', '', labelnames=['__reserved'])
-        self.assertRaises(ValueError, Summary, 'c_total', '', labelnames=['quantile'])
+        with self.assertRaisesRegex(ValueError, 'Reserved label metric name: quantile'):
+            Summary('c_total', '', labelnames=['quantile'])
 
     def test_duplicate_labelnames_raise_before_registration(self):
         # Repeated names would collapse distinct label sets on export.
@@ -1037,6 +1059,55 @@ class TestMetricFamilies(unittest.TestCase):
         self.custom_collector(cmf)
         self.assertEqual(0, self.registry.get_sample_value('s', {'foo': 'bar', 's': 'a'}))
         self.assertEqual(0, self.registry.get_sample_value('s', {'foo': 'bar', 's': 'b'}))
+
+    def test_labels_coerced_to_string(self):
+        umf = UntypedMetricFamily('u', 'help', labels=['a'])
+        umf.add_metric([1], 2)
+        self.custom_collector(umf)
+        self.assertEqual(2, self.registry.get_sample_value('u', {'a': '1'}))
+
+        cmf = CounterMetricFamily('c', 'help', labels=['a'])
+        cmf.add_metric([1], 2, created=3)
+        self.custom_collector(cmf)
+        self.assertEqual(2, self.registry.get_sample_value('c_total', {'a': '1'}))
+        self.assertEqual(3, self.registry.get_sample_value('c_created', {'a': '1'}))
+
+        gmf = GaugeMetricFamily('g', 'help', labels=['a'])
+        gmf.add_metric([1], 2)
+        self.custom_collector(gmf)
+        self.assertEqual(2, self.registry.get_sample_value('g', {'a': '1'}))
+
+        smf = SummaryMetricFamily('s', 'help', labels=['a'])
+        smf.add_metric([1], count_value=1, sum_value=2)
+        self.custom_collector(smf)
+        self.assertEqual(1, self.registry.get_sample_value('s_count', {'a': '1'}))
+        self.assertEqual(2, self.registry.get_sample_value('s_sum', {'a': '1'}))
+
+        hmf = HistogramMetricFamily('h', 'help', labels=['a'])
+        hmf.add_metric([1], buckets=[('0', 1), ('+Inf', 2)], sum_value=3)
+        self.custom_collector(hmf)
+        self.assertEqual(1, self.registry.get_sample_value('h_bucket', {'a': '1', 'le': '0'}))
+        self.assertEqual(2, self.registry.get_sample_value('h_count', {'a': '1'}))
+        self.assertEqual(3, self.registry.get_sample_value('h_sum', {'a': '1'}))
+
+        ghmf = GaugeHistogramMetricFamily('gh', 'help', labels=['a'])
+        ghmf.add_metric([1], buckets=[('0', 1), ('+Inf', 2)], gsum_value=3)
+        self.custom_collector(ghmf)
+        self.assertEqual(1, self.registry.get_sample_value('gh_bucket', {'a': '1', 'le': '0'}))
+        self.assertEqual(2, self.registry.get_sample_value('gh_gcount', {'a': '1'}))
+        self.assertEqual(3, self.registry.get_sample_value('gh_gsum', {'a': '1'}))
+
+        imf = InfoMetricFamily('i', 'help', labels=['a'])
+        imf.add_metric([1], {'c': 2})
+        self.custom_collector(imf)
+        self.assertEqual(1, self.registry.get_sample_value('i_info', {'a': '1', 'c': '2'}))
+
+        ssf = StateSetMetricFamily('ss', 'help', labels=['a'])
+        ssf.add_metric([1], {3: True})
+        self.custom_collector(ssf)
+        self.assertEqual(1, self.registry.get_sample_value('ss', {'a': '1', 'ss': '3'}))
+
+        self.assertIn(b'g{a="1"} 2.0', generate_latest(self.registry))
 
     def test_bad_constructors(self):
         self.assertRaises(ValueError, UntypedMetricFamily, 'u', 'help', value=1, labels=[])

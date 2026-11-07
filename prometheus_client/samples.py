@@ -13,7 +13,8 @@ class Timestamp:
         self.nsec: int = int(nsec)
 
     def __str__(self) -> str:
-        return f"{self.sec}.{self.nsec:09d}"
+        sign = '-' if self.sec < 0 or self.nsec < 0 else ''
+        return f"{sign}{abs(self.sec)}.{abs(self.nsec):09d}"
 
     def __repr__(self) -> str:
         return f"Timestamp({self.sec}, {self.nsec})"

@@ -154,10 +154,9 @@ def _parse_remaining_text(text):
     state = 'timestamp'
     text = split_text[1]
 
-    it = iter(text)
     in_quotes = False
-    for char in it:
-        if char == '"':
+    for i, char in enumerate(text):
+        if char == '"' and not _is_character_escaped(text, i):
             in_quotes = not in_quotes
         if in_quotes:
             continue
