@@ -749,6 +749,9 @@ class Info(MetricWrapperBase):
                 self._labelnames, val))
         if any(i is None for i in val.values()):
             raise ValueError('Label value cannot be None')
+        for k, v in val.items():
+            if not isinstance(k, str) or not isinstance(v, str):
+                raise ValueError(f'Info keys and values must be strings, got {k!r}: {v!r}')
         with self._lock:
             self._value = dict(val)
 
