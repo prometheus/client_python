@@ -123,6 +123,18 @@ class TestMultiProcess(unittest.TestCase):
         self.assertEqual(2, self.registry.get_sample_value('h_count'))
         self.assertTrue(math.isnan(self.registry.get_sample_value('h_sum')))
 
+    def test_histogram_negative_buckets(self):
+        h1 = Histogram('h', 'help', labelnames=['l'], buckets=[-1, 0, 1], registry=None)
+        values.ValueClass = MultiProcessValue(lambda: 456)
+        h2 = Histogram('h', 'help', labelnames=['l'], buckets=[-1, 0, 1], registry=None)
+        h1.labels('x').observe(-0.5)
+        h2.labels('x').observe(2)
+
+        self.assertEqual(1, self.registry.get_sample_value('h_bucket', {'l': 'x', 'le': '0.0'}))
+        self.assertEqual(2, self.registry.get_sample_value('h_bucket', {'l': 'x', 'le': '+Inf'}))
+        self.assertEqual(2, self.registry.get_sample_value('h_count', {'l': 'x'}))
+        self.assertIsNone(self.registry.get_sample_value('h_sum', {'l': 'x'}))
+
     def test_gauge_all(self):
         g1 = Gauge('g', 'help', registry=None)
         values.ValueClass = MultiProcessValue(lambda: 456)
