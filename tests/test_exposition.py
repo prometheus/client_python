@@ -317,6 +317,17 @@ class TestPushGateway(unittest.TestCase):
         self.assertEqual(self.requests[0][0].headers.get('content-type'), CONTENT_TYPE_PLAIN_0_0_4)
         self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
 
+    def test_push_with_groupingkey_dot_segments(self):
+        push_to_gateway(self.address, "my_job", self.registry, {'a': '.', 'b': '..'})
+        self.assertEqual(self.requests[0][0].command, 'PUT')
+        self.assertEqual(self.requests[0][0].path, '/metrics/job/my_job/a@base64/Lg==/b@base64/Li4=')
+        self.assertEqual(self.requests[0][1], b'# HELP g help\n# TYPE g gauge\ng 0.0\n')
+
+    def test_push_with_dot_segment_job(self):
+        push_to_gateway(self.address, "..", self.registry)
+        self.assertEqual(self.requests[0][0].command, 'PUT')
+        self.assertEqual(self.requests[0][0].path, '/metrics/job@base64/Li4=')
+
     def test_push_with_complex_job(self):
         push_to_gateway(self.address, "my/job", self.registry)
         self.assertEqual(self.requests[0][0].command, 'PUT')
