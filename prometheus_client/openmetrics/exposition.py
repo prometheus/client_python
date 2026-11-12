@@ -32,13 +32,13 @@ def _is_valid_exemplar_metric(metric, sample):
     return False
 
 
-def _compose_exemplar_string(metric, sample, exemplar):
+def _compose_exemplar_string(metric, sample, exemplar, escaping=UNDERSCORES):
     """Constructs an exemplar string."""
     if not _is_valid_exemplar_metric(metric, sample):
         raise ValueError(f"Metric {metric.name} has exemplars, but is not a histogram bucket or counter")
     labels = '{{{0}}}'.format(','.join(
         ['{}="{}"'.format(
-            k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
+            escape_label_name(k, escaping), v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
             for k, v in sorted(exemplar.labels.items())]))
     if exemplar.timestamp is not None:
         exemplarstr = ' # {} {} {}'.format(
@@ -84,7 +84,7 @@ def generate_latest(registry, escaping=UNDERSCORES, version="1.0.0"):
                 if labelstr:
                     labelstr = "{" + labelstr + "}"
                 if s.exemplar:
-                    exemplarstr = _compose_exemplar_string(metric, s, s.exemplar)
+                    exemplarstr = _compose_exemplar_string(metric, s, s.exemplar, escaping)
                 else:
                     exemplarstr = ''
                 timestamp = ''
@@ -139,7 +139,7 @@ def generate_latest(registry, escaping=UNDERSCORES, version="1.0.0"):
                     
                     if s.native_histogram.nh_exemplars:
                         for nh_ex in s.native_histogram.nh_exemplars:
-                            nh_exemplarstr = _compose_exemplar_string(metric, s, nh_ex)
+                            nh_exemplarstr = _compose_exemplar_string(metric, s, nh_ex, escaping)
                             exemplarstr += nh_exemplarstr
 
                 value = ''
