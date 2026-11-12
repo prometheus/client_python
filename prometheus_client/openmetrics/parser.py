@@ -91,7 +91,12 @@ def _parse_timestamp(timestamp):
         try:
             # aaaa.bbbb. Nanosecond resolution supported.
             parts = timestamp.split('.', 1)
-            return Timestamp(int(parts[0]), int(parts[1][:9].ljust(9, "0")))
+            sec = int(parts[0])
+            nsec = int(parts[1][:9].ljust(9, "0"))
+            if sec == 0 and parts[0].startswith('-'):
+                # int("-0") is 0, so carry the sign the way Timestamp(-0.5, 500000000) does.
+                return Timestamp(-nsec / 1e9, nsec)
+            return Timestamp(sec, nsec)
         except ValueError:
             # Float.
             ts = float(timestamp)

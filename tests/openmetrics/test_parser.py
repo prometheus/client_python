@@ -627,6 +627,20 @@ a_total{foo="bar"} 1
         metric_family = CounterMetricFamily("a", "he\0lp")
         self.assertEqual([metric_family], list(families))
 
+    def test_negative_subsecond_timestamps(self):
+        families = text_string_to_metric_families("""# TYPE a counter
+# HELP a help
+a_total{foo="1"} 1 -0.500000000
+a_total{foo="2"} 1 -1.500000000 # {a="b"} 0.5 -0.250000000
+# EOF
+""")
+        a = CounterMetricFamily("a", "help", labels=["foo"])
+        a.add_metric(["1"], 1, timestamp=Timestamp(-0.5, 500000000))
+        a.add_metric(["2"], 1, timestamp=Timestamp(-1, 500000000))
+        a.samples[1] = a.samples[1]._replace(exemplar=Exemplar({"a": "b"}, 0.5, Timestamp(-0.25, 250000000)))
+        self.assertEqual([a], list(families))
+        self.assertEqual("-0.500000000", str(a.samples[0].timestamp))
+
     def test_timestamps(self):
         families = text_string_to_metric_families("""# TYPE a counter
 # HELP a help
