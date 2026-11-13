@@ -363,7 +363,21 @@ def choose_encoder(accept_header: str) -> Tuple[Callable[[Collector], bytes], st
     # Prometheus does.
     accept_header = accept_header or ''
     escaping = openmetrics.UNDERSCORES
+    accepted_types = []
     for accepted in accept_header.split(','):
+        quality = 1.0
+        for param in accepted.split(';')[1:]:
+            key, sep, value = param.strip().partition('=')
+            if sep and key.strip().lower() == 'q':
+                try:
+                    quality = float(value.strip())
+                except ValueError:
+                    quality = 0.0
+                break
+        if 0 < quality <= 1:
+            accepted_types.append((quality, accepted))
+
+    for _, accepted in sorted(accepted_types, key=lambda item: item[0], reverse=True):
         if accepted.split(';')[0].strip() == 'application/openmetrics-text':
             toks = accepted.split(';')
             version = _get_version(toks)
@@ -379,6 +393,8 @@ def choose_encoder(accept_header: str) -> Tuple[Callable[[Collector], bytes], st
             toks = accepted.split(';')
             version = _get_version(toks)
             escaping = _get_escaping(toks)
+            if not version or version == '0.0.4':
+                return generate_latest, CONTENT_TYPE_PLAIN_0_0_4
             # Only return an escaping header if we have a good version and
             # mimetype.
             if version and _version_at_least(version, (1, 0, 0)):
