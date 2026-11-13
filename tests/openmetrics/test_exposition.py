@@ -15,6 +15,7 @@ from prometheus_client.openmetrics.exposition import (
     ALLOWUTF8, DOTS, escape_label_name, escape_metric_name, generate_latest,
     UNDERSCORES, VALUES,
 )
+from prometheus_client.openmetrics.parser import text_string_to_metric_families
 
 
 class TestGenerateText(unittest.TestCase):
@@ -315,10 +316,11 @@ hh_bucket{le="0.0"} 1.0
 hh_bucket{le="0.5"} 1.0
 hh_bucket{le="1.0"} 1.0
 hh_bucket{le="+Inf"} 1.0
-hh_count 1.0
 hh_created 123.456
 # EOF
 """, generate_latest(self.registry, version="1.0.0"))
+        # The OpenMetrics 1.0 parser accepts it.
+        list(text_string_to_metric_families(generate_latest(self.registry, version="1.0.0").decode()))
         self.assertEqual(b"""# HELP hh A histogram
 # TYPE hh histogram
 hh_bucket{le="-1.0"} 0.0
@@ -332,6 +334,37 @@ hh_sum -0.5
 hh_created 123.456
 # EOF
 """, generate_latest(self.registry, version="2.0.0"))
+
+    def test_histogram_negative_buckets_one_labelset(self) -> None:
+        hfm = HistogramMetricFamily("hh", "A histogram")
+        hfm.add_sample("hh_bucket", {"l": "neg", "le": "-1.0"}, 0.0, None, None, None)
+        hfm.add_sample("hh_bucket", {"l": "neg", "le": "+Inf"}, 1.0, None, None, None)
+        hfm.add_sample("hh_count", {"l": "neg"}, 1.0, None, None, None)
+        hfm.add_sample("hh_sum", {"l": "neg"}, -0.5, None, None, None)
+        hfm.add_sample("hh_bucket", {"l": "pos", "le": "0.0"}, 0.0, None, None, None)
+        hfm.add_sample("hh_bucket", {"l": "pos", "le": "1.0"}, 1.0, None, None, None)
+        hfm.add_sample("hh_bucket", {"l": "pos", "le": "+Inf"}, 1.0, None, None, None)
+        hfm.add_sample("hh_count", {"l": "pos"}, 1.0, None, None, None)
+        hfm.add_sample("hh_sum", {"l": "pos"}, 0.5, None, None, None)
+        self.custom_collector(hfm)
+        self.assertEqual(b"""# HELP hh A histogram
+# TYPE hh histogram
+hh_bucket{l="neg",le="-1.0"} 0.0
+hh_bucket{l="neg",le="+Inf"} 1.0
+hh_bucket{l="pos",le="0.0"} 0.0
+hh_bucket{l="pos",le="1.0"} 1.0
+hh_bucket{l="pos",le="+Inf"} 1.0
+hh_count{l="pos"} 1.0
+hh_sum{l="pos"} 0.5
+# EOF
+""", generate_latest(self.registry, version="1.0.0"))
+
+    def test_histogram_malformed_bucket_bound(self) -> None:
+        hfm = HistogramMetricFamily("hh", "A histogram")
+        hfm.add_sample("hh_bucket", {"le": "1s"}, 1.0, None, None, None)
+        hfm.add_sample("hh_count", {}, 1.0, None, None, None)
+        self.custom_collector(hfm)
+        self.assertIn(b'hh_bucket{le="1s"} 1.0\nhh_count 1.0\n', generate_latest(self.registry, version="1.0.0"))
 
     def test_histogram_exemplar(self) -> None:
         s = Histogram('hh', 'A histogram', buckets=[1, 2, 3, 4], registry=self.registry)

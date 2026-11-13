@@ -55,6 +55,14 @@ def _compose_exemplar_string(metric, sample, exemplar):
     return exemplarstr
 
 
+def _is_negative_bound(le):
+    try:
+        return float(le) < 0
+    except (TypeError, ValueError):
+        # Write a malformed custom bucket out as is instead of failing the scrape.
+        return False
+
+
 def generate_latest(registry, escaping=UNDERSCORES, version="1.0.0"):
     '''Returns the metrics from the registry in latest text format as a string.'''
     output = []
@@ -66,14 +74,15 @@ def generate_latest(registry, escaping=UNDERSCORES, version="1.0.0"):
             output.append(f'# TYPE {escape_metric_name(mname, escaping)} {metric.type}\n')
             if metric.unit:
                 output.append(f'# UNIT {escape_metric_name(mname, escaping)} {metric.unit}\n')
-            # OpenMetrics 1.0 doesn't allow _sum on a histogram with negative buckets.
+            # OpenMetrics 1.0 doesn't allow _sum on a histogram with negative
+            # buckets, and only allows _count when there's a _sum.
             negative_bucket_labels = set()
             if metric.type == 'histogram' and parse_version(version) < (2, 0, 0):
                 for s in metric.samples:
-                    if s.name == mname + '_bucket' and float(s.labels['le']) < 0:
+                    if s.name == mname + '_bucket' and _is_negative_bound(s.labels.get('le')):
                         negative_bucket_labels.add(frozenset((k, v) for k, v in s.labels.items() if k != 'le'))
             for s in metric.samples:
-                if (negative_bucket_labels and s.name == mname + '_sum'
+                if (negative_bucket_labels and s.name in (mname + '_sum', mname + '_count')
                         and frozenset(s.labels.items()) in negative_bucket_labels):
                     continue
                 if escaping == ALLOWUTF8 and not _is_valid_legacy_metric_name(s.name):

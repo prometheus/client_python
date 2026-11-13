@@ -136,9 +136,13 @@ class TestMultiProcess(unittest.TestCase):
         self.assertEqual(2, self.registry.get_sample_value('h_bucket', {'l': 'x', 'le': '+Inf'}))
         self.assertEqual(2, self.registry.get_sample_value('h_count', {'l': 'x'}))
         self.assertEqual(1.5, self.registry.get_sample_value('h_sum', {'l': 'x'}))
-        # OpenMetrics 1.0 doesn't allow _sum with negative buckets, 2.0 does.
-        self.assertNotIn(b'h_sum', openmetrics_generate_latest(self.registry, version='1.0.0'))
-        self.assertIn(b'h_sum{l="x"} 1.5', openmetrics_generate_latest(self.registry, version='2.0.0'))
+        # OpenMetrics 1.0 doesn't allow _sum with negative buckets, or _count without _sum. 2.0 has both.
+        om_1_0 = openmetrics_generate_latest(self.registry, version='1.0.0')
+        self.assertNotIn(b'h_sum', om_1_0)
+        self.assertNotIn(b'h_count', om_1_0)
+        om_2_0 = openmetrics_generate_latest(self.registry, version='2.0.0')
+        self.assertIn(b'h_sum{l="x"} 1.5', om_2_0)
+        self.assertIn(b'h_count{l="x"} 2.0', om_2_0)
 
     def test_gauge_all(self):
         g1 = Gauge('g', 'help', registry=None)
