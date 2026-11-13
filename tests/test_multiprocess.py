@@ -15,6 +15,8 @@ from prometheus_client.core import (
 from prometheus_client.multiprocess import (
     mark_process_dead, MultiProcessCollector,
 )
+from prometheus_client.openmetrics.exposition import \
+    generate_latest as openmetrics_generate_latest
 from prometheus_client.values import (
     get_value_class, MultiProcessValue, MutexValue,
 )
@@ -122,6 +124,25 @@ class TestMultiProcess(unittest.TestCase):
         self.assertEqual(2, self.registry.get_sample_value('h_bucket', {'le': '+Inf'}))
         self.assertEqual(2, self.registry.get_sample_value('h_count'))
         self.assertTrue(math.isnan(self.registry.get_sample_value('h_sum')))
+
+    def test_histogram_negative_buckets(self):
+        h1 = Histogram('h', 'help', labelnames=['l'], buckets=[-1, 0, 1], registry=None)
+        values.ValueClass = MultiProcessValue(lambda: 456)
+        h2 = Histogram('h', 'help', labelnames=['l'], buckets=[-1, 0, 1], registry=None)
+        h1.labels('x').observe(-0.5)
+        h2.labels('x').observe(2)
+
+        self.assertEqual(1, self.registry.get_sample_value('h_bucket', {'l': 'x', 'le': '0.0'}))
+        self.assertEqual(2, self.registry.get_sample_value('h_bucket', {'l': 'x', 'le': '+Inf'}))
+        self.assertEqual(2, self.registry.get_sample_value('h_count', {'l': 'x'}))
+        self.assertEqual(1.5, self.registry.get_sample_value('h_sum', {'l': 'x'}))
+        # OpenMetrics 1.0 doesn't allow _sum with negative buckets, or _count without _sum. 2.0 has both.
+        om_1_0 = openmetrics_generate_latest(self.registry, version='1.0.0')
+        self.assertNotIn(b'h_sum', om_1_0)
+        self.assertNotIn(b'h_count', om_1_0)
+        om_2_0 = openmetrics_generate_latest(self.registry, version='2.0.0')
+        self.assertIn(b'h_sum{l="x"} 1.5', om_2_0)
+        self.assertIn(b'h_count{l="x"} 2.0', om_2_0)
 
     def test_gauge_all(self):
         g1 = Gauge('g', 'help', registry=None)

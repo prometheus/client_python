@@ -18,6 +18,11 @@ A Histogram exposes three time series per metric:
 - `<name>_sum` — sum of all observed values
 - `<name>_count` — total number of observations
 
+If the lowest bucket bound is negative, OpenMetrics 1.0 output leaves out `_sum`
+and `_count`, because OpenMetrics 1.0 does not allow a sum for histograms with
+negative buckets and only allows `_count` alongside a sum. The `+Inf` bucket
+still has the count. Other formats, including OpenMetrics 2.0, keep both.
+
 ## Constructor
 
 ```python
