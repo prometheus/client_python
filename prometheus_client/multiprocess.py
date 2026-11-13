@@ -158,9 +158,6 @@ class MultiProcessCollector:
                             samples[labels][sample_key] = value
                     if accumulate:
                         samples[labels][(metric.name + '_count', labels)] = acc
-                        # Like Histogram, don't include sum if there are negative buckets.
-                        if min(values) < 0:
-                            samples[labels].pop((metric.name + '_sum', labels), None)
 
             # Convert to correct sample format.
             metric.samples = []

@@ -66,7 +66,16 @@ def generate_latest(registry, escaping=UNDERSCORES, version="1.0.0"):
             output.append(f'# TYPE {escape_metric_name(mname, escaping)} {metric.type}\n')
             if metric.unit:
                 output.append(f'# UNIT {escape_metric_name(mname, escaping)} {metric.unit}\n')
+            # OpenMetrics 1.0 doesn't allow _sum on a histogram with negative buckets.
+            negative_bucket_labels = set()
+            if metric.type == 'histogram' and parse_version(version) < (2, 0, 0):
+                for s in metric.samples:
+                    if s.name == mname + '_bucket' and float(s.labels['le']) < 0:
+                        negative_bucket_labels.add(frozenset((k, v) for k, v in s.labels.items() if k != 'le'))
             for s in metric.samples:
+                if (negative_bucket_labels and s.name == mname + '_sum'
+                        and frozenset(s.labels.items()) in negative_bucket_labels):
+                    continue
                 if escaping == ALLOWUTF8 and not _is_valid_legacy_metric_name(s.name):
                     labelstr = escape_metric_name(s.name, escaping)
                     if s.labels:
