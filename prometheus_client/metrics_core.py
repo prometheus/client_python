@@ -59,7 +59,7 @@ class Metric:
         """Build a snapshot of a metric with samples restricted to a given set of names."""
         samples = [s for s in self.samples if s[0] in names]
         if samples:
-            m = Metric(self.name, self.documentation, self.type)
+            m = Metric(self.name, self.documentation, self.type, self.unit)
             m.samples = samples
             return m
         return None
