@@ -71,6 +71,11 @@ class TestCounter(unittest.TestCase):
     def test_negative_increment_raises(self):
         self.assertRaises(ValueError, self.counter.inc, -1)
 
+    def test_nan_increment_raises(self):
+        self.counter.inc(2)
+        self.assertRaises(ValueError, self.counter.inc, float('nan'))
+        self.assertEqual(2, self.registry.get_sample_value('c_total'))
+
     def test_function_decorator(self):
         @self.counter.count_exceptions(ValueError)
         def f(r):

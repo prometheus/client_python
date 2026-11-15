@@ -347,6 +347,8 @@ class Counter(MetricWrapperBase):
         self._raise_if_not_observable()
         if amount < 0:
             raise ValueError('Counters can only be incremented by non-negative amounts.')
+        if math.isnan(amount):
+            raise ValueError('Counters cannot be incremented by NaN.')
         self._value.inc(amount)
         if exemplar:
             _validate_exemplar(exemplar)
