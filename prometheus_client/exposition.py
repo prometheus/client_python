@@ -339,6 +339,9 @@ def generate_latest(registry: Collector = REGISTRY, escaping: str = openmetrics.
 
             om_samples: Dict[str, List[str]] = {}
             for s in metric.samples:
+                # The text format has no native histograms, as in OpenMetrics 1.0.
+                if s.native_histogram:
+                    continue
                 for suffix in ['_created', '_gsum', '_gcount']:
                     if s.name == metric.name + suffix:
                         # OpenMetrics specific sample, put in a gauge at the end.

@@ -170,6 +170,19 @@ gh_gcount 5.0
 gh_gsum 7.0
 """, generate_latest(self.registry))
 
+    def test_native_histogram_is_skipped(self):
+        hfm = core.HistogramMetricFamily('nh', 'help', buckets=[('1.0', 4), ('+Inf', 5)], sum_value=7)
+        hfm.add_sample('nh', {}, 0, None, None, core.NativeHistogram(
+            5, 7, 0, 0.001, 0, (core.BucketSpan(0, 1),), None, (5,), None))
+        self.custom_collector(hfm)
+        self.assertEqual(b"""# HELP nh help
+# TYPE nh histogram
+nh_bucket{le="1.0"} 4.0
+nh_bucket{le="+Inf"} 5.0
+nh_count 5.0
+nh_sum 7.0
+""", generate_latest(self.registry))
+
     def test_info(self):
         i = Info('ii', 'A info', ['a', 'b'], registry=self.registry)
         i.labels('c', 'd').info({'foo': 'bar'})
