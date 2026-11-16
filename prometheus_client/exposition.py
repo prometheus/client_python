@@ -99,8 +99,7 @@ class _PrometheusRedirectHandler(HTTPRedirectHandler):
         # indicate the method, by monkeypatching this, instead of setting the
         # Request object's method attribute.
         m = getattr(req, "method", req.get_method())
-        if not (code in (301, 302, 303, 307) and m in ("GET", "HEAD")
-                or code in (301, 302, 303) and m in ("POST", "PUT")):
+        if code not in (301, 302, 303, 307, 308):
             raise HTTPError(req.full_url, code, msg, headers, fp)
         new_request = Request(
             newurl.replace(' ', '%20'),  # space escaping in new url if needed.
@@ -111,6 +110,9 @@ class _PrometheusRedirectHandler(HTTPRedirectHandler):
         )
         new_request.method = m
         return new_request
+
+    # urllib only routes a 308 to http_error_308 from Python 3.11 on.
+    http_error_308 = HTTPRedirectHandler.http_error_302
 
 
 def _bake_output(registry, accept_header, accept_encoding_header, params, disable_compression):
