@@ -91,6 +91,11 @@ def _parse_timestamp(timestamp):
         try:
             # aaaa.bbbb. Nanosecond resolution supported.
             parts = timestamp.split('.', 1)
+            if len(parts) != 2 or not parts[1].isdigit():
+                # Only fixed-point digits can follow the dot here. A mantissa with
+                # an exponent (1.5e3) or trailing garbage is not a nanosecond
+                # fraction: fall through to the float path, which validates it.
+                raise ValueError(timestamp)
             sec = int(parts[0])
             nsec = int(parts[1][:9].ljust(9, "0"))
             if sec == 0 and parts[0].startswith('-'):
