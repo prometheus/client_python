@@ -2,6 +2,7 @@ from collections import defaultdict
 import glob
 import json
 import os
+import re
 import warnings
 
 from .metrics import Gauge
@@ -14,6 +15,11 @@ try:  # Python3
     FileNotFoundError
 except NameError:  # Python >= 2.5
     FileNotFoundError = IOError
+
+# Names of the files written by MultiProcessValue: the metric type, the
+# multiprocess mode for gauges, then the process identifier.
+_MULTIPROC_FILE_RE = re.compile(r'(?:counter|histogram|summary|gauge_(?:{}))_.+\.db'.format(
+    '|'.join(sorted(Gauge._MULTIPROC_MODES))))
 
 
 class MultiProcessCollector:
@@ -167,7 +173,12 @@ class MultiProcessCollector:
         return metrics.values()
 
     def collect(self):
-        files = glob.glob(os.path.join(self._path, '*.db'))
+        # Only read files written by this library, so other .db files in the
+        # directory (for example a SQLite database) are not parsed as metrics.
+        files = [
+            f for f in glob.glob(os.path.join(self._path, '*.db'))
+            if _MULTIPROC_FILE_RE.fullmatch(os.path.basename(f))
+        ]
         return self.merge(files, accumulate=True)
 
 
