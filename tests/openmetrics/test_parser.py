@@ -664,6 +664,31 @@ b_total 2 1234567890
         b.add_metric([], 2, timestamp=Timestamp(1234567890, 0))
         self.assertEqual([a, b], list(families))
 
+    def test_exponent_timestamps(self):
+        families = text_string_to_metric_families("""# TYPE a counter
+# HELP a help
+a_total{foo="1"} 1 1.704067200123e9
+a_total{foo="2"} 1 1.123456789e3
+a_total{foo="3"} 1 -1.704067200123e9
+a_total{foo="4"} 1 0 # {a="b"} 0.5 1.2345e3
+# EOF
+""")
+        a = CounterMetricFamily("a", "help", labels=["foo"])
+        a.add_metric(["1"], 1, timestamp=1704067200.123)
+        a.add_metric(["2"], 1, timestamp=1123.456789)
+        a.add_metric(["3"], 1, timestamp=-1704067200.123)
+        a.add_metric(["4"], 1, timestamp=Timestamp(0, 0))
+        a.samples[-1] = a.samples[-1]._replace(exemplar=Exemplar({"a": "b"}, 0.5, 1234.5))
+        self.assertEqual([a], list(families))
+
+    def test_invalid_timestamp_after_nanoseconds(self):
+        with self.assertRaises(ValueError):
+            list(text_string_to_metric_families("""# TYPE a counter
+# HELP a help
+a_total 1 1.123456789garbage
+# EOF
+"""))
+
     def test_hash_in_label_value(self):
         families = text_string_to_metric_families("""# TYPE a counter
 # HELP a help
