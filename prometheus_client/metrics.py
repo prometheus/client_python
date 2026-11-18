@@ -75,7 +75,8 @@ class MetricWrapperBase(Collector):
         # Functions that mutate the state of the metric, for example incrementing
         # a counter, will fail if the metric is not observable, because only if a
         # metric is observable will the value be initialized.
-        if not self._is_observable():
+        # This is the inverse of _is_observable(), inlined as it runs on every update.
+        if self._labelnames and not self._labelvalues:
             raise ValueError('%s metric is missing label values' % str(self._type))
 
     def _is_parent(self):
