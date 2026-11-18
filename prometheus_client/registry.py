@@ -52,7 +52,7 @@ class CollectorRegistry:
             for name in names:
                 self._names_to_collectors[name] = collector
             self._collector_to_names[collector] = names
-            if self._support_collectors_without_names and not names:
+            if self._support_collectors_without_names and not names and collector not in self._collectors_without_names:
                 self._collectors_without_names.append(collector)
 
     def unregister(self, collector: Collector) -> None:
