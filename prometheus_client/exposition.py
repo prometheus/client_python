@@ -18,7 +18,9 @@ from urllib.request import (
     BaseHandler, build_opener, HTTPHandler, HTTPRedirectHandler, HTTPSHandler,
     Request,
 )
-from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
+from wsgiref.simple_server import (
+    make_server, ServerHandler, WSGIRequestHandler, WSGIServer,
+)
 
 from .openmetrics import exposition as openmetrics
 from .registry import Collector, REGISTRY
@@ -163,11 +165,43 @@ def make_wsgi_app(registry: Collector = REGISTRY, disable_compression: bool = Fa
     return prometheus_app
 
 
+class _ServerHandler(ServerHandler):
+    """ServerHandler that also treats a dropped TLS connection as a disconnect."""
+
+    def handle_error(self):
+        # wsgiref ignores BrokenPipeError and ConnectionResetError when the
+        # client goes away mid-response, but a TLS client that does the same
+        # raises SSLEOFError, which would be logged with a full traceback.
+        if isinstance(sys.exc_info()[1], ssl.SSLEOFError):
+            return
+        super().handle_error()
+
+
 class _SilentHandler(WSGIRequestHandler):
     """WSGI handler that does not log requests."""
 
     def log_message(self, format, *args):
         """Log nothing."""
+
+    def handle(self):
+        """Handle a single request, as WSGIRequestHandler does, using _ServerHandler."""
+        self.raw_requestline = self.rfile.readline(65537)
+        if len(self.raw_requestline) > 65536:
+            self.requestline = ''
+            self.request_version = ''
+            self.command = ''
+            self.send_error(414)
+            return
+
+        if not self.parse_request():
+            return
+
+        handler = _ServerHandler(
+            self.rfile, self.wfile, self.get_stderr(), self.get_environ(),
+            multithread=False,
+        )
+        handler.request_handler = self
+        handler.run(self.server.get_app())
 
 
 class ThreadingWSGIServer(ThreadingMixIn, WSGIServer):
