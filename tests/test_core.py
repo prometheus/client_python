@@ -17,6 +17,9 @@ from prometheus_client.core import (
 from prometheus_client.decorator import getargspec
 from prometheus_client.exposition import generate_latest
 from prometheus_client.metrics import _get_use_created
+from prometheus_client.openmetrics.exposition import (
+    generate_latest as openmetrics_generate_latest,
+)
 from prometheus_client.validation import (
     disable_legacy_validation, enable_legacy_validation,
 )
@@ -586,6 +589,17 @@ class TestInfo(unittest.TestCase):
 
         self.labels.labels('a').info({'foo': 'bar'})
         self.assertEqual(1, self.registry.get_sample_value('il_info', {'l': 'a', 'foo': 'bar'}))
+
+    def test_non_string_keys_and_values(self):
+        self.info.info({'version': '1.2.3'})
+        for val in ({'version': 1}, {'temperature': 49.0}, {1: 'x'}, {'tags': ['a', 'b']}):
+            with self.subTest(val=val):
+                self.assertRaises(ValueError, self.info.info, val)
+                self.assertRaises(ValueError, self.labels.labels('a').info, val)
+        # The rejected calls keep the previous value and the registry stays scrapeable.
+        self.assertEqual(1, self.registry.get_sample_value('i_info', {'version': '1.2.3'}))
+        self.assertIn(b'i_info{version="1.2.3"} 1.0', generate_latest(self.registry))
+        self.assertIn(b'i_info{version="1.2.3"} 1.0', openmetrics_generate_latest(self.registry))
 
 
 class TestEnum(unittest.TestCase):
