@@ -1,11 +1,14 @@
 import gzip
 from http.server import BaseHTTPRequestHandler, HTTPServer
+import io
 import os
 import ssl
 import threading
 import time
 import unittest
+from unittest import mock
 import urllib
+from wsgiref.util import setup_testing_defaults
 
 import pytest
 
@@ -17,8 +20,9 @@ from prometheus_client import (
 )
 from prometheus_client.core import GaugeHistogramMetricFamily, Timestamp
 from prometheus_client.exposition import (
-    basic_auth_handler, choose_encoder, default_handler, MetricsHandler,
-    passthrough_redirect_handler, start_wsgi_server, tls_auth_handler,
+    _ServerHandler, basic_auth_handler, choose_encoder, default_handler,
+    MetricsHandler, passthrough_redirect_handler, start_wsgi_server,
+    tls_auth_handler,
 )
 import prometheus_client.openmetrics.exposition as openmetrics
 
@@ -958,6 +962,26 @@ def test_escape_label_name(scenario):
 
     got = openmetrics.escape_label_name(input, openmetrics.VALUES)
     assert got == scenario["expectedValue"], f"[{scenario['name']}] Value encoding failed"
+
+
+class TestServerHandlerErrors(unittest.TestCase):
+    def _run(self, error):
+        def app(environ, start_response):
+            raise error
+
+        environ = {}
+        setup_testing_defaults(environ)
+        stderr = io.StringIO()
+        handler = _ServerHandler(io.BytesIO(), io.BytesIO(), stderr, environ)
+        handler.request_handler = mock.Mock()
+        handler.run(app)
+        return stderr.getvalue()
+
+    def test_dropped_tls_connection_is_not_logged(self):
+        self.assertEqual(self._run(ssl.SSLEOFError()), "")
+
+    def test_other_errors_are_still_logged(self):
+        self.assertIn("ValueError", self._run(ValueError("boom")))
 
 
 if __name__ == '__main__':
