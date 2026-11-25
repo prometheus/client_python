@@ -990,6 +990,18 @@ class TestMetricFamilies(unittest.TestCase):
         self.custom_collector(cmf)
         self.assertEqual(1, self.registry.get_sample_value('i_info', {'a': 'b', 'c': 'd'}))
 
+    def test_info_add_metric_without_labels(self):
+        cmf = InfoMetricFamily('i', 'help')
+        cmf.add_metric(value={'a': 'b'})
+        self.custom_collector(cmf)
+        self.assertEqual(1, self.registry.get_sample_value('i_info', {'a': 'b'}))
+
+    def test_info_add_metric_without_value(self):
+        cmf = InfoMetricFamily('i', 'help', labels=['a'])
+        cmf.add_metric(['b'])
+        self.custom_collector(cmf)
+        self.assertEqual(1, self.registry.get_sample_value('i_info', {'a': 'b'}))
+
     def test_stateset(self):
         self.custom_collector(StateSetMetricFamily('s', 'help', value={'a': True, 'b': True, }))
         self.assertEqual(1, self.registry.get_sample_value('s', {'s': 'a'}))
