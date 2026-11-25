@@ -360,8 +360,8 @@ class InfoMetricFamily(Metric):
             self.add_metric([], value)
 
     def add_metric(self,
-                   labels: Sequence[object],
-                   value: Mapping[str, object],
+                   labels: Sequence[object] = (),
+                   value: Optional[Mapping[str, object]] = None,
                    timestamp: Optional[Union[Timestamp, float]] = None,
                    ) -> None:
         """Add a metric to the metric family.
@@ -370,6 +370,8 @@ class InfoMetricFamily(Metric):
           labels: A list of label values
           value: A dict of labels
         """
+        if value is None:
+            value = {}
         label_values = tuple(str(l) for l in labels)
         self.samples.append(Sample(
             self.name + '_info',
