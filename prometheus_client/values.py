@@ -69,7 +69,7 @@ def MultiProcessValue(process_identifier=os.getpid):
     _multi_process_cleanups.append(cleanup)
 
     class MmapedValue:
-        """A float protected by a mutex backed by a per-process mmaped file."""
+        """A float protected by a mutex backed by a per-process mapped file."""
 
         _multiprocess = True
 
